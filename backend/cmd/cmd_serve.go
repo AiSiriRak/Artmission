@@ -7,6 +7,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/DeepAung/artmission/backend/internal/adapters/postgres"
+	"github.com/DeepAung/artmission/backend/internal/adapters/token"
+	"github.com/DeepAung/artmission/backend/internal/handler/rest"
+	"github.com/DeepAung/artmission/backend/internal/modules/auth"
+	"github.com/DeepAung/artmission/backend/internal/modules/order"
+	"github.com/DeepAung/artmission/backend/internal/modules/user"
 	"github.com/DeepAung/artmission/backend/internal/pkg/database"
 	"github.com/DeepAung/artmission/backend/internal/pkg/httpserver"
 	"github.com/DeepAung/artmission/backend/internal/pkg/logger"
@@ -35,10 +41,21 @@ var serveCmd = &cobra.Command{
 			return err
 		}
 
-		// TODO: wire adapters -> modules -> handlers and register routes via
-		// rest.RegisterRoutes once the domain modules land. For now the API
-		// only exposes /livez and /readyz (see internal/pkg/httpserver).
-		_, server := httpserver.New(cfg.App().Address, cfg.App().BasePath, cfg.App().AllowedOrigins, log, []httpserver.Pinger{db})
+		// --- wire adapters -> modules -> handlers ---
+		userRepo := postgres.NewUserRepository(db)
+		sessionRepo := postgres.NewSessionRepository(db)
+		orderRepo := postgres.NewOrderRepository(db)
+		tokenIssuer := token.NewJWTIssuer(cfg.Auth().JWTSecret)
+
+		userUsecase := user.NewUserUsecase(userRepo)
+		authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth().AccessTokenTTL, cfg.Auth().RefreshTokenTTL)
+		orderUsecase := order.NewOrderUsecase(orderRepo)
+
+		authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App().BasePath, cfg.App().IsProduction, cfg.Auth().RefreshCookieDomain)
+		orderHandler := rest.NewOrderHandler(orderUsecase, authUsecase)
+
+		api, server := httpserver.New(cfg.App().Address, cfg.App().BasePath, cfg.App().AllowedOrigins, log, []httpserver.Pinger{db})
+		rest.RegisterRoutes(api, authHandler, orderHandler)
 
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
