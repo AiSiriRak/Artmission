@@ -29,6 +29,7 @@ func New(address, basePath string, allowedOrigins []string, log *slog.Logger, re
 	registerHealthRoutes(mux, readiness)
 
 	config := huma.DefaultConfig("Artmission API", "0.1.0")
+	config.DocsRenderer = huma.DocsRendererSwaggerUI
 	config.Servers = []*huma.Server{{URL: basePath}}
 	api := humago.NewWithPrefix(mux, basePath, config)
 
