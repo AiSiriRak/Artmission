@@ -2,13 +2,11 @@ package rest
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/DeepAung/artmission/backend/internal/modules/auth"
 	"github.com/DeepAung/artmission/backend/internal/modules/user"
-	"github.com/DeepAung/artmission/backend/internal/pkg/apperror"
 	"github.com/danielgtaylor/huma/v2"
 )
 
@@ -236,29 +234,5 @@ func toAuthResultBody(r *auth.AuthResult) authResultBody {
 		AccessToken:          r.AccessToken,
 		AccessTokenExpiresAt: r.AccessTokenExpiresAt,
 		User:                 toUserView(r.User),
-	}
-}
-
-// mapAppError translates a framework-agnostic apperror.Error (or an
-// unrecognized error) into a huma.StatusError.
-func mapAppError(err error) error {
-	var appErr *apperror.Error
-	if !errors.As(err, &appErr) {
-		return huma.Error500InternalServerError("internal server error", err)
-	}
-
-	switch appErr.Code {
-	case apperror.CodeInvalidInput:
-		return huma.Error400BadRequest(appErr.Message)
-	case apperror.CodeUnauthorized:
-		return huma.Error401Unauthorized(appErr.Message)
-	case apperror.CodeForbidden:
-		return huma.Error403Forbidden(appErr.Message)
-	case apperror.CodeNotFound:
-		return huma.Error404NotFound(appErr.Message)
-	case apperror.CodeConflict:
-		return huma.Error409Conflict(appErr.Message)
-	default:
-		return huma.Error500InternalServerError(appErr.Message, appErr.Cause)
 	}
 }
