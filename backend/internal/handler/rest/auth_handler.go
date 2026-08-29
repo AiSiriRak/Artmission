@@ -88,20 +88,8 @@ type RegisterInput struct {
 	Body registerInputBody
 }
 
-type userView struct {
-	ID          string    `json:"id"`
-	Username    string    `json:"username"`
-	Email       string    `json:"email"`
-	FirstName   string    `json:"first_name"`
-	LastName    string    `json:"last_name"`
-	PhoneNumber string    `json:"phone_number"`
-	Role        string    `json:"role"`
-	CreatedAt   time.Time `json:"created_at"`
-}
-
 type RegisterOutput struct {
 	Status int
-	Body   userView
 }
 
 func (h *AuthHandler) register(ctx context.Context, in *RegisterInput) (*RegisterOutput, error) {
@@ -122,12 +110,11 @@ func (h *AuthHandler) register(ctx context.Context, in *RegisterInput) (*Registe
 		input.Artist = &user.ArtistProfileInput{Description: in.Body.Artist.Description}
 	}
 
-	created, err := h.userUsecase.Register(ctx, input)
-	if err != nil {
+	if _, err := h.userUsecase.Register(ctx, input); err != nil {
 		return nil, mapAppError(err)
 	}
 
-	return &RegisterOutput{Status: http.StatusCreated, Body: toUserView(created)}, nil
+	return &RegisterOutput{Status: http.StatusCreated}, nil
 }
 
 // --- login ---
@@ -140,9 +127,7 @@ type LoginInput struct {
 }
 
 type authResultBody struct {
-	AccessToken          string    `json:"access_token"`
-	AccessTokenExpiresAt time.Time `json:"access_token_expires_at"`
-	User                 userView  `json:"user"`
+	AccessToken string `json:"access_token"`
 }
 
 type LoginOutput struct {
@@ -158,7 +143,7 @@ func (h *AuthHandler) login(ctx context.Context, in *LoginInput) (*LoginOutput, 
 
 	return &LoginOutput{
 		SetCookie: h.refreshCookie(result.RefreshToken, result.RefreshTokenExpiresAt),
-		Body:      toAuthResultBody(result),
+		Body:      authResultBody{AccessToken: result.AccessToken},
 	}, nil
 }
 
@@ -185,7 +170,7 @@ func (h *AuthHandler) refresh(ctx context.Context, in *RefreshInput) (*RefreshOu
 
 	return &RefreshOutput{
 		SetCookie: h.refreshCookie(result.RefreshToken, result.RefreshTokenExpiresAt),
-		Body:      toAuthResultBody(result),
+		Body:      authResultBody{AccessToken: result.AccessToken},
 	}, nil
 }
 
@@ -244,23 +229,4 @@ func (h *AuthHandler) clearRefreshCookie() string {
 	return c.String()
 }
 
-func toUserView(u *user.User) userView {
-	return userView{
-		ID:          u.ID.String(),
-		Username:    u.Username,
-		Email:       u.Email,
-		FirstName:   u.FirstName,
-		LastName:    u.LastName,
-		PhoneNumber: u.PhoneNumber,
-		Role:        string(u.Role),
-		CreatedAt:   u.CreatedAt,
-	}
-}
 
-func toAuthResultBody(r *auth.AuthResult) authResultBody {
-	return authResultBody{
-		AccessToken:          r.AccessToken,
-		AccessTokenExpiresAt: r.AccessTokenExpiresAt,
-		User:                 toUserView(r.User),
-	}
-}
