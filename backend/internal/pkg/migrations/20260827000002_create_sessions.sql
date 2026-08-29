@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
     id                 uuid PRIMARY KEY,
     user_id            uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     refresh_token_hash text NOT NULL UNIQUE,
@@ -10,4 +10,4 @@ CREATE TABLE sessions (
 CREATE INDEX sessions_user_id_idx ON sessions (user_id);
 
 -- +goose Down
-DROP TABLE sessions;
+DROP TABLE IF EXISTS sessions;
