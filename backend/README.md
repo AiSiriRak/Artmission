@@ -4,22 +4,23 @@
 
 - [Go 1.27+](https://go.dev/)
 - [Docker + Docker Compose](https://www.docker.com/) (for local Postgres)
+- [go-task](https://taskfile.dev/installation/) (optional — only needed for the `task` shortcuts below; the manual steps work without it)
 
 ## How to Run
 
-If you're on macOS or Linux, recommend using the Makefile shortcuts:
+Recommended, on any platform (go-task is cross-platform):
 
 ```bash
-make dev   # copies .env.example to .env if missing, starts Docker infra, and runs the API with hot reload
+task dev   # copies .env.example to .env if missing, starts Docker infra, and runs the API with hot reload
 ```
 
 When you're done:
 
 ```bash
-make down  # stops the Docker infra (Postgres)
+task down  # stops the Docker infra (Postgres)
 ```
 
-On other platforms, or if you'd rather run each step yourself, follow the manual steps below.
+Or, if you'd rather run each step yourself (or don't have go-task installed), follow the manual steps below.
 
 1. Start local infrastructure (Postgres):
 
@@ -41,7 +42,7 @@ The defaults in `.env.example` already match the compose stack — nothing to fi
 go run . --env-file .env migrate up
 ```
 
-(The `serve` command below also runs pending migrations on startup, so this step is optional for local dev — it's here for when you need `migrate down`/`reset`/`create` on their own. See `make migrate-%`, e.g. `make migrate-create ARGS=add_foo_column`.)
+(The `serve` command below also runs pending migrations on startup, so this step is optional for local dev — it's here for when you need `migrate down`/`reset`/`create` on their own. See `task migrate-*`, e.g. `task migrate-create -- add_foo_column`.)
 
 4. Start the API server:
 
