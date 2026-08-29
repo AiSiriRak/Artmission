@@ -24,7 +24,7 @@ func TestViewHiringHistory_ReturnsOnlyThatCustomersOrders(t *testing.T) {
 
 	repo := &fakeRepo{byCustomer: map[uuid.UUID][]order.Order{
 		customerID:      {{ID: uuid.New(), CustomerID: customerID, Status: order.StatusPending}},
-		otherCustomerID: {{ID: uuid.New(), CustomerID: otherCustomerID, Status: order.StatusComplete}},
+		otherCustomerID: {{ID: uuid.New(), CustomerID: otherCustomerID, Status: order.StatusSuccess}},
 	}}
 	usecase := order.NewOrderUsecase(repo)
 

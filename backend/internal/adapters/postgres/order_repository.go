@@ -18,8 +18,10 @@ type orderModel struct {
 	CustomerID  uuid.UUID  `bun:"customer_id"`
 	ArtistID    uuid.UUID  `bun:"artist_id"`
 	Description string     `bun:"description"`
-	Category    string     `bun:"category,nullzero"`
-	Style       string     `bun:"style,nullzero"`
+	CategoryID  *uuid.UUID `bun:"category_id"`
+	Category    string     `bun:"category_label,nullzero"`
+	StyleID     *uuid.UUID `bun:"style_id"`
+	Style       string     `bun:"style_label,nullzero"`
 	Price       *float64   `bun:"price"`
 	Status      string     `bun:"status"`
 	Deadline    *time.Time `bun:"deadline"`
@@ -29,13 +31,23 @@ type orderModel struct {
 }
 
 func (m *orderModel) toDomain() order.Order {
+	var category *order.Category
+	if m.CategoryID != nil {
+		category = &order.Category{ID: *m.CategoryID, Label: m.Category}
+	}
+
+	var style *order.Style
+	if m.StyleID != nil {
+		style = &order.Style{ID: *m.StyleID, Label: m.Style}
+	}
+
 	return order.Order{
 		ID:          m.ID,
 		CustomerID:  m.CustomerID,
 		ArtistID:    m.ArtistID,
 		Description: m.Description,
-		Category:    m.Category,
-		Style:       m.Style,
+		Category:    category,
+		Style:       style,
 		Price:       m.Price,
 		Status:      order.Status(m.Status),
 		Deadline:    m.Deadline,
@@ -60,8 +72,24 @@ func (r *orderRepository) ListByCustomerID(ctx context.Context, customerID uuid.
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		return idb.NewSelect().
 			Model(&models).
-			Where("customer_id = ?", customerID).
-			OrderExpr("created_at DESC").
+			ColumnExpr("o.id").
+			ColumnExpr("o.customer_id").
+			ColumnExpr("o.artist_id").
+			ColumnExpr("o.description").
+			ColumnExpr("o.category_id").
+			ColumnExpr("c.label AS category_label").
+			ColumnExpr("o.style_id").
+			ColumnExpr("s.label AS style_label").
+			ColumnExpr("o.price").
+			ColumnExpr("o.status").
+			ColumnExpr("o.deadline").
+			ColumnExpr("o.completed_at").
+			ColumnExpr("o.created_at").
+			ColumnExpr("o.updated_at").
+			Join("LEFT JOIN categories AS c ON c.id = o.category_id").
+			Join("LEFT JOIN styles AS s ON s.id = o.style_id").
+			Where("o.customer_id = ?", customerID).
+			OrderExpr("o.created_at DESC").
 			Scan(ctx)
 	})
 	if err != nil {

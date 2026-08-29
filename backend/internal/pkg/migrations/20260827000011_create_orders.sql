@@ -9,9 +9,9 @@ CREATE TABLE IF NOT EXISTS orders (
     style_id    uuid REFERENCES styles (id) ON DELETE SET NULL,
     price       numeric(12, 2) NOT NULL CHECK (price >= 0),
     status      text NOT NULL DEFAULT 'PENDING'
-                CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETE', 'CANCELLED')),
+                CHECK (status IN ('PENDING', 'NOT_PAID', 'IN_PROCESS', 'SUCCESS', 'CANCEL')),
     -- The delivered file (US6.5), set once together when status ->
-    -- COMPLETE. Not its own table: it's 1:1 with this order, created
+    -- SUCCESS. Not its own table: it's 1:1 with this order, created
     -- exactly once, never revised, and has no independent existence
     -- (unlike artist_samples, it's never browsed, reordered, or
     -- edited) — see artist_samples.sql for the artist-managed portfolio
