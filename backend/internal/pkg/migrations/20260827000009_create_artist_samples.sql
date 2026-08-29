@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS artist_samples (
     category_id        uuid REFERENCES categories (id) ON DELETE SET NULL,
     name               text NOT NULL,
     description        text,
-    price              numeric(10, 2) CHECK (price >= 0),
+    price              numeric(12, 2) CHECK (price >= 0),
     original_image_url text NOT NULL,
     preview_image_url  text NOT NULL,
     -- Artist-controlled display position on the profile (US2.3 says
