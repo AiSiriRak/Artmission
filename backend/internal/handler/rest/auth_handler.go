@@ -63,12 +63,25 @@ func (h *AuthHandler) Register(api huma.API) {
 
 // --- register ---
 
+type registerBankAccountBody struct {
+	BankName      string `json:"bank_name" minLength:"1"`
+	AccountNumber string `json:"account_number" minLength:"1"`
+}
+
+type registerArtistBody struct {
+	Description string `json:"description" minLength:"1"`
+}
+
 type registerInputBody struct {
-	Username string `json:"username" minLength:"3" maxLength:"32"`
-	Email    string `json:"email" format:"email"`
-	Phone    string `json:"phone" minLength:"1"`
-	Password string `json:"password" minLength:"8"`
-	Role     string `json:"role" enum:"customer,artist"`
+	Username    string                  `json:"username" minLength:"3" maxLength:"20"`
+	Email       string                  `json:"email" format:"email"`
+	Password    string                  `json:"password" minLength:"8" maxLength:"16"`
+	FirstName   string                  `json:"first_name" minLength:"1"`
+	LastName    string                  `json:"last_name" minLength:"1"`
+	PhoneNumber string                  `json:"phone_number" minLength:"1"`
+	Role        string                  `json:"role" enum:"customer,artist"`
+	BankAccount registerBankAccountBody `json:"bank_account"`
+	Artist      *registerArtistBody     `json:"artist,omitempty"`
 }
 
 type RegisterInput struct {
@@ -76,12 +89,14 @@ type RegisterInput struct {
 }
 
 type userView struct {
-	ID        string    `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	Phone     string    `json:"phone"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          string    `json:"id"`
+	Username    string    `json:"username"`
+	Email       string    `json:"email"`
+	FirstName   string    `json:"first_name"`
+	LastName    string    `json:"last_name"`
+	PhoneNumber string    `json:"phone_number"`
+	Role        string    `json:"role"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type RegisterOutput struct {
@@ -90,13 +105,24 @@ type RegisterOutput struct {
 }
 
 func (h *AuthHandler) register(ctx context.Context, in *RegisterInput) (*RegisterOutput, error) {
-	created, err := h.userUsecase.Register(ctx, user.RegisterInput{
-		Username: in.Body.Username,
-		Email:    in.Body.Email,
-		Phone:    in.Body.Phone,
-		Password: in.Body.Password,
-		Role:     user.Role(in.Body.Role),
-	})
+	input := user.RegisterInput{
+		Username:    in.Body.Username,
+		Email:       in.Body.Email,
+		FirstName:   in.Body.FirstName,
+		LastName:    in.Body.LastName,
+		PhoneNumber: in.Body.PhoneNumber,
+		Password:    in.Body.Password,
+		Role:        user.Role(in.Body.Role),
+		BankAccount: user.BankAccountInput{
+			BankName:      in.Body.BankAccount.BankName,
+			AccountNumber: in.Body.BankAccount.AccountNumber,
+		},
+	}
+	if in.Body.Artist != nil {
+		input.Artist = &user.ArtistProfileInput{Description: in.Body.Artist.Description}
+	}
+
+	created, err := h.userUsecase.Register(ctx, input)
 	if err != nil {
 		return nil, mapAppError(err)
 	}
@@ -220,12 +246,14 @@ func (h *AuthHandler) clearRefreshCookie() string {
 
 func toUserView(u *user.User) userView {
 	return userView{
-		ID:        u.ID.String(),
-		Username:  u.Username,
-		Email:     u.Email,
-		Phone:     u.Phone,
-		Role:      string(u.Role),
-		CreatedAt: u.CreatedAt,
+		ID:          u.ID.String(),
+		Username:    u.Username,
+		Email:       u.Email,
+		FirstName:   u.FirstName,
+		LastName:    u.LastName,
+		PhoneNumber: u.PhoneNumber,
+		Role:        string(u.Role),
+		CreatedAt:   u.CreatedAt,
 	}
 }
 

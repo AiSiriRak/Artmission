@@ -10,9 +10,11 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres"
 	"github.com/AiSiriRak/Artmission/backend/internal/adapters/token"
 	"github.com/AiSiriRak/Artmission/backend/internal/handler/rest"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/artist"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/database"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/httpserver"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/logger"
@@ -43,11 +45,15 @@ var serveCmd = &cobra.Command{
 
 		// --- wire adapters -> modules -> handlers ---
 		userRepo := postgres.NewUserRepository(db)
+		bankRepo := postgres.NewBankAccountRepository(db)
+		artistRepo := postgres.NewArtistRepository(db)
 		sessionRepo := postgres.NewSessionRepository(db)
 		orderRepo := postgres.NewOrderRepository(db)
 		tokenIssuer := token.NewJWTIssuer(cfg.Auth().JWTSecret)
+		tx := baserepo.NewTransactioner(db)
 
-		userUsecase := user.NewUserUsecase(userRepo)
+		artistUsecase := artist.NewProfileUsecase(artistRepo)
+		userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, tx)
 		authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth().AccessTokenTTL, cfg.Auth().RefreshTokenTTL)
 		orderUsecase := order.NewOrderUsecase(orderRepo)
 
