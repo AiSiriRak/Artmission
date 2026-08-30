@@ -41,4 +41,9 @@ tasks:
   test:
     desc: runs the test suite
     cmds:
-      - go test ./... -v
+      - go test ./... -v {{.CLI_ARGS}}
+
+  test-bdd:
+    desc: runs the cucumber/godog BDD suite
+    cmds:
+      - go test -tags=integration ./tests/... -v {{.CLI_ARGS}}
