@@ -31,34 +31,42 @@ func NewAuthHandler(userUsecase user.UserUsecase, authUsecase auth.AuthUsecase, 
 }
 
 func (h *AuthHandler) Register(api huma.API) {
-	huma.Register(api, huma.Operation{
-		OperationID: "register",
-		Method:      http.MethodPost,
-		Path:        "/auth/register",
-		Summary:     "Register a new account",
-	}, h.register)
+	huma.Post(api, "/auth/register", h.register,
+		huma.OperationTags("auth"),
+		func(o *huma.Operation) {
+			o.OperationID = "register"
+			o.Summary = "Register"
+			o.Description = "Register a new account"
+		},
+	)
 
-	huma.Register(api, huma.Operation{
-		OperationID: "login",
-		Method:      http.MethodPost,
-		Path:        "/auth/login",
-		Summary:     "Log in with username and password",
-	}, h.login)
+	huma.Post(api, "/auth/login", h.login,
+		huma.OperationTags("auth"),
+		func(o *huma.Operation) {
+			o.OperationID = "login"
+			o.Summary = "Login"
+			o.Description = "Log in with username and password"
+		},
+	)
 
-	huma.Register(api, huma.Operation{
-		OperationID: "refresh",
-		Method:      http.MethodPost,
-		Path:        "/auth/refresh",
-		Summary:     "Exchange a refresh token (cookie) for a new access token",
-	}, h.refresh)
+	huma.Post(api, "/auth/refresh", h.refresh,
+		huma.OperationTags("auth"),
+		func(o *huma.Operation) {
+			o.OperationID = "refresh"
+			o.Summary = "Refresh"
+			o.Description = "Exchange a refresh token (cookie) for a new access token"
+		},
+	)
 
-	huma.Register(api, huma.Operation{
-		OperationID: "logout",
-		Method:      http.MethodPost,
-		Path:        "/auth/logout",
-		Summary:     "Log out and terminate the current session",
-		Middlewares: huma.Middlewares{requireAuth(api, h.authUsecase)},
-	}, h.logout)
+	huma.Post(api, "/auth/logout", h.logout,
+		huma.OperationTags("auth"),
+		func(o *huma.Operation) {
+			o.OperationID = "logout"
+			o.Summary = "Logout"
+			o.Description = "Log out and terminate the current session"
+			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase))
+		},
+	)
 }
 
 // --- register ---

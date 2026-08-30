@@ -135,7 +135,7 @@ Add the table's migration alongside it: `task migrate-create -- create_artist_pr
 
 ## 6. REST handler — `internal/handler/rest/artist_handler.go`
 
-Owns request/response DTOs and huma operation registration. Follows `auth_handler.go`'s shape: a `*ArtistHandler` struct, a `Register(api huma.API)` method, one method per operation.
+Owns request/response DTOs and huma operation registration. Follows `auth_handler.go`'s shape: a `*ArtistHandler` struct, a `Register(api huma.API)` method, one method per operation, registered with `huma.Get`/`huma.Post`/etc.
 
 ```go
 package rest
@@ -148,26 +148,29 @@ import (
 )
 
 type ArtistHandler struct {
-	profileUC artist.ProfileUsecase
+	profileUsecase artist.ProfileUsecase
 }
 
-func NewArtistHandler(profileUC artist.ProfileUsecase) *ArtistHandler {
-	return &ArtistHandler{profileUC: profileUC}
+func NewArtistHandler(profileUsecase artist.ProfileUsecase) *ArtistHandler {
+	return &ArtistHandler{profileUsecase: profileUsecase}
 }
 
 func (h *ArtistHandler) Register(api huma.API) {
-	huma.Register(api, huma.Operation{
-		OperationID: "get-my-artist-profile",
-		Method:      "GET",
-		Path:        "/artists/me",
-		Middlewares: huma.Middlewares{requireAuth(api, h.authUC), requireRole(api, user.RoleArtist)},
-	}, h.getMyProfile)
+	huma.Get(api, "/artists/me", h.getMyProfile,
+		huma.OperationTags("artists"),
+        func(o *huma.Operation) {
+            o.OperationID = "get-my-artist-profile"
+            o.Summary = "GetMyArtistProfile"
+            o.Description = "Get the authenticated artist's own profile"
+            o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireRole(api, user.RoleArtist))
+        },
+    )
 
 	// PUT /artists/me follows the same shape.
 }
 
 // getMyProfile: decode nothing (userID comes from AuthInfo via requestctx.go),
-// call h.profileUC.GetMyProfile, map *artist.Profile -> a DTO, map errors via mapAppError.
+// call h.profileUsecase.GetMyProfile, map *artist.Profile -> a DTO, map errors via mapAppError.
 ```
 
 Auth-guarded routes attach `requireAuth`/`requireRole` per-operation (not globally) — see `internal/handler/rest/middleware.go`.

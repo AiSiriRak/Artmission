@@ -2,7 +2,6 @@ package rest
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
@@ -21,16 +20,14 @@ func NewOrderHandler(orderUsecase order.OrderUsecase, authUsecase auth.AuthUseca
 }
 
 func (h *OrderHandler) Register(api huma.API) {
-	huma.Register(api, huma.Operation{
-		OperationID: "view-hiring-history",
-		Method:      http.MethodGet,
-		Path:        "/orders/history",
-		Summary:     "View the authenticated customer's hiring history",
-		Middlewares: huma.Middlewares{
-			requireAuth(api, h.authUsecase),
-			requireRole(api, user.RoleCustomer),
-		},
-	}, h.viewHiringHistory)
+	huma.Get(api, "/orders/history", h.viewHiringHistory,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "view-hiring-history"
+			o.Summary = "ViewHiringHistory"
+			o.Description = "View the authenticated customer's hiring history"
+			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireRole(api, user.RoleCustomer))
+		})
 }
 
 type ViewHiringHistoryInput struct{}
