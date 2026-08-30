@@ -37,6 +37,7 @@ func (h *AuthHandler) Register(api huma.API) {
 			o.OperationID = "register"
 			o.Summary = "Register"
 			o.Description = "Register a new account"
+			o.DefaultStatus = http.StatusCreated
 		},
 	)
 
@@ -96,9 +97,7 @@ type RegisterInput struct {
 	Body registerInputBody
 }
 
-type RegisterOutput struct {
-	Status int
-}
+type RegisterOutput struct{}
 
 func (h *AuthHandler) register(ctx context.Context, in *RegisterInput) (*RegisterOutput, error) {
 	input := user.RegisterInput{
@@ -122,7 +121,7 @@ func (h *AuthHandler) register(ctx context.Context, in *RegisterInput) (*Registe
 		return nil, mapAppError(err)
 	}
 
-	return &RegisterOutput{Status: http.StatusCreated}, nil
+	return &RegisterOutput{}, nil
 }
 
 // --- login ---
@@ -187,7 +186,6 @@ func (h *AuthHandler) refresh(ctx context.Context, in *RefreshInput) (*RefreshOu
 type LogoutInput struct{}
 
 type LogoutOutput struct {
-	Status    int
 	SetCookie string `header:"Set-Cookie"`
 }
 
@@ -202,7 +200,6 @@ func (h *AuthHandler) logout(ctx context.Context, _ *LogoutInput) (*LogoutOutput
 	}
 
 	return &LogoutOutput{
-		Status:    http.StatusNoContent,
 		SetCookie: h.clearRefreshCookie(),
 	}, nil
 }
