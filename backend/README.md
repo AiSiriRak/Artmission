@@ -8,7 +8,9 @@
 
 ## How to Run
 
-Recommended, on any platform (go-task is cross-platform):
+### Option A: go-task (recommended)
+
+Cross-platform, works on any OS:
 
 ```bash
 task dev   # copies .env.example to .env if missing, starts Docker infra, and runs the API with hot reload
@@ -20,7 +22,9 @@ When you're done:
 task down  # stops the Docker infra (Postgres)
 ```
 
-Or, if you'd rather run each step yourself (or don't have go-task installed), follow the manual steps below.
+### Option B: Manual
+
+If you'd rather run each step yourself (or don't have go-task installed):
 
 1. Start local infrastructure (Postgres):
 
@@ -51,7 +55,15 @@ go tool air                       # Run with hot reload
 go run . --env-file .env serve    # Or without hot reload
 ```
 
-5. The API will be available at:
+5. To stop the infrastructure started manually:
+
+```bash
+docker compose down
+```
+
+### Once It's Running
+
+Regardless of which option you used, the API is now available at:
 
 ```text
 http://localhost:8080/api/v1
@@ -70,11 +82,9 @@ curl http://localhost:8080/livez   # process is up
 curl http://localhost:8080/readyz  # process is up AND its dependencies (Postgres, ...) are reachable
 ```
 
-To stop the infrastructure started manually:
+### API Testing
 
-```bash
-docker compose down
-```
+`backend/bruno/` contains a [Bruno](https://www.usebruno.com/) collection for testing the API endpoints manually — open it in the Bruno app (or run it via `bru run`) to try requests against a running local server.
 
 ## Environment Variables
 

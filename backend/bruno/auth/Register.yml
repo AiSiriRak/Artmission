@@ -1,0 +1,112 @@
+info:
+  name: Register
+  type: http
+  seq: 4
+  tags:
+    - auth
+
+http:
+  method: POST
+  url: "{{api_url}}/auth/register"
+  body:
+    type: json
+    data: |-
+      {
+        "username": "{{username}}",
+        "email": "test@example.com",
+        "password": "{{password}}",
+        "first_name": "tester",
+        "last_name": "tested",
+        "phone_number": "0123456789",
+        "role": "customer",
+        "bank_account": {
+          "account_number": "1234",
+          "bank_name": "kbank"
+        }
+      //   "artist": {
+      //     "description": ""
+      //   }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 204 Response
+    description: No Content
+    request:
+      url: "{{api_url}}/auth/register"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "artist": {
+              "description": ""
+            },
+            "bank_account": {
+              "account_number": "",
+              "bank_name": ""
+            },
+            "email": "",
+            "first_name": "",
+            "last_name": "",
+            "password": "",
+            "phone_number": "",
+            "role": "customer",
+            "username": ""
+          }
+    response:
+      status: 204
+      statusText: No Content
+      body:
+        type: text
+        data: ""
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/auth/register"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "artist": {
+              "description": ""
+            },
+            "bank_account": {
+              "account_number": "",
+              "bank_name": ""
+            },
+            "email": "",
+            "first_name": "",
+            "last_name": "",
+            "password": "",
+            "phone_number": "",
+            "role": "customer",
+            "username": ""
+          }
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: Register a new account
