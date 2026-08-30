@@ -1,4 +1,4 @@
-module github.com/DeepAung/artmission/backend
+module github.com/AiSiriRak/Artmission/backend
 
 go 1.27.0
 

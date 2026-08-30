@@ -57,7 +57,7 @@ Sentinel `apperror` values for anything a caller might branch on.
 ```go
 package artist
 
-import "github.com/DeepAung/artmission/backend/internal/pkg/apperror"
+import "github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 
 var ErrProfileNotFound = apperror.NotFound("artist profile not found")
 ```
@@ -72,7 +72,7 @@ package artist
 import (
 	"context"
 
-	"github.com/DeepAung/artmission/backend/internal/modules/user"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 )
 
 type ProfileUsecase interface {
@@ -102,7 +102,7 @@ Implements `artist.ProfileRepository`. New file, same `postgres` package as ever
 package postgres
 
 import (
-	"github.com/DeepAung/artmission/backend/internal/modules/artist"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/artist"
 	"github.com/uptrace/bun"
 )
 
@@ -143,7 +143,7 @@ package rest
 import (
 	"context"
 
-	"github.com/DeepAung/artmission/backend/internal/modules/artist"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/artist"
 	"github.com/danielgtaylor/huma/v2"
 )
 

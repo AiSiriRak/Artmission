@@ -7,8 +7,8 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/DeepAung/artmission/backend/internal/modules/user"
-	"github.com/DeepAung/artmission/backend/internal/pkg/apperror"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/google/uuid"
 )
 

@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/DeepAung/artmission/backend/internal/pkg/apperror"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )

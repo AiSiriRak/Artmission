@@ -1,6 +1,6 @@
 package user
 
-import "github.com/DeepAung/artmission/backend/internal/pkg/apperror"
+import "github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 
 var (
 	ErrUsernameTaken     = apperror.Conflict("username is already in use")

@@ -3,7 +3,7 @@ package rest
 import (
 	"errors"
 
-	"github.com/DeepAung/artmission/backend/internal/pkg/apperror"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/danielgtaylor/huma/v2"
 )
 

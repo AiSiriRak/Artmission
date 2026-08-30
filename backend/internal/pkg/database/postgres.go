@@ -5,7 +5,7 @@ package database
 import (
 	"context"
 
-	"github.com/DeepAung/artmission/backend/internal/pkg/config"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/config"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"

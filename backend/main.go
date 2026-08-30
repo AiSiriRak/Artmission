@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/DeepAung/artmission/backend/cmd"
+	"github.com/AiSiriRak/Artmission/backend/cmd"
 )
 
 func main() {

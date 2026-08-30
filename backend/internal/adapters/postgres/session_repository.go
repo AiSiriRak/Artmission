@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/DeepAung/artmission/backend/internal/modules/auth"
-	"github.com/DeepAung/artmission/backend/internal/pkg/apperror"
-	"github.com/DeepAung/artmission/backend/internal/pkg/baserepo"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )

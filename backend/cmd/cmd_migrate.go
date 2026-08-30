@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeepAung/artmission/backend/internal/pkg/database"
-	"github.com/DeepAung/artmission/backend/internal/pkg/migrations"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/database"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/migrations"
 	"github.com/pressly/goose/v3"
 	"github.com/spf13/cobra"
 )

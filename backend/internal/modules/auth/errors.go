@@ -1,6 +1,6 @@
 package auth
 
-import "github.com/DeepAung/artmission/backend/internal/pkg/apperror"
+import "github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 
 var (
 	ErrInvalidCredential = apperror.Unauthorized("invalid username or password")

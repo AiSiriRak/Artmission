@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/DeepAung/artmission/backend/internal/modules/auth"
-	"github.com/DeepAung/artmission/backend/internal/modules/user"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )

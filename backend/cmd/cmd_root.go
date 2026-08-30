@@ -4,7 +4,7 @@
 package cmd
 
 import (
-	"github.com/DeepAung/artmission/backend/internal/pkg/config"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/config"
 	"github.com/spf13/cobra"
 )
 

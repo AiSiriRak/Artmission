@@ -10,9 +10,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/DeepAung/artmission/backend/internal/modules/user"
-	"github.com/DeepAung/artmission/backend/internal/pkg/apperror"
-	"github.com/DeepAung/artmission/backend/internal/pkg/baserepo"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
 	"github.com/google/uuid"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"

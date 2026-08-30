@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DeepAung/artmission/backend/internal/modules/user"
-	"github.com/DeepAung/artmission/backend/internal/pkg/security"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/security"
 	"github.com/google/uuid"
 )
 
