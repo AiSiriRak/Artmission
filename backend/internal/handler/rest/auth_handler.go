@@ -228,5 +228,3 @@ func (h *AuthHandler) clearRefreshCookie() string {
 	}
 	return c.String()
 }
-
-
