@@ -32,7 +32,7 @@ type Profile struct {
 
 ## 2. Port — `internal/modules/artist/port.go`
 
-The interface the module *needs* from the outside (persistence). Nothing here knows Postgres exists.
+The interfaces the module *offers* (`ProfileUsecase`) and *needs* (`ProfileRepository`), plus any command types those ports take. Nothing here knows Postgres exists.
 
 ```go
 package artist
@@ -42,6 +42,11 @@ import (
 
 	"github.com/google/uuid"
 )
+
+type ProfileUsecase interface {
+	GetMyProfile(ctx context.Context, userID uuid.UUID) (*Profile, error)
+	UpdateMyProfile(ctx context.Context, userID uuid.UUID, bio, category, style string) (*Profile, error)
+}
 
 type ProfileRepository interface {
 	Create(ctx context.Context, p *Profile) error
@@ -64,29 +69,24 @@ var ErrProfileNotFound = apperror.NotFound("artist profile not found")
 
 ## 4. Usecase + test — `internal/modules/artist/usecase.go`
 
-The interface the module *offers*, its implementation, and the business rule (here: a profile can only be created for a user with `Role == user.RoleArtist`).
+The implementation of the driving port, and the business rule (here: a profile can only be created for a user with `Role == user.RoleArtist`).
 
 ```go
 package artist
 
 import (
 	"context"
+	"time"
 
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
+	"github.com/google/uuid"
 )
 
-type ProfileUsecase interface {
-	GetMyProfile(ctx context.Context, userID uuid.UUID) (*Profile, error)
-	UpdateMyProfile(ctx context.Context, userID uuid.UUID, bio, category, style string) (*Profile, error)
-}
-
 type profileUsecase struct {
-	repo        ProfileRepository
-	userUsecase user.UserUsecase
+	repo ProfileRepository
 }
 
-func NewProfileUsecase(repo ProfileRepository, userUsecase user.UserUsecase) ProfileUsecase {
-	return &profileUsecase{repo: repo, userUsecase: userUsecase}
+func NewProfileUsecase(repo ProfileRepository) ProfileUsecase {
+	return &profileUsecase{repo: repo}
 }
 
 // ... GetMyProfile / UpdateMyProfile implementations

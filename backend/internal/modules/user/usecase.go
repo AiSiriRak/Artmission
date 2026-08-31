@@ -10,41 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type BankAccountInput struct {
-	BankName      string
-	AccountNumber string
-}
-
-type ArtistProfileInput struct {
-	Description string
-}
-
-type RegisterInput struct {
-	Username    string
-	Email       string
-	FirstName   string
-	LastName    string
-	PhoneNumber string
-	Password    string
-	Role        Role
-	BankAccount BankAccountInput
-	// Artist is required when Role is artist, and must be nil for a customer.
-	Artist *ArtistProfileInput
-}
-
-type UserUsecase interface {
-	// Register creates the user, bank account, and (when role is artist)
-	// artist profile in one transaction. RoleAdmin is never accepted
-	// (admins are seeded/ops-managed, not self-registered).
-	Register(ctx context.Context, in RegisterInput) (*User, error)
-
-	// Authenticate returns ErrInvalidCredential for both "no such user"
-	// and "wrong password" so a caller cannot distinguish account existence.
-	Authenticate(ctx context.Context, username, password string) (*User, error)
-
-	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
-}
-
 type userUsecase struct {
 	repo            UserRepository
 	bankRepo        BankAccountRepository

@@ -1,6 +1,5 @@
 // Package auth owns session/token concerns: issuing, validating, and
-// revoking sessions. Password verification stays inside modules/user; auth
-// depends on user.UserUsecase rather than duplicating credential logic.
+// revoking sessions.
 package auth
 
 import (
@@ -27,12 +26,4 @@ type TokenClaims struct {
 	UserID    uuid.UUID
 	SessionID uuid.UUID
 	Role      user.Role
-}
-
-type AuthResult struct {
-	User                  *user.User
-	AccessToken           string
-	AccessTokenExpiresAt  time.Time
-	RefreshToken          string
-	RefreshTokenExpiresAt time.Time
 }

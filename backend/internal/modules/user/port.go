@@ -6,6 +6,19 @@ import (
 	"github.com/google/uuid"
 )
 
+type UserUsecase interface {
+	// Register creates the user, bank account, and (when role is artist)
+	// artist profile in one transaction. RoleAdmin is never accepted
+	// (admins are seeded/ops-managed, not self-registered).
+	Register(ctx context.Context, in RegisterInput) (*User, error)
+
+	// Authenticate returns ErrInvalidCredential for both "no such user"
+	// and "wrong password" so a caller cannot distinguish account existence.
+	Authenticate(ctx context.Context, username, password string) (*User, error)
+
+	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
+}
+
 type UserRepository interface {
 	Create(ctx context.Context, u *User) error
 	GetByUsername(ctx context.Context, username string) (*User, error)
@@ -24,4 +37,26 @@ type ArtistRegistrar interface {
 
 type Transactioner interface {
 	Transaction(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
+type RegisterInput struct {
+	Username    string
+	Email       string
+	FirstName   string
+	LastName    string
+	PhoneNumber string
+	Password    string
+	Role        Role
+	BankAccount BankAccountInput
+	// Artist is required when Role is artist, and must be nil for a customer.
+	Artist *ArtistProfileInput
+}
+
+type BankAccountInput struct {
+	BankName      string
+	AccountNumber string
+}
+
+type ArtistProfileInput struct {
+	Description string
 }

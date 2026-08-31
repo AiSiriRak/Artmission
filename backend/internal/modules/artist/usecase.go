@@ -7,10 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type ProfileUsecase interface {
-	CreateProfile(ctx context.Context, userID uuid.UUID, description string) error
-}
-
 type profileUsecase struct {
 	repo ProfileRepository
 }
