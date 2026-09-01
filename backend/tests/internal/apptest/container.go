@@ -10,6 +10,7 @@ package apptest
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/config"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/database"
@@ -55,7 +56,7 @@ func StartPostgres(ctx context.Context, tb testing.TB) *Postgres {
 		tb.Fatalf("apptest: read postgres connection string: %v", err)
 	}
 
-	if err := migrateUp(ctx, dsn); err != nil {
+	if err := migrateUp(dsn); err != nil {
 		tb.Fatalf("apptest: migrate up: %v", err)
 	}
 
@@ -64,7 +65,10 @@ func StartPostgres(ctx context.Context, tb testing.TB) *Postgres {
 
 // migrateUp applies every migration in internal/pkg/migrations, the exact
 // same embed.FS cmd/cmd_serve.go applies on real startup.
-func migrateUp(ctx context.Context, dsn string) error {
+func migrateUp(dsn string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
 	db, err := database.NewPostgresDB(config.Database{DSN: dsn})
 	if err != nil {
 		return err

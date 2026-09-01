@@ -9,7 +9,15 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"time"
 )
+
+// requestTimeout bounds every HTTP call this package makes against the
+// in-process app. Without it, a deadlocked or pool-exhausted handler
+// hangs a request forever — the only backstop would be the 10-minute
+// `go test` panic-timeout, which also kills every other scenario's
+// diagnostics along with it.
+const requestTimeout = 30 * time.Second
 
 // Client is a small HTTP client for driving the app like a real API
 // consumer: it carries cookies (needed for the refresh_token flow) across
@@ -26,7 +34,7 @@ type Client struct {
 func NewClient(baseURL string) *Client {
 	jar, _ := cookiejar.New(nil)
 	return &Client{
-		http:    &http.Client{Jar: jar},
+		http:    &http.Client{Jar: jar, Timeout: requestTimeout},
 		baseURL: baseURL,
 	}
 }
@@ -72,7 +80,7 @@ func (c *Client) DoWithCookie(method, path, cookieName, cookieValue string) (*Re
 		return nil, err
 	}
 	req.AddCookie(&http.Cookie{Name: cookieName, Value: cookieValue})
-	return doRequest(&http.Client{}, req)
+	return doRequest(&http.Client{Timeout: requestTimeout}, req)
 }
 
 // DoNoCookies sends a request with no cookies at all, even if this
@@ -83,7 +91,7 @@ func (c *Client) DoNoCookies(method, path string) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	return doRequest(&http.Client{}, req)
+	return doRequest(&http.Client{Timeout: requestTimeout}, req)
 }
 
 // CookieValue returns the value of the named cookie this client's jar

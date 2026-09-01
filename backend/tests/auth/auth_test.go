@@ -18,7 +18,9 @@ import (
 var app *apptest.App
 
 func TestAuthFeatures(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	// Generous: covers a cold Docker image pull, not just container start —
+	// on a warm cache this returns in seconds regardless.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	pg := apptest.StartPostgres(ctx, t)

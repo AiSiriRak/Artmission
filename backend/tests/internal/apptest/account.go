@@ -107,7 +107,9 @@ func registerAccount(app *App, client *Client, body RegisterBody) (Account, erro
 		return Account{}, fmt.Errorf("apptest: expected registration to succeed with 201, got %d: %s", resp.StatusCode, resp.Body)
 	}
 
-	id, err := app.UserIDByUsername(context.Background(), body.Username)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+	id, err := app.UserIDByUsername(ctx, body.Username)
 	if err != nil {
 		return Account{}, fmt.Errorf("apptest: look up registered user id: %w", err)
 	}

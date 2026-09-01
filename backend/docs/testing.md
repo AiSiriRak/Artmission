@@ -10,6 +10,8 @@ Two tiers, each catching a different class of bug.
 
 ## The BDD suite: `tests/`
 
+One shared harness, one directory per domain — `auth/` shown below as the shape every other domain (`orders/`, ...) copies; this tree is illustrative, not a live listing, so it isn't kept in sync as domains are added:
+
 ```
 tests/
 ├── internal/apptest/      shared bootstrap: container, app wiring, HTTP client, fixtures

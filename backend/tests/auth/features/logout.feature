@@ -17,6 +17,13 @@ Feature: Logout
     When the user refreshes the session using the previous refresh token
     Then the system rejects the request
 
+  Scenario: logging out twice rejects the second attempt with the same access token
+    When the user logs out
+    Then the system terminates the current session
+    When the user logs out
+    Then the system does not terminate a session
+    And the system displays an appropriate error message
+
   Scenario: log out without being authenticated
     When the user logs out without an access token
     Then the system does not terminate a session
