@@ -30,8 +30,7 @@ type authContext struct {
 	previousRefresh string
 }
 
-// --- given: preconditions (state only, no interaction — see reference.md's
-// "avoid talking about user interaction in Givens") ---
+// --- given ---
 
 // theUserDoesNotHaveAnAccount is a no-op: every scenario already starts
 // with no account for its (unique, freshly generated) user. The step
@@ -235,9 +234,7 @@ func (a *authContext) logout(bearerToken string) error {
 	return nil
 }
 
-// --- then: declarative outcomes (status codes/cookies are assertion
-// details, not part of the Gherkin text — see the "describe behaviour,
-// not implementation" rule) ---
+// --- then ---
 
 func (a *authContext) theSystemCreatesTheAccount() error {
 	return a.expectStatus(http.StatusCreated)

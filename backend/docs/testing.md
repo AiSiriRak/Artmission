@@ -6,7 +6,7 @@ Two tiers, each catching a different class of bug.
 
 ## Unit tests: business rules, no infrastructure
 
-`internal/modules/<module>/usecase_test.go` — a usecase against a hand-written in-memory fake of its own port. No Docker, runs in every `go test ./...`. This doc is about the other tier.
+Described in [Conventions](conventions.md#testing) ("Usecases get unit tests with hand-written in-memory fakes"). This doc covers the other tier.
 
 ## The BDD suite: `tests/`
 
