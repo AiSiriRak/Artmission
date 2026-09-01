@@ -42,13 +42,13 @@ task test-bdd   # go test -tags=integration ./tests/... -v
 
 ## HTML report
 
-Each domain's `TestXxx` writes its own `reports/cucumber-<domain>.json` alongside the `pretty` console output (`Format: "pretty,cucumber:../../reports/cucumber-<domain>.json"` — godog supports comma-separated formatters). `task test-bdd-report` runs the suite, then merges every JSON file in `reports/` into one HTML report via `cucumber-html-reporter` (`scripts/gen-report.js`, Node-only dev tooling — `npm install` runs as part of the task, nothing to set up by hand):
+Each domain's `TestXxx` writes its own `reports/json/cucumber-<domain>.json` alongside the `pretty` console output (`Format: "pretty,cucumber:../../reports/json/cucumber-<domain>.json"` — godog supports comma-separated formatters). `task test-bdd-report` runs the suite, then merges every JSON file under `reports/json/` into one HTML report via `cucumber-html-reporter` (`scripts/gen-report.js`, Node-only dev tooling — `npm install` runs as part of the task, nothing to set up by hand):
 
 ```bash
 task test-bdd-report   # -> reports/cucumber-report.html
 ```
 
-The report still gets generated when scenarios fail — that's the point of running it — so open it to see what broke instead of scrolling terminal output. Adding a new domain's suite (see below) means adding one line to its `TestXxx`, same as `auth_test.go`'s — the report step itself needs no changes, since it merges whatever `*.json` files it finds.
+The report still gets generated when scenarios fail — that's the point of running it — so open it to see what broke instead of scrolling terminal output. Adding a new domain's suite (see below) means adding one line to its `TestXxx`, same as `auth_test.go`'s — the report step itself needs no changes, since it merges whatever `*.json` files it finds under `reports/json/`.
 
 ## Writing feature files
 

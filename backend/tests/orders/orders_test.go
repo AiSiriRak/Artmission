@@ -29,7 +29,7 @@ func TestOrdersFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		ScenarioInitializer: InitializeScenario,
 		Options: &godog.Options{
-			Format:   "pretty,cucumber:../../reports/cucumber-orders.json",
+			Format:   "pretty,cucumber:../../reports/json/cucumber-orders.json",
 			Paths:    []string{"features"},
 			TestingT: t,
 		},

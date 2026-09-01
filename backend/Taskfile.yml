@@ -59,7 +59,7 @@ tasks:
   test-bdd-run:
     internal: true
     cmds:
-      - mkdir -p reports
+      - mkdir -p reports/json
       - go test -tags=integration ./tests/... -v {{.CLI_ARGS}}
 
   npm-install:

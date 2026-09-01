@@ -29,7 +29,7 @@ func TestAuthFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		ScenarioInitializer: InitializeScenario,
 		Options: &godog.Options{
-			Format:   "pretty,cucumber:../../reports/cucumber-auth.json",
+			Format:   "pretty,cucumber:../../reports/json/cucumber-auth.json",
 			Paths:    []string{"features"},
 			TestingT: t,
 		},
