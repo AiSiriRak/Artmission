@@ -53,7 +53,7 @@ tasks:
     cmds:
       - task: test-bdd-run
         ignore_error: true
-      - npm install --no-fund --no-audit
+      - task: npm-install
       - node scripts/gen-report.js
 
   test-bdd-run:
@@ -61,3 +61,14 @@ tasks:
     cmds:
       - mkdir -p reports
       - go test -tags=integration ./tests/... -v {{.CLI_ARGS}}
+
+  npm-install:
+    internal: true
+    sources:
+      - package.json
+      - package-lock.json
+    generates:
+      - node_modules/.install-stamp
+    cmds:
+      - npm install --no-fund --no-audit
+      - cp package-lock.json node_modules/.install-stamp
