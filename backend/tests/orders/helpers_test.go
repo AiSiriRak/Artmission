@@ -31,8 +31,8 @@ type orderRow struct {
 }
 
 // seedOrder inserts one order row directly against the database and
-// returns its ID (as returned by the API: uuid.String()).
-func seedOrder(customerID, artistID string) (string, error) {
+// returns its ID (as returned by the API: uuid.String()) and seeded status.
+func seedOrder(customerID, artistID string) (string, string, error) {
 	now := time.Now()
 	row := &orderRow{
 		ID:          uuid.New(),
@@ -45,9 +45,9 @@ func seedOrder(customerID, artistID string) (string, error) {
 		UpdatedAt:   now,
 	}
 	if _, err := app.DB.NewInsert().Model(row).Exec(context.Background()); err != nil {
-		return "", err
+		return "", "", err
 	}
-	return row.ID.String(), nil
+	return row.ID.String(), row.Status, nil
 }
 
 // sharedArtist returns an artist account backing every order seeded in

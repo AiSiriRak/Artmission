@@ -21,7 +21,7 @@ type ordersContext struct {
 	accessToken string
 	artist      apptest.Account // shared, lazily-created FK backing every seeded order
 
-	seededOrderIDs []string // orders seeded for the account under test
+	seededOrders map[string]string // order ID → seeded status, for the account under test
 
 	resp *apptest.Response
 }
@@ -61,11 +61,11 @@ func (o *ordersContext) theUserHasOneOrMoreOrders() error {
 		return err
 	}
 	for range 2 {
-		id, err := seedOrder(o.account.ID, artist.ID)
+		id, status, err := seedOrder(o.account.ID, artist.ID)
 		if err != nil {
 			return err
 		}
-		o.seededOrderIDs = append(o.seededOrderIDs, id)
+		o.seededOrders[id] = status
 	}
 	return nil
 }
@@ -75,11 +75,11 @@ func (o *ordersContext) theUserHasAnOrder() error {
 	if err != nil {
 		return err
 	}
-	id, err := seedOrder(o.account.ID, artist.ID)
+	id, status, err := seedOrder(o.account.ID, artist.ID)
 	if err != nil {
 		return err
 	}
-	o.seededOrderIDs = append(o.seededOrderIDs, id)
+	o.seededOrders[id] = status
 	return nil
 }
 
@@ -92,7 +92,7 @@ func (o *ordersContext) anotherCustomerHasAnOrder() error {
 	if err != nil {
 		return err
 	}
-	_, err = seedOrder(other.ID, artist.ID)
+	_, _, err = seedOrder(other.ID, artist.ID)
 	return err
 }
 
@@ -140,9 +140,13 @@ func (o *ordersContext) theSystemShowsAllOfTheUsersOrdersWithTheirCurrentStatus(
 		}
 		got[order.ID] = order.Status
 	}
-	for _, wantID := range o.seededOrderIDs {
-		if _, ok := got[wantID]; !ok {
+	for wantID, wantStatus := range o.seededOrders {
+		gotStatus, ok := got[wantID]
+		if !ok {
 			return fmt.Errorf("expected seeded order %s in hiring history, got orders: %+v", wantID, body.Orders)
+		}
+		if gotStatus != wantStatus {
+			return fmt.Errorf("order %s: expected status %q, got %q", wantID, wantStatus, gotStatus)
 		}
 	}
 	return nil
@@ -154,11 +158,11 @@ func (o *ordersContext) theSystemDoesNotShowAnyOtherCustomersOrders() error {
 		return err
 	}
 
-	if len(body.Orders) != len(o.seededOrderIDs) {
-		return fmt.Errorf("expected exactly the user's own %d order(s), got %d: %+v", len(o.seededOrderIDs), len(body.Orders), body.Orders)
+	if len(body.Orders) != len(o.seededOrders) {
+		return fmt.Errorf("expected exactly the user's own %d order(s), got %d: %+v", len(o.seededOrders), len(body.Orders), body.Orders)
 	}
 	want := map[string]bool{}
-	for _, id := range o.seededOrderIDs {
+	for id := range o.seededOrders {
 		want[id] = true
 	}
 	for _, order := range body.Orders {
@@ -213,7 +217,10 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	var o *ordersContext
 
 	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
-		o = &ordersContext{client: apptest.NewClient(app.BaseURL())}
+		o = &ordersContext{
+			client:       apptest.NewClient(app.BaseURL()),
+			seededOrders: map[string]string{},
+		}
 		return ctx, nil
 	})
 
