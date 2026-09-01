@@ -192,7 +192,23 @@ func (a *authContext) theUserRefreshesTheSessionWithAnInvalidToken() error {
 // --- when: logout ---
 
 func (a *authContext) theUserLogsOut() error {
+	// Capture the refresh token before logout.
+	if v, ok := a.client.CookieValue(a.client.BaseURL()+refreshPath, "refresh_token"); ok {
+		a.previousRefresh = v
+	}
 	return a.logout(a.accessToken)
+}
+
+func (a *authContext) theUserRefreshesUsingThePreviousRefreshToken() error {
+	if a.previousRefresh == "" {
+		return fmt.Errorf("no previous refresh token captured yet")
+	}
+	resp, err := a.client.DoWithCookie(http.MethodPost, refreshPath, "refresh_token", a.previousRefresh)
+	if err != nil {
+		return err
+	}
+	a.resp = resp
+	return nil
 }
 
 func (a *authContext) theUserLogsOutWithoutAnAccessToken() error {
@@ -376,6 +392,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user logs out$`, func() error { return a.theUserLogsOut() })
 	sc.Step(`^the user logs out without an access token$`, func() error { return a.theUserLogsOutWithoutAnAccessToken() })
 	sc.Step(`^the user logs out with an invalid access token$`, func() error { return a.theUserLogsOutWithAnInvalidAccessToken() })
+	sc.Step(`^the user refreshes the session using the previous refresh token$`, func() error { return a.theUserRefreshesUsingThePreviousRefreshToken() })
 
 	// then
 	sc.Step(`^the system creates the account$`, func() error { return a.theSystemCreatesTheAccount() })

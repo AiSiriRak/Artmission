@@ -13,7 +13,8 @@ Feature: Logout
 
   Scenario: logging out invalidates the session
     When the user logs out
-    And the user refreshes the session
+    Then the system terminates the current session
+    When the user refreshes the session using the previous refresh token
     Then the system rejects the request
 
   Scenario: log out without being authenticated
