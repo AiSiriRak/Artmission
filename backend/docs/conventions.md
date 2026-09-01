@@ -53,4 +53,4 @@ Unknown/unexpected errors (a plain `error` that isn't an `*apperror.Error`) shou
 
 ## Wiring
 
-All object construction happens by hand in one place, `cmd/cmd_serve.go`, in dependency order: adapters → usecases → handlers → server. No DI container, no `init()` magic. If you add a module, add its wiring here in the same order as everything else — see [Adding a Feature](adding-a-feature.md).
+All object construction happens by hand in one place, `internal/wiring.Wire` (`internal/wiring/wiring.go`), in dependency order: adapters → usecases → handlers → server. Both `cmd/cmd_serve.go` (the real server) and `tests/internal/apptest` (the BDD suite's in-process server) call it, so their object graphs can never diverge. No DI container, no `init()` magic. If you add a module, add its wiring here in the same order as everything else — see [Adding a Feature](adding-a-feature.md).

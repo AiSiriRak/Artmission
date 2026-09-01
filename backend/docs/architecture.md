@@ -59,4 +59,4 @@ A usecase returns an `*apperror.Error` (see `internal/pkg/apperror`) — a small
 
 ## Deliberately not here
 
-No CQRS, no event bus, no dependency-injection framework, no repository-per-domain-object micro-abstractions. Wiring is explicit, by hand, in `cmd/cmd_serve.go` — read it top to bottom and you see the entire app's object graph. Adding a layer that isn't paying for itself yet is the opposite of what this codebase is trying to be; see [Adding a Feature](adding-a-feature.md) before reaching for a new pattern.
+No CQRS, no event bus, no dependency-injection framework, no repository-per-domain-object micro-abstractions. Wiring is explicit, by hand, in `internal/wiring.Wire` — read it top to bottom and you see the entire app's object graph, shared unmodified by `cmd/cmd_serve.go` and the BDD suite. Adding a layer that isn't paying for itself yet is the opposite of what this codebase is trying to be; see [Adding a Feature](adding-a-feature.md) before reaching for a new pattern.

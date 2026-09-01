@@ -175,19 +175,21 @@ func (h *ArtistHandler) Register(api huma.API) {
 
 Auth-guarded routes attach `requireAuth`/`requireRole` per-operation (not globally) — see `internal/handler/rest/middleware.go`.
 
-## 7. Wire it in `cmd/cmd_serve.go`
+## 7. Wire it in `internal/wiring/wiring.go`
 
-Extend the existing "adapters → modules → handlers" wiring block, in the same dependency order as everything else:
+Extend the existing `Wire` function's "adapters → modules → handlers" block, in the same dependency order as everything else:
 
 ```go
-artistRepo := postgres.NewArtistRepository(db)
+artistRepo := postgres.NewArtistRepository(cfg.DB)
 artistUsecase := artist.NewProfileUsecase(artistRepo, userUsecase)
 artistHandler := rest.NewArtistHandler(artistUsecase)
 ```
 
+Wiring it here — instead of directly in `cmd/cmd_serve.go` — means `tests/internal/apptest` picks it up automatically too; there's no second place to remember.
+
 ## 8. Register the routes — `internal/handler/rest/router.go`
 
-Add the new handler to `RegisterRoutes`'s signature and body, and pass it from `cmd_serve.go`:
+Add the new handler to `RegisterRoutes`'s signature and body, and pass it from `Wire`:
 
 ```go
 func RegisterRoutes(api huma.API, authHandler *AuthHandler, orderHandler *OrderHandler, artistHandler *ArtistHandler) {

@@ -30,7 +30,7 @@ type Postgres struct {
 
 // StartPostgres launches a fresh container, applies every goose migration
 // from internal/pkg/migrations, and registers container teardown on tb.
-// Call it once per test package (from TestMain), not once per scenario —
+// Call it once per test package (from TestXxx), not once per scenario —
 // container startup dominates otherwise.
 func StartPostgres(ctx context.Context, tb testing.TB) *Postgres {
 	tb.Helper()

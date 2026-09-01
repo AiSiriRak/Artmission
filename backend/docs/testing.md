@@ -24,7 +24,7 @@ tests/
 
 ## Real Postgres, never the dev database
 
-Each run starts one `testcontainers-go` Postgres container — once per test binary, not per scenario — applies every goose migration from `internal/pkg/migrations`, then wires the real app (`cmd_serve.go`'s exact adapters → usecases → handlers chain) against it and serves it in-process via `httptest.Server`. It never touches `docker-compose.yaml`'s `artmission-db`; the container is disposed when the run ends.
+Each run starts one `testcontainers-go` Postgres container — once per test binary, not per scenario — applies every goose migration from `internal/pkg/migrations`, then wires the real app via `internal/wiring.Wire` (the same composition root `cmd_serve.go` calls) against it and serves it in-process via `httptest.Server`. It never touches `docker-compose.yaml`'s `artmission-db`; the container is disposed when the run ends.
 
 ## Isolation: unique data, not a reset between scenarios
 
