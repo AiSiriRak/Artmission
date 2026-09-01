@@ -45,9 +45,9 @@ func (a *authContext) theUserHasARegisteredAccount() error {
 	suffix := apptest.UniqueSuffix()
 	a.username = "cust-" + suffix
 	a.email = "cust-" + suffix + "@example.com"
-	a.password = validPassword
+	a.password = apptest.FixturePassword
 
-	if err := a.doRegister(newCustomerRegisterPayload(a.username, a.email, a.password)); err != nil {
+	if err := a.doRegister(apptest.NewCustomerRegisterBody(a.username, a.email, a.password)); err != nil {
 		return err
 	}
 	if a.resp.StatusCode != http.StatusCreated {
@@ -70,34 +70,37 @@ func (a *authContext) theUserHasLoggedIn() error {
 
 func (a *authContext) theUserRegistersWithValidDetails() error {
 	username := "cust-" + apptest.UniqueSuffix()
-	return a.doRegister(newCustomerRegisterPayload(username, username+"@example.com", validPassword))
+	return a.doRegister(apptest.NewCustomerRegisterBody(username, username+"@example.com", apptest.FixturePassword))
 }
 
 func (a *authContext) theUserRegistersWithInvalidField(field, value string) error {
 	username := "cust-" + apptest.UniqueSuffix()
-	fields := registerFields(username, username+"@example.com", validPassword)
+	fields, err := registerFields(username, username+"@example.com", apptest.FixturePassword)
+	if err != nil {
+		return err
+	}
 	fields[field] = value
 	return a.doRegister(fields)
 }
 
 func (a *authContext) theUserRegistersReusingTheUsername() error {
 	email := "dup-" + apptest.UniqueSuffix() + "@example.com"
-	return a.doRegister(newCustomerRegisterPayload(a.username, email, validPassword))
+	return a.doRegister(apptest.NewCustomerRegisterBody(a.username, email, apptest.FixturePassword))
 }
 
 func (a *authContext) theUserRegistersReusingTheEmail() error {
 	username := "dup-" + apptest.UniqueSuffix()
-	return a.doRegister(newCustomerRegisterPayload(username, a.email, validPassword))
+	return a.doRegister(apptest.NewCustomerRegisterBody(username, a.email, apptest.FixturePassword))
 }
 
 func (a *authContext) theUserRegistersAsAnArtistWithADescription() error {
 	username := "artist-" + apptest.UniqueSuffix()
-	return a.doRegister(newArtistRegisterPayload(username, username+"@example.com", validPassword, "I paint custom portraits."))
+	return a.doRegister(apptest.NewArtistRegisterBody(username, username+"@example.com", apptest.FixturePassword, "I paint custom portraits."))
 }
 
 func (a *authContext) theUserRegistersAsAnArtistWithoutADescription() error {
 	username := "artist-" + apptest.UniqueSuffix()
-	return a.doRegister(newArtistRegisterPayload(username, username+"@example.com", validPassword, ""))
+	return a.doRegister(apptest.NewArtistRegisterBody(username, username+"@example.com", apptest.FixturePassword, ""))
 }
 
 func (a *authContext) doRegister(payload any) error {
@@ -120,7 +123,7 @@ func (a *authContext) theUserLogsInWithAnIncorrectPassword() error {
 }
 
 func (a *authContext) theUserLogsInWithAnUnknownUsername() error {
-	return a.login(unknownUsername, validPassword)
+	return a.login(unknownUsername, apptest.FixturePassword)
 }
 
 func (a *authContext) login(username, password string) error {

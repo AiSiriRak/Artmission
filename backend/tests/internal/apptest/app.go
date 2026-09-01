@@ -3,6 +3,7 @@
 package apptest
 
 import (
+	"context"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -19,6 +20,8 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/database"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/httpserver"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/logger"
+	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 )
 
 // Fixed test-only settings — never sourced from .env/config.yaml, so this
@@ -37,6 +40,12 @@ const (
 // mocks, no fakes, no cobra/signal-handling glue.
 type App struct {
 	Server *httptest.Server
+
+	// DB is a direct database handle — an escape hatch for seeding
+	// fixture data no HTTP endpoint can create yet (e.g. orders; see
+	// internal/modules/order/port.go). Prefer the real HTTP API wherever
+	// it can express the precondition; reach for DB only when it can't.
+	DB *bun.DB
 }
 
 // NewApp builds the app against dsn and starts it. Call once per test
@@ -75,7 +84,16 @@ func NewApp(tb testing.TB, dsn string) *App {
 	ts := httptest.NewServer(srv.Handler())
 	tb.Cleanup(ts.Close)
 
-	return &App{Server: ts}
+	return &App{Server: ts, DB: db}
+}
+
+// UserIDByUsername looks up a user's ID by username directly against the
+// database. Registration responses carry no body (see RegisterOutput), so
+// this is how a fixture that just registered an account gets its ID back.
+func (a *App) UserIDByUsername(ctx context.Context, username string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := a.DB.NewSelect().Table("users").Column("id").Where("username = ?", username).Scan(ctx, &id)
+	return id, err
 }
 
 // BaseURL is the versioned API root, e.g. http://127.0.0.1:54321/api/v1.
