@@ -46,4 +46,18 @@ tasks:
   test-bdd:
     desc: runs the cucumber/godog BDD suite
     cmds:
+      - task: test-bdd-run
+
+  test-bdd-report:
+    desc: runs the BDD suite and generates a merged HTML report at reports/cucumber-report.html (unlike test-bdd, this doesn't fail fast, since the point is to see what broke)
+    cmds:
+      - task: test-bdd-run
+        ignore_error: true
+      - npm install --no-fund --no-audit
+      - node scripts/gen-report.js
+
+  test-bdd-run:
+    internal: true
+    cmds:
+      - mkdir -p reports
       - go test -tags=integration ./tests/... -v {{.CLI_ARGS}}

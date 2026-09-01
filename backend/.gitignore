@@ -2,3 +2,5 @@
 !.env.example
 /tmp/
 build-errors.log
+/node_modules/
+/reports/
