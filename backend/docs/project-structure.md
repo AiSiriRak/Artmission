@@ -73,7 +73,6 @@ Not one file per module like the other layers — instead:
 | `httperror.go` | `mapAppError` — the one place an `apperror.Code` becomes an HTTP status, shared by every handler. |
 | `middleware.go` | `requireAuth`/`requireRole` — huma per-operation middleware, attached only to routes that need them. |
 | `requestctx.go` | `AuthInfo` — what `requireAuth` injects into the request context, and how handlers read it back out. |
-| `router.go` | `RegisterRoutes` — the one function `internal/wiring.Wire` calls to wire every handler's routes onto the API. |
 
 ## Looking for X? It's in Y.
 

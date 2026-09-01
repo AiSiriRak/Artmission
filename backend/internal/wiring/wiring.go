@@ -55,7 +55,8 @@ func Wire(cfg Config) *httpserver.Server {
 	orderHandler := rest.NewOrderHandler(orderUsecase, authUsecase)
 
 	api, server := httpserver.New(cfg.App.Address, cfg.App.BasePath, cfg.App.AllowedOrigins, cfg.Logger, []httpserver.Pinger{cfg.DB})
-	rest.RegisterRoutes(api, authHandler, orderHandler)
+	authHandler.Register(api)
+	orderHandler.Register(api)
 
 	return server
 }
