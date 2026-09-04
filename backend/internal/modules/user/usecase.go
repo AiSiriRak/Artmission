@@ -105,3 +105,22 @@ func (u *userUsecase) Authenticate(ctx context.Context, email, password string) 
 func (u *userUsecase) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	return u.repo.GetByID(ctx, id)
 }
+
+func (u *userUsecase) UpdateBankAccount(ctx context.Context, userID uuid.UUID, in BankAccountInput) (*BankAccount, error) {
+	bankName := strings.TrimSpace(in.BankName)
+	accountNumber := strings.TrimSpace(in.AccountNumber)
+	if bankName == "" || accountNumber == "" {
+		return nil, ErrBankAccountRequired
+	}
+
+	bank := &BankAccount{
+		UserID:        userID,
+		BankName:      bankName,
+		AccountNumber: accountNumber,
+		UpdatedAt:     time.Now(),
+	}
+	if err := u.bankRepo.UpdateByUserID(ctx, bank); err != nil {
+		return nil, err
+	}
+	return bank, nil
+}

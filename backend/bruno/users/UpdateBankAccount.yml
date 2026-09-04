@@ -1,0 +1,26 @@
+info:
+  name: UpdateBankAccount
+  type: http
+  seq: 1
+  tags:
+    - users
+
+http:
+  method: PUT
+  url: "{{api_url}}/users/me/bank-account"
+  auth: inherit
+  body:
+    type: json
+    data: |-
+      {
+        "bank_name": "Kasikorn",
+        "account_number": "1234567890"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Update the authenticated user's bank account.

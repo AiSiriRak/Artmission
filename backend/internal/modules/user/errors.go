@@ -10,4 +10,5 @@ var (
 	ErrArtistDescriptionRequired = apperror.InvalidInput("artist description is required", nil)
 	ErrArtistFieldsNotAllowed    = apperror.InvalidInput("artist fields are only allowed when role is artist", nil)
 	ErrBankAccountRequired       = apperror.InvalidInput("bank name and account number are required", nil)
+	ErrBankAccountNotFound       = apperror.NotFound("bank account not found")
 )

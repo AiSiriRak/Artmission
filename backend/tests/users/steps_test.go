@@ -1,0 +1,113 @@
+//go:build integration
+
+package users
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+
+	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
+	"github.com/cucumber/godog"
+)
+
+type usersContext struct {
+	client      *apptest.Client
+	account     apptest.Account
+	accessToken string
+	resp        *apptest.Response
+}
+
+type bankAccountBody struct {
+	BankName      string `json:"bank_name"`
+	AccountNumber string `json:"account_number"`
+}
+
+func (u *usersContext) theUserHasARegisteredAccount() error {
+	account, err := apptest.RegisterCustomer(app, u.client)
+	if err != nil {
+		return err
+	}
+	u.account = account
+	return nil
+}
+
+func (u *usersContext) theUserHasLoggedIn() error {
+	accessToken, err := apptest.Login(u.client, u.account.Username, u.account.Password)
+	if err != nil {
+		return err
+	}
+	u.accessToken = accessToken
+	return nil
+}
+
+func (u *usersContext) theUserUpdatesTheirBankAccountWithValidDetails() error {
+	return u.updateBankAccount(bankAccountBody{BankName: "Kasikorn", AccountNumber: "1234567890"}, u.accessToken)
+}
+
+func (u *usersContext) theUserUpdatesABankAccountWithoutLoggingIn() error {
+	return u.updateBankAccount(bankAccountBody{BankName: "Kasikorn", AccountNumber: "1234567890"}, "")
+}
+
+func (u *usersContext) theUserUpdatesTheirBankAccountWithABlankBankName() error {
+	return u.updateBankAccount(bankAccountBody{BankName: "", AccountNumber: "1234567890"}, u.accessToken)
+}
+
+func (u *usersContext) updateBankAccount(body bankAccountBody, accessToken string) error {
+	headers := map[string]string{}
+	if accessToken != "" {
+		headers["Authorization"] = "Bearer " + accessToken
+	}
+	resp, err := u.client.Do(http.MethodPut, "/users/me/bank-account", body, headers)
+	if err != nil {
+		return err
+	}
+	u.resp = resp
+	return nil
+}
+
+func (u *usersContext) theSystemSavesTheUpdatedBankAccountDetails() error {
+	if u.resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("expected status 200, got %d: %s", u.resp.StatusCode, u.resp.Body)
+	}
+	var body bankAccountBody
+	if err := u.resp.JSON(&body); err != nil {
+		return fmt.Errorf("decode bank account response: %w", err)
+	}
+	if body.BankName != "Kasikorn" || body.AccountNumber != "1234567890" {
+		return fmt.Errorf("unexpected updated bank account: %+v", body)
+	}
+	return nil
+}
+
+func (u *usersContext) theSystemRequiresTheUserToLogIn() error {
+	if u.resp.StatusCode != http.StatusUnauthorized {
+		return fmt.Errorf("expected status 401, got %d: %s", u.resp.StatusCode, u.resp.Body)
+	}
+	return nil
+}
+
+func (u *usersContext) theSystemRejectsTheBankAccountUpdate() error {
+	if u.resp.StatusCode < 400 || u.resp.StatusCode >= 500 {
+		return fmt.Errorf("expected a 4xx response, got %d: %s", u.resp.StatusCode, u.resp.Body)
+	}
+	return nil
+}
+
+func InitializeScenario(sc *godog.ScenarioContext) {
+	var u *usersContext
+
+	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
+		u = &usersContext{client: apptest.NewClient(app.BaseURL())}
+		return ctx, nil
+	})
+
+	sc.Step(`^the user has a registered account$`, func() error { return u.theUserHasARegisteredAccount() })
+	sc.Step(`^the user has logged in$`, func() error { return u.theUserHasLoggedIn() })
+	sc.Step(`^the user updates their bank account with valid details$`, func() error { return u.theUserUpdatesTheirBankAccountWithValidDetails() })
+	sc.Step(`^the user updates a bank account without logging in$`, func() error { return u.theUserUpdatesABankAccountWithoutLoggingIn() })
+	sc.Step(`^the user updates their bank account with a blank bank name$`, func() error { return u.theUserUpdatesTheirBankAccountWithABlankBankName() })
+	sc.Step(`^the system saves the updated bank account details$`, func() error { return u.theSystemSavesTheUpdatedBankAccountDetails() })
+	sc.Step(`^the system requires the user to log in$`, func() error { return u.theSystemRequiresTheUserToLogIn() })
+	sc.Step(`^the system rejects the bank account update$`, func() error { return u.theSystemRejectsTheBankAccountUpdate() })
+}

@@ -48,8 +48,10 @@ func (f *fakeRepo) GetByID(_ context.Context, id uuid.UUID) (*user.User, error) 
 var _ user.UserRepository = (*fakeRepo)(nil)
 
 type fakeBankRepo struct {
-	byUserID  map[uuid.UUID]*user.BankAccount
-	createErr error
+	byUserID    map[uuid.UUID]*user.BankAccount
+	createErr   error
+	updateErr   error
+	updateCalls int
 }
 
 func newFakeBankRepo() *fakeBankRepo {
@@ -62,6 +64,21 @@ func (f *fakeBankRepo) Create(_ context.Context, ba *user.BankAccount) error {
 	}
 	cp := *ba
 	f.byUserID[ba.UserID] = &cp
+	return nil
+}
+
+func (f *fakeBankRepo) UpdateByUserID(_ context.Context, ba *user.BankAccount) error {
+	f.updateCalls++
+	if f.updateErr != nil {
+		return f.updateErr
+	}
+	existing, ok := f.byUserID[ba.UserID]
+	if !ok {
+		return user.ErrBankAccountNotFound
+	}
+	existing.BankName = ba.BankName
+	existing.AccountNumber = ba.AccountNumber
+	existing.UpdatedAt = ba.UpdatedAt
 	return nil
 }
 
@@ -221,6 +238,62 @@ func TestRegister_PropagatesDuplicateFromRepository(t *testing.T) {
 	_, err := usecase.Register(context.Background(), customerInput())
 	if !errors.Is(err, user.ErrEmailTaken) {
 		t.Errorf("Register() error = %v, want ErrEmailTaken", err)
+	}
+}
+
+func TestUpdateBankAccount_ReplacesAndTrimsDetails(t *testing.T) {
+	bank := newFakeBankRepo()
+	userID := uuid.New()
+	bank.byUserID[userID] = &user.BankAccount{
+		UserID:        userID,
+		BankName:      "Old Bank",
+		AccountNumber: "000000",
+	}
+	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
+
+	got, err := usecase.UpdateBankAccount(context.Background(), userID, user.BankAccountInput{
+		BankName:      "  Kasikorn  ",
+		AccountNumber: " 1234567890 ",
+	})
+	if err != nil {
+		t.Fatalf("UpdateBankAccount() error = %v, want nil", err)
+	}
+	if got.BankName != "Kasikorn" || got.AccountNumber != "1234567890" {
+		t.Errorf("UpdateBankAccount() = %+v, want trimmed details", got)
+	}
+	if got.UpdatedAt.IsZero() {
+		t.Error("UpdateBankAccount() did not set UpdatedAt")
+	}
+	if bank.updateCalls != 1 {
+		t.Errorf("UpdateByUserID calls = %d, want 1", bank.updateCalls)
+	}
+}
+
+func TestUpdateBankAccount_RejectsBlankDetails(t *testing.T) {
+	bank := newFakeBankRepo()
+	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
+
+	_, err := usecase.UpdateBankAccount(context.Background(), uuid.New(), user.BankAccountInput{
+		BankName:      "  ",
+		AccountNumber: "1234567890",
+	})
+	if !errors.Is(err, user.ErrBankAccountRequired) {
+		t.Errorf("UpdateBankAccount() error = %v, want ErrBankAccountRequired", err)
+	}
+	if bank.updateCalls != 0 {
+		t.Errorf("UpdateByUserID calls = %d, want 0", bank.updateCalls)
+	}
+}
+
+func TestUpdateBankAccount_ReturnsNotFoundWhenNoBankAccountExists(t *testing.T) {
+	usecase := newUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar())
+
+	_, err := usecase.UpdateBankAccount(context.Background(), uuid.New(), user.BankAccountInput{
+		BankName:      "Kasikorn",
+		AccountNumber: "1234567890",
+	})
+	if !errors.Is(err, user.ErrBankAccountNotFound) {
+		t.Errorf("UpdateBankAccount() error = %v, want ErrBankAccountNotFound", err)
 	}
 }
 
