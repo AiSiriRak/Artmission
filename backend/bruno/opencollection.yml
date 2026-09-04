@@ -1,0 +1,42 @@
+opencollection: 1.0.0
+
+info:
+  name: Artmission
+config:
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ""
+      port: ""
+      auth:
+        username: ""
+        password: ""
+      bypassProxy: ""
+
+request:
+  headers:
+    - name: Authorization
+      value: Bearer {{access_token}}
+  variables:
+    - name: base_url
+      value: http://localhost:8080
+    - name: api_url
+      value: "{{base_url}}/api/v1"
+    - name: username
+      value: test
+    - name: password
+      value: password1234
+bundled: false
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git
+    openapi:
+      - sourceUrl: http://localhost:8080/api/v1/openapi.yaml
+        groupBy: tags
+        lastSyncDate: 2026-08-30T13:07:19.230Z
+        specHash: 634e72bfff8fbec334315211ad338976
+        autoCheck: true
+        autoCheckInterval: 5
