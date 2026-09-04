@@ -175,33 +175,27 @@ func (h *ArtistHandler) Register(api huma.API) {
 
 Auth-guarded routes attach `requireAuth`/`requireRole` per-operation (not globally) — see `internal/handler/rest/middleware.go`.
 
-## 7. Wire it in `cmd/cmd_serve.go`
+## 7. Wire it in `internal/wiring/wiring.go`
 
-Extend the existing "adapters → modules → handlers" wiring block, in the same dependency order as everything else:
+Extend the existing `Wire` function's "adapters → modules → handlers → routes" block, in the same dependency order as everything else, then register the handler's routes right after constructing it:
 
 ```go
-artistRepo := postgres.NewArtistRepository(db)
+artistRepo := postgres.NewArtistRepository(cfg.DB)
 artistUsecase := artist.NewProfileUsecase(artistRepo, userUsecase)
 artistHandler := rest.NewArtistHandler(artistUsecase)
+// ...
+authHandler.Register(api)
+orderHandler.Register(api)
+artistHandler.Register(api)
 ```
 
-## 8. Register the routes — `internal/handler/rest/router.go`
+Wiring it here — instead of directly in `cmd/cmd_serve.go` — means `tests/internal/apptest` picks it up automatically too; there's no second place to remember.
 
-Add the new handler to `RegisterRoutes`'s signature and body, and pass it from `cmd_serve.go`:
-
-```go
-func RegisterRoutes(api huma.API, authHandler *AuthHandler, orderHandler *OrderHandler, artistHandler *ArtistHandler) {
-	authHandler.Register(api)
-	orderHandler.Register(api)
-	artistHandler.Register(api)
-}
-```
-
-## 9. (Optional) Note the new module in `project-structure.md`
+## 8. (Optional) Note the new module in `project-structure.md`
 
 If you added a new top-level directory under `internal/modules/` or `internal/adapters/`, a one-line addition to [Project & Coding Structure](project-structure.md)'s tree keeps it useful for the next reader — but this is a courtesy, not a gate. Don't hold up a PR for it, and don't feel obligated to hunt down every doc that might now be one module short; the tree already says it's a snapshot, not a live listing.
 
-## 10. Verify
+## 9. Verify
 
 ```bash
 gofmt -l . && go vet ./... && go build ./... && go test ./...

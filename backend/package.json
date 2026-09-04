@@ -1,0 +1,12 @@
+{
+  "name": "artmission-backend-tooling",
+  "private": true,
+  "description": "Node-only dev tooling for the Go backend. Not part of the served app.",
+  "type": "module",
+  "scripts": {
+    "report": "node scripts/gen-report.js"
+  },
+  "devDependencies": {
+    "cucumber-html-reporter": "7.2.0"
+  }
+}

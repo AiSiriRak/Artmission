@@ -27,8 +27,7 @@ Unknown/unexpected errors (a plain `error` that isn't an `*apperror.Error`) shou
 ## Testing
 
 - **Usecases get unit tests with hand-written in-memory fakes** — `internal/modules/<module>/usecase_test.go`, faking the module's own port interfaces (e.g. `fakeRepo` implementing `UserRepository` with a `map[string]*User`). No mocking framework, no code generation: a fake is a ~15-line struct. Fast (milliseconds), no Docker, runs in every `go test ./...`.
-- **No repository-level Go tests today.** Real-Postgres correctness (constraint violations, query correctness) is the job of the course-mandated Cucumber/godog BDD suite once it exists, driven through the real HTTP API against a real dockerized Postgres — not duplicated in a second, parallel Go integration-test layer.
-  - `TODO(bdd):` once Cucumber BDD suite exists and covers register/login/refresh/logout/hiring-history, delete this bullet and replace it with a pointer to wherever it lives (e.g. `tests/features/*.feature`).
+- **HTTP-level behavior gets a Cucumber/godog BDD suite** — real Postgres, real handlers, no mocks. See [Testing](testing.md).
 - Table-driven tests where the cases are genuinely parallel (see `usecase_test.go` files for the shape); don't force a single "happy path only" test into a table just for consistency.
 
 ## Postgres adapters (bun)
@@ -54,4 +53,4 @@ Unknown/unexpected errors (a plain `error` that isn't an `*apperror.Error`) shou
 
 ## Wiring
 
-All object construction happens by hand in one place, `cmd/cmd_serve.go`, in dependency order: adapters → usecases → handlers → server. No DI container, no `init()` magic. If you add a module, add its wiring here in the same order as everything else — see [Adding a Feature](adding-a-feature.md).
+All object construction happens by hand in one place, `internal/wiring.Wire` (`internal/wiring/wiring.go`), in dependency order: adapters → usecases → handlers → server. Both `cmd/cmd_serve.go` (the real server) and `tests/internal/apptest` (the BDD suite's in-process server) call it, so their object graphs can never diverge. No DI container, no `init()` magic. If you add a module, add its wiring here in the same order as everything else — see [Adding a Feature](adding-a-feature.md).

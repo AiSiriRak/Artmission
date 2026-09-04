@@ -13,6 +13,8 @@ backend/
 │   └── cmd_migrate.go                `migrate up|down|reset|create`: goose wrapper
 │
 ├── internal/
+│   ├── wiring/                      the composition root — Wire() builds every adapter/usecase/handler, called by both cmd_serve.go and tests/internal/apptest
+│   │
 │   ├── modules/                    the domain — one directory per bounded concern, see below
 │   │   ├── user/                     account identity + credentials
 │   │   ├── auth/                     session/token lifecycle (login, refresh, logout)
@@ -71,7 +73,6 @@ Not one file per module like the other layers — instead:
 | `httperror.go` | `mapAppError` — the one place an `apperror.Code` becomes an HTTP status, shared by every handler. |
 | `middleware.go` | `requireAuth`/`requireRole` — huma per-operation middleware, attached only to routes that need them. |
 | `requestctx.go` | `AuthInfo` — what `requireAuth` injects into the request context, and how handlers read it back out. |
-| `router.go` | `RegisterRoutes` — the one function `cmd_serve.go` calls to wire every handler's routes onto the API. |
 
 ## Looking for X? It's in Y.
 
@@ -84,5 +85,5 @@ Not one file per module like the other layers — instead:
 | Config keys / env var overrides | `internal/pkg/config/config.yaml` (schema+defaults), `.env.example` (local overrides) |
 | Request-id/logging/CORS/panic-recovery | `internal/pkg/httpserver/{middleware,cors}.go` |
 | Auth/role guards on a specific route | `internal/handler/rest/middleware.go`, then that route's `huma.Operation.Middlewares` |
-| App wiring / "how does it all connect" | `cmd/cmd_serve.go` — read top to bottom |
+| App wiring / "how does it all connect" | `internal/wiring/wiring.go` — read top to bottom |
 | Error codes / how a domain error becomes an HTTP status | `internal/pkg/apperror`, `mapAppError` in `internal/handler/rest/httperror.go` |

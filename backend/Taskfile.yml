@@ -41,4 +41,35 @@ tasks:
   test:
     desc: runs the test suite
     cmds:
-      - go test ./... -v
+      - go test ./... -v {{.CLI_ARGS}}
+
+  test-bdd:
+    desc: runs the cucumber/godog BDD suite
+    cmds:
+      - task: test-bdd-run
+
+  test-bdd-report:
+    desc: runs the BDD suite and generates a merged HTML report at reports/cucumber-report.html (unlike test-bdd, this doesn't fail fast, since the point is to see what broke)
+    cmds:
+      - task: test-bdd-run
+        ignore_error: true
+      - task: npm-install
+      - node scripts/gen-report.js
+
+  test-bdd-run:
+    internal: true
+    cmds:
+      - rm -rf reports/json
+      - mkdir -p reports/json
+      - go test -tags=integration ./tests/... -v {{.CLI_ARGS}}
+
+  npm-install:
+    internal: true
+    sources:
+      - package.json
+      - package-lock.json
+    generates:
+      - node_modules/.install-stamp
+    cmds:
+      - npm install --no-fund --no-audit
+      - cp package-lock.json node_modules/.install-stamp

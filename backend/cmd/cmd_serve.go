@@ -7,18 +7,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres"
-	"github.com/AiSiriRak/Artmission/backend/internal/adapters/token"
-	"github.com/AiSiriRak/Artmission/backend/internal/handler/rest"
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/artist"
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
-	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/database"
-	"github.com/AiSiriRak/Artmission/backend/internal/pkg/httpserver"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/logger"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/migrations"
+	"github.com/AiSiriRak/Artmission/backend/internal/wiring"
 	"github.com/pressly/goose/v3"
 	"github.com/spf13/cobra"
 )
@@ -43,25 +35,7 @@ var serveCmd = &cobra.Command{
 			return err
 		}
 
-		// --- wire adapters -> modules -> handlers ---
-		userRepo := postgres.NewUserRepository(db)
-		bankRepo := postgres.NewBankAccountRepository(db)
-		artistRepo := postgres.NewArtistRepository(db)
-		sessionRepo := postgres.NewSessionRepository(db)
-		orderRepo := postgres.NewOrderRepository(db)
-		tokenIssuer := token.NewJWTIssuer(cfg.Auth().JWTSecret)
-		tx := baserepo.NewTransactioner(db)
-
-		artistUsecase := artist.NewProfileUsecase(artistRepo)
-		userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, tx)
-		authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth().AccessTokenTTL, cfg.Auth().RefreshTokenTTL)
-		orderUsecase := order.NewOrderUsecase(orderRepo)
-
-		authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App().BasePath, cfg.App().IsProduction, cfg.Auth().RefreshCookieDomain)
-		orderHandler := rest.NewOrderHandler(orderUsecase, authUsecase)
-
-		api, server := httpserver.New(cfg.App().Address, cfg.App().BasePath, cfg.App().AllowedOrigins, log, []httpserver.Pinger{db})
-		rest.RegisterRoutes(api, authHandler, orderHandler)
+		server := wiring.Wire(wiring.Config{DB: db, Logger: log, App: cfg.App(), Auth: cfg.Auth()})
 
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()

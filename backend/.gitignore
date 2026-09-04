@@ -1,4 +1,14 @@
+# Env files
 .env*
 !.env.example
+
+# Air (hot-reload)
 /tmp/
 build-errors.log
+
+# Taskfile
+/.task/
+
+# JS for Cucumber HTML reports
+/node_modules/
+/reports/

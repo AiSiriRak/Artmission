@@ -45,6 +45,15 @@ func New(address, basePath string, allowedOrigins []string, log *slog.Logger, re
 	}
 }
 
+// Handler returns the fully wrapped http.Handler without binding a socket.
+//
+// It exists so tests can drive the real request pipeline in-process via
+// httptest.NewServer instead of calling Start and reaching over a real TCP
+// connection.
+func (s *Server) Handler() http.Handler {
+	return s.http.Handler
+}
+
 // Start runs the server until ctx is cancelled, then shuts down gracefully.
 func (s *Server) Start(ctx context.Context) error {
 	errCh := make(chan error, 1)
