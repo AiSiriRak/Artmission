@@ -1,0 +1,14 @@
+app:
+  address: ":8080"
+  base_path: "/api/v1"
+  allowed_origins: ["http://localhost:3000"]
+  is_production: false
+
+database:
+  dsn: "postgres://user:password@localhost:5432/artmission?sslmode=disable"
+
+auth:
+  jwt_secret: "change-me-to-a-long-random-string"
+  access_token_ttl: "1h"
+  refresh_token_ttl: "168h" # 7 days
+  refresh_cookie_domain: ""

@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: "3"
+
+vars:
+  ENV_FILE: .env
+
+tasks:
+  dev:
+    desc: copies .env.example to .env if missing, starts docker infra, and runs the api with hot reload
+    cmds:
+      - test -f .env || cp .env.example .env
+      - docker compose up -d
+      - go tool air
+
+  down:
+    desc: stops the docker infra
+    cmds:
+      - docker compose down
+
+  migrate-up:
+    desc: applies all available migrations
+    cmds:
+      - go run . --env-file {{.ENV_FILE}} migrate up {{.CLI_ARGS}}
+
+  migrate-down:
+    desc: rolls back a single migration from the current version
+    cmds:
+      - go run . --env-file {{.ENV_FILE}} migrate down {{.CLI_ARGS}}
+
+  migrate-reset:
+    desc: rolls back all migrations
+    cmds:
+      - go run . --env-file {{.ENV_FILE}} migrate reset {{.CLI_ARGS}}
+
+  migrate-create:
+    desc: writes a new blank migration file
+    cmds:
+      - go run . --env-file {{.ENV_FILE}} migrate create {{.CLI_ARGS}}
+
+  test:
+    desc: runs the test suite
+    cmds:
+      - go test ./... -v
