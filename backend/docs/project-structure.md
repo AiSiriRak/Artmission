@@ -45,12 +45,12 @@ Every module follows the same file layout — learn this once, every module read
 | File | Contents |
 |---|---|
 | `entity.go` | The plain domain struct (`User`) and any value types (`Role`). No `bun`/`json` tags — this type is shared by every layer, so it stays free of any one layer's concerns. |
-| `port.go` | Interfaces the module *needs* from the outside (`UserRepository`) — the "driven" ports. |
-| `usecase.go` | The interface the module *offers* (`UserUsecase`) plus its implementation (`userUsecase`) — the "driving" port and the business rules themselves. |
+| `port.go` | Ports the module offers (`UserUsecase`) and needs (`UserRepository`), plus command/result types those ports take (`RegisterInput`). |
+| `usecase.go` | The struct implementing the driving port (`userUsecase`) and the business rules themselves. |
 | `usecase_test.go` | Unit tests for the usecase against a hand-written in-memory fake of the repository — no database. |
 | `errors.go` | Sentinel `apperror.Error` values the module returns (`ErrUserNotFound`, `ErrInvalidCredential`, ...). |
 
-Other modules follow the same shape. `auth` additionally depends on `user.UserUsecase` (not `user.UserRepository`) — see the comment on `AuthUsecase` for why: it reuses `user`'s password-verification logic instead of duplicating it, without reaching around `user`'s own usecase into its repository.
+Other modules follow the same shape. `auth` does not depend on `user.UserUsecase`; it declares a smaller `UserIdentity` port (`Authenticate` + `GetByID`) that `user.UserUsecase` satisfies at wiring time, so auth reuses password-verification without seeing Register or reaching around into `user`'s repository.
 
 ## Anatomy of a Postgres adapter: `internal/adapters/postgres/user_repository.go`
 

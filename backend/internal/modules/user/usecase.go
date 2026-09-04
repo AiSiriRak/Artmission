@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
@@ -9,44 +10,40 @@ import (
 	"github.com/google/uuid"
 )
 
-type RegisterInput struct {
-	Username string
-	Email    string
-	Phone    string
-	Password string
-	Role     Role
-}
-
-// UserUsecase is the driving port other layers (HTTP handlers, other
-// modules) call into.
-type UserUsecase interface {
-	// Register creates a new account. Role must be RoleCustomer or
-	// RoleArtist; RoleAdmin is never accepted here (admins are
-	// seeded/ops-managed, not self-registered).
-	Register(ctx context.Context, in RegisterInput) (*User, error)
-
-	// Authenticate verifies credentials and returns the matching user.
-	// Returns ErrInvalidCredential for both "no such user" and "wrong
-	// password" so a caller cannot distinguish account existence from a
-	// timing/response difference.
-	Authenticate(ctx context.Context, username, password string) (*User, error)
-
-	// GetByID looks up a user by id, used by modules/auth to rehydrate the
-	// user for a valid session (e.g. on refresh).
-	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
-}
-
 type userUsecase struct {
-	repo UserRepository
+	repo            UserRepository
+	bankRepo        BankAccountRepository
+	artistRegistrar ArtistRegistrar
+	tx              Transactioner
 }
 
-func NewUserUsecase(repo UserRepository) UserUsecase {
-	return &userUsecase{repo: repo}
+func NewUserUsecase(
+	repo UserRepository,
+	bankRepo BankAccountRepository,
+	artistRegistrar ArtistRegistrar,
+	tx Transactioner,
+) UserUsecase {
+	return &userUsecase{
+		repo:            repo,
+		bankRepo:        bankRepo,
+		artistRegistrar: artistRegistrar,
+		tx:              tx,
+	}
 }
 
 func (u *userUsecase) Register(ctx context.Context, in RegisterInput) (*User, error) {
 	if in.Role != RoleCustomer && in.Role != RoleArtist {
 		return nil, ErrInvalidRole
+	}
+	if in.Role == RoleArtist {
+		if in.Artist == nil || strings.TrimSpace(in.Artist.Description) == "" {
+			return nil, ErrArtistDescriptionRequired
+		}
+	} else if in.Artist != nil {
+		return nil, ErrArtistFieldsNotAllowed
+	}
+	if strings.TrimSpace(in.BankAccount.BankName) == "" || strings.TrimSpace(in.BankAccount.AccountNumber) == "" {
+		return nil, ErrBankAccountRequired
 	}
 
 	hash, err := security.HashPassword(in.Password)
@@ -57,16 +54,37 @@ func (u *userUsecase) Register(ctx context.Context, in RegisterInput) (*User, er
 	now := time.Now()
 	newUser := &User{
 		ID:           uuid.New(),
-		Username:     in.Username,
-		Email:        in.Email,
-		Phone:        in.Phone,
+		Username:     strings.TrimSpace(in.Username),
+		Email:        strings.TrimSpace(in.Email),
+		FirstName:    strings.TrimSpace(in.FirstName),
+		LastName:     strings.TrimSpace(in.LastName),
+		PhoneNumber:  strings.TrimSpace(in.PhoneNumber),
 		PasswordHash: hash,
 		Role:         in.Role,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
+	bank := &BankAccount{
+		UserID:        newUser.ID,
+		BankName:      strings.TrimSpace(in.BankAccount.BankName),
+		AccountNumber: strings.TrimSpace(in.BankAccount.AccountNumber),
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
 
-	if err := u.repo.Create(ctx, newUser); err != nil {
+	err = u.tx.Transaction(ctx, func(ctx context.Context) error {
+		if err := u.repo.Create(ctx, newUser); err != nil {
+			return err
+		}
+		if err := u.bankRepo.Create(ctx, bank); err != nil {
+			return err
+		}
+		if in.Role == RoleArtist {
+			return u.artistRegistrar.CreateProfile(ctx, newUser.ID, strings.TrimSpace(in.Artist.Description))
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	return newUser, nil

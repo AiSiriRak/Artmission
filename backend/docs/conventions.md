@@ -38,6 +38,14 @@ Unknown/unexpected errors (a plain `error` that isn't an `*apperror.Error`) shou
 - Repositories depend on `baserepo.Executor`, never `*bun.DB` directly — this is what lets a repository's queries transparently join an ambient transaction (via `baserepo.Transactioner`) without threading a `tx` parameter through every method.
 - Generic CRUD (`Create`/`FindByID`/`ExistsByID`/`UpdateByID`/`DeleteByID`) is provided by `baserepo.BaseRepo[M]` — don't hand-write it again; embed/wrap it and add only the domain-specific queries (lookups by other columns, listings) alongside it.
 
+## REST handlers (huma)
+
+- Register each route with the verb-specific helper (`huma.Get`/`huma.Post`/`huma.Put`/...), not the lower-level `huma.Register{Operation}` — the HTTP method lives in the call, not a string field that can drift from it.
+- `OperationID`: kebab-case, stable (drives generated client function names / OpenAPI `operationId`) — e.g. `view-hiring-history`.
+- `Summary`: short PascalCase identifier matching the handler method it wraps, e.g. `ViewHiringHistory` for `h.viewHiringHistory`. This is what request-naming tools (Bruno, Postman, generated SDKs) use as the request's display name — keep it a name, not a sentence.
+- `Description`: the human sentence (what used to live in `Summary`), e.g. `"View the authenticated customer's hiring history"`.
+- `Tags`: one per module (`"auth"`, `"orders"`, ...) — groups operations in the generated docs UI and in codegen output.
+
 ## Config
 
 - Schema and safe defaults live in one committed file: `internal/pkg/config/config.yaml`, embedded into the binary.

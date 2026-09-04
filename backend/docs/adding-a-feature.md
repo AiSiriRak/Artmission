@@ -32,7 +32,7 @@ type Profile struct {
 
 ## 2. Port — `internal/modules/artist/port.go`
 
-The interface the module *needs* from the outside (persistence). Nothing here knows Postgres exists.
+The interfaces the module *offers* (`ProfileUsecase`) and *needs* (`ProfileRepository`), plus any command types those ports take. Nothing here knows Postgres exists.
 
 ```go
 package artist
@@ -42,6 +42,11 @@ import (
 
 	"github.com/google/uuid"
 )
+
+type ProfileUsecase interface {
+	GetMyProfile(ctx context.Context, userID uuid.UUID) (*Profile, error)
+	UpdateMyProfile(ctx context.Context, userID uuid.UUID, bio, category, style string) (*Profile, error)
+}
 
 type ProfileRepository interface {
 	Create(ctx context.Context, p *Profile) error
@@ -64,29 +69,24 @@ var ErrProfileNotFound = apperror.NotFound("artist profile not found")
 
 ## 4. Usecase + test — `internal/modules/artist/usecase.go`
 
-The interface the module *offers*, its implementation, and the business rule (here: a profile can only be created for a user with `Role == user.RoleArtist`).
+The implementation of the driving port, and the business rule (here: a profile can only be created for a user with `Role == user.RoleArtist`).
 
 ```go
 package artist
 
 import (
 	"context"
+	"time"
 
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
+	"github.com/google/uuid"
 )
 
-type ProfileUsecase interface {
-	GetMyProfile(ctx context.Context, userID uuid.UUID) (*Profile, error)
-	UpdateMyProfile(ctx context.Context, userID uuid.UUID, bio, category, style string) (*Profile, error)
-}
-
 type profileUsecase struct {
-	repo        ProfileRepository
-	userUsecase user.UserUsecase
+	repo ProfileRepository
 }
 
-func NewProfileUsecase(repo ProfileRepository, userUsecase user.UserUsecase) ProfileUsecase {
-	return &profileUsecase{repo: repo, userUsecase: userUsecase}
+func NewProfileUsecase(repo ProfileRepository) ProfileUsecase {
+	return &profileUsecase{repo: repo}
 }
 
 // ... GetMyProfile / UpdateMyProfile implementations
@@ -135,7 +135,7 @@ Add the table's migration alongside it: `task migrate-create -- create_artist_pr
 
 ## 6. REST handler — `internal/handler/rest/artist_handler.go`
 
-Owns request/response DTOs and huma operation registration. Follows `auth_handler.go`'s shape: a `*ArtistHandler` struct, a `Register(api huma.API)` method, one method per operation.
+Owns request/response DTOs and huma operation registration. Follows `auth_handler.go`'s shape: a `*ArtistHandler` struct, a `Register(api huma.API)` method, one method per operation, registered with `huma.Get`/`huma.Post`/etc.
 
 ```go
 package rest
@@ -148,26 +148,29 @@ import (
 )
 
 type ArtistHandler struct {
-	profileUC artist.ProfileUsecase
+	profileUsecase artist.ProfileUsecase
 }
 
-func NewArtistHandler(profileUC artist.ProfileUsecase) *ArtistHandler {
-	return &ArtistHandler{profileUC: profileUC}
+func NewArtistHandler(profileUsecase artist.ProfileUsecase) *ArtistHandler {
+	return &ArtistHandler{profileUsecase: profileUsecase}
 }
 
 func (h *ArtistHandler) Register(api huma.API) {
-	huma.Register(api, huma.Operation{
-		OperationID: "get-my-artist-profile",
-		Method:      "GET",
-		Path:        "/artists/me",
-		Middlewares: huma.Middlewares{requireAuth(api, h.authUC), requireRole(api, user.RoleArtist)},
-	}, h.getMyProfile)
+	huma.Get(api, "/artists/me", h.getMyProfile,
+		huma.OperationTags("artists"),
+        func(o *huma.Operation) {
+            o.OperationID = "get-my-artist-profile"
+            o.Summary = "GetMyArtistProfile"
+            o.Description = "Get the authenticated artist's own profile"
+            o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireRole(api, user.RoleArtist))
+        },
+    )
 
 	// PUT /artists/me follows the same shape.
 }
 
 // getMyProfile: decode nothing (userID comes from AuthInfo via requestctx.go),
-// call h.profileUC.GetMyProfile, map *artist.Profile -> a DTO, map errors via mapAppError.
+// call h.profileUsecase.GetMyProfile, map *artist.Profile -> a DTO, map errors via mapAppError.
 ```
 
 Auth-guarded routes attach `requireAuth`/`requireRole` per-operation (not globally) — see `internal/handler/rest/middleware.go`.

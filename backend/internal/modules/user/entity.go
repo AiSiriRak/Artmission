@@ -1,8 +1,4 @@
-// Package user owns account identity and credentials: the User entity, its
-// persistence port, and the usecases for registration and credential
-// verification. Session/token concerns belong to modules/auth, which
-// depends on this package's UserUsecase rather than duplicating password
-// logic.
+// Package user owns account identity and credentials.
 package user
 
 import (
@@ -25,9 +21,19 @@ type User struct {
 	ID           uuid.UUID
 	Username     string
 	Email        string
-	Phone        string
+	FirstName    string
+	LastName     string
+	PhoneNumber  string
 	PasswordHash string
 	Role         Role
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+}
+
+type BankAccount struct {
+	UserID        uuid.UUID
+	BankName      string
+	AccountNumber string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }

@@ -22,14 +22,17 @@ import (
 type userModel struct {
 	bun.BaseModel `bun:"table:users,alias:u"`
 
-	ID           uuid.UUID `bun:"id,pk"`
-	Username     string    `bun:"username"`
-	Email        string    `bun:"email"`
-	Phone        string    `bun:"phone"`
-	PasswordHash string    `bun:"password_hash"`
-	Role         string    `bun:"role"`
-	CreatedAt    time.Time `bun:"created_at,nullzero"`
-	UpdatedAt    time.Time `bun:"updated_at,nullzero"`
+	ID           uuid.UUID  `bun:"id,pk"`
+	Username     string     `bun:"username"`
+	Email        string     `bun:"email"`
+	FirstName    string     `bun:"first_name"`
+	LastName     string     `bun:"last_name"`
+	PhoneNumber  string     `bun:"phone_number"`
+	PasswordHash string     `bun:"password_hash"`
+	Role         string     `bun:"role"`
+	CreatedAt    time.Time  `bun:"created_at,nullzero"`
+	UpdatedAt    time.Time  `bun:"updated_at,nullzero"`
+	DeletedAt    *time.Time `bun:"deleted_at,soft_delete,nullzero"`
 }
 
 func newUserModel(u *user.User) *userModel {
@@ -37,7 +40,9 @@ func newUserModel(u *user.User) *userModel {
 		ID:           u.ID,
 		Username:     u.Username,
 		Email:        u.Email,
-		Phone:        u.Phone,
+		FirstName:    u.FirstName,
+		LastName:     u.LastName,
+		PhoneNumber:  u.PhoneNumber,
 		PasswordHash: u.PasswordHash,
 		Role:         string(u.Role),
 		CreatedAt:    u.CreatedAt,
@@ -50,7 +55,9 @@ func (m *userModel) toDomain() *user.User {
 		ID:           m.ID,
 		Username:     m.Username,
 		Email:        m.Email,
-		Phone:        m.Phone,
+		FirstName:    m.FirstName,
+		LastName:     m.LastName,
+		PhoneNumber:  m.PhoneNumber,
 		PasswordHash: m.PasswordHash,
 		Role:         user.Role(m.Role),
 		CreatedAt:    m.CreatedAt,

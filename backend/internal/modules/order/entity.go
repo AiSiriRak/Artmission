@@ -13,24 +13,33 @@ import (
 type Status string
 
 const (
-	StatusPending    Status = "PENDING"
-	StatusInProgress Status = "IN_PROGRESS"
-	StatusComplete   Status = "COMPLETE"
-	StatusCancelled  Status = "CANCELLED"
+	StatusPending   Status = "PENDING"
+	StatusNotPaid   Status = "NOT_PAID"
+	StatusInProcess Status = "IN_PROCESS"
+	StatusSuccess   Status = "SUCCESS"
+	StatusCancel    Status = "CANCEL"
 )
+
+type Category struct {
+	ID    uuid.UUID
+	Label string
+}
+
+type Style struct {
+	ID    uuid.UUID
+	Label string
+}
 
 type Order struct {
 	ID          uuid.UUID
 	CustomerID  uuid.UUID
 	ArtistID    uuid.UUID
 	Description string
-	Category    string
-	Style       string
-	// Price is a nullable pointer (unlike Category/Style, an empty-string
-	// zero-value isn't a safe stand-in for "no price": 0 is itself a valid
-	// price). float64 for now since this slice never writes it (only reads
-	// existing rows); revisit as a fixed-point/decimal type once order
-	// creation and payment (EPIC 6/7) do money arithmetic here.
+	Category    *Category
+	Style       *Style
+	// Price is a nullable pointer: 0 is itself a valid price. float64 for now
+	// since this slice never writes it; revisit as fixed-point/decimal once
+	// order creation and payment (EPIC 6/7) do money arithmetic here.
 	Price       *float64
 	Status      Status
 	Deadline    *time.Time

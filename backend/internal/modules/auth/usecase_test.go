@@ -14,31 +14,27 @@ import (
 
 // --- fakes ---
 
-type fakeUserUsecase struct {
+type fakeUserIdentity struct {
 	byUsername map[string]*user.User
 	byID       map[uuid.UUID]*user.User
 	passwords  map[string]string
 }
 
-func newFakeUserUsecase() *fakeUserUsecase {
-	return &fakeUserUsecase{
+func newFakeUserIdentity() *fakeUserIdentity {
+	return &fakeUserIdentity{
 		byUsername: map[string]*user.User{},
 		byID:       map[uuid.UUID]*user.User{},
 		passwords:  map[string]string{},
 	}
 }
 
-func (f *fakeUserUsecase) addUser(u *user.User, password string) {
+func (f *fakeUserIdentity) addUser(u *user.User, password string) {
 	f.byUsername[u.Username] = u
 	f.byID[u.ID] = u
 	f.passwords[u.Username] = password
 }
 
-func (f *fakeUserUsecase) Register(context.Context, user.RegisterInput) (*user.User, error) {
-	panic("not used by auth usecase tests")
-}
-
-func (f *fakeUserUsecase) Authenticate(_ context.Context, username, password string) (*user.User, error) {
+func (f *fakeUserIdentity) Authenticate(_ context.Context, username, password string) (*user.User, error) {
 	u, ok := f.byUsername[username]
 	if !ok || f.passwords[username] != password {
 		return nil, user.ErrInvalidCredential
@@ -46,7 +42,7 @@ func (f *fakeUserUsecase) Authenticate(_ context.Context, username, password str
 	return u, nil
 }
 
-func (f *fakeUserUsecase) GetByID(_ context.Context, id uuid.UUID) (*user.User, error) {
+func (f *fakeUserIdentity) GetByID(_ context.Context, id uuid.UUID) (*user.User, error) {
 	u, ok := f.byID[id]
 	if !ok {
 		return nil, user.ErrUserNotFound
@@ -54,7 +50,7 @@ func (f *fakeUserUsecase) GetByID(_ context.Context, id uuid.UUID) (*user.User, 
 	return u, nil
 }
 
-var _ user.UserUsecase = (*fakeUserUsecase)(nil)
+var _ UserIdentity = (*fakeUserIdentity)(nil)
 
 type fakeSessionRepo struct {
 	sessions map[uuid.UUID]*Session
@@ -138,12 +134,12 @@ var _ TokenIssuer = (*fakeTokenIssuer)(nil)
 
 // --- test setup ---
 
-func newTestAuthUsecase() (*authUsecase, *fakeUserUsecase, *fakeSessionRepo, *fakeTokenIssuer) {
-	userUsecase := newFakeUserUsecase()
+func newTestAuthUsecase() (*authUsecase, *fakeUserIdentity, *fakeSessionRepo, *fakeTokenIssuer) {
+	users := newFakeUserIdentity()
 	sessionRepo := newFakeSessionRepo()
 	tokenIssuer := newFakeTokenIssuer()
-	usecase := NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, time.Hour, 7*24*time.Hour).(*authUsecase)
-	return usecase, userUsecase, sessionRepo, tokenIssuer
+	usecase := NewAuthUsecase(users, sessionRepo, tokenIssuer, time.Hour, 7*24*time.Hour).(*authUsecase)
+	return usecase, users, sessionRepo, tokenIssuer
 }
 
 var alice = &user.User{ID: uuid.New(), Username: "alice", Role: user.RoleCustomer}

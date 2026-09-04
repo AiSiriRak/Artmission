@@ -12,18 +12,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// AuthUsecase is the driving port for session lifecycle. Authenticate is
-// used only by the HTTP auth middleware to validate an incoming request; it
-// is not part of any user-facing feature.
-type AuthUsecase interface {
-	Login(ctx context.Context, username, password string) (*AuthResult, error)
-	Refresh(ctx context.Context, refreshToken string) (*AuthResult, error)
-	Logout(ctx context.Context, sessionID uuid.UUID) error
-	Authenticate(ctx context.Context, accessToken string) (*TokenClaims, error)
-}
-
 type authUsecase struct {
-	userUsecase     user.UserUsecase
+	users           UserIdentity
 	sessionRepo     SessionRepository
 	tokenIssuer     TokenIssuer
 	accessTokenTTL  time.Duration
@@ -32,14 +22,14 @@ type authUsecase struct {
 }
 
 func NewAuthUsecase(
-	userUsecase user.UserUsecase,
+	users UserIdentity,
 	sessionRepo SessionRepository,
 	tokenIssuer TokenIssuer,
 	accessTokenTTL time.Duration,
 	refreshTokenTTL time.Duration,
 ) AuthUsecase {
 	return &authUsecase{
-		userUsecase:     userUsecase,
+		users:           users,
 		sessionRepo:     sessionRepo,
 		tokenIssuer:     tokenIssuer,
 		accessTokenTTL:  accessTokenTTL,
@@ -49,7 +39,7 @@ func NewAuthUsecase(
 }
 
 func (u *authUsecase) Login(ctx context.Context, username, password string) (*AuthResult, error) {
-	found, err := u.userUsecase.Authenticate(ctx, username, password)
+	found, err := u.users.Authenticate(ctx, username, password)
 	if err != nil {
 		if err == user.ErrInvalidCredential {
 			return nil, ErrInvalidCredential
@@ -73,7 +63,7 @@ func (u *authUsecase) Refresh(ctx context.Context, refreshToken string) (*AuthRe
 		return nil, err
 	}
 
-	found, err := u.userUsecase.GetByID(ctx, claims.UserID)
+	found, err := u.users.GetByID(ctx, claims.UserID)
 	if err != nil {
 		return nil, ErrSessionNotFound
 	}
