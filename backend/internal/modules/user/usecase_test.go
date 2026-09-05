@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/security"
@@ -67,17 +68,17 @@ func (f *fakeBankRepo) Create(_ context.Context, ba *user.BankAccount) error {
 	return nil
 }
 
-func (f *fakeBankRepo) UpsertByUserID(_ context.Context, ba *user.BankAccount) error {
+func (f *fakeBankRepo) UpsertByUserID(_ context.Context, ba *user.BankAccount) (*user.BankAccount, error) {
 	f.upsertCalls++
 	if f.upsertErr != nil {
-		return f.upsertErr
+		return nil, f.upsertErr
 	}
 	cp := *ba
 	if existing, ok := f.byUserID[ba.UserID]; ok {
 		cp.CreatedAt = existing.CreatedAt
 	}
 	f.byUserID[ba.UserID] = &cp
-	return nil
+	return &cp, nil
 }
 
 var _ user.BankAccountRepository = (*fakeBankRepo)(nil)
@@ -246,6 +247,7 @@ func TestUpdateBankAccount_ReplacesAndTrimsDetails(t *testing.T) {
 		UserID:        userID,
 		BankName:      "Old Bank",
 		AccountNumber: "000000",
+		CreatedAt:     time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC),
 	}
 	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
 
@@ -261,6 +263,9 @@ func TestUpdateBankAccount_ReplacesAndTrimsDetails(t *testing.T) {
 	}
 	if got.UpdatedAt.IsZero() {
 		t.Error("UpdateBankAccount() did not set UpdatedAt")
+	}
+	if want := bank.byUserID[userID].CreatedAt; !got.CreatedAt.Equal(want) {
+		t.Errorf("UpdateBankAccount() CreatedAt = %v, want persisted value %v", got.CreatedAt, want)
 	}
 	if bank.upsertCalls != 1 {
 		t.Errorf("UpsertByUserID calls = %d, want 1", bank.upsertCalls)

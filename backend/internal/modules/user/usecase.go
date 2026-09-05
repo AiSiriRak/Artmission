@@ -125,8 +125,5 @@ func (u *userUsecase) UpdateBankAccount(ctx context.Context, userID uuid.UUID, r
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
-	if err := u.bankRepo.UpsertByUserID(ctx, bank); err != nil {
-		return nil, err
-	}
-	return bank, nil
+	return u.bankRepo.UpsertByUserID(ctx, bank)
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/cucumber/godog"
@@ -13,15 +14,23 @@ import (
 )
 
 type usersContext struct {
-	client      *apptest.Client
-	account     apptest.Account
-	accessToken string
-	resp        *apptest.Response
+	client       *apptest.Client
+	account      apptest.Account
+	accessToken  string
+	originalBank *bankAccountRecord
+	resp         *apptest.Response
 }
 
 type bankAccountBody struct {
 	BankName      string `json:"bank_name"`
 	AccountNumber string `json:"account_number"`
+}
+
+type bankAccountRecord struct {
+	BankName      string    `bun:"bank_name"`
+	AccountNumber string    `bun:"account_number"`
+	CreatedAt     time.Time `bun:"created_at"`
+	UpdatedAt     time.Time `bun:"updated_at"`
 }
 
 func (u *usersContext) theUserHasARegisteredAccount() error {
@@ -30,6 +39,11 @@ func (u *usersContext) theUserHasARegisteredAccount() error {
 		return err
 	}
 	u.account = account
+	bank, err := u.loadBankAccount()
+	if err != nil {
+		return err
+	}
+	u.originalBank = bank
 	return nil
 }
 
@@ -48,7 +62,23 @@ func (u *usersContext) theUserHasNoSavedBankAccount() error {
 		return fmt.Errorf("parse fixture user ID: %w", err)
 	}
 	_, err = app.DB.NewDelete().Table("bank_accounts").Where("user_id = ?", userID).Exec(context.Background())
+	if err == nil {
+		u.originalBank = nil
+	}
 	return err
+}
+
+func (u *usersContext) loadBankAccount() (*bankAccountRecord, error) {
+	userID, err := uuid.Parse(u.account.ID)
+	if err != nil {
+		return nil, fmt.Errorf("parse fixture user ID: %w", err)
+	}
+	bank := new(bankAccountRecord)
+	err = app.DB.NewSelect().Table("bank_accounts").Column("bank_name", "account_number", "created_at", "updated_at").Where("user_id = ?", userID).Scan(context.Background(), bank)
+	if err != nil {
+		return nil, err
+	}
+	return bank, nil
 }
 
 func (u *usersContext) theUserUpdatesTheirBankAccountWithValidDetails() error {
@@ -86,6 +116,24 @@ func (u *usersContext) theSystemSavesTheUpdatedBankAccountDetails() error {
 	}
 	if body.BankName != "Kasikorn" || body.AccountNumber != "1234567890" {
 		return fmt.Errorf("unexpected updated bank account: %+v", body)
+	}
+	bank, err := u.loadBankAccount()
+	if err != nil {
+		return fmt.Errorf("read persisted bank account: %w", err)
+	}
+	if bank.BankName != "Kasikorn" || bank.AccountNumber != "1234567890" {
+		return fmt.Errorf("unexpected persisted bank account: %+v", bank)
+	}
+	if bank.CreatedAt.IsZero() || bank.UpdatedAt.IsZero() {
+		return fmt.Errorf("expected persisted timestamps, got %+v", bank)
+	}
+	if u.originalBank != nil {
+		if !bank.CreatedAt.Equal(u.originalBank.CreatedAt) {
+			return fmt.Errorf("created_at changed from %v to %v", u.originalBank.CreatedAt, bank.CreatedAt)
+		}
+		if !bank.UpdatedAt.After(u.originalBank.UpdatedAt) {
+			return fmt.Errorf("updated_at = %v, want after %v", bank.UpdatedAt, u.originalBank.UpdatedAt)
+		}
 	}
 	return nil
 }

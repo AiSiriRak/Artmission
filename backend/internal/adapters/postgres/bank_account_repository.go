@@ -31,6 +31,16 @@ func newBankAccountModel(ba *user.BankAccount) *bankAccountModel {
 	}
 }
 
+func (m *bankAccountModel) toDomain() *user.BankAccount {
+	return &user.BankAccount{
+		UserID:        m.UserID,
+		BankName:      m.BankName,
+		AccountNumber: m.AccountNumber,
+		CreatedAt:     m.CreatedAt,
+		UpdatedAt:     m.UpdatedAt,
+	}
+}
+
 type bankAccountRepository struct {
 	exec baserepo.Executor
 }
@@ -52,19 +62,21 @@ func (r *bankAccountRepository) Create(ctx context.Context, ba *user.BankAccount
 	return nil
 }
 
-func (r *bankAccountRepository) UpsertByUserID(ctx context.Context, ba *user.BankAccount) error {
+func (r *bankAccountRepository) UpsertByUserID(ctx context.Context, ba *user.BankAccount) (*user.BankAccount, error) {
+	model := newBankAccountModel(ba)
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		_, err := idb.NewInsert().
-			Model(newBankAccountModel(ba)).
+			Model(model).
 			On("CONFLICT (user_id) DO UPDATE").
 			Set("bank_name = EXCLUDED.bank_name").
 			Set("account_number = EXCLUDED.account_number").
 			Set("updated_at = EXCLUDED.updated_at").
+			Returning("*").
 			Exec(ctx)
 		return err
 	})
 	if err != nil {
-		return apperror.Internal("failed to upsert bank account", err)
+		return nil, apperror.Internal("failed to upsert bank account", err)
 	}
-	return nil
+	return model.toDomain(), nil
 }

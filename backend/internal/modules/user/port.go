@@ -28,7 +28,7 @@ type UserRepository interface {
 
 type BankAccountRepository interface {
 	Create(ctx context.Context, ba *BankAccount) error
-	UpsertByUserID(ctx context.Context, ba *BankAccount) error
+	UpsertByUserID(ctx context.Context, ba *BankAccount) (*BankAccount, error)
 }
 
 // ArtistRegistrar is implemented by the artist module and injected at wiring
