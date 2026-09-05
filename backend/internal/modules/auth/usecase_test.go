@@ -15,28 +15,28 @@ import (
 // --- fakes ---
 
 type fakeUserIdentity struct {
-	byUsername map[string]*user.User
-	byID       map[uuid.UUID]*user.User
-	passwords  map[string]string
+	byEmail   map[string]*user.User
+	byID      map[uuid.UUID]*user.User
+	passwords map[string]string
 }
 
 func newFakeUserIdentity() *fakeUserIdentity {
 	return &fakeUserIdentity{
-		byUsername: map[string]*user.User{},
-		byID:       map[uuid.UUID]*user.User{},
-		passwords:  map[string]string{},
+		byEmail:   map[string]*user.User{},
+		byID:      map[uuid.UUID]*user.User{},
+		passwords: map[string]string{},
 	}
 }
 
 func (f *fakeUserIdentity) addUser(u *user.User, password string) {
-	f.byUsername[u.Username] = u
+	f.byEmail[u.Email] = u
 	f.byID[u.ID] = u
-	f.passwords[u.Username] = password
+	f.passwords[u.Email] = password
 }
 
-func (f *fakeUserIdentity) Authenticate(_ context.Context, username, password string) (*user.User, error) {
-	u, ok := f.byUsername[username]
-	if !ok || f.passwords[username] != password {
+func (f *fakeUserIdentity) Authenticate(_ context.Context, email, password string) (*user.User, error) {
+	u, ok := f.byEmail[email]
+	if !ok || f.passwords[email] != password {
 		return nil, user.ErrInvalidCredential
 	}
 	return u, nil
@@ -142,7 +142,7 @@ func newTestAuthUsecase() (*authUsecase, *fakeUserIdentity, *fakeSessionRepo, *f
 	return usecase, users, sessionRepo, tokenIssuer
 }
 
-var alice = &user.User{ID: uuid.New(), Username: "alice", Role: user.RoleCustomer}
+var alice = &user.User{ID: uuid.New(), Username: "alice", Email: "alice@example.com", Role: user.RoleCustomer}
 
 // --- tests ---
 
@@ -150,7 +150,7 @@ func TestLogin_Success(t *testing.T) {
 	authUsecase, userUsecase, sessionRepo, _ := newTestAuthUsecase()
 	userUsecase.addUser(alice, "secret")
 
-	result, err := authUsecase.Login(context.Background(), "alice", "secret")
+	result, err := authUsecase.Login(context.Background(), alice.Email, "secret")
 	if err != nil {
 		t.Fatalf("Login() error = %v, want nil", err)
 	}
@@ -172,7 +172,7 @@ func TestLogin_WrongPasswordCreatesNoSession(t *testing.T) {
 	uc, userUsecase, sessionRepo, _ := newTestAuthUsecase()
 	userUsecase.addUser(alice, "secret")
 
-	_, err := uc.Login(context.Background(), "alice", "wrong")
+	_, err := uc.Login(context.Background(), alice.Email, "wrong")
 	if !errors.Is(err, ErrInvalidCredential) {
 		t.Errorf("Login() error = %v, want ErrInvalidCredential", err)
 	}
@@ -185,7 +185,7 @@ func TestLogout_InvalidatesSessionImmediately(t *testing.T) {
 	uc, userUsecase, _, tokenIssuer := newTestAuthUsecase()
 	userUsecase.addUser(alice, "secret")
 
-	result, err := uc.Login(context.Background(), "alice", "secret")
+	result, err := uc.Login(context.Background(), alice.Email, "secret")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +211,7 @@ func TestRefresh_RotatesSessionAndInvalidatesOldToken(t *testing.T) {
 	uc, userUsecase, sessionRepo, _ := newTestAuthUsecase()
 	userUsecase.addUser(alice, "secret")
 
-	first, err := uc.Login(context.Background(), "alice", "secret")
+	first, err := uc.Login(context.Background(), alice.Email, "secret")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +237,7 @@ func TestRefresh_RejectsAccessTokenUsedAsRefreshToken(t *testing.T) {
 	uc, userUsecase, _, _ := newTestAuthUsecase()
 	userUsecase.addUser(alice, "secret")
 
-	result, err := uc.Login(context.Background(), "alice", "secret")
+	result, err := uc.Login(context.Background(), alice.Email, "secret")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +257,7 @@ func TestAuthenticate_RejectsExpiredSession(t *testing.T) {
 	usecase.now = func() time.Time { return base }
 	usecase.refreshTokenTTL = -time.Hour // ExpiresAt = base - 1h, already expired
 
-	result, err := usecase.Login(context.Background(), "alice", "secret")
+	result, err := usecase.Login(context.Background(), alice.Email, "secret")
 	if err != nil {
 		t.Fatal(err)
 	}

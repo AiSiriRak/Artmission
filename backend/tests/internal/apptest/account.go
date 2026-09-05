@@ -114,11 +114,11 @@ func registerAccount(app *App, client *Client, body RegisterBody) (Account, erro
 // Login logs in with an existing account through the real HTTP API and
 // returns the access token; the refresh_token cookie is left set on
 // client's own jar.
-func Login(client *Client, username, password string) (string, error) {
+func Login(client *Client, email, password string) (string, error) {
 	body := struct {
-		Username string `json:"username"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
-	}{Username: username, Password: password}
+	}{Email: email, Password: password}
 
 	resp, err := client.Do(http.MethodPost, "/auth/login", body, nil)
 	if err != nil {

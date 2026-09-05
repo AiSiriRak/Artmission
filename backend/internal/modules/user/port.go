@@ -14,14 +14,14 @@ type UserUsecase interface {
 
 	// Authenticate returns ErrInvalidCredential for both "no such user"
 	// and "wrong password" so a caller cannot distinguish account existence.
-	Authenticate(ctx context.Context, username, password string) (*User, error)
+	Authenticate(ctx context.Context, email, password string) (*User, error)
 
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 }
 
 type UserRepository interface {
 	Create(ctx context.Context, u *User) error
-	GetByUsername(ctx context.Context, username string) (*User, error)
+	GetByEmail(ctx context.Context, email string) (*User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 }
 

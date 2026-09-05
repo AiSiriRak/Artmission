@@ -88,16 +88,16 @@ func (r *userRepository) Create(ctx context.Context, u *user.User) error {
 	return apperror.Internal("failed to create user", err)
 }
 
-func (r *userRepository) GetByUsername(ctx context.Context, username string) (*user.User, error) {
+func (r *userRepository) GetByEmail(ctx context.Context, email string) (*user.User, error) {
 	model := new(userModel)
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return idb.NewSelect().Model(model).Where("username = ?", username).Scan(ctx)
+		return idb.NewSelect().Model(model).Where("email = ?", email).Scan(ctx)
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, user.ErrUserNotFound
 		}
-		return nil, apperror.Internal("failed to look up user by username", err)
+		return nil, apperror.Internal("failed to look up user by email", err)
 	}
 	return model.toDomain(), nil
 }

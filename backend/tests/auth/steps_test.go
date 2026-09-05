@@ -56,7 +56,7 @@ func (a *authContext) theUserHasARegisteredAccount() error {
 }
 
 func (a *authContext) theUserHasLoggedIn() error {
-	if err := a.login(a.username, a.password); err != nil {
+	if err := a.login(a.email, a.password); err != nil {
 		return err
 	}
 	if a.resp.StatusCode != http.StatusOK {
@@ -114,22 +114,22 @@ func (a *authContext) doRegister(payload any) error {
 // --- when: login ---
 
 func (a *authContext) theUserLogsInWithValidCredentials() error {
-	return a.login(a.username, a.password)
+	return a.login(a.email, a.password)
 }
 
 func (a *authContext) theUserLogsInWithAnIncorrectPassword() error {
-	return a.login(a.username, wrongPassword)
+	return a.login(a.email, wrongPassword)
 }
 
-func (a *authContext) theUserLogsInWithAnUnknownUsername() error {
-	return a.login(unknownUsername, apptest.FixturePassword)
+func (a *authContext) theUserLogsInWithAnUnknownEmail() error {
+	return a.login(unknownEmail, apptest.FixturePassword)
 }
 
-func (a *authContext) login(username, password string) error {
+func (a *authContext) login(email, password string) error {
 	body := struct {
-		Username string `json:"username"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
-	}{Username: username, Password: password}
+	}{Email: email, Password: password}
 
 	resp, err := a.client.Do(http.MethodPost, "/auth/login", body, nil)
 	if err != nil {
@@ -373,7 +373,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	// when: login
 	sc.Step(`^the user logs in with valid credentials$`, func() error { return a.theUserLogsInWithValidCredentials() })
 	sc.Step(`^the user logs in with an incorrect password$`, func() error { return a.theUserLogsInWithAnIncorrectPassword() })
-	sc.Step(`^the user logs in with an unknown username$`, func() error { return a.theUserLogsInWithAnUnknownUsername() })
+	sc.Step(`^the user logs in with an unknown email$`, func() error { return a.theUserLogsInWithAnUnknownEmail() })
 
 	// when: refresh
 	sc.Step(`^the user refreshes the session$`, func() error { return a.theUserRefreshesTheSession() })

@@ -38,8 +38,8 @@ func NewAuthUsecase(
 	}
 }
 
-func (u *authUsecase) Login(ctx context.Context, username, password string) (*AuthResult, error) {
-	found, err := u.users.Authenticate(ctx, username, password)
+func (u *authUsecase) Login(ctx context.Context, email, password string) (*AuthResult, error) {
+	found, err := u.users.Authenticate(ctx, email, password)
 	if err != nil {
 		if err == user.ErrInvalidCredential {
 			return nil, ErrInvalidCredential

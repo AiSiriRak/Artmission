@@ -12,8 +12,8 @@ import (
 // the register wire shape, so these stay local rather than living in
 // apptest alongside the shared account/register fixtures.
 const (
-	wrongPassword   = "wrong-password-1"
-	unknownUsername = "no-such-user"
+	wrongPassword = "wrong-password-1"
+	unknownEmail  = "nobody@example.com"
 )
 
 // registerFields returns the same valid registration values as

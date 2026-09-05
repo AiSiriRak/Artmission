@@ -46,7 +46,7 @@ func (h *AuthHandler) Register(api huma.API) {
 		func(o *huma.Operation) {
 			o.OperationID = "login"
 			o.Summary = "Login"
-			o.Description = "Log in with username and password"
+			o.Description = "Log in with email and password"
 		},
 	)
 
@@ -122,7 +122,7 @@ func (h *AuthHandler) register(ctx context.Context, in *RegisterInput) (*Registe
 
 type LoginInput struct {
 	Body struct {
-		Username string `json:"username"`
+		Email    string `json:"email" format:"email"`
 		Password string `json:"password"`
 	}
 }
@@ -137,7 +137,7 @@ type LoginOutput struct {
 }
 
 func (h *AuthHandler) login(ctx context.Context, in *LoginInput) (*LoginOutput, error) {
-	result, err := h.authUsecase.Login(ctx, in.Body.Username, in.Body.Password)
+	result, err := h.authUsecase.Login(ctx, in.Body.Email, in.Body.Password)
 	if err != nil {
 		return nil, mapAppError(err)
 	}
