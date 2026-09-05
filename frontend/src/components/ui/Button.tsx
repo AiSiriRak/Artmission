@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   icon?: ReactNode;
-  variant?: "dark" | "light" | "accent-500";
+  variant?: "dark" | "light" | "accent-500" | "red" | "disable";
 }
 
 export function Button({
@@ -11,15 +11,25 @@ export function Button({
   icon,
   className = "",
   variant = "light",
+  disabled,
   ...props
 }: ButtonProps) {
   const variantClass = {
-    light: "rounded-lg bg-white border px-5 py-1 text-button text-primary-500",
-    dark: "rounded-lg bg-primary-500 px-5 py-1 text-button text-white",
-    "accent-500": "rounded-lg bg-accent-500 px-5 py-1 text-button text-white",
+    light: " bg-white border-2  text-primary-500",
+    dark: " bg-primary-500  text-white",
+    "accent-500": " bg-accent-500   text-white",
+    red: " bg-error border-primary-500 border-2   text-white",
+    disable: " bg-neutral-400  border-2 text-white",
   };
+
+  const currentVariant = disabled ? "disable" : variant;
+
   return (
-    <button {...props} className={`${variantClass[variant]} ${className}`}>
+    <button
+      {...props}
+      disabled={disabled}
+      className={`${variantClass[currentVariant]} ${className} text-button px-5 py-2 rounded-lg hover:brightness-90`}
+    >
       {icon && <span>{icon}</span>}
       {children}
     </button>
