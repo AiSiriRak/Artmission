@@ -15,9 +15,6 @@ http:
         "username": "{{username}}",
         "email": "test@example.com",
         "password": "{{password}}",
-        "first_name": "tester",
-        "last_name": "tested",
-        "phone_number": "0123456789",
         "role": "customer",
         "bank_account": {
           "account_number": "1234",
@@ -54,10 +51,7 @@ examples:
               "bank_name": ""
             },
             "email": "",
-            "first_name": "",
-            "last_name": "",
             "password": "",
-            "phone_number": "",
             "role": "customer",
             "username": ""
           }
@@ -85,10 +79,7 @@ examples:
               "bank_name": ""
             },
             "email": "",
-            "first_name": "",
-            "last_name": "",
             "password": "",
-            "phone_number": "",
             "role": "customer",
             "username": ""
           }

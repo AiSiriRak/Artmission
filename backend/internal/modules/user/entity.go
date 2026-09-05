@@ -21,9 +21,6 @@ type User struct {
 	ID           uuid.UUID
 	Username     string
 	Email        string
-	FirstName    string
-	LastName     string
-	PhoneNumber  string
 	PasswordHash string
 	Role         Role
 	CreatedAt    time.Time

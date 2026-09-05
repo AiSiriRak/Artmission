@@ -85,9 +85,6 @@ type registerInputBody struct {
 	Username    string                  `json:"username" minLength:"3" maxLength:"20"`
 	Email       string                  `json:"email" format:"email"`
 	Password    string                  `json:"password" minLength:"8" maxLength:"16"`
-	FirstName   string                  `json:"first_name" minLength:"1"`
-	LastName    string                  `json:"last_name" minLength:"1"`
-	PhoneNumber string                  `json:"phone_number" minLength:"1"`
 	Role        string                  `json:"role" enum:"customer,artist"`
 	BankAccount registerBankAccountBody `json:"bank_account"`
 	Artist      *registerArtistBody     `json:"artist,omitempty"`
@@ -101,13 +98,10 @@ type RegisterOutput struct{}
 
 func (h *AuthHandler) register(ctx context.Context, in *RegisterInput) (*RegisterOutput, error) {
 	input := user.RegisterInput{
-		Username:    in.Body.Username,
-		Email:       in.Body.Email,
-		FirstName:   in.Body.FirstName,
-		LastName:    in.Body.LastName,
-		PhoneNumber: in.Body.PhoneNumber,
-		Password:    in.Body.Password,
-		Role:        user.Role(in.Body.Role),
+		Username: in.Body.Username,
+		Email:    in.Body.Email,
+		Password: in.Body.Password,
+		Role:     user.Role(in.Body.Role),
 		BankAccount: user.BankAccountInput{
 			BankName:      in.Body.BankAccount.BankName,
 			AccountNumber: in.Body.BankAccount.AccountNumber,

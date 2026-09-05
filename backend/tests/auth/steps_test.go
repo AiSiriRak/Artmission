@@ -355,7 +355,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user has logged in$`, func() error { return a.theUserHasLoggedIn() })
 
 	// when: register
-	sc.Step(`^the user registers with a valid username, password, phone number, and email$`, func() error {
+	sc.Step(`^the user registers with a valid username, password, and email$`, func() error {
 		return a.theUserRegistersWithValidDetails()
 	})
 	sc.Step(`^the user registers with (\S+) "([^"]*)"$`, func(field, value string) error {

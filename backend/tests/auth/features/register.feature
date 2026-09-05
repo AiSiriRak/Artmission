@@ -5,7 +5,7 @@ Feature: Register
 
   Scenario: register with valid details
     Given the user does not have an account
-    When the user registers with a valid username, password, phone number, and email
+    When the user registers with a valid username, password, and email
     Then the system creates the account
 
   Scenario Outline: register with invalid details
@@ -19,7 +19,6 @@ Feature: Register
       | username     | ab           |
       | email        | not-an-email |
       | password     | short1       |
-      | phone_number |              |
 
   Scenario: register with a username that is already in use
     Given the user has a registered account

@@ -42,9 +42,6 @@ type Transactioner interface {
 type RegisterInput struct {
 	Username    string
 	Email       string
-	FirstName   string
-	LastName    string
-	PhoneNumber string
 	Password    string
 	Role        Role
 	BankAccount BankAccountInput

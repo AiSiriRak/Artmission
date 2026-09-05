@@ -100,13 +100,10 @@ func newUsecase(repo *fakeRepo, bank *fakeBankRepo, artist *fakeArtistRegistrar)
 
 func customerInput() user.RegisterInput {
 	return user.RegisterInput{
-		Username:    "alice",
-		Email:       "alice@example.com",
-		FirstName:   "Alice",
-		LastName:    "Wong",
-		PhoneNumber: "0123456789",
-		Password:    "password123",
-		Role:        user.RoleCustomer,
+		Username: "alice",
+		Email:    "alice@example.com",
+		Password: "password123",
+		Role:     user.RoleCustomer,
 		BankAccount: user.BankAccountInput{
 			BankName:      "Kasikorn",
 			AccountNumber: "1234567890",
@@ -126,9 +123,6 @@ func TestRegister_CustomerCreatesUserAndBank(t *testing.T) {
 	}
 	if got.ID == uuid.Nil {
 		t.Error("Register() did not assign an id")
-	}
-	if got.FirstName != "Alice" || got.LastName != "Wong" || got.PhoneNumber != "0123456789" {
-		t.Errorf("Register() names/phone = %s %s %s", got.FirstName, got.LastName, got.PhoneNumber)
 	}
 	if got.PasswordHash == "password123" {
 		t.Error("Register() stored the plaintext password instead of a hash")
