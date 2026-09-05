@@ -14,9 +14,9 @@ export function Button({
   ...props
 }: ButtonProps) {
   const variantClass = {
-    light: "rounded-lg bg-white border px-5 py-1 text-small text-primary-500",
-    dark: "rounded-lg bg-primary-500 px-5 py-1 text-small text-white",
-    "accent-500": "rounded-lg bg-accent-500 px-5 py-1 text-small text-white",
+    light: "rounded-lg bg-white border px-5 py-1 text-button text-primary-500",
+    dark: "rounded-lg bg-primary-500 px-5 py-1 text-button text-white",
+    "accent-500": "rounded-lg bg-accent-500 px-5 py-1 text-button text-white",
   };
   return (
     <button {...props} className={`${variantClass[variant]} ${className}`}>
