@@ -106,20 +106,26 @@ func (u *userUsecase) GetByID(ctx context.Context, id uuid.UUID) (*User, error) 
 	return u.repo.GetByID(ctx, id)
 }
 
-func (u *userUsecase) UpdateBankAccount(ctx context.Context, userID uuid.UUID, in BankAccountInput) (*BankAccount, error) {
+func (u *userUsecase) UpdateBankAccount(ctx context.Context, userID uuid.UUID, role Role, in BankAccountInput) (*BankAccount, error) {
+	if role != RoleCustomer && role != RoleArtist {
+		return nil, ErrBankAccountNotAllowed
+	}
+
 	bankName := strings.TrimSpace(in.BankName)
 	accountNumber := strings.TrimSpace(in.AccountNumber)
 	if bankName == "" || accountNumber == "" {
 		return nil, ErrBankAccountRequired
 	}
 
+	now := time.Now()
 	bank := &BankAccount{
 		UserID:        userID,
 		BankName:      bankName,
 		AccountNumber: accountNumber,
-		UpdatedAt:     time.Now(),
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
-	if err := u.bankRepo.UpdateByUserID(ctx, bank); err != nil {
+	if err := u.bankRepo.UpsertByUserID(ctx, bank); err != nil {
 		return nil, err
 	}
 	return bank, nil

@@ -17,7 +17,7 @@ type UserUsecase interface {
 	Authenticate(ctx context.Context, email, password string) (*User, error)
 
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
-	UpdateBankAccount(ctx context.Context, userID uuid.UUID, in BankAccountInput) (*BankAccount, error)
+	UpdateBankAccount(ctx context.Context, userID uuid.UUID, role Role, in BankAccountInput) (*BankAccount, error)
 }
 
 type UserRepository interface {
@@ -28,7 +28,7 @@ type UserRepository interface {
 
 type BankAccountRepository interface {
 	Create(ctx context.Context, ba *BankAccount) error
-	UpdateByUserID(ctx context.Context, ba *BankAccount) error
+	UpsertByUserID(ctx context.Context, ba *BankAccount) error
 }
 
 // ArtistRegistrar is implemented by the artist module and injected at wiring

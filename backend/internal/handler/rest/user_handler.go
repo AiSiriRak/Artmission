@@ -51,7 +51,7 @@ func (h *UserHandler) updateBankAccount(ctx context.Context, in *updateBankAccou
 		return nil, huma.Error401Unauthorized("missing authentication")
 	}
 
-	bank, err := h.userUsecase.UpdateBankAccount(ctx, info.UserID, user.BankAccountInput{
+	bank, err := h.userUsecase.UpdateBankAccount(ctx, info.UserID, info.Role, user.BankAccountInput{
 		BankName:      in.Body.BankName,
 		AccountNumber: in.Body.AccountNumber,
 	})

@@ -50,8 +50,8 @@ var _ user.UserRepository = (*fakeRepo)(nil)
 type fakeBankRepo struct {
 	byUserID    map[uuid.UUID]*user.BankAccount
 	createErr   error
-	updateErr   error
-	updateCalls int
+	upsertErr   error
+	upsertCalls int
 }
 
 func newFakeBankRepo() *fakeBankRepo {
@@ -67,18 +67,16 @@ func (f *fakeBankRepo) Create(_ context.Context, ba *user.BankAccount) error {
 	return nil
 }
 
-func (f *fakeBankRepo) UpdateByUserID(_ context.Context, ba *user.BankAccount) error {
-	f.updateCalls++
-	if f.updateErr != nil {
-		return f.updateErr
+func (f *fakeBankRepo) UpsertByUserID(_ context.Context, ba *user.BankAccount) error {
+	f.upsertCalls++
+	if f.upsertErr != nil {
+		return f.upsertErr
 	}
-	existing, ok := f.byUserID[ba.UserID]
-	if !ok {
-		return user.ErrBankAccountNotFound
+	cp := *ba
+	if existing, ok := f.byUserID[ba.UserID]; ok {
+		cp.CreatedAt = existing.CreatedAt
 	}
-	existing.BankName = ba.BankName
-	existing.AccountNumber = ba.AccountNumber
-	existing.UpdatedAt = ba.UpdatedAt
+	f.byUserID[ba.UserID] = &cp
 	return nil
 }
 
@@ -251,7 +249,7 @@ func TestUpdateBankAccount_ReplacesAndTrimsDetails(t *testing.T) {
 	}
 	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
 
-	got, err := usecase.UpdateBankAccount(context.Background(), userID, user.BankAccountInput{
+	got, err := usecase.UpdateBankAccount(context.Background(), userID, user.RoleCustomer, user.BankAccountInput{
 		BankName:      "  Kasikorn  ",
 		AccountNumber: " 1234567890 ",
 	})
@@ -264,8 +262,8 @@ func TestUpdateBankAccount_ReplacesAndTrimsDetails(t *testing.T) {
 	if got.UpdatedAt.IsZero() {
 		t.Error("UpdateBankAccount() did not set UpdatedAt")
 	}
-	if bank.updateCalls != 1 {
-		t.Errorf("UpdateByUserID calls = %d, want 1", bank.updateCalls)
+	if bank.upsertCalls != 1 {
+		t.Errorf("UpsertByUserID calls = %d, want 1", bank.upsertCalls)
 	}
 }
 
@@ -273,27 +271,48 @@ func TestUpdateBankAccount_RejectsBlankDetails(t *testing.T) {
 	bank := newFakeBankRepo()
 	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
 
-	_, err := usecase.UpdateBankAccount(context.Background(), uuid.New(), user.BankAccountInput{
+	_, err := usecase.UpdateBankAccount(context.Background(), uuid.New(), user.RoleCustomer, user.BankAccountInput{
 		BankName:      "  ",
 		AccountNumber: "1234567890",
 	})
 	if !errors.Is(err, user.ErrBankAccountRequired) {
 		t.Errorf("UpdateBankAccount() error = %v, want ErrBankAccountRequired", err)
 	}
-	if bank.updateCalls != 0 {
-		t.Errorf("UpdateByUserID calls = %d, want 0", bank.updateCalls)
+	if bank.upsertCalls != 0 {
+		t.Errorf("UpsertByUserID calls = %d, want 0", bank.upsertCalls)
 	}
 }
 
-func TestUpdateBankAccount_ReturnsNotFoundWhenNoBankAccountExists(t *testing.T) {
-	usecase := newUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar())
+func TestUpdateBankAccount_CreatesBankAccountWhenMissing(t *testing.T) {
+	bank := newFakeBankRepo()
+	userID := uuid.New()
+	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
 
-	_, err := usecase.UpdateBankAccount(context.Background(), uuid.New(), user.BankAccountInput{
+	_, err := usecase.UpdateBankAccount(context.Background(), userID, user.RoleArtist, user.BankAccountInput{
 		BankName:      "Kasikorn",
 		AccountNumber: "1234567890",
 	})
-	if !errors.Is(err, user.ErrBankAccountNotFound) {
-		t.Errorf("UpdateBankAccount() error = %v, want ErrBankAccountNotFound", err)
+	if err != nil {
+		t.Fatalf("UpdateBankAccount() error = %v, want nil", err)
+	}
+	if _, ok := bank.byUserID[userID]; !ok {
+		t.Fatal("UpdateBankAccount() did not create a missing bank account")
+	}
+}
+
+func TestUpdateBankAccount_RejectsAdmin(t *testing.T) {
+	bank := newFakeBankRepo()
+	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
+
+	_, err := usecase.UpdateBankAccount(context.Background(), uuid.New(), user.RoleAdmin, user.BankAccountInput{
+		BankName:      "Kasikorn",
+		AccountNumber: "1234567890",
+	})
+	if !errors.Is(err, user.ErrBankAccountNotAllowed) {
+		t.Errorf("UpdateBankAccount() error = %v, want ErrBankAccountNotAllowed", err)
+	}
+	if bank.upsertCalls != 0 {
+		t.Errorf("UpsertByUserID calls = %d, want 0", bank.upsertCalls)
 	}
 }
 

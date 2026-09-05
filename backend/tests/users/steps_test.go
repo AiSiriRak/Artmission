@@ -9,6 +9,7 @@ import (
 
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/cucumber/godog"
+	"github.com/google/uuid"
 )
 
 type usersContext struct {
@@ -39,6 +40,15 @@ func (u *usersContext) theUserHasLoggedIn() error {
 	}
 	u.accessToken = accessToken
 	return nil
+}
+
+func (u *usersContext) theUserHasNoSavedBankAccount() error {
+	userID, err := uuid.Parse(u.account.ID)
+	if err != nil {
+		return fmt.Errorf("parse fixture user ID: %w", err)
+	}
+	_, err = app.DB.NewDelete().Table("bank_accounts").Where("user_id = ?", userID).Exec(context.Background())
+	return err
 }
 
 func (u *usersContext) theUserUpdatesTheirBankAccountWithValidDetails() error {
@@ -104,6 +114,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 
 	sc.Step(`^the user has a registered account$`, func() error { return u.theUserHasARegisteredAccount() })
 	sc.Step(`^the user has logged in$`, func() error { return u.theUserHasLoggedIn() })
+	sc.Step(`^the user has no saved bank account$`, func() error { return u.theUserHasNoSavedBankAccount() })
 	sc.Step(`^the user updates their bank account with valid details$`, func() error { return u.theUserUpdatesTheirBankAccountWithValidDetails() })
 	sc.Step(`^the user updates a bank account without logging in$`, func() error { return u.theUserUpdatesABankAccountWithoutLoggingIn() })
 	sc.Step(`^the user updates their bank account with a blank bank name$`, func() error { return u.theUserUpdatesTheirBankAccountWithABlankBankName() })

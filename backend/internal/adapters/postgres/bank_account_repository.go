@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
@@ -53,28 +52,19 @@ func (r *bankAccountRepository) Create(ctx context.Context, ba *user.BankAccount
 	return nil
 }
 
-func (r *bankAccountRepository) UpdateByUserID(ctx context.Context, ba *user.BankAccount) error {
+func (r *bankAccountRepository) UpsertByUserID(ctx context.Context, ba *user.BankAccount) error {
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		result, err := idb.NewUpdate().
+		_, err := idb.NewInsert().
 			Model(newBankAccountModel(ba)).
-			Column("bank_name", "account_number", "updated_at").
-			Where("user_id = ?", ba.UserID).
+			On("CONFLICT (user_id) DO UPDATE").
+			Set("bank_name = EXCLUDED.bank_name").
+			Set("account_number = EXCLUDED.account_number").
+			Set("updated_at = EXCLUDED.updated_at").
 			Exec(ctx)
-		if err != nil {
-			return err
-		}
-		if n, err := result.RowsAffected(); err != nil {
-			return fmt.Errorf("read updated bank account rows: %w", err)
-		} else if n == 0 {
-			return user.ErrBankAccountNotFound
-		}
-		return nil
+		return err
 	})
 	if err != nil {
-		if err == user.ErrBankAccountNotFound {
-			return err
-		}
-		return apperror.Internal("failed to update bank account", err)
+		return apperror.Internal("failed to upsert bank account", err)
 	}
 	return nil
 }
