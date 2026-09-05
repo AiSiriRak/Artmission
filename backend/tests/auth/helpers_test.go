@@ -20,7 +20,7 @@ const (
 // apptest.NewCustomerRegisterBody, keyed by wire field name (JSON key)
 // instead of typed struct fields. Used only by the "register with invalid
 // details" Scenario Outline, whose Examples table names the field to
-// corrupt by its JSON key (e.g. "phone_number") and needs to overwrite
+// corrupt by its JSON key (e.g. "username") and needs to overwrite
 // exactly that one key without touching the rest.
 func registerFields(username, email, password string) (map[string]any, error) {
 	raw, err := json.Marshal(apptest.NewCustomerRegisterBody(username, email, password))

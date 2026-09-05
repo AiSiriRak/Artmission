@@ -23,8 +23,7 @@ Feature: Register
   Scenario: register with a username that is already in use
     Given the user has a registered account
     When the user registers reusing that account's username
-    Then the system does not create the account
-    And the system displays an appropriate error message
+    Then the system creates the account
 
   Scenario: register with an email that is already in use
     Given the user has a registered account

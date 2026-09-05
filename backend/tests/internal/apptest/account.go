@@ -103,7 +103,7 @@ func registerAccount(app *App, client *Client, body RegisterBody) (Account, erro
 
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
-	id, err := app.UserIDByUsername(ctx, body.Username)
+	id, err := app.UserIDByEmail(ctx, body.Email)
 	if err != nil {
 		return Account{}, fmt.Errorf("apptest: look up registered user id: %w", err)
 	}

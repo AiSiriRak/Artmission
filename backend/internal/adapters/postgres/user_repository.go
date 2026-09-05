@@ -79,8 +79,6 @@ func (r *userRepository) Create(ctx context.Context, u *user.User) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 		switch pgErr.ConstraintName {
-		case "users_username_key":
-			return user.ErrUsernameTaken
 		case "users_email_key":
 			return user.ErrEmailTaken
 		}

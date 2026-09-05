@@ -84,12 +84,14 @@ func NewApp(tb testing.TB, dsn string) *App {
 	return &App{Server: ts, DB: db}
 }
 
-// UserIDByUsername looks up a user's ID by username directly against the
+// UserIDByEmail looks up a user's ID by email directly against the
 // database. Registration responses carry no body (see RegisterOutput), so
 // this is how a fixture that just registered an account gets its ID back.
-func (a *App) UserIDByUsername(ctx context.Context, username string) (uuid.UUID, error) {
+// Looks up by email rather than username since username is no longer
+// unique — it can collide across accounts.
+func (a *App) UserIDByEmail(ctx context.Context, email string) (uuid.UUID, error) {
 	var id uuid.UUID
-	err := a.DB.NewSelect().Table("users").Column("id").Where("username = ?", username).Scan(ctx, &id)
+	err := a.DB.NewSelect().Table("users").Column("id").Where("email = ?", email).Scan(ctx, &id)
 	return id, err
 }
 
