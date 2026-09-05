@@ -74,7 +74,7 @@ export function LoginForm() {
 
           <Button
             type="submit"
-            variant="bg-accent-500"
+            variant="accent-500"
             className="mt-4 w-full py-3 text-white"
           >
             Log in
