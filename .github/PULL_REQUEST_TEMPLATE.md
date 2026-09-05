@@ -1,11 +1,8 @@
-## User Stories
-
-<!-- Replace USX-X with an actual user story in the Google Spreadsheet. For example, US1-1. -->
-<!-- Write "None" if this pull request closes no user story -->
+## Linear Issue ID
 
 This pull request
 
-- close USX-X
+- close ART-XXX
 
 ## Checklist
 
