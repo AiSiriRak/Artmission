@@ -56,7 +56,7 @@ func (u *usersContext) theUserHasARegisteredAccount() error {
 }
 
 func (u *usersContext) theUserHasLoggedIn() error {
-	accessToken, err := apptest.Login(u.client, u.account.Username, u.account.Password)
+	accessToken, err := apptest.Login(u.client, u.account.Email, u.account.Password)
 	if err != nil {
 		return err
 	}
