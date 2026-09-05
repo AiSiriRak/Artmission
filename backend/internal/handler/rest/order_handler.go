@@ -32,27 +32,31 @@ func (h *OrderHandler) Register(api huma.API) {
 
 type ViewHiringHistoryInput struct{}
 
-type categoryView struct {
-	ID    string `json:"id"`
-	Label string `json:"label"`
-}
-
-type styleView struct {
-	ID    string `json:"id"`
-	Label string `json:"label"`
-}
-
 type orderView struct {
-	ID          string        `json:"id"`
-	ArtistID    string        `json:"artist_id"`
-	Description string        `json:"description"`
-	Category    *categoryView `json:"category,omitempty"`
-	Style       *styleView    `json:"style,omitempty"`
-	Price       *float64      `json:"price,omitempty"`
-	Status      string        `json:"status"`
-	Deadline    *time.Time    `json:"deadline,omitempty"`
-	CompletedAt *time.Time    `json:"completed_at,omitempty"`
-	CreatedAt   time.Time     `json:"created_at"`
+	ID                   string            `json:"id"`
+	ArtistID             string            `json:"artist_id"`
+	ArtworkID            *string           `json:"artwork_id,omitempty"`
+	ArtworkName          string            `json:"artwork_name"`
+	ArtworkDescription   string            `json:"artwork_description"`
+	PriceSatang          int64             `json:"price_satang"`
+	MinimumDeadlineDays  int               `json:"minimum_deadline_days"`
+	PreviewImageURL      string            `json:"preview_image_url"`
+	CustomerDescription  string            `json:"customer_description"`
+	SelectedDeadlineDays int               `json:"selected_deadline_days"`
+	DeadlineAt           *time.Time        `json:"deadline_at,omitempty"`
+	Status               string            `json:"status"`
+	Deliverables         []deliverableView `json:"deliverables"`
+	CompletedAt          *time.Time        `json:"completed_at,omitempty"`
+	CreatedAt            time.Time         `json:"created_at"`
+	UpdatedAt            time.Time         `json:"updated_at"`
+}
+
+type deliverableView struct {
+	ID               string    `json:"id"`
+	OriginalImageURL string    `json:"original_image_url"`
+	PreviewImageURL  string    `json:"preview_image_url"`
+	SortOrder        int       `json:"sort_order"`
+	CreatedAt        time.Time `json:"created_at"`
 }
 
 type ViewHiringHistoryOutput struct {
@@ -81,32 +85,39 @@ func (h *OrderHandler) viewHiringHistory(ctx context.Context, _ *ViewHiringHisto
 }
 
 func toOrderView(o *order.Order) orderView {
-	var category *categoryView
-	if o.Category != nil {
-		category = &categoryView{
-			ID:    o.Category.ID.String(),
-			Label: o.Category.Label,
-		}
+	var artworkID *string
+	if o.ArtworkID != nil {
+		id := o.ArtworkID.String()
+		artworkID = &id
 	}
 
-	var style *styleView
-	if o.Style != nil {
-		style = &styleView{
-			ID:    o.Style.ID.String(),
-			Label: o.Style.Label,
+	deliverables := make([]deliverableView, len(o.Deliverables))
+	for i, deliverable := range o.Deliverables {
+		deliverables[i] = deliverableView{
+			ID:               deliverable.ID.String(),
+			OriginalImageURL: deliverable.OriginalImageURL,
+			PreviewImageURL:  deliverable.PreviewImageURL,
+			SortOrder:        deliverable.SortOrder,
+			CreatedAt:        deliverable.CreatedAt,
 		}
 	}
 
 	return orderView{
-		ID:          o.ID.String(),
-		ArtistID:    o.ArtistID.String(),
-		Description: o.Description,
-		Category:    category,
-		Style:       style,
-		Price:       o.Price,
-		Status:      string(o.Status),
-		Deadline:    o.Deadline,
-		CompletedAt: o.CompletedAt,
-		CreatedAt:   o.CreatedAt,
+		ID:                   o.ID.String(),
+		ArtistID:             o.ArtistID.String(),
+		ArtworkID:            artworkID,
+		ArtworkName:          o.ArtworkNameSnapshot,
+		ArtworkDescription:   o.ArtworkDescriptionSnapshot,
+		PriceSatang:          o.PriceSatangSnapshot,
+		MinimumDeadlineDays:  o.MinimumDeadlineDaysSnapshot,
+		PreviewImageURL:      o.PreviewImageURLSnapshot,
+		CustomerDescription:  o.CustomerDescription,
+		SelectedDeadlineDays: o.SelectedDeadlineDays,
+		DeadlineAt:           o.DeadlineAt,
+		Status:               string(o.Status),
+		Deliverables:         deliverables,
+		CompletedAt:          o.CompletedAt,
+		CreatedAt:            o.CreatedAt,
+		UpdatedAt:            o.UpdatedAt,
 	}
 }
