@@ -22,8 +22,8 @@ export function LoginForm() {
       <WhiteCard>
         <div className="mb-8 text-center">
           <h1 className="mt-2 text-h1 text-primary-500">Login</h1>
-          <p className="mt-3 text-h2 text-accent-300">
-            Welcome to Art mission
+          <p className="mt-3 whitespace-nowrap text-h2 text-accent-300">
+            Welcome to Artmission
           </p>
         </div>
 
@@ -68,7 +68,7 @@ export function LoginForm() {
           <p className="mt-0.5 text-center text-subtle text-primary-500">
             Don&apos;t have an account?{" "}
             <Link href="/register" className="text-accent-500 hover:underline">
-              Sign up
+              Create Account
             </Link>
           </p>
 
