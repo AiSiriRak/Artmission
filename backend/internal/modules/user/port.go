@@ -52,8 +52,9 @@ type RegisterInput struct {
 }
 
 type BankAccountInput struct {
-	BankName      string
-	AccountNumber string
+	BankName          string
+	AccountHolderName string
+	AccountNumber     string
 }
 
 type ArtistProfileInput struct {

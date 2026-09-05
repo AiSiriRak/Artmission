@@ -31,8 +31,9 @@ type Account struct {
 // a working fixture account) can build arbitrary — including invalid —
 // payloads from the same shape, instead of keeping a second copy.
 type BankAccountBody struct {
-	BankName      string `json:"bank_name"`
-	AccountNumber string `json:"account_number"`
+	BankName          string `json:"bank_name"`
+	AccountHolderName string `json:"account_holder_name"`
+	AccountNumber     string `json:"account_number"`
 }
 
 type ArtistBody struct {
@@ -59,7 +60,7 @@ func NewCustomerRegisterBody(username, email, password string) RegisterBody {
 		Email:       email,
 		Password:    password,
 		Role:        "customer",
-		BankAccount: BankAccountBody{BankName: "Test Bank", AccountNumber: "1234567890"},
+		BankAccount: BankAccountBody{BankName: "Test Bank", AccountHolderName: "Test User", AccountNumber: "1234567890"},
 	}
 }
 

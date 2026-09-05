@@ -22,15 +22,23 @@ type usersContext struct {
 }
 
 type bankAccountBody struct {
-	BankName      string `json:"bank_name"`
-	AccountNumber string `json:"account_number"`
+	BankName          string `json:"bank_name"`
+	AccountHolderName string `json:"account_holder_name"`
+	AccountNumber     string `json:"account_number"`
+}
+
+type bankAccountResponse struct {
+	BankName          string `json:"bank_name"`
+	AccountHolderName string `json:"account_holder_name"`
+	AccountLast4      string `json:"account_last4"`
 }
 
 type bankAccountRecord struct {
-	BankName      string    `bun:"bank_name"`
-	AccountNumber string    `bun:"account_number"`
-	CreatedAt     time.Time `bun:"created_at"`
-	UpdatedAt     time.Time `bun:"updated_at"`
+	BankName          string    `bun:"bank_name"`
+	AccountHolderName string    `bun:"account_holder_name"`
+	AccountNumber     string    `bun:"account_number"`
+	CreatedAt         time.Time `bun:"created_at"`
+	UpdatedAt         time.Time `bun:"updated_at"`
 }
 
 func (u *usersContext) theUserHasARegisteredAccount() error {
@@ -74,7 +82,7 @@ func (u *usersContext) loadBankAccount() (*bankAccountRecord, error) {
 		return nil, fmt.Errorf("parse fixture user ID: %w", err)
 	}
 	bank := new(bankAccountRecord)
-	err = app.DB.NewSelect().Table("bank_accounts").Column("bank_name", "account_number", "created_at", "updated_at").Where("user_id = ?", userID).Scan(context.Background(), bank)
+	err = app.DB.NewSelect().Table("bank_accounts").Column("bank_name", "account_holder_name", "account_number", "created_at", "updated_at").Where("user_id = ?", userID).Scan(context.Background(), bank)
 	if err != nil {
 		return nil, err
 	}
@@ -82,15 +90,15 @@ func (u *usersContext) loadBankAccount() (*bankAccountRecord, error) {
 }
 
 func (u *usersContext) theUserUpdatesTheirBankAccountWithValidDetails() error {
-	return u.updateBankAccount(bankAccountBody{BankName: "Kasikorn", AccountNumber: "1234567890"}, u.accessToken)
+	return u.updateBankAccount(bankAccountBody{BankName: "Kasikorn", AccountHolderName: "Test User", AccountNumber: "1234567890"}, u.accessToken)
 }
 
 func (u *usersContext) theUserUpdatesABankAccountWithoutLoggingIn() error {
-	return u.updateBankAccount(bankAccountBody{BankName: "Kasikorn", AccountNumber: "1234567890"}, "")
+	return u.updateBankAccount(bankAccountBody{BankName: "Kasikorn", AccountHolderName: "Test User", AccountNumber: "1234567890"}, "")
 }
 
 func (u *usersContext) theUserUpdatesTheirBankAccountWithABlankBankName() error {
-	return u.updateBankAccount(bankAccountBody{BankName: "", AccountNumber: "1234567890"}, u.accessToken)
+	return u.updateBankAccount(bankAccountBody{BankName: "", AccountHolderName: "Test User", AccountNumber: "1234567890"}, u.accessToken)
 }
 
 func (u *usersContext) updateBankAccount(body bankAccountBody, accessToken string) error {
@@ -110,18 +118,18 @@ func (u *usersContext) theSystemSavesTheUpdatedBankAccountDetails() error {
 	if u.resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("expected status 200, got %d: %s", u.resp.StatusCode, u.resp.Body)
 	}
-	var body bankAccountBody
+	var body bankAccountResponse
 	if err := u.resp.JSON(&body); err != nil {
 		return fmt.Errorf("decode bank account response: %w", err)
 	}
-	if body.BankName != "Kasikorn" || body.AccountNumber != "1234567890" {
+	if body.BankName != "Kasikorn" || body.AccountHolderName != "Test User" || body.AccountLast4 != "••••7890" {
 		return fmt.Errorf("unexpected updated bank account: %+v", body)
 	}
 	bank, err := u.loadBankAccount()
 	if err != nil {
 		return fmt.Errorf("read persisted bank account: %w", err)
 	}
-	if bank.BankName != "Kasikorn" || bank.AccountNumber != "1234567890" {
+	if bank.BankName != "Kasikorn" || bank.AccountHolderName != "Test User" || bank.AccountNumber != "1234567890" {
 		return fmt.Errorf("unexpected persisted bank account: %+v", bank)
 	}
 	if bank.CreatedAt.IsZero() || bank.UpdatedAt.IsZero() {

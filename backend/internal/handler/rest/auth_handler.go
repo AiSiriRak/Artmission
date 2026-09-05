@@ -73,8 +73,9 @@ func (h *AuthHandler) Register(api huma.API) {
 // --- register ---
 
 type registerBankAccountBody struct {
-	BankName      string `json:"bank_name" minLength:"1"`
-	AccountNumber string `json:"account_number" minLength:"1"`
+	BankName          string `json:"bank_name" minLength:"1"`
+	AccountHolderName string `json:"account_holder_name" minLength:"1"`
+	AccountNumber     string `json:"account_number" minLength:"1"`
 }
 
 type registerArtistBody struct {
@@ -103,8 +104,9 @@ func (h *AuthHandler) register(ctx context.Context, in *RegisterInput) (*Registe
 		Password: in.Body.Password,
 		Role:     user.Role(in.Body.Role),
 		BankAccount: user.BankAccountInput{
-			BankName:      in.Body.BankAccount.BankName,
-			AccountNumber: in.Body.BankAccount.AccountNumber,
+			BankName:          in.Body.BankAccount.BankName,
+			AccountHolderName: in.Body.BankAccount.AccountHolderName,
+			AccountNumber:     in.Body.BankAccount.AccountNumber,
 		},
 	}
 	if in.Body.Artist != nil {

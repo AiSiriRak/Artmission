@@ -31,20 +31,26 @@ func (h *UserHandler) Register(api huma.API) {
 
 type updateBankAccountInput struct {
 	Body struct {
-		BankName      string `json:"bank_name" minLength:"1"`
-		AccountNumber string `json:"account_number" minLength:"1"`
+		BankName          string `json:"bank_name" minLength:"1"`
+		AccountHolderName string `json:"account_holder_name" minLength:"1"`
+		AccountNumber     string `json:"account_number" minLength:"1"`
 	}
 }
 
 type bankAccountView struct {
-	BankName      string `json:"bank_name"`
-	AccountNumber string `json:"account_number"`
+	BankName          string `json:"bank_name"`
+	AccountHolderName string `json:"account_holder_name"`
+	AccountLast4      string `json:"account_last4"`
 }
 
 type UpdateBankAccountOutput struct {
 	Body bankAccountView
 }
 
+// TODO(payment): In the payment-gateway sprint, submit this destination to the
+// selected provider and expose its verification status. This settings endpoint
+// intentionally only stores user-entered details today because provider
+// selection, recipient verification, and payout processing are not in scope.
 func (h *UserHandler) updateBankAccount(ctx context.Context, in *updateBankAccountInput) (*UpdateBankAccountOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
@@ -52,15 +58,28 @@ func (h *UserHandler) updateBankAccount(ctx context.Context, in *updateBankAccou
 	}
 
 	bank, err := h.userUsecase.UpdateBankAccount(ctx, info.UserID, info.Role, user.BankAccountInput{
-		BankName:      in.Body.BankName,
-		AccountNumber: in.Body.AccountNumber,
+		BankName:          in.Body.BankName,
+		AccountHolderName: in.Body.AccountHolderName,
+		AccountNumber:     in.Body.AccountNumber,
 	})
 	if err != nil {
 		return nil, mapAppError(err)
 	}
 
 	return &UpdateBankAccountOutput{Body: bankAccountView{
-		BankName:      bank.BankName,
-		AccountNumber: bank.AccountNumber,
+		BankName:          bank.BankName,
+		AccountHolderName: bank.AccountHolderName,
+		AccountLast4:      maskAccountNumber(bank.AccountNumber),
 	}}, nil
+}
+
+func maskAccountNumber(accountNumber string) string {
+	const visibleCharacters = 4
+
+	characters := []rune(accountNumber)
+	if len(characters) <= visibleCharacters {
+		return "••••"
+	}
+
+	return "••••" + string(characters[len(characters)-visibleCharacters:])
 }

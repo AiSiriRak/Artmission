@@ -14,30 +14,33 @@ import (
 type bankAccountModel struct {
 	bun.BaseModel `bun:"table:bank_accounts,alias:ba"`
 
-	UserID        uuid.UUID `bun:"user_id,pk"`
-	BankName      string    `bun:"bank_name"`
-	AccountNumber string    `bun:"account_number"`
-	CreatedAt     time.Time `bun:"created_at,nullzero"`
-	UpdatedAt     time.Time `bun:"updated_at,nullzero"`
+	UserID            uuid.UUID `bun:"user_id,pk"`
+	BankName          string    `bun:"bank_name"`
+	AccountHolderName string    `bun:"account_holder_name"`
+	AccountNumber     string    `bun:"account_number"`
+	CreatedAt         time.Time `bun:"created_at,nullzero"`
+	UpdatedAt         time.Time `bun:"updated_at,nullzero"`
 }
 
 func newBankAccountModel(ba *user.BankAccount) *bankAccountModel {
 	return &bankAccountModel{
-		UserID:        ba.UserID,
-		BankName:      ba.BankName,
-		AccountNumber: ba.AccountNumber,
-		CreatedAt:     ba.CreatedAt,
-		UpdatedAt:     ba.UpdatedAt,
+		UserID:            ba.UserID,
+		BankName:          ba.BankName,
+		AccountHolderName: ba.AccountHolderName,
+		AccountNumber:     ba.AccountNumber,
+		CreatedAt:         ba.CreatedAt,
+		UpdatedAt:         ba.UpdatedAt,
 	}
 }
 
 func (m *bankAccountModel) toDomain() *user.BankAccount {
 	return &user.BankAccount{
-		UserID:        m.UserID,
-		BankName:      m.BankName,
-		AccountNumber: m.AccountNumber,
-		CreatedAt:     m.CreatedAt,
-		UpdatedAt:     m.UpdatedAt,
+		UserID:            m.UserID,
+		BankName:          m.BankName,
+		AccountHolderName: m.AccountHolderName,
+		AccountNumber:     m.AccountNumber,
+		CreatedAt:         m.CreatedAt,
+		UpdatedAt:         m.UpdatedAt,
 	}
 }
 
@@ -69,6 +72,7 @@ func (r *bankAccountRepository) UpsertByUserID(ctx context.Context, ba *user.Ban
 			Model(model).
 			On("CONFLICT (user_id) DO UPDATE").
 			Set("bank_name = EXCLUDED.bank_name").
+			Set("account_holder_name = EXCLUDED.account_holder_name").
 			Set("account_number = EXCLUDED.account_number").
 			Set("updated_at = EXCLUDED.updated_at").
 			Returning("*").

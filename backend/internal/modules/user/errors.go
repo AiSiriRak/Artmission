@@ -9,6 +9,6 @@ var (
 	ErrInvalidCredential         = apperror.Unauthorized("invalid email or password")
 	ErrArtistDescriptionRequired = apperror.InvalidInput("artist description is required", nil)
 	ErrArtistFieldsNotAllowed    = apperror.InvalidInput("artist fields are only allowed when role is artist", nil)
-	ErrBankAccountRequired       = apperror.InvalidInput("bank name and account number are required", nil)
+	ErrBankAccountRequired       = apperror.InvalidInput("bank name, account holder name, and account number are required", nil)
 	ErrBankAccountNotAllowed     = apperror.Forbidden("bank account is only available for customer and artist accounts")
 )

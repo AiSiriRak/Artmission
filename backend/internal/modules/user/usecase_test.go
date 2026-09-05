@@ -121,8 +121,9 @@ func customerInput() user.RegisterInput {
 		Password: "password123",
 		Role:     user.RoleCustomer,
 		BankAccount: user.BankAccountInput{
-			BankName:      "Kasikorn",
-			AccountNumber: "1234567890",
+			BankName:          "Kasikorn",
+			AccountHolderName: "Alice Wong",
+			AccountNumber:     "1234567890",
 		},
 	}
 }
@@ -151,7 +152,7 @@ func TestRegister_CustomerCreatesUserAndBank(t *testing.T) {
 	}
 	if ba, ok := bank.byUserID[got.ID]; !ok {
 		t.Error("Register() did not persist a bank account")
-	} else if ba.BankName != "Kasikorn" || ba.AccountNumber != "1234567890" {
+	} else if ba.BankName != "Kasikorn" || ba.AccountHolderName != "Alice Wong" || ba.AccountNumber != "1234567890" {
 		t.Errorf("Register() bank = %+v", ba)
 	}
 	if len(artist.profiles) != 0 {
@@ -244,21 +245,23 @@ func TestUpdateBankAccount_ReplacesAndTrimsDetails(t *testing.T) {
 	bank := newFakeBankRepo()
 	userID := uuid.New()
 	bank.byUserID[userID] = &user.BankAccount{
-		UserID:        userID,
-		BankName:      "Old Bank",
-		AccountNumber: "000000",
-		CreatedAt:     time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC),
+		UserID:            userID,
+		BankName:          "Old Bank",
+		AccountHolderName: "Old Holder",
+		AccountNumber:     "000000",
+		CreatedAt:         time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC),
 	}
 	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
 
 	got, err := usecase.UpdateBankAccount(context.Background(), userID, user.RoleCustomer, user.BankAccountInput{
-		BankName:      "  Kasikorn  ",
-		AccountNumber: " 1234567890 ",
+		BankName:          "  Kasikorn  ",
+		AccountHolderName: "  Alice Wong  ",
+		AccountNumber:     " 1234567890 ",
 	})
 	if err != nil {
 		t.Fatalf("UpdateBankAccount() error = %v, want nil", err)
 	}
-	if got.BankName != "Kasikorn" || got.AccountNumber != "1234567890" {
+	if got.BankName != "Kasikorn" || got.AccountHolderName != "Alice Wong" || got.AccountNumber != "1234567890" {
 		t.Errorf("UpdateBankAccount() = %+v, want trimmed details", got)
 	}
 	if got.UpdatedAt.IsZero() {
@@ -277,8 +280,26 @@ func TestUpdateBankAccount_RejectsBlankDetails(t *testing.T) {
 	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
 
 	_, err := usecase.UpdateBankAccount(context.Background(), uuid.New(), user.RoleCustomer, user.BankAccountInput{
-		BankName:      "  ",
-		AccountNumber: "1234567890",
+		BankName:          "  ",
+		AccountHolderName: "Alice Wong",
+		AccountNumber:     "1234567890",
+	})
+	if !errors.Is(err, user.ErrBankAccountRequired) {
+		t.Errorf("UpdateBankAccount() error = %v, want ErrBankAccountRequired", err)
+	}
+	if bank.upsertCalls != 0 {
+		t.Errorf("UpsertByUserID calls = %d, want 0", bank.upsertCalls)
+	}
+}
+
+func TestUpdateBankAccount_RejectsBlankAccountHolderName(t *testing.T) {
+	bank := newFakeBankRepo()
+	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
+
+	_, err := usecase.UpdateBankAccount(context.Background(), uuid.New(), user.RoleCustomer, user.BankAccountInput{
+		BankName:          "Kasikorn",
+		AccountHolderName: "  ",
+		AccountNumber:     "1234567890",
 	})
 	if !errors.Is(err, user.ErrBankAccountRequired) {
 		t.Errorf("UpdateBankAccount() error = %v, want ErrBankAccountRequired", err)
@@ -294,8 +315,9 @@ func TestUpdateBankAccount_CreatesBankAccountWhenMissing(t *testing.T) {
 	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
 
 	_, err := usecase.UpdateBankAccount(context.Background(), userID, user.RoleArtist, user.BankAccountInput{
-		BankName:      "Kasikorn",
-		AccountNumber: "1234567890",
+		BankName:          "Kasikorn",
+		AccountHolderName: "Alice Wong",
+		AccountNumber:     "1234567890",
 	})
 	if err != nil {
 		t.Fatalf("UpdateBankAccount() error = %v, want nil", err)
@@ -310,8 +332,9 @@ func TestUpdateBankAccount_RejectsAdmin(t *testing.T) {
 	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
 
 	_, err := usecase.UpdateBankAccount(context.Background(), uuid.New(), user.RoleAdmin, user.BankAccountInput{
-		BankName:      "Kasikorn",
-		AccountNumber: "1234567890",
+		BankName:          "Kasikorn",
+		AccountHolderName: "Alice Wong",
+		AccountNumber:     "1234567890",
 	})
 	if !errors.Is(err, user.ErrBankAccountNotAllowed) {
 		t.Errorf("UpdateBankAccount() error = %v, want ErrBankAccountNotAllowed", err)
