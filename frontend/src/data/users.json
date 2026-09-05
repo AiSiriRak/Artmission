@@ -1,0 +1,14 @@
+[
+  {
+    "id": 67,
+    "role": "customer",
+    "name": "ILoveCat",
+    "email": "cat@gmail.com",
+    "password": "12345678",
+    "bank": {
+      "name": "Bank",
+      "accountHolder": "ILoveCat",
+      "accountNumber": "XXX-X-XXXXX-X"
+    }
+  }
+]
