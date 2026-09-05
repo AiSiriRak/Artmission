@@ -25,9 +25,6 @@ type userModel struct {
 	ID           uuid.UUID  `bun:"id,pk"`
 	Username     string     `bun:"username"`
 	Email        string     `bun:"email"`
-	FirstName    string     `bun:"first_name"`
-	LastName     string     `bun:"last_name"`
-	PhoneNumber  string     `bun:"phone_number"`
 	PasswordHash string     `bun:"password_hash"`
 	Role         string     `bun:"role"`
 	CreatedAt    time.Time  `bun:"created_at,nullzero"`
@@ -40,9 +37,6 @@ func newUserModel(u *user.User) *userModel {
 		ID:           u.ID,
 		Username:     u.Username,
 		Email:        u.Email,
-		FirstName:    u.FirstName,
-		LastName:     u.LastName,
-		PhoneNumber:  u.PhoneNumber,
 		PasswordHash: u.PasswordHash,
 		Role:         string(u.Role),
 		CreatedAt:    u.CreatedAt,
@@ -55,9 +49,6 @@ func (m *userModel) toDomain() *user.User {
 		ID:           m.ID,
 		Username:     m.Username,
 		Email:        m.Email,
-		FirstName:    m.FirstName,
-		LastName:     m.LastName,
-		PhoneNumber:  m.PhoneNumber,
 		PasswordHash: m.PasswordHash,
 		Role:         user.Role(m.Role),
 		CreatedAt:    m.CreatedAt,
@@ -88,8 +79,6 @@ func (r *userRepository) Create(ctx context.Context, u *user.User) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 		switch pgErr.ConstraintName {
-		case "users_username_key":
-			return user.ErrUsernameTaken
 		case "users_email_key":
 			return user.ErrEmailTaken
 		}
@@ -97,16 +86,16 @@ func (r *userRepository) Create(ctx context.Context, u *user.User) error {
 	return apperror.Internal("failed to create user", err)
 }
 
-func (r *userRepository) GetByUsername(ctx context.Context, username string) (*user.User, error) {
+func (r *userRepository) GetByEmail(ctx context.Context, email string) (*user.User, error) {
 	model := new(userModel)
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return idb.NewSelect().Model(model).Where("username = ?", username).Scan(ctx)
+		return idb.NewSelect().Model(model).Where("email = ?", email).Scan(ctx)
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, user.ErrUserNotFound
 		}
-		return nil, apperror.Internal("failed to look up user by username", err)
+		return nil, apperror.Internal("failed to look up user by email", err)
 	}
 	return model.toDomain(), nil
 }

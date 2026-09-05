@@ -47,7 +47,7 @@ func (o *ordersContext) theUserHasARegisteredArtistAccount() error {
 }
 
 func (o *ordersContext) theUserHasLoggedIn() error {
-	token, err := apptest.Login(o.client, o.account.Username, o.account.Password)
+	token, err := apptest.Login(o.client, o.account.Email, o.account.Password)
 	if err != nil {
 		return err
 	}

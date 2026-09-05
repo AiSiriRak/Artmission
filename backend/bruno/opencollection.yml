@@ -25,6 +25,8 @@ request:
       value: "{{base_url}}/api/v1"
     - name: username
       value: test
+    - name: email
+      value: test@example.com
     - name: password
       value: password1234
 bundled: false

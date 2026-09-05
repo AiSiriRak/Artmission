@@ -56,9 +56,6 @@ func (u *userUsecase) Register(ctx context.Context, in RegisterInput) (*User, er
 		ID:           uuid.New(),
 		Username:     strings.TrimSpace(in.Username),
 		Email:        strings.TrimSpace(in.Email),
-		FirstName:    strings.TrimSpace(in.FirstName),
-		LastName:     strings.TrimSpace(in.LastName),
-		PhoneNumber:  strings.TrimSpace(in.PhoneNumber),
 		PasswordHash: hash,
 		Role:         in.Role,
 		CreatedAt:    now,
@@ -90,8 +87,8 @@ func (u *userUsecase) Register(ctx context.Context, in RegisterInput) (*User, er
 	return newUser, nil
 }
 
-func (u *userUsecase) Authenticate(ctx context.Context, username, password string) (*User, error) {
-	found, err := u.repo.GetByUsername(ctx, username)
+func (u *userUsecase) Authenticate(ctx context.Context, email, password string) (*User, error) {
+	found, err := u.repo.GetByEmail(ctx, email)
 	if err != nil {
 		if err == ErrUserNotFound {
 			return nil, ErrInvalidCredential

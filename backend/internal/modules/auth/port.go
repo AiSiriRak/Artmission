@@ -9,7 +9,7 @@ import (
 )
 
 type AuthUsecase interface {
-	Login(ctx context.Context, username, password string) (*AuthResult, error)
+	Login(ctx context.Context, email, password string) (*AuthResult, error)
 	Refresh(ctx context.Context, refreshToken string) (*AuthResult, error)
 	Logout(ctx context.Context, sessionID uuid.UUID) error
 	// Authenticate is used only by the HTTP auth middleware to validate
@@ -36,7 +36,7 @@ type TokenIssuer interface {
 // UserIdentity is the subset of user operations auth needs: credential
 // check on login, and rehydration on refresh.
 type UserIdentity interface {
-	Authenticate(ctx context.Context, username, password string) (*user.User, error)
+	Authenticate(ctx context.Context, email, password string) (*user.User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*user.User, error)
 }
 

@@ -12,7 +12,7 @@ http:
     type: json
     data: |-
       {
-        "username": "{{username}}",
+        "email": "{{email}}",
         "password": "{{password}}"
       }
   auth: inherit
@@ -39,8 +39,8 @@ examples:
         data: |-
           {
             "$schema": "",
-            "password": "",
-            "username": ""
+            "email": "",
+            "password": ""
           }
     response:
       status: 200
@@ -65,8 +65,8 @@ examples:
         data: |-
           {
             "$schema": "",
-            "password": "",
-            "username": ""
+            "email": "",
+            "password": ""
           }
     response:
       headers:
@@ -85,4 +85,4 @@ examples:
             "type": ""
           }
 
-docs: Log in with username and password
+docs: Log in with email and password

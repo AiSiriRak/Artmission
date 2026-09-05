@@ -43,9 +43,6 @@ type RegisterBody struct {
 	Username    string          `json:"username"`
 	Email       string          `json:"email"`
 	Password    string          `json:"password"`
-	FirstName   string          `json:"first_name"`
-	LastName    string          `json:"last_name"`
-	PhoneNumber string          `json:"phone_number"`
 	Role        string          `json:"role"`
 	BankAccount BankAccountBody `json:"bank_account"`
 	Artist      *ArtistBody     `json:"artist,omitempty"`
@@ -61,9 +58,6 @@ func NewCustomerRegisterBody(username, email, password string) RegisterBody {
 		Username:    username,
 		Email:       email,
 		Password:    password,
-		FirstName:   "Test",
-		LastName:    "User",
-		PhoneNumber: "0800000000",
 		Role:        "customer",
 		BankAccount: BankAccountBody{BankName: "Test Bank", AccountNumber: "1234567890"},
 	}
@@ -109,7 +103,7 @@ func registerAccount(app *App, client *Client, body RegisterBody) (Account, erro
 
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
-	id, err := app.UserIDByUsername(ctx, body.Username)
+	id, err := app.UserIDByEmail(ctx, body.Email)
 	if err != nil {
 		return Account{}, fmt.Errorf("apptest: look up registered user id: %w", err)
 	}
@@ -120,11 +114,11 @@ func registerAccount(app *App, client *Client, body RegisterBody) (Account, erro
 // Login logs in with an existing account through the real HTTP API and
 // returns the access token; the refresh_token cookie is left set on
 // client's own jar.
-func Login(client *Client, username, password string) (string, error) {
+func Login(client *Client, email, password string) (string, error) {
 	body := struct {
-		Username string `json:"username"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
-	}{Username: username, Password: password}
+	}{Email: email, Password: password}
 
 	resp, err := client.Do(http.MethodPost, "/auth/login", body, nil)
 	if err != nil {

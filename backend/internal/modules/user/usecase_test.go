@@ -11,26 +11,26 @@ import (
 )
 
 type fakeRepo struct {
-	byUsername map[string]*user.User
-	byID       map[uuid.UUID]*user.User
-	createErr  error
+	byEmail   map[string]*user.User
+	byID      map[uuid.UUID]*user.User
+	createErr error
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{byUsername: map[string]*user.User{}, byID: map[uuid.UUID]*user.User{}}
+	return &fakeRepo{byEmail: map[string]*user.User{}, byID: map[uuid.UUID]*user.User{}}
 }
 
 func (f *fakeRepo) Create(_ context.Context, u *user.User) error {
 	if f.createErr != nil {
 		return f.createErr
 	}
-	f.byUsername[u.Username] = u
+	f.byEmail[u.Email] = u
 	f.byID[u.ID] = u
 	return nil
 }
 
-func (f *fakeRepo) GetByUsername(_ context.Context, username string) (*user.User, error) {
-	u, ok := f.byUsername[username]
+func (f *fakeRepo) GetByEmail(_ context.Context, email string) (*user.User, error) {
+	u, ok := f.byEmail[email]
 	if !ok {
 		return nil, user.ErrUserNotFound
 	}
@@ -100,13 +100,10 @@ func newUsecase(repo *fakeRepo, bank *fakeBankRepo, artist *fakeArtistRegistrar)
 
 func customerInput() user.RegisterInput {
 	return user.RegisterInput{
-		Username:    "alice",
-		Email:       "alice@example.com",
-		FirstName:   "Alice",
-		LastName:    "Wong",
-		PhoneNumber: "0123456789",
-		Password:    "password123",
-		Role:        user.RoleCustomer,
+		Username: "alice",
+		Email:    "alice@example.com",
+		Password: "password123",
+		Role:     user.RoleCustomer,
 		BankAccount: user.BankAccountInput{
 			BankName:      "Kasikorn",
 			AccountNumber: "1234567890",
@@ -127,16 +124,13 @@ func TestRegister_CustomerCreatesUserAndBank(t *testing.T) {
 	if got.ID == uuid.Nil {
 		t.Error("Register() did not assign an id")
 	}
-	if got.FirstName != "Alice" || got.LastName != "Wong" || got.PhoneNumber != "0123456789" {
-		t.Errorf("Register() names/phone = %s %s %s", got.FirstName, got.LastName, got.PhoneNumber)
-	}
 	if got.PasswordHash == "password123" {
 		t.Error("Register() stored the plaintext password instead of a hash")
 	}
 	if !security.VerifyPassword(got.PasswordHash, "password123") {
 		t.Error("Register() stored hash does not verify against the original password")
 	}
-	if _, ok := repo.byUsername["alice"]; !ok {
+	if _, ok := repo.byEmail["alice@example.com"]; !ok {
 		t.Error("Register() did not persist the user via the repository")
 	}
 	if ba, ok := bank.byUserID[got.ID]; !ok {
@@ -236,11 +230,11 @@ func TestAuthenticate_Success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stored := &user.User{ID: uuid.New(), Username: "alice", PasswordHash: hash, Role: user.RoleCustomer}
-	repo.byUsername["alice"] = stored
+	stored := &user.User{ID: uuid.New(), Username: "alice", Email: "alice@example.com", PasswordHash: hash, Role: user.RoleCustomer}
+	repo.byEmail["alice@example.com"] = stored
 
 	usecase := newUsecase(repo, newFakeBankRepo(), newFakeArtistRegistrar())
-	got, err := usecase.Authenticate(context.Background(), "alice", "correct-horse")
+	got, err := usecase.Authenticate(context.Background(), "alice@example.com", "correct-horse")
 	if err != nil {
 		t.Fatalf("Authenticate() error = %v, want nil", err)
 	}
@@ -252,19 +246,19 @@ func TestAuthenticate_Success(t *testing.T) {
 func TestAuthenticate_WrongPassword(t *testing.T) {
 	repo := newFakeRepo()
 	hash, _ := security.HashPassword("correct-horse")
-	repo.byUsername["alice"] = &user.User{ID: uuid.New(), Username: "alice", PasswordHash: hash}
+	repo.byEmail["alice@example.com"] = &user.User{ID: uuid.New(), Username: "alice", Email: "alice@example.com", PasswordHash: hash}
 
 	usecase := newUsecase(repo, newFakeBankRepo(), newFakeArtistRegistrar())
-	_, err := usecase.Authenticate(context.Background(), "alice", "wrong-password")
+	_, err := usecase.Authenticate(context.Background(), "alice@example.com", "wrong-password")
 	if !errors.Is(err, user.ErrInvalidCredential) {
 		t.Errorf("Authenticate() error = %v, want ErrInvalidCredential", err)
 	}
 }
 
-func TestAuthenticate_UnknownUsernameLooksLikeWrongPassword(t *testing.T) {
+func TestAuthenticate_UnknownEmailLooksLikeWrongPassword(t *testing.T) {
 	usecase := newUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar())
 
-	_, err := usecase.Authenticate(context.Background(), "nobody", "whatever")
+	_, err := usecase.Authenticate(context.Background(), "nobody@example.com", "whatever")
 	if !errors.Is(err, user.ErrInvalidCredential) {
 		t.Errorf("Authenticate() error = %v, want ErrInvalidCredential (must not leak account existence)", err)
 	}
