@@ -10,7 +10,7 @@ tasks:
     desc: copies .env.example to .env if missing, starts docker infra, and runs the api with hot reload
     cmds:
       - test -f .env || cp .env.example .env
-      - docker compose up -d
+      - docker compose up -d --wait
       - go tool air
 
   down:

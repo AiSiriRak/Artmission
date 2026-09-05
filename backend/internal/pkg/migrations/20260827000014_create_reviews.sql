@@ -1,13 +1,17 @@
 -- +goose Up
 CREATE TABLE IF NOT EXISTS reviews (
     id          uuid PRIMARY KEY,
-    order_id    uuid NOT NULL UNIQUE REFERENCES orders (id) ON DELETE RESTRICT,
-    -- Denormalized from orders (immutable post-creation) to avoid a join on the per-artist review/average queries.
+    order_id    uuid NOT NULL UNIQUE,
     customer_id uuid NOT NULL REFERENCES users (id) ON DELETE RESTRICT,
     artist_id   uuid NOT NULL REFERENCES artist_profiles (user_id) ON DELETE RESTRICT,
     rating      smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
     comment     text,
-    created_at  timestamptz NOT NULL DEFAULT now()
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    -- Ensures the review's customer and artist are the same parties as its order.
+    CONSTRAINT reviews_order_id_customer_id_artist_id_fkey
+        FOREIGN KEY (order_id, customer_id, artist_id)
+        REFERENCES orders (id, customer_id, artist_id)
+        ON DELETE RESTRICT
 );
 
 CREATE INDEX reviews_artist_id_idx ON reviews (artist_id);

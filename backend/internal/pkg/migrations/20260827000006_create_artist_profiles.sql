@@ -13,5 +13,8 @@ CREATE TABLE IF NOT EXISTS artist_profiles (
     updated_at   timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE INDEX artist_profiles_review_score_idx
+    ON artist_profiles (review_score) WHERE review_score IS NOT NULL;
+
 -- +goose Down
 DROP TABLE IF EXISTS artist_profiles;
