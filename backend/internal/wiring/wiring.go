@@ -52,10 +52,12 @@ func Wire(cfg Config) *httpserver.Server {
 	orderUsecase := order.NewOrderUsecase(orderRepo)
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
+	userHandler := rest.NewUserHandler(userUsecase, authUsecase)
 	orderHandler := rest.NewOrderHandler(orderUsecase, authUsecase)
 
 	api, server := httpserver.New(cfg.App.Address, cfg.App.BasePath, cfg.App.AllowedOrigins, cfg.Logger, []httpserver.Pinger{cfg.DB})
 	authHandler.Register(api)
+	userHandler.Register(api)
 	orderHandler.Register(api)
 
 	return server
