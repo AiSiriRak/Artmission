@@ -3,9 +3,11 @@ package user_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/security"
 	"github.com/google/uuid"
@@ -132,8 +134,41 @@ func (f *fakeTx) Transaction(ctx context.Context, fn func(ctx context.Context) e
 
 var _ user.Transactioner = (*fakeTx)(nil)
 
+type fakeAccountDeletionRepo struct {
+	hasActiveOrders bool
+	statuses        []order.Status
+	calls           []string
+	checkErr        error
+	bankErr         error
+	sessionsErr     error
+	userErr         error
+}
+
+func (f *fakeAccountDeletionRepo) HasOrdersInStatuses(_ context.Context, _ uuid.UUID, statuses []order.Status) (bool, error) {
+	f.calls = append(f.calls, "check-orders")
+	f.statuses = append([]order.Status(nil), statuses...)
+	return f.hasActiveOrders, f.checkErr
+}
+
+func (f *fakeAccountDeletionRepo) DeleteBankAccountByUserID(_ context.Context, _ uuid.UUID) error {
+	f.calls = append(f.calls, "delete-bank")
+	return f.bankErr
+}
+
+func (f *fakeAccountDeletionRepo) DeleteSessionsByUserID(_ context.Context, _ uuid.UUID) error {
+	f.calls = append(f.calls, "delete-sessions")
+	return f.sessionsErr
+}
+
+func (f *fakeAccountDeletionRepo) SoftDeleteUserByID(_ context.Context, _ uuid.UUID) error {
+	f.calls = append(f.calls, "delete-user")
+	return f.userErr
+}
+
+var _ user.AccountDeletionRepository = (*fakeAccountDeletionRepo)(nil)
+
 func newUsecase(repo *fakeRepo, bank *fakeBankRepo, artist *fakeArtistRegistrar) user.UserUsecase {
-	return user.NewUserUsecase(repo, bank, artist, &fakeTx{})
+	return user.NewUserUsecase(repo, bank, artist, &fakeAccountDeletionRepo{}, &fakeTx{})
 }
 
 func customerInput() user.RegisterInput {
@@ -147,6 +182,37 @@ func customerInput() user.RegisterInput {
 			AccountHolderName: "Alice Wong",
 			AccountNumber:     "1234567890",
 		},
+	}
+}
+
+func TestDeleteAccount_DeletesPrivateDataAndSessions(t *testing.T) {
+	deletion := &fakeAccountDeletionRepo{}
+	usecase := user.NewUserUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar(), deletion, &fakeTx{})
+
+	if err := usecase.DeleteAccount(context.Background(), uuid.New()); err != nil {
+		t.Fatalf("DeleteAccount() error = %v, want nil", err)
+	}
+
+	wantCalls := []string{"check-orders", "delete-bank", "delete-sessions", "delete-user"}
+	if !slices.Equal(deletion.calls, wantCalls) {
+		t.Errorf("DeleteAccount() calls = %v, want %v", deletion.calls, wantCalls)
+	}
+	wantStatuses := []order.Status{order.StatusPending, order.StatusNotPaid, order.StatusInProcess}
+	if !slices.Equal(deletion.statuses, wantStatuses) {
+		t.Errorf("DeleteAccount() blocking statuses = %v, want %v", deletion.statuses, wantStatuses)
+	}
+}
+
+func TestDeleteAccount_RejectsActiveOrdersWithoutDeletingAnything(t *testing.T) {
+	deletion := &fakeAccountDeletionRepo{hasActiveOrders: true}
+	usecase := user.NewUserUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar(), deletion, &fakeTx{})
+
+	err := usecase.DeleteAccount(context.Background(), uuid.New())
+	if !errors.Is(err, user.ErrActiveOrders) {
+		t.Errorf("DeleteAccount() error = %v, want ErrActiveOrders", err)
+	}
+	if !slices.Equal(deletion.calls, []string{"check-orders"}) {
+		t.Errorf("DeleteAccount() calls = %v, want only active-order check", deletion.calls)
 	}
 }
 
