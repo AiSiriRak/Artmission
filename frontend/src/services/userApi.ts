@@ -23,8 +23,8 @@ export async function updateUser(id: number, data: User): Promise<User> {
 }
 
 // Delete User Data
-export async function deleteUser(id: number, data: User): Promise<User> {
+export async function deleteUser(id: number, data: User): Promise<boolean> {
   console.log("Delete User ID:", id);
-
-  return data;
+  const canDelete = true;
+  return canDelete;
 }

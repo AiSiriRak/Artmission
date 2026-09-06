@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { deleteUser, getUser, updateUser } from "@/services/userApi";
 import { User } from "@/types/user";
@@ -21,11 +22,15 @@ const bankOptions = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
   const [editingSection, setEditingSection] = useState<
     "personal" | "bank" | null
   >(null);
   const [isDeletePopupOpen, setIsDeletePopupOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<
+    "success" | "fail" | "default"
+  >("default");
 
   useEffect(() => {
     async function loadUser() {
@@ -39,6 +44,22 @@ export default function HomePage() {
   if (!user) {
     return <div className="text-center">Loading...</div>;
   }
+
+  const handleConfirmDelete = async () => {
+    try {
+      const result = await deleteUser(user.id, user);
+      if (!result) {
+        setDeleteStatus("fail");
+        console.log("Cannot delete account");
+        return;
+      }
+      console.log("Account deleted successfully");
+      setDeleteStatus("success");
+      setEditingSection(null);
+    } catch (error) {
+      console.error("Failed to delete bank account:", error);
+    }
+  };
 
   return (
     <main className="min-h-screen">
@@ -86,15 +107,12 @@ export default function HomePage() {
           />
           <DeleteAccountPopup
             isOpen={isDeletePopupOpen}
-            onCancel={() => setIsDeletePopupOpen(false)}
-            onConfirm={async () => {
-              try {
-                const deletedUser = await deleteUser(user.id, user);
-                setEditingSection(null);
-              } catch (error) {
-                console.error("Failed to delete bank account:", error);
-              }
+            onCancel={() => {
+              setIsDeletePopupOpen(false);
+              setDeleteStatus("default");
             }}
+            onConfirm={handleConfirmDelete}
+            status={deleteStatus}
           />
         </>
       </div>
