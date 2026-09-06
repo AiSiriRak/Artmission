@@ -20,20 +20,28 @@ func NewOrderHandler(orderUsecase order.OrderUsecase, authUsecase auth.AuthUseca
 }
 
 func (h *OrderHandler) Register(api huma.API) {
-	huma.Get(api, "/orders/history", h.viewHiringHistory,
+	huma.Get(api, "/orders", h.viewOrders,
 		huma.OperationTags("orders"),
 		func(o *huma.Operation) {
-			o.OperationID = "view-hiring-history"
-			o.Summary = "ViewHiringHistory"
-			o.Description = "View the authenticated customer's hiring history"
-			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireRole(api, user.RoleCustomer))
+			o.OperationID = "view-orders"
+			o.Summary = "ViewOrders"
+			o.Description = "List the authenticated customer's or artist's orders, filtered by status, " +
+				"sorted by deadline/price/updated_at, and paginated by limit/offset"
+			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireAnyRole(api, user.RoleCustomer, user.RoleArtist))
 		})
 }
 
-type ViewHiringHistoryInput struct{}
+type deliverableView struct {
+	ID               string    `json:"id"`
+	OriginalImageURL string    `json:"original_image_url"`
+	PreviewImageURL  string    `json:"preview_image_url"`
+	SortOrder        int       `json:"sort_order"`
+	CreatedAt        time.Time `json:"created_at"`
+}
 
 type orderView struct {
 	ID                   string            `json:"id"`
+	CustomerID           string            `json:"customer_id"`
 	ArtistID             string            `json:"artist_id"`
 	ArtworkID            *string           `json:"artwork_id,omitempty"`
 	ArtworkName          string            `json:"artwork_name"`
@@ -51,37 +59,65 @@ type orderView struct {
 	UpdatedAt            time.Time         `json:"updated_at"`
 }
 
-type deliverableView struct {
-	ID               string    `json:"id"`
-	OriginalImageURL string    `json:"original_image_url"`
-	PreviewImageURL  string    `json:"preview_image_url"`
-	SortOrder        int       `json:"sort_order"`
-	CreatedAt        time.Time `json:"created_at"`
+type ViewOrdersInput struct {
+	Status []string `query:"status,explode" enum:"PENDING,NOT_PAID,IN_PROCESS,SUCCESS,CANCEL" doc:"Filter by one or more order statuses. Repeated values are OR'd. Omit for every status."`
+	Sort   string   `query:"sort" enum:"deadline,price,updated_at" default:"updated_at" doc:"Field to sort by."`
+	Order  string   `query:"order" enum:"asc,desc" default:"desc" doc:"Sort direction."`
+	Limit  int      `query:"limit" minimum:"1" maximum:"100" default:"20" doc:"Maximum number of orders to return."`
+	Offset int      `query:"offset" minimum:"0" default:"0" doc:"Number of matching orders to skip before the first returned row."`
 }
 
-type ViewHiringHistoryOutput struct {
+type ViewOrdersOutput struct {
 	Body struct {
 		Orders []orderView `json:"orders"`
+		Total  int         `json:"total"`
 	}
 }
 
-func (h *OrderHandler) viewHiringHistory(ctx context.Context, _ *ViewHiringHistoryInput) (*ViewHiringHistoryOutput, error) {
+func (h *OrderHandler) viewOrders(ctx context.Context, in *ViewOrdersInput) (*ViewOrdersOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
 		return nil, huma.Error401Unauthorized("missing authentication")
 	}
 
-	orders, err := h.orderUsecase.ViewHiringHistory(ctx, info.UserID)
+	statuses := make([]order.Status, len(in.Status))
+	for i, s := range in.Status {
+		statuses[i] = order.Status(s)
+	}
+
+	query := order.ListQuery{
+		Participant:   participantForRole(info.Role),
+		ParticipantID: info.UserID,
+		Statuses:      statuses,
+		Sort:          order.SortField(in.Sort),
+		Order:         order.SortOrder(in.Order),
+		Limit:         in.Limit,
+		Offset:        in.Offset,
+	}
+
+	page, err := h.orderUsecase.ViewOrders(ctx, query)
 	if err != nil {
 		return nil, mapAppError(err)
 	}
 
-	out := &ViewHiringHistoryOutput{}
-	out.Body.Orders = make([]orderView, len(orders))
-	for i, o := range orders {
+	out := &ViewOrdersOutput{}
+	out.Body.Orders = make([]orderView, len(page.Orders))
+	for i, o := range page.Orders {
 		out.Body.Orders[i] = toOrderView(&o)
 	}
+	out.Body.Total = page.Total
 	return out, nil
+}
+
+func participantForRole(role user.Role) order.Participant {
+	switch role {
+	case user.RoleCustomer:
+		return order.ParticipantCustomer
+	case user.RoleArtist:
+		return order.ParticipantArtist
+	default:
+		return ""
+	}
 }
 
 func toOrderView(o *order.Order) orderView {
@@ -92,18 +128,19 @@ func toOrderView(o *order.Order) orderView {
 	}
 
 	deliverables := make([]deliverableView, len(o.Deliverables))
-	for i, deliverable := range o.Deliverables {
+	for i, d := range o.Deliverables {
 		deliverables[i] = deliverableView{
-			ID:               deliverable.ID.String(),
-			OriginalImageURL: deliverable.OriginalImageURL,
-			PreviewImageURL:  deliverable.PreviewImageURL,
-			SortOrder:        deliverable.SortOrder,
-			CreatedAt:        deliverable.CreatedAt,
+			ID:               d.ID.String(),
+			OriginalImageURL: d.OriginalImageURL,
+			PreviewImageURL:  d.PreviewImageURL,
+			SortOrder:        d.SortOrder,
+			CreatedAt:        d.CreatedAt,
 		}
 	}
 
 	return orderView{
 		ID:                   o.ID.String(),
+		CustomerID:           o.CustomerID.String(),
 		ArtistID:             o.ArtistID.String(),
 		ArtworkID:            artworkID,
 		ArtworkName:          o.ArtworkNameSnapshot,
