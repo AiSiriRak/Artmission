@@ -108,8 +108,7 @@ func applyStatusFilter(q *bun.SelectQuery, statuses []order.Status) *bun.SelectQ
 // query.Statuses, and paginates by query.Sort/Order/Limit/Offset via the
 // shared baserepo.Paginate helper. query is assumed already validated and
 // defaulted by orderUsecase.ViewOrders. Successful orders are enriched
-// with their delivered images (order_deliverables); other statuses never
-// have any to show.
+// with their delivered images (order_deliverables).
 func (r *orderRepository) ListOrders(ctx context.Context, query order.ListQuery) (order.Page, error) {
 	column, ok := orderSortColumns[query.Sort]
 	if !ok {
@@ -168,6 +167,7 @@ func (r *orderRepository) attachDeliverables(ctx context.Context, orders []order
 	byOrderID := make(map[uuid.UUID]*order.Order, len(orders))
 	for i := range orders {
 		byOrderID[orders[i].ID] = &orders[i]
+		// Only successful orders may expose delivered images to the customer.
 		if orders[i].Status == order.StatusSuccess {
 			successfulOrderIDs = append(successfulOrderIDs, orders[i].ID)
 		}
