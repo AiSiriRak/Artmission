@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -17,6 +18,7 @@ type UserUsecase interface {
 	Authenticate(ctx context.Context, email, password string) (*User, error)
 
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
+	UpdateAccount(ctx context.Context, id uuid.UUID, in UpdateAccountInput) (*User, error)
 	UpdateBankAccount(ctx context.Context, userID uuid.UUID, role Role, in BankAccountInput) (*BankAccount, error)
 }
 
@@ -24,6 +26,7 @@ type UserRepository interface {
 	Create(ctx context.Context, u *User) error
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
+	UpdateAccountByID(ctx context.Context, id uuid.UUID, in AccountUpdate) (*User, error)
 }
 
 type BankAccountRepository interface {
@@ -55,6 +58,18 @@ type BankAccountInput struct {
 	BankName          string
 	AccountHolderName string
 	AccountNumber     string
+}
+
+type UpdateAccountInput struct {
+	Username    string
+	OldPassword *string
+	NewPassword *string
+}
+
+type AccountUpdate struct {
+	Username     string
+	PasswordHash *string
+	UpdatedAt    time.Time
 }
 
 type ArtistProfileInput struct {

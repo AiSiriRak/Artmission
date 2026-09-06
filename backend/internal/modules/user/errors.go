@@ -11,4 +11,6 @@ var (
 	ErrArtistFieldsNotAllowed    = apperror.InvalidInput("artist fields are only allowed when role is artist", nil)
 	ErrBankAccountRequired       = apperror.InvalidInput("bank name, account holder name, and account number are required", nil)
 	ErrBankAccountNotAllowed     = apperror.Forbidden("bank account is only available for customer and artist accounts")
+	ErrPasswordFieldsRequired    = apperror.InvalidInput("old password and new password must be provided together", nil)
+	ErrInvalidCurrentPassword    = apperror.Unauthorized("old password is incorrect")
 )

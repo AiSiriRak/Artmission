@@ -107,6 +107,39 @@ func (u *userUsecase) GetByID(ctx context.Context, id uuid.UUID) (*User, error) 
 	return u.repo.GetByID(ctx, id)
 }
 
+func (u *userUsecase) UpdateAccount(ctx context.Context, id uuid.UUID, in UpdateAccountInput) (*User, error) {
+	username := strings.TrimSpace(in.Username)
+
+	oldPasswordProvided := in.OldPassword != nil
+	newPasswordProvided := in.NewPassword != nil
+	if oldPasswordProvided != newPasswordProvided {
+		return nil, ErrPasswordFieldsRequired
+	}
+
+	var passwordHash *string
+	if oldPasswordProvided {
+		found, err := u.repo.GetByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if !security.VerifyPassword(found.PasswordHash, *in.OldPassword) {
+			return nil, ErrInvalidCurrentPassword
+		}
+
+		hash, err := security.HashPassword(*in.NewPassword)
+		if err != nil {
+			return nil, apperror.Internal("failed to hash password", err)
+		}
+		passwordHash = &hash
+	}
+
+	return u.repo.UpdateAccountByID(ctx, id, AccountUpdate{
+		Username:     username,
+		PasswordHash: passwordHash,
+		UpdatedAt:    time.Now(),
+	})
+}
+
 func (u *userUsecase) UpdateBankAccount(ctx context.Context, userID uuid.UUID, role Role, in BankAccountInput) (*BankAccount, error) {
 	if role != RoleCustomer && role != RoleArtist {
 		return nil, ErrBankAccountNotAllowed

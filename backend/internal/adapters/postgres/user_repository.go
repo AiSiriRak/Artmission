@@ -110,3 +110,30 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User,
 	}
 	return model.toDomain(), nil
 }
+
+func (r *userRepository) UpdateAccountByID(ctx context.Context, id uuid.UUID, in user.AccountUpdate) (*user.User, error) {
+	model := &userModel{
+		ID:        id,
+		Username:  in.Username,
+		UpdatedAt: in.UpdatedAt,
+	}
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		query := idb.NewUpdate().
+			Model(model).
+			Column("username", "updated_at").
+			WherePK().
+			Returning("*")
+		if in.PasswordHash != nil {
+			model.PasswordHash = *in.PasswordHash
+			query = query.Column("password_hash")
+		}
+		return query.Scan(ctx)
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, user.ErrUserNotFound
+		}
+		return nil, apperror.Internal("failed to update account", err)
+	}
+	return model.toDomain(), nil
+}

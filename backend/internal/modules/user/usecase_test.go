@@ -12,9 +12,11 @@ import (
 )
 
 type fakeRepo struct {
-	byEmail   map[string]*user.User
-	byID      map[uuid.UUID]*user.User
-	createErr error
+	byEmail     map[string]*user.User
+	byID        map[uuid.UUID]*user.User
+	createErr   error
+	updateErr   error
+	updateCalls int
 }
 
 func newFakeRepo() *fakeRepo {
@@ -44,6 +46,26 @@ func (f *fakeRepo) GetByID(_ context.Context, id uuid.UUID) (*user.User, error) 
 		return nil, user.ErrUserNotFound
 	}
 	return u, nil
+}
+
+func (f *fakeRepo) UpdateAccountByID(_ context.Context, id uuid.UUID, in user.AccountUpdate) (*user.User, error) {
+	f.updateCalls++
+	if f.updateErr != nil {
+		return nil, f.updateErr
+	}
+	stored, ok := f.byID[id]
+	if !ok {
+		return nil, user.ErrUserNotFound
+	}
+	cp := *stored
+	cp.Username = in.Username
+	cp.UpdatedAt = in.UpdatedAt
+	if in.PasswordHash != nil {
+		cp.PasswordHash = *in.PasswordHash
+	}
+	f.byID[id] = &cp
+	f.byEmail[cp.Email] = &cp
+	return &cp, nil
 }
 
 var _ user.UserRepository = (*fakeRepo)(nil)
@@ -238,6 +260,118 @@ func TestRegister_PropagatesDuplicateFromRepository(t *testing.T) {
 	_, err := usecase.Register(context.Background(), customerInput())
 	if !errors.Is(err, user.ErrEmailTaken) {
 		t.Errorf("Register() error = %v, want ErrEmailTaken", err)
+	}
+}
+
+func TestUpdateAccount_UsernameOnlyTrimsAndPreservesPassword(t *testing.T) {
+	repo := newFakeRepo()
+	hash, err := security.HashPassword("correct1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := &user.User{
+		ID:           uuid.New(),
+		Username:     "old-name",
+		Email:        "alice@example.com",
+		PasswordHash: hash,
+		Role:         user.RoleCustomer,
+	}
+	repo.byID[stored.ID] = stored
+	repo.byEmail[stored.Email] = stored
+	usecase := newUsecase(repo, newFakeBankRepo(), newFakeArtistRegistrar())
+
+	got, err := usecase.UpdateAccount(context.Background(), stored.ID, user.UpdateAccountInput{Username: "  new-name  "})
+	if err != nil {
+		t.Fatalf("UpdateAccount() error = %v, want nil", err)
+	}
+	if got.Username != "new-name" {
+		t.Errorf("UpdateAccount() username = %q, want new-name", got.Username)
+	}
+	if got.Email != stored.Email || got.Role != stored.Role {
+		t.Errorf("UpdateAccount() changed immutable account fields: %+v", got)
+	}
+	if got.PasswordHash != hash {
+		t.Error("UpdateAccount() changed password hash during username-only update")
+	}
+	if repo.updateCalls != 1 {
+		t.Errorf("UpdateAccountByID calls = %d, want 1", repo.updateCalls)
+	}
+}
+
+func TestUpdateAccount_ChangesPassword(t *testing.T) {
+	repo := newFakeRepo()
+	hash, err := security.HashPassword("correct1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := &user.User{ID: uuid.New(), Username: "alice", Email: "alice@example.com", PasswordHash: hash, Role: user.RoleArtist}
+	repo.byID[stored.ID] = stored
+	repo.byEmail[stored.Email] = stored
+	usecase := newUsecase(repo, newFakeBankRepo(), newFakeArtistRegistrar())
+	oldPassword := "correct1"
+	newPassword := "different2"
+
+	got, err := usecase.UpdateAccount(context.Background(), stored.ID, user.UpdateAccountInput{
+		Username:    "artist-name",
+		OldPassword: &oldPassword,
+		NewPassword: &newPassword,
+	})
+	if err != nil {
+		t.Fatalf("UpdateAccount() error = %v, want nil", err)
+	}
+	if !security.VerifyPassword(got.PasswordHash, newPassword) {
+		t.Error("UpdateAccount() did not store a hash for the new password")
+	}
+	if security.VerifyPassword(got.PasswordHash, oldPassword) {
+		t.Error("UpdateAccount() still accepts the old password")
+	}
+}
+
+func TestUpdateAccount_RequiresBothPasswordFields(t *testing.T) {
+	oldPassword := "correct1"
+	newPassword := "different2"
+	tests := []user.UpdateAccountInput{
+		{Username: "alice", OldPassword: &oldPassword},
+		{Username: "alice", NewPassword: &newPassword},
+	}
+	for _, in := range tests {
+		repo := newFakeRepo()
+		usecase := newUsecase(repo, newFakeBankRepo(), newFakeArtistRegistrar())
+		_, err := usecase.UpdateAccount(context.Background(), uuid.New(), in)
+		if !errors.Is(err, user.ErrPasswordFieldsRequired) {
+			t.Errorf("UpdateAccount() error = %v, want ErrPasswordFieldsRequired", err)
+		}
+		if repo.updateCalls != 0 {
+			t.Errorf("UpdateAccountByID calls = %d, want 0", repo.updateCalls)
+		}
+	}
+}
+
+func TestUpdateAccount_RejectsIncorrectOldPasswordWithoutUpdating(t *testing.T) {
+	repo := newFakeRepo()
+	hash, err := security.HashPassword("correct1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := &user.User{ID: uuid.New(), Username: "alice", Email: "alice@example.com", PasswordHash: hash}
+	repo.byID[stored.ID] = stored
+	oldPassword := "incorrect"
+	newPassword := "different2"
+	usecase := newUsecase(repo, newFakeBankRepo(), newFakeArtistRegistrar())
+
+	_, err = usecase.UpdateAccount(context.Background(), stored.ID, user.UpdateAccountInput{
+		Username:    "changed-name",
+		OldPassword: &oldPassword,
+		NewPassword: &newPassword,
+	})
+	if !errors.Is(err, user.ErrInvalidCurrentPassword) {
+		t.Errorf("UpdateAccount() error = %v, want ErrInvalidCurrentPassword", err)
+	}
+	if repo.updateCalls != 0 {
+		t.Errorf("UpdateAccountByID calls = %d, want 0", repo.updateCalls)
+	}
+	if repo.byID[stored.ID].Username != "alice" {
+		t.Error("UpdateAccount() changed username despite incorrect old password")
 	}
 }
 
