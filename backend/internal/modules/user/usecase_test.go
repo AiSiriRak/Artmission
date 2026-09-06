@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/security"
@@ -48,8 +49,10 @@ func (f *fakeRepo) GetByID(_ context.Context, id uuid.UUID) (*user.User, error) 
 var _ user.UserRepository = (*fakeRepo)(nil)
 
 type fakeBankRepo struct {
-	byUserID  map[uuid.UUID]*user.BankAccount
-	createErr error
+	byUserID    map[uuid.UUID]*user.BankAccount
+	createErr   error
+	upsertErr   error
+	upsertCalls int
 }
 
 func newFakeBankRepo() *fakeBankRepo {
@@ -63,6 +66,19 @@ func (f *fakeBankRepo) Create(_ context.Context, ba *user.BankAccount) error {
 	cp := *ba
 	f.byUserID[ba.UserID] = &cp
 	return nil
+}
+
+func (f *fakeBankRepo) UpsertByUserID(_ context.Context, ba *user.BankAccount) (*user.BankAccount, error) {
+	f.upsertCalls++
+	if f.upsertErr != nil {
+		return nil, f.upsertErr
+	}
+	cp := *ba
+	if existing, ok := f.byUserID[ba.UserID]; ok {
+		cp.CreatedAt = existing.CreatedAt
+	}
+	f.byUserID[ba.UserID] = &cp
+	return &cp, nil
 }
 
 var _ user.BankAccountRepository = (*fakeBankRepo)(nil)
@@ -105,8 +121,9 @@ func customerInput() user.RegisterInput {
 		Password: "password123",
 		Role:     user.RoleCustomer,
 		BankAccount: user.BankAccountInput{
-			BankName:      "Kasikorn",
-			AccountNumber: "1234567890",
+			BankName:          "Kasikorn",
+			AccountHolderName: "Alice Wong",
+			AccountNumber:     "1234567890",
 		},
 	}
 }
@@ -135,7 +152,7 @@ func TestRegister_CustomerCreatesUserAndBank(t *testing.T) {
 	}
 	if ba, ok := bank.byUserID[got.ID]; !ok {
 		t.Error("Register() did not persist a bank account")
-	} else if ba.BankName != "Kasikorn" || ba.AccountNumber != "1234567890" {
+	} else if ba.BankName != "Kasikorn" || ba.AccountHolderName != "Alice Wong" || ba.AccountNumber != "1234567890" {
 		t.Errorf("Register() bank = %+v", ba)
 	}
 	if len(artist.profiles) != 0 {
@@ -221,6 +238,109 @@ func TestRegister_PropagatesDuplicateFromRepository(t *testing.T) {
 	_, err := usecase.Register(context.Background(), customerInput())
 	if !errors.Is(err, user.ErrEmailTaken) {
 		t.Errorf("Register() error = %v, want ErrEmailTaken", err)
+	}
+}
+
+func TestUpdateBankAccount_ReplacesAndTrimsDetails(t *testing.T) {
+	bank := newFakeBankRepo()
+	userID := uuid.New()
+	bank.byUserID[userID] = &user.BankAccount{
+		UserID:            userID,
+		BankName:          "Old Bank",
+		AccountHolderName: "Old Holder",
+		AccountNumber:     "000000",
+		CreatedAt:         time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC),
+	}
+	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
+
+	got, err := usecase.UpdateBankAccount(context.Background(), userID, user.RoleCustomer, user.BankAccountInput{
+		BankName:          "  Kasikorn  ",
+		AccountHolderName: "  Alice Wong  ",
+		AccountNumber:     " 1234567890 ",
+	})
+	if err != nil {
+		t.Fatalf("UpdateBankAccount() error = %v, want nil", err)
+	}
+	if got.BankName != "Kasikorn" || got.AccountHolderName != "Alice Wong" || got.AccountNumber != "1234567890" {
+		t.Errorf("UpdateBankAccount() = %+v, want trimmed details", got)
+	}
+	if got.UpdatedAt.IsZero() {
+		t.Error("UpdateBankAccount() did not set UpdatedAt")
+	}
+	if want := bank.byUserID[userID].CreatedAt; !got.CreatedAt.Equal(want) {
+		t.Errorf("UpdateBankAccount() CreatedAt = %v, want persisted value %v", got.CreatedAt, want)
+	}
+	if bank.upsertCalls != 1 {
+		t.Errorf("UpsertByUserID calls = %d, want 1", bank.upsertCalls)
+	}
+}
+
+func TestUpdateBankAccount_RejectsBlankDetails(t *testing.T) {
+	bank := newFakeBankRepo()
+	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
+
+	_, err := usecase.UpdateBankAccount(context.Background(), uuid.New(), user.RoleCustomer, user.BankAccountInput{
+		BankName:          "  ",
+		AccountHolderName: "Alice Wong",
+		AccountNumber:     "1234567890",
+	})
+	if !errors.Is(err, user.ErrBankAccountRequired) {
+		t.Errorf("UpdateBankAccount() error = %v, want ErrBankAccountRequired", err)
+	}
+	if bank.upsertCalls != 0 {
+		t.Errorf("UpsertByUserID calls = %d, want 0", bank.upsertCalls)
+	}
+}
+
+func TestUpdateBankAccount_RejectsBlankAccountHolderName(t *testing.T) {
+	bank := newFakeBankRepo()
+	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
+
+	_, err := usecase.UpdateBankAccount(context.Background(), uuid.New(), user.RoleCustomer, user.BankAccountInput{
+		BankName:          "Kasikorn",
+		AccountHolderName: "  ",
+		AccountNumber:     "1234567890",
+	})
+	if !errors.Is(err, user.ErrBankAccountRequired) {
+		t.Errorf("UpdateBankAccount() error = %v, want ErrBankAccountRequired", err)
+	}
+	if bank.upsertCalls != 0 {
+		t.Errorf("UpsertByUserID calls = %d, want 0", bank.upsertCalls)
+	}
+}
+
+func TestUpdateBankAccount_CreatesBankAccountWhenMissing(t *testing.T) {
+	bank := newFakeBankRepo()
+	userID := uuid.New()
+	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
+
+	_, err := usecase.UpdateBankAccount(context.Background(), userID, user.RoleArtist, user.BankAccountInput{
+		BankName:          "Kasikorn",
+		AccountHolderName: "Alice Wong",
+		AccountNumber:     "1234567890",
+	})
+	if err != nil {
+		t.Fatalf("UpdateBankAccount() error = %v, want nil", err)
+	}
+	if _, ok := bank.byUserID[userID]; !ok {
+		t.Fatal("UpdateBankAccount() did not create a missing bank account")
+	}
+}
+
+func TestUpdateBankAccount_RejectsAdmin(t *testing.T) {
+	bank := newFakeBankRepo()
+	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
+
+	_, err := usecase.UpdateBankAccount(context.Background(), uuid.New(), user.RoleAdmin, user.BankAccountInput{
+		BankName:          "Kasikorn",
+		AccountHolderName: "Alice Wong",
+		AccountNumber:     "1234567890",
+	})
+	if !errors.Is(err, user.ErrBankAccountNotAllowed) {
+		t.Errorf("UpdateBankAccount() error = %v, want ErrBankAccountNotAllowed", err)
+	}
+	if bank.upsertCalls != 0 {
+		t.Errorf("UpsertByUserID calls = %d, want 0", bank.upsertCalls)
 	}
 }
 

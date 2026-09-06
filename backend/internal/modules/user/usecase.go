@@ -42,7 +42,7 @@ func (u *userUsecase) Register(ctx context.Context, in RegisterInput) (*User, er
 	} else if in.Artist != nil {
 		return nil, ErrArtistFieldsNotAllowed
 	}
-	if strings.TrimSpace(in.BankAccount.BankName) == "" || strings.TrimSpace(in.BankAccount.AccountNumber) == "" {
+	if strings.TrimSpace(in.BankAccount.BankName) == "" || strings.TrimSpace(in.BankAccount.AccountHolderName) == "" || strings.TrimSpace(in.BankAccount.AccountNumber) == "" {
 		return nil, ErrBankAccountRequired
 	}
 
@@ -62,11 +62,12 @@ func (u *userUsecase) Register(ctx context.Context, in RegisterInput) (*User, er
 		UpdatedAt:    now,
 	}
 	bank := &BankAccount{
-		UserID:        newUser.ID,
-		BankName:      strings.TrimSpace(in.BankAccount.BankName),
-		AccountNumber: strings.TrimSpace(in.BankAccount.AccountNumber),
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		UserID:            newUser.ID,
+		BankName:          strings.TrimSpace(in.BankAccount.BankName),
+		AccountHolderName: strings.TrimSpace(in.BankAccount.AccountHolderName),
+		AccountNumber:     strings.TrimSpace(in.BankAccount.AccountNumber),
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	}
 
 	err = u.tx.Transaction(ctx, func(ctx context.Context) error {
@@ -104,4 +105,28 @@ func (u *userUsecase) Authenticate(ctx context.Context, email, password string) 
 
 func (u *userUsecase) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	return u.repo.GetByID(ctx, id)
+}
+
+func (u *userUsecase) UpdateBankAccount(ctx context.Context, userID uuid.UUID, role Role, in BankAccountInput) (*BankAccount, error) {
+	if role != RoleCustomer && role != RoleArtist {
+		return nil, ErrBankAccountNotAllowed
+	}
+
+	bankName := strings.TrimSpace(in.BankName)
+	accountHolderName := strings.TrimSpace(in.AccountHolderName)
+	accountNumber := strings.TrimSpace(in.AccountNumber)
+	if bankName == "" || accountHolderName == "" || accountNumber == "" {
+		return nil, ErrBankAccountRequired
+	}
+
+	now := time.Now()
+	bank := &BankAccount{
+		UserID:            userID,
+		BankName:          bankName,
+		AccountHolderName: accountHolderName,
+		AccountNumber:     accountNumber,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}
+	return u.bankRepo.UpsertByUserID(ctx, bank)
 }

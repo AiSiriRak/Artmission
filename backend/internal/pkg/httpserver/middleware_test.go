@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -121,6 +122,9 @@ func TestCORS_PreflightSetsMaxAgeAndAllowHeaders(t *testing.T) {
 	}
 	if rec.Header().Get("Access-Control-Allow-Origin") != "https://allowed.example.com" {
 		t.Error("expected the allowed origin echoed back")
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodPut) {
+		t.Errorf("Access-Control-Allow-Methods = %q, want it to include %q", got, http.MethodPut)
 	}
 }
 

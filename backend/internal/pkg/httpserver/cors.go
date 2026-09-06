@@ -34,7 +34,7 @@ func withCORS(allowedOrigins []string, next http.Handler) http.Handler {
 		// health probe) should reach the router like any other request.
 		if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
 			if allowed {
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 				w.Header().Set("Access-Control-Max-Age", preflightMaxAge)
 			}

@@ -28,9 +28,10 @@ type User struct {
 }
 
 type BankAccount struct {
-	UserID        uuid.UUID
-	BankName      string
-	AccountNumber string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	UserID            uuid.UUID
+	BankName          string
+	AccountHolderName string
+	AccountNumber     string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }

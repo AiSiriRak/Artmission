@@ -18,6 +18,7 @@ http:
         "role": "customer",
         "bank_account": {
           "account_number": "1234",
+          "account_holder_name": "Test User",
           "bank_name": "kbank"
         }
       //   "artist": {
