@@ -89,22 +89,6 @@ func (r *orderRepository) ListByCustomerID(ctx context.Context, customerID uuid.
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		return idb.NewSelect().
 			Model(&models).
-			ColumnExpr("o.id").
-			ColumnExpr("o.customer_id").
-			ColumnExpr("o.artist_id").
-			ColumnExpr("o.artwork_id").
-			ColumnExpr("o.artwork_name_snapshot").
-			ColumnExpr("o.artwork_description_snapshot").
-			ColumnExpr("o.price_satang_snapshot").
-			ColumnExpr("o.minimum_deadline_days_snapshot").
-			ColumnExpr("o.preview_image_url_snapshot").
-			ColumnExpr("o.customer_description").
-			ColumnExpr("o.selected_deadline_days").
-			ColumnExpr("o.deadline_at").
-			ColumnExpr("o.status").
-			ColumnExpr("o.completed_at").
-			ColumnExpr("o.created_at").
-			ColumnExpr("o.updated_at").
 			Where("o.customer_id = ?", customerID).
 			OrderExpr("o.created_at DESC, o.id DESC").
 			Scan(ctx)
@@ -123,23 +107,25 @@ func (r *orderRepository) ListByCustomerID(ctx context.Context, customerID uuid.
 		byOrderID := make(map[uuid.UUID]*order.Order, len(orders))
 		for i := range orders {
 			byOrderID[orders[i].ID] = &orders[i]
+			// Only successful orders may expose delivered images to the customer.
 			if orders[i].Status == order.StatusSuccess {
 				successfulOrderIDs = append(successfulOrderIDs, orders[i].ID)
 			}
 		}
+
 		if len(successfulOrderIDs) > 0 {
 			err := r.exec.Run(ctx, func(idb bun.IDB) error {
 				var deliverables []orderDeliverableModel
 				if err := idb.NewSelect().
 					Model(&deliverables).
-					Where("od.order_id IN (?)", bun.In(successfulOrderIDs)).
+					Where("od.order_id IN (?)", bun.List(successfulOrderIDs)).
 					OrderExpr("od.order_id ASC, od.sort_order ASC").
 					Scan(ctx); err != nil {
 					return err
 				}
 				for i := range deliverables {
-					parent := byOrderID[deliverables[i].OrderID]
-					parent.Deliverables = append(parent.Deliverables, deliverables[i].toDomain())
+					order := byOrderID[deliverables[i].OrderID]
+					order.Deliverables = append(order.Deliverables, deliverables[i].toDomain())
 				}
 				return nil
 			})
