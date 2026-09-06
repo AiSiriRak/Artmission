@@ -78,14 +78,7 @@ export default function ArtistProfilePage() {
       {/* โยนทุกอย่างให้ Client Component เป็นคนตัดสินใจว่าจะโชว์ Layout ไหน */}
       <ProfileManager initialProfile={artistInitialData} initialArtworks={initialArtworks} />
 
-      {/* ส่วน Review (Server Component) ห้ามแก้ */}
-      <div className="max-w-5xl mx-auto px-8 pb-16">
-        <div className="bg-white p-6 shadow-sm rounded-xl border border-gray-100 text-black">
-          <h2 className="text-xl font-bold mb-4">Reviews</h2>
-          {/* ใส่โค้ด Review ตรงนี้ได้เลยครับ */}
-          <p className="text-gray-500 text-sm">ยังไม่มีรีวิว</p>
-        </div>
-      </div>
+      
     </div>
   );
 }

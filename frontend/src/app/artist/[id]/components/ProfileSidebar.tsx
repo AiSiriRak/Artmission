@@ -41,7 +41,7 @@ export default function ProfileSidebar({ imageUrl, isEditing, onEdit, onSave, on
                   className="w-4 h-4 object-contain" 
                 />
               }
-              className="w-full flex justify-center items-center gap-1 text-xs whitespace-nowrap rounded-full font-semibold"
+              className="w-full flex justify-center items-center gap-1 text-xs whitespace-nowrap rounded-full font-semibold !border"
             >
               Edit
             </Button>

@@ -1,19 +1,20 @@
 "use client";
 import { useState } from "react";
-import { ArtistData, ArtworkData } from "../types";
+import { ArtistData, ArtworkData, ReviewData } from "../types";
 import ProfileSidebar from "./ProfileSidebar";
 import EditorField from "./EditorField";
 import ArtworkCard from "./ArtworkCard";
 import TagList from "./TagList";
 import ProfileImage from "./ProfileImage";
 import ArtworkDetail from "./ArtworkDetail";
+import ReviewList from "./ReviewList";
 import { Button } from "@/components/ui/Button";
 
 
 export default function ProfileManager({ 
-  initialProfile, initialArtworks 
+  initialProfile, initialArtworks, initialReviews = []
 }: { 
-  initialProfile: ArtistData, initialArtworks: ArtworkData[] 
+  initialProfile: ArtistData, initialArtworks: ArtworkData[], initialReviews?: ReviewData[]
 }) {
   const [isCustomerMode, setIsCustomerMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -21,6 +22,16 @@ export default function ProfileManager({
   const [selectedArtwork, setSelectedArtwork] = useState<ArtworkData | 'new' | null>(null);
 
   const [artworks, setArtworks] = useState<ArtworkData[]>(initialArtworks);
+
+  const [reviews, setReviews] = useState<ReviewData[]>(
+    initialReviews.length > 0 ? initialReviews : [
+      { id: 1, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
+      { id: 2, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
+      { id: 3, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
+      { id: 4, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
+      { id: 5, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
+    ]
+  );
   
   const [savedData, setSavedData] = useState<ArtistData>(initialProfile);
   const [artistData, setArtistData] = useState<ArtistData>(initialProfile);
@@ -85,6 +96,10 @@ export default function ProfileManager({
   // ----------------------------------------------
 
   const showEditControls = !isCustomerMode && !isEditing;
+
+  const avgRating = reviews.length > 0 
+  ? (reviews.reduce((sum, item) => sum + item.rating, 0) / reviews.length).toFixed(1)
+  : "0.0";
 
   if (selectedArtwork) {
     return (
@@ -222,17 +237,29 @@ export default function ProfileManager({
         </div>
       )}
 
-      {/* ------------------------------------------- */}
+{/* ------------------------------------------- */}
       {/* ส่วนที่ 2: Artwork (ใช้ร่วมกันทั้ง 2 โหมด) */}
       {/* ------------------------------------------- */}
       <div className="max-w-5xl mx-auto px-8 pb-10">
-        <hr className="border-gray-200 mb-10" />
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold">
-            {isCustomerMode ? "Artwork" : "Your Artwork"}{" "}
-            <span className="text-sm font-normal text-gray-400 ml-2">{artworks.length} samples</span>
-          </h2>
-        </div>
+        
+        {/* 📍 ปรับ Header Artwork ตามโหมด */}
+        {isCustomerMode ? (
+          /* Header ในโหมด Preview (กล่องสีครีม แถบชมพู) */
+          <div className="flex items-center gap-2 bg-secondary-300 border-l-4 border-accent-500 px-4 py-2.5 mb-6 rounded-r-md text-lg font-bold text-gray-900">
+            <span>Artworks</span>
+          </div>
+        ) : (
+          /* Header ในโหมด Artist (มีเส้นคั่น) */
+          <>
+            <hr className="border-gray-200 mb-10" />
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold text-gray-900">Your Artwork</h2>
+                <span className="text-sm font-normal text-gray-400">{artworks.length} samples</span>
+              </div>
+            </div>
+          </>
+        )}
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           
@@ -263,6 +290,41 @@ export default function ProfileManager({
           ))}
         </div>
       </div>
+
+      {/* ------------------------------------------- */}
+      {/* ส่วนที่ 3: Reviews */}
+      {/* ------------------------------------------- */}
+      <div className="max-w-5xl mx-auto px-8 pb-20">
+        {isCustomerMode ? (
+          /* Header ในโหมด Preview */
+          <div className="flex items-center gap-2 bg-secondary-300 border-l-4 border-accent-500 px-4 py-2.5 mb-6 rounded-r-md text-lg font-bold text-gray-900">
+            <span>Reviews</span>
+            <span className="text-red-400 text-base ml-1">☆</span>
+            <span>{avgRating}/5</span>
+          </div>
+        ) : (
+          /* Header ในโหมด Artist (ตามรูป image_f8b548.png) */
+          <>
+            <hr className="border-gray-200 mb-6" />
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold text-gray-900">Your Reviews</h2>
+                <span className="text-sm font-normal text-gray-400">{reviews.length} reviews</span>
+              </div>
+              <div className="flex items-center gap-1 font-bold text-gray-900 text-base">
+                <span className="text-red-400 text-lg">☆</span>
+                <span>{avgRating}/5</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* เรียกใช้ ReviewList โดยไม่ส่ง title เพื่อไม่ให้มีคำว่า All Order Reviews และลบ div ครอบนอกเพื่อซ่อมกล่องซ้อน */}
+        <ReviewList 
+          reviews={reviews} 
+        />
+      </div>
+
     </div>
   );
 }
