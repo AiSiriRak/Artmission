@@ -8,34 +8,33 @@ info:
 http:
   method: GET
   url: "{{api_url}}/orders?limit=20&offset=0&status=PENDING&status=IN_PROCESS&sort=updated_at&order=desc"
-  auth: inherit
-
-params:
-  query:
+  params:
     - name: limit
       value: "20"
-      enabled: true
+      type: query
     - name: offset
       value: "0"
-      enabled: true
+      type: query
     - name: status
       value: PENDING
-      enabled: true
+      type: query
     - name: status
       value: IN_PROCESS
-      enabled: true
+      type: query
     - name: sort
       value: updated_at
-      enabled: true
+      type: query
     - name: order
       value: desc
-      enabled: true
+      type: query
+  auth: inherit
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
 
 examples:
   - name: 200 Response
@@ -54,7 +53,7 @@ examples:
         data: |-
           {
             "$schema": "",
-            "orders": "",
+            "orders": [],
             "total": 0
           }
   - name: default Response
@@ -79,12 +78,4 @@ examples:
             "type": ""
           }
 
-docs: |-
-  List the authenticated customer's or artist's orders — scoped to whichever
-  side of the order they are (customer_id or artist_id), filtered by one or
-  more repeated `status` values (OR'd), sorted by `deadline`/`price`/`updated_at`
-  in `asc`/`desc` order, and paginated by `limit`/`offset`.
-
-  The response includes `total`, the number of orders matching the filter
-  across every page — use it with `limit`/`offset` to build page-number
-  navigation. See docs/view-orders-api-plan.md for the full contract.
+docs: List the authenticated customer's or artist's orders, filtered by status, sorted by deadline/price/updated_at, and paginated by limit/offset. Deliverables are only populated once an order's status is SUCCESS.
