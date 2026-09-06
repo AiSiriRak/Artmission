@@ -26,7 +26,8 @@ func (h *OrderHandler) Register(api huma.API) {
 			o.OperationID = "view-orders"
 			o.Summary = "ViewOrders"
 			o.Description = "List the authenticated customer's or artist's orders, filtered by status, " +
-				"sorted by deadline/price/updated_at, and paginated by limit/offset"
+				"sorted by deadline/price/updated_at, and paginated by limit/offset. " +
+				"Deliverables are only populated once an order's status is SUCCESS."
 			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireAnyRole(api, user.RoleCustomer, user.RoleArtist))
 		})
 }
@@ -53,7 +54,7 @@ type orderView struct {
 	SelectedDeadlineDays int               `json:"selected_deadline_days"`
 	DeadlineAt           *time.Time        `json:"deadline_at,omitempty"`
 	Status               string            `json:"status"`
-	Deliverables         []deliverableView `json:"deliverables"`
+	Deliverables         []deliverableView `json:"deliverables" doc:"Populated only when status is SUCCESS; empty otherwise."`
 	CompletedAt          *time.Time        `json:"completed_at,omitempty"`
 	CreatedAt            time.Time         `json:"created_at"`
 	UpdatedAt            time.Time         `json:"updated_at"`

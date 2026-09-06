@@ -168,7 +168,6 @@ func (r *orderRepository) attachDeliverables(ctx context.Context, orders []order
 	byOrderID := make(map[uuid.UUID]*order.Order, len(orders))
 	for i := range orders {
 		byOrderID[orders[i].ID] = &orders[i]
-		// TODO: should this be applied only for the customer? artist should view the deliveable right?
 		if orders[i].Status == order.StatusSuccess {
 			successfulOrderIDs = append(successfulOrderIDs, orders[i].ID)
 		}
