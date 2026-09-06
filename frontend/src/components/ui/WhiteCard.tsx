@@ -1,5 +1,3 @@
-// Template For Base White Card
-
 interface WhiteCard {
   children: React.ReactNode;
 }

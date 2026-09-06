@@ -3,6 +3,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   icon?: ReactNode;
+
   variant?: "dark" | "light" | "accent-500" | "accent-300" | "transparent" | "error" | "red" | "disable";
 }
 
@@ -21,7 +22,7 @@ export function Button({
     "accent-500": "bg-accent-500 text-white",
     red: "bg-error border-primary-500 border-2 text-white",
     disable: "bg-neutral-400 border-2 text-white",
-    
+
     "accent-300": "bg-accent-300 text-primary-500",
     transparent: "bg-transparent border text-primary-500",
     error: "bg-error text-white"
