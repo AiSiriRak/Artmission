@@ -327,23 +327,6 @@ func TestUpdateAccount_ChangesPassword(t *testing.T) {
 	}
 }
 
-func TestUpdateAccount_RejectsInvalidUsername(t *testing.T) {
-	tests := []string{"  ", "ab", "123456789012345678901"}
-	for _, username := range tests {
-		t.Run(username, func(t *testing.T) {
-			repo := newFakeRepo()
-			usecase := newUsecase(repo, newFakeBankRepo(), newFakeArtistRegistrar())
-			_, err := usecase.UpdateAccount(context.Background(), uuid.New(), user.UpdateAccountInput{Username: username})
-			if !errors.Is(err, user.ErrInvalidUsername) {
-				t.Errorf("UpdateAccount() error = %v, want ErrInvalidUsername", err)
-			}
-			if repo.updateCalls != 0 {
-				t.Errorf("UpdateAccountByID calls = %d, want 0", repo.updateCalls)
-			}
-		})
-	}
-}
-
 func TestUpdateAccount_RequiresBothPasswordFields(t *testing.T) {
 	oldPassword := "correct1"
 	newPassword := "different2"
@@ -357,25 +340,6 @@ func TestUpdateAccount_RequiresBothPasswordFields(t *testing.T) {
 		_, err := usecase.UpdateAccount(context.Background(), uuid.New(), in)
 		if !errors.Is(err, user.ErrPasswordFieldsRequired) {
 			t.Errorf("UpdateAccount() error = %v, want ErrPasswordFieldsRequired", err)
-		}
-		if repo.updateCalls != 0 {
-			t.Errorf("UpdateAccountByID calls = %d, want 0", repo.updateCalls)
-		}
-	}
-}
-
-func TestUpdateAccount_RejectsInvalidNewPasswordLength(t *testing.T) {
-	oldPassword := "correct1"
-	for _, newPassword := range []string{"short", "12345678901234567"} {
-		repo := newFakeRepo()
-		usecase := newUsecase(repo, newFakeBankRepo(), newFakeArtistRegistrar())
-		_, err := usecase.UpdateAccount(context.Background(), uuid.New(), user.UpdateAccountInput{
-			Username:    "alice",
-			OldPassword: &oldPassword,
-			NewPassword: &newPassword,
-		})
-		if !errors.Is(err, user.ErrInvalidNewPassword) {
-			t.Errorf("UpdateAccount() error = %v, want ErrInvalidNewPassword", err)
 		}
 		if repo.updateCalls != 0 {
 			t.Errorf("UpdateAccountByID calls = %d, want 0", repo.updateCalls)

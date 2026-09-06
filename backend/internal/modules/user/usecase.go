@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/security"
@@ -110,9 +109,6 @@ func (u *userUsecase) GetByID(ctx context.Context, id uuid.UUID) (*User, error) 
 
 func (u *userUsecase) UpdateAccount(ctx context.Context, id uuid.UUID, in UpdateAccountInput) (*User, error) {
 	username := strings.TrimSpace(in.Username)
-	if length := utf8.RuneCountInString(username); length < 3 || length > 20 {
-		return nil, ErrInvalidUsername
-	}
 
 	oldPasswordProvided := in.OldPassword != nil
 	newPasswordProvided := in.NewPassword != nil
@@ -122,10 +118,6 @@ func (u *userUsecase) UpdateAccount(ctx context.Context, id uuid.UUID, in Update
 
 	var passwordHash *string
 	if oldPasswordProvided {
-		if length := utf8.RuneCountInString(*in.NewPassword); length < 8 || length > 16 {
-			return nil, ErrInvalidNewPassword
-		}
-
 		found, err := u.repo.GetByID(ctx, id)
 		if err != nil {
 			return nil, err

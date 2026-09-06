@@ -78,9 +78,9 @@ func (h *UserHandler) getAccount(ctx context.Context, _ *GetAccountInput) (*GetA
 
 type updateAccountInput struct {
 	Body struct {
-		Username    string  `json:"username"`
+		Username    string  `json:"username" minLength:"3" maxLength:"20"`
 		OldPassword *string `json:"old_password,omitempty"`
-		NewPassword *string `json:"new_password,omitempty"`
+		NewPassword *string `json:"new_password,omitempty" minLength:"8" maxLength:"16"`
 	}
 }
 
