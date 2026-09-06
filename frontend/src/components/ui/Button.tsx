@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   icon?: ReactNode;
-  variant?: "dark" | "light" | "accent-500" | "accent-300" | "transparent" | "error";
+  variant?: "dark" | "light" | "accent-500" | "accent-300" | "transparent" | "error" | "red" | "disable";
 }
 
 export function Button({
@@ -11,21 +11,31 @@ export function Button({
   icon,
   className = "",
   variant = "light",
+  disabled,
   ...props
 }: ButtonProps) {
   const variantClass = {
-    light: "rounded-lg bg-white border px-5 py-1 text-button text-primary-500 hover:bg-neutral-200",
-    dark: "rounded-lg bg-primary-500 px-5 py-1 text-button text-white hover:opacity-80",
-    "accent-500": "rounded-lg bg-accent-500 px-5 py-1 text-button text-white hover:opacity-80",
-    "accent-300": "rounded-lg bg-accent-300 px-5 py-1 text-button text-primary-500 hover:opacity-80",
-    // เพิ่มแบบโปร่งใส (มีแค่ขอบ)
-    "transparent": "rounded-lg bg-transparent border px-5 py-1 text-button text-primary-500 hover:bg-neutral-200",
+
+    light: "bg-white border-2 text-primary-500",
+    dark: "bg-primary-500 text-white",
+    "accent-500": "bg-accent-500 text-white",
+    red: "bg-error border-primary-500 border-2 text-white",
+    disable: "bg-neutral-400 border-2 text-white",
     
-    // เพิ่มแบบ Error (สีแดง)
-    "error": "rounded-lg bg-error px-5 py-1 text-button text-white hover:opacity-80"
+    "accent-300": "bg-accent-300 text-primary-500",
+    transparent: "bg-transparent border text-primary-500",
+    error: "bg-error text-white"
   };
+
+  const currentVariant = disabled ? "disable" : variant;
+
   return (
-    <button {...props} className={`cursor-pointer transition-colors flex items-center justify-center gap-2 ${variantClass[variant]} ${className}`}>
+    <button
+      {...props}
+      disabled={disabled}
+
+      className={`${variantClass[currentVariant]} flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-button transition-colors cursor-pointer hover:brightness-90 ${className}`}
+    >
       {icon && <span>{icon}</span>}
       {children}
     </button>
