@@ -3,6 +3,7 @@ interface WhiteCard {
   margin?: string;
   padding?: string;
   roundsize?: string;
+  className?: string;
 }
 
 export function WhiteCard({
@@ -10,10 +11,11 @@ export function WhiteCard({
   roundsize = "rounded-lg",
   margin = "m-10",
   padding = "p-16",
+  className,
 }: WhiteCard) {
   return (
     <div
-      className={`${margin} ${roundsize} ${padding} w-full max-w-md bg-white shadow-card`}
+      className={`${margin} ${roundsize} ${padding} ${className} w-full max-w-md bg-white shadow-card`}
     >
       {children}
     </div>
