@@ -138,10 +138,16 @@ type fakeAccountDeletionRepo struct {
 	hasActiveOrders bool
 	statuses        []order.Status
 	calls           []string
+	lockErr         error
 	checkErr        error
 	bankErr         error
 	sessionsErr     error
 	userErr         error
+}
+
+func (f *fakeAccountDeletionRepo) LockUserByIDForDeletion(_ context.Context, _ uuid.UUID) error {
+	f.calls = append(f.calls, "lock-user")
+	return f.lockErr
 }
 
 func (f *fakeAccountDeletionRepo) HasOrdersInStatuses(_ context.Context, _ uuid.UUID, statuses []order.Status) (bool, error) {
@@ -193,7 +199,7 @@ func TestDeleteAccount_DeletesPrivateDataAndSessions(t *testing.T) {
 		t.Fatalf("DeleteAccount() error = %v, want nil", err)
 	}
 
-	wantCalls := []string{"check-orders", "delete-bank", "delete-sessions", "delete-user"}
+	wantCalls := []string{"lock-user", "check-orders", "delete-bank", "delete-sessions", "delete-user"}
 	if !slices.Equal(deletion.calls, wantCalls) {
 		t.Errorf("DeleteAccount() calls = %v, want %v", deletion.calls, wantCalls)
 	}
@@ -211,8 +217,21 @@ func TestDeleteAccount_RejectsActiveOrdersWithoutDeletingAnything(t *testing.T) 
 	if !errors.Is(err, user.ErrActiveOrders) {
 		t.Errorf("DeleteAccount() error = %v, want ErrActiveOrders", err)
 	}
-	if !slices.Equal(deletion.calls, []string{"check-orders"}) {
+	if !slices.Equal(deletion.calls, []string{"lock-user", "check-orders"}) {
 		t.Errorf("DeleteAccount() calls = %v, want only active-order check", deletion.calls)
+	}
+}
+
+func TestDeleteAccount_StopsWhenAccountCannotBeLocked(t *testing.T) {
+	deletion := &fakeAccountDeletionRepo{lockErr: user.ErrUserNotFound}
+	usecase := user.NewUserUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar(), deletion, &fakeTx{})
+
+	err := usecase.DeleteAccount(context.Background(), uuid.New())
+	if !errors.Is(err, user.ErrUserNotFound) {
+		t.Errorf("DeleteAccount() error = %v, want ErrUserNotFound", err)
+	}
+	if !slices.Equal(deletion.calls, []string{"lock-user"}) {
+		t.Errorf("DeleteAccount() calls = %v, want only account lock", deletion.calls)
 	}
 }
 

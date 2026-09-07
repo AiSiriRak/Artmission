@@ -39,6 +39,9 @@ func (u *userUsecase) DeleteAccount(ctx context.Context, userID uuid.UUID) error
 	blockingStatuses := []order.Status{order.StatusPending, order.StatusNotPaid, order.StatusInProcess}
 
 	return u.tx.Transaction(ctx, func(ctx context.Context) error {
+		if err := u.deletionRepo.LockUserByIDForDeletion(ctx, userID); err != nil {
+			return err
+		}
 		hasActiveOrders, err := u.deletionRepo.HasOrdersInStatuses(ctx, userID, blockingStatuses)
 		if err != nil {
 			return err

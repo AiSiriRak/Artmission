@@ -23,6 +23,20 @@ func NewAccountDeletionRepository(db *bun.DB) user.AccountDeletionRepository {
 	return &accountDeletionRepository{exec: baserepo.NewExecutor(db)}
 }
 
+func (r *accountDeletionRepository) LockUserByIDForDeletion(ctx context.Context, userID uuid.UUID) error {
+	model := &userModel{ID: userID}
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		return idb.NewSelect().Model(model).Column("id").WherePK().For("UPDATE").Scan(ctx)
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return user.ErrUserNotFound
+		}
+		return apperror.Internal("failed to lock account for deletion", err)
+	}
+	return nil
+}
+
 func (r *accountDeletionRepository) HasOrdersInStatuses(ctx context.Context, userID uuid.UUID, statuses []order.Status) (exists bool, err error) {
 	err = r.exec.Run(ctx, func(idb bun.IDB) error {
 		exists, err = idb.NewSelect().

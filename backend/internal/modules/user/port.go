@@ -37,6 +37,7 @@ type BankAccountRepository interface {
 }
 
 type AccountDeletionRepository interface {
+	LockUserByIDForDeletion(ctx context.Context, userID uuid.UUID) error
 	HasOrdersInStatuses(ctx context.Context, userID uuid.UUID, statuses []order.Status) (bool, error)
 	DeleteBankAccountByUserID(ctx context.Context, userID uuid.UUID) error
 	DeleteSessionsByUserID(ctx context.Context, userID uuid.UUID) error
