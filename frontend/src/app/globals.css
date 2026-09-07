@@ -102,6 +102,22 @@
   --color-neutral-200: var(--color-neutral-200);
   --color-white: var(--color-white);
 
+  /* Status Color */
+  --color-status-pending-vibrant: var(--color-status-pending-vibrant);
+  --color-status-pending-pale: var(--color-status-pending-pale);
+
+  --color-status-cancel-vibrant: var(--color-status-cancel-vibrant);
+  --color-status-cancel-pale: var(--color-status-cancel-pale);
+
+  --color-status-success-vibrant: var(--color-status-success-vibrant);
+  --color-status-success-pale: var(--color-status-success-pale);
+
+  --color-status-notpaid-vibrant: var(--color-status-notpaid-vibrant);
+  --color-status-notpaid-pale: var(--color-status-notpaid-pale);
+
+  --color-status-inprocess-vibrant: var(--color-status-inprocess-vibrant);
+  --color-status-inprocess-pale: var(--color-status-inprocess-pale);
+
   /* Shadow */
   --shadow-card: var(--shadow-card);
 
