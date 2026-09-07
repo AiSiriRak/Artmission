@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Anuphan, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import ConditionalFooter from "@/app/artist/[id]/components/ConditionalFooter"; // 👈 เปลี่ยนมา import ตัวนี้แทน
 
 const anuphan = Anuphan({
   subsets: ["thai", "latin"],
@@ -32,13 +31,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${anuphan.variable} font-sans h-full antialiased`}
     >
       <body className="min-h-screen flex flex-col">
-        {/* ครอบ children ด้วย main พร้อม flex-grow เพื่อดัน Footer ลงไปล่างสุด */}
         <main className="flex-grow">
           {children}
         </main>
         
-        {/* วาง ConditionalFooter ไว้ล่างสุดตรงนี้ */}
-        <ConditionalFooter />
       </body>
     </html>
   );

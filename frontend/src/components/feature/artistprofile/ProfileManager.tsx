@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ArtistData, ArtworkData, ReviewData } from "../types";
+import { ArtistData, ArtworkData, ReviewData } from "../../../app/artist/[id]/types";
 import ProfileSidebar from "./ProfileSidebar";
 import EditorField from "./EditorField";
 import ArtworkCard from "./ArtworkCard";

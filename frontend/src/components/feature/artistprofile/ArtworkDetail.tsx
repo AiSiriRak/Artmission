@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { ArtworkData, ReviewData } from "../types";
+import { ArtworkData, ReviewData } from "../../../app/artist/[id]/types";
 import { Button } from "@/components/ui/Button";
 import ReviewList from "./ReviewList";
 import DeleteArtworkModal from "./DeleteArtworkModal"; // Import ใหม่

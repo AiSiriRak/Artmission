@@ -1,6 +1,6 @@
-import ProfileManager from "./components/ProfileManager";
+import ProfileManager from "../../../components/feature/artistprofile/ProfileManager";
 import { ArtistData, ArtworkData } from "./types";
-import Header from "./components/Header";
+import MainLayout from "@/components/feature/main/MainLayout"; 
 
 export default function ArtistProfilePage() {
   const artistInitialData: ArtistData = {
@@ -71,14 +71,14 @@ export default function ArtistProfilePage() {
   ];
 
   return (
-    <div className="w-full bg-white text-black min-h-screen">
 
-      <Header />
-
-      {/* โยนทุกอย่างให้ Client Component เป็นคนตัดสินใจว่าจะโชว์ Layout ไหน */}
-      <ProfileManager initialProfile={artistInitialData} initialArtworks={initialArtworks} />
-
+    <MainLayout headerProps={{ activeMenu: "Artist Profile" }}>
       
-    </div>
+      <div className="w-full bg-white text-black">
+
+        <ProfileManager initialProfile={artistInitialData} initialArtworks={initialArtworks} />
+      </div>
+
+    </MainLayout>
   );
 }
