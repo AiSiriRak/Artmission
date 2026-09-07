@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { deleteUser, getUser, updateUser } from "@/services/userApi";
 import { User } from "@/types/user";
 
-import { PersonalInfoCard } from "@/components/userprofile/PersonalInfoCard";
-import { ProfileHeader } from "@/components/userprofile/ProfileHeader";
-import { BankAccountCard } from "@/components/userprofile/BankAccountCard";
-import { DeleteAccountCard } from "@/components/userprofile/DeleteAccountCard";
-import { DeleteAccountPopup } from "@/components/userprofile/DeleteAccountPopup";
+import { PersonalInfoCard } from "@/components/feature/userprofile/PersonalInfoCard";
+import { ProfileHeader } from "@/components/feature/userprofile/ProfileHeader";
+import { BankAccountCard } from "@/components/feature/userprofile/BankAccountCard";
+import { DeleteAccountCard } from "@/components/feature/userprofile/DeleteAccountCard";
+import { DeleteAccountPopup } from "@/components/feature/userprofile/DeleteAccountPopup";
 
 const id = 67;
 const bankOptions = [
@@ -107,10 +107,14 @@ export default function HomePage() {
           />
           <DeleteAccountPopup
             isOpen={isDeletePopupOpen}
-            onCancel={() => {
-              setIsDeletePopupOpen(false);
-              setDeleteStatus("default");
-            }}
+            onCancel={
+              deleteStatus == "success"
+                ? () => router.push("/")
+                : () => {
+                    setIsDeletePopupOpen(false);
+                    setDeleteStatus("default");
+                  }
+            }
             onConfirm={handleConfirmDelete}
             status={deleteStatus}
           />

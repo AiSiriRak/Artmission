@@ -58,7 +58,7 @@ export function DeleteAccountPopup({
             </p>
             {/* Button */}
             <Button variant="light" onClick={onCancel} className="w-full">
-              Cancel
+              Close
             </Button>
           </div>
         ) : (
@@ -85,7 +85,7 @@ export function DeleteAccountPopup({
                 </p>
                 {/* Button */}
                 <Button variant="light" onClick={onCancel} className="w-full">
-                  Cancel
+                  Close
                 </Button>
               </div>
             ) : (
