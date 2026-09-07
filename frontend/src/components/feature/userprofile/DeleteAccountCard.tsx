@@ -2,8 +2,6 @@
 
 "use client";
 
-import { useState } from "react";
-
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import { Button } from "@/components/ui/Button";
 
