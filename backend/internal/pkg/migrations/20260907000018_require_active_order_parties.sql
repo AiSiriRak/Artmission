@@ -1,4 +1,5 @@
 -- +goose Up
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION require_active_order_parties()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -23,6 +24,7 @@ BEGIN
     RETURN NEW;
 END;
 $$;
+-- +goose StatementEnd
 
 CREATE TRIGGER orders_require_active_parties
 BEFORE INSERT OR UPDATE OF customer_id, artist_id, status ON orders
