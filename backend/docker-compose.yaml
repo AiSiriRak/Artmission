@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: artmission-db
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-artmission}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-artmission}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
