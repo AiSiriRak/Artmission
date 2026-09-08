@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+
 import {
   BankAccount,
   UpdateAccountInput,
@@ -36,9 +37,8 @@ export async function deleteAccount(token: string): Promise<UserAccount> {
   });
 }
 
-// Not implement yet.
-export async function getBankAccount(token: string): Promise<UserAccount> {
-  return apiFetch<UserAccount>("/users/me/bank-account", {
+export async function getBankAccount(token: string): Promise<BankAccount> {
+  return apiFetch<BankAccount>("/users/me/bank-account", {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -47,7 +47,7 @@ export async function getBankAccount(token: string): Promise<UserAccount> {
 
 export async function updateBankAccount(
   token: string,
-  data: BankAccount,
+  data: UpdateBankAccountInput,
 ): Promise<BankAccount> {
   return apiFetch<BankAccount>("/users/me/bank-account", {
     method: "PUT",
