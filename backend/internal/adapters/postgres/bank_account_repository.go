@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
@@ -63,6 +65,20 @@ func (r *bankAccountRepository) Create(ctx context.Context, ba *user.BankAccount
 		return apperror.Internal("failed to create bank account", err)
 	}
 	return nil
+}
+
+func (r *bankAccountRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*user.BankAccount, error) {
+	model := new(bankAccountModel)
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		return idb.NewSelect().Model(model).Where("user_id = ?", userID).Scan(ctx)
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, user.ErrBankAccountNotFound
+		}
+		return nil, apperror.Internal("failed to look up bank account", err)
+	}
+	return model.toDomain(), nil
 }
 
 func (r *bankAccountRepository) UpsertByUserID(ctx context.Context, ba *user.BankAccount) (*user.BankAccount, error) {

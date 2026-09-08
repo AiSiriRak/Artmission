@@ -90,6 +90,15 @@ func (f *fakeBankRepo) Create(_ context.Context, ba *user.BankAccount) error {
 	return nil
 }
 
+func (f *fakeBankRepo) GetByUserID(_ context.Context, userID uuid.UUID) (*user.BankAccount, error) {
+	ba, ok := f.byUserID[userID]
+	if !ok {
+		return nil, user.ErrBankAccountNotFound
+	}
+	cp := *ba
+	return &cp, nil
+}
+
 func (f *fakeBankRepo) UpsertByUserID(_ context.Context, ba *user.BankAccount) (*user.BankAccount, error) {
 	f.upsertCalls++
 	if f.upsertErr != nil {
@@ -475,6 +484,44 @@ func TestUpdateBankAccount_RejectsAdmin(t *testing.T) {
 	}
 	if bank.upsertCalls != 0 {
 		t.Errorf("UpsertByUserID calls = %d, want 0", bank.upsertCalls)
+	}
+}
+
+func TestGetBankAccount_ReturnsSavedAccount(t *testing.T) {
+	bank := newFakeBankRepo()
+	userID := uuid.New()
+	bank.byUserID[userID] = &user.BankAccount{
+		UserID:            userID,
+		BankName:          "Kasikorn",
+		AccountHolderName: "Alice Wong",
+		AccountNumber:     "1234567890",
+	}
+	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
+
+	got, err := usecase.GetBankAccount(context.Background(), userID, user.RoleArtist)
+	if err != nil {
+		t.Fatalf("GetBankAccount() error = %v, want nil", err)
+	}
+	if got.BankName != "Kasikorn" || got.AccountHolderName != "Alice Wong" || got.AccountNumber != "1234567890" {
+		t.Errorf("GetBankAccount() = %+v, want saved bank account", got)
+	}
+}
+
+func TestGetBankAccount_RejectsAdmin(t *testing.T) {
+	usecase := newUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar())
+
+	_, err := usecase.GetBankAccount(context.Background(), uuid.New(), user.RoleAdmin)
+	if !errors.Is(err, user.ErrBankAccountNotAllowed) {
+		t.Errorf("GetBankAccount() error = %v, want ErrBankAccountNotAllowed", err)
+	}
+}
+
+func TestGetBankAccount_ReturnsNotFound(t *testing.T) {
+	usecase := newUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar())
+
+	_, err := usecase.GetBankAccount(context.Background(), uuid.New(), user.RoleCustomer)
+	if !errors.Is(err, user.ErrBankAccountNotFound) {
+		t.Errorf("GetBankAccount() error = %v, want ErrBankAccountNotFound", err)
 	}
 }
 
