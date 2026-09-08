@@ -1,22 +1,20 @@
-// Personal Information Card
-
 "use client";
 
 import { useState } from "react";
 
-import { User } from "@/types/user";
+import { UserAccount, UpdateAccountInput } from "@/lib/api/types";
 
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import { TextInput } from "@/components/ui/TextInput";
 import { Button } from "@/components/ui/Button";
 
 interface PersonalInfoCard {
-  user: User;
+  user: UserAccount;
   isEditing: boolean;
   disabled: boolean;
   onEdit: () => void;
   onCancel: () => void;
-  onSave: (updatedUser: User) => void;
+  onSave: (username: UpdateAccountInput) => void;
 }
 
 export function PersonalInfoCard({
@@ -27,25 +25,21 @@ export function PersonalInfoCard({
   onCancel,
   onSave,
 }: PersonalInfoCard) {
-  const [name, setName] = useState(user.name);
+  const [username, setUserame] = useState(user.username);
   const [email, setEmail] = useState(user.email);
-  const [password, setPassword] = useState(user.password);
+  // const [password, setPassword] = useState(user.password);
 
   const handleSave = () => {
-    const updatedUser: User = {
-      ...user,
-      name,
-      email,
-      password,
+    const updatedBank: UpdateAccountInput = {
+      username: username,
     };
-
-    onSave(updatedUser);
+    onSave(updatedBank);
   };
 
   const handleCancel = () => {
-    setName(user.name);
+    setUserame(user.username);
     setEmail(user.email);
-    setPassword(user.password);
+    // setPassword(user.password);
 
     onCancel();
   };
@@ -61,8 +55,12 @@ export function PersonalInfoCard({
         <div className="mt-6 space-y-4.5">
           {/* Name */}
           <div>
-            <label className="text-small text-primary-500">Name</label>
-            <TextInput value={name} onChange={setName} />
+            <label className="text-small text-primary-500">Username</label>
+            <TextInput
+              value={username}
+              onChange={setUserame}
+              placeholder="Enter username"
+            />
           </div>
 
           {/* Email */}
@@ -74,11 +72,11 @@ export function PersonalInfoCard({
           {/* Password */}
           <div>
             <label className="text-small text-primary-500">Password</label>
-            <TextInput
+            {/* <TextInput
               value={password}
               onChange={setPassword}
               disabled={true}
-            />
+            /> */}
           </div>
 
           {/* Buttons */}
@@ -96,10 +94,10 @@ export function PersonalInfoCard({
         <div className="mt-6 space-y-8">
           {/* Name */}
           <div className="space-y-3">
-            <label className="text-small text-primary-500">Name</label>
+            <label className="text-small text-primary-500">Username</label>
 
             <p className="mt-1 text-body indent-2 text-primary-500">
-              {user.name}
+              {user.username}
             </p>
           </div>
 

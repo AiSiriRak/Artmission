@@ -1,5 +1,3 @@
-// Personal Information Card
-
 "use client";
 
 import { WhiteCard } from "@/components/ui/WhiteCard";

@@ -1,10 +1,8 @@
-// Bank Account Card
-
 "use client";
 
 import { useState } from "react";
 
-import { User } from "@/types/user";
+import { BankAccount, UpdateBankAccountInput } from "@/lib/api/types";
 
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import { TextInput } from "@/components/ui/TextInput";
@@ -12,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { SelectInput } from "@/components/ui/SelectInput";
 
 interface BankAccountCard {
-  user: User;
+  bankAccount: BankAccount;
   bankOptions: {
     value: string;
     label: string;
@@ -21,11 +19,11 @@ interface BankAccountCard {
   disabled: boolean;
   onEdit: () => void;
   onCancel: () => void;
-  onSave: (updatedUser: User) => void;
+  onSave: (updatedBankAccount: UpdateBankAccountInput) => void;
 }
 
 export function BankAccountCard({
-  user,
+  bankAccount,
   bankOptions,
   isEditing,
   disabled,
@@ -33,27 +31,25 @@ export function BankAccountCard({
   onCancel,
   onSave,
 }: BankAccountCard) {
-  const [bankName, setBankName] = useState(user.bank.name);
-  const [accountHolder, setAccountHolder] = useState(user.bank.accountHolder);
-  const [accountNumber, setAccountNumber] = useState(user.bank.accountNumber);
+  const [bankName, setBankName] = useState(bankAccount.bank_name);
+  const [accountHolder, setAccountHolder] = useState(
+    bankAccount.account_holder_name,
+  );
+  const [accountNumber, setAccountNumber] = useState("");
 
   const handleSave = () => {
-    const updatedUser: User = {
-      ...user,
-      bank: {
-        name: bankName,
-        accountHolder,
-        accountNumber,
-      },
+    const updatedBank: UpdateBankAccountInput = {
+      bank_name: bankName,
+      account_holder_name: accountHolder,
+      account_number: accountNumber,
     };
-
-    onSave(updatedUser);
+    onSave(updatedBank);
   };
 
   const handleCancel = () => {
-    setBankName(user.bank.name);
-    setAccountHolder(user.bank.accountHolder);
-    setAccountNumber(user.bank.accountNumber);
+    setBankName(bankAccount.bank_name);
+    setAccountHolder(bankAccount.account_holder_name);
+    setAccountNumber(bankAccount.account_last4);
 
     onCancel();
   };
@@ -80,14 +76,22 @@ export function BankAccountCard({
             <label className="text-small text-primary-500">
               Account holder name
             </label>
-            <TextInput value={accountHolder} onChange={setAccountHolder} />
+            <TextInput
+              value={accountHolder}
+              onChange={setAccountHolder}
+              placeholder="Enter account holder name"
+            />
           </div>
           {/* Account number */}
           <div>
             <label className="text-small text-primary-500">
               Account holder number
             </label>
-            <TextInput value={accountNumber} onChange={setAccountNumber} />
+            <TextInput
+              value={accountNumber}
+              onChange={setAccountNumber}
+              placeholder="Enter account number"
+            />
           </div>
 
           {/* Buttons */}
@@ -109,7 +113,7 @@ export function BankAccountCard({
             <label className="text-small text-primary-500">Bank</label>
 
             <p className="mt-1 text-body indent-2 text-primary-500">
-              {user.bank.name}
+              {bankAccount.bank_name}
             </p>
           </div>
           <div className="space-y-3">
@@ -118,7 +122,7 @@ export function BankAccountCard({
             </label>
 
             <p className="mt-1 text-body indent-2 text-primary-500">
-              {user.bank.accountHolder}
+              {bankAccount.account_holder_name}
             </p>
           </div>
           <div className="space-y-3">
@@ -127,7 +131,7 @@ export function BankAccountCard({
             </label>
 
             <p className="mt-1 text-body indent-2 text-primary-500">
-              {user.bank.accountNumber}
+              {bankAccount.account_last4}
             </p>
           </div>
 

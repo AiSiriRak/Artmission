@@ -1,18 +1,24 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { deleteUser, getUser, updateUser } from "@/services/userApi";
-import { User } from "@/types/user";
+import {
+  deleteAccount,
+  getAccount,
+  updateAccount,
+  getBankAccount,
+  updateBankAccount,
+} from "@/lib/api/users";
+import { BankAccount, UserAccount } from "@/lib/api/types";
 
 import { PersonalInfoCard } from "@/components/feature/userprofile/PersonalInfoCard";
 import { ProfileHeader } from "@/components/feature/userprofile/ProfileHeader";
 import { BankAccountCard } from "@/components/feature/userprofile/BankAccountCard";
 import { DeleteAccountCard } from "@/components/feature/userprofile/DeleteAccountCard";
 import { DeleteAccountPopup } from "@/components/feature/userprofile/DeleteAccountPopup";
+import { Loading } from "@/components/ui/Loading";
 
-const id = 67;
 const bankOptions = [
   { value: "ธนาคารกรุงเทพ (BBL)", label: "ธนาคารกรุงเทพ (BBL)" },
   { value: "ธนาคารกสิกรไทย (KBANK)", label: "ธนาคารกสิกรไทย (KBANK)" },
@@ -27,27 +33,32 @@ export default function HomePage() {
     "personal" | "bank" | null
   >(null);
   const [isDeletePopupOpen, setIsDeletePopupOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<File | null>(null);
+  const [user, setUser] = useState<UserAccount | null>(null);
+  const [bank, setBank] = useState<BankAccount | null>(null);
   const [deleteStatus, setDeleteStatus] = useState<
     "success" | "fail" | "default"
   >("default");
 
   useEffect(() => {
     async function loadUser() {
-      const data = await getUser(67);
-      setUser(data);
+      const accountdata = await getAccount();
+      const bankdata = await getBankAccount();
+
+      setBank(bankdata);
+      setUser(accountdata);
     }
 
     loadUser();
   }, []);
 
-  if (!user) {
-    return <div className="text-center">Loading...</div>;
+  if (!user || !bank) {
+    return <Loading />;
   }
 
   const handleConfirmDelete = async () => {
     try {
-      const result = await deleteUser(user.id, user);
+      const result = await deleteAccount();
       if (!result) {
         setDeleteStatus("fail");
         console.log("Cannot delete account");
@@ -65,16 +76,21 @@ export default function HomePage() {
     <main className="min-h-screen">
       <div className="mx-auto flex max-w-5xl flex-col items-center">
         <>
-          <ProfileHeader />
+          <ProfileHeader
+            username={user.username}
+            onUpload={function (imageUrl: File): void {
+              setProfile(imageUrl);
+            }}
+          />
           <PersonalInfoCard
             user={user}
             isEditing={editingSection === "personal"}
             disabled={editingSection !== null && editingSection !== "personal"}
             onEdit={() => setEditingSection("personal")}
             onCancel={() => setEditingSection(null)}
-            onSave={async (updatedUser) => {
+            onSave={async (updatedAccount) => {
               try {
-                const savedUser = await updateUser(user.id, updatedUser);
+                const savedUser = await updateAccount(updatedAccount);
 
                 setUser(savedUser);
                 setEditingSection(null);
@@ -84,17 +100,17 @@ export default function HomePage() {
             }}
           />
           <BankAccountCard
-            user={user}
+            bankAccount={bank}
             bankOptions={bankOptions}
             isEditing={editingSection === "bank"}
             disabled={editingSection !== null && editingSection !== "bank"}
             onEdit={() => setEditingSection("bank")}
             onCancel={() => setEditingSection(null)}
-            onSave={async (updatedUser) => {
+            onSave={async (updatedBankAccount) => {
               try {
-                const savedUser = await updateUser(user.id, updatedUser);
+                const savedBank = await updateBankAccount(updatedBankAccount);
 
-                setUser(savedUser);
+                setBank(savedBank);
                 setEditingSection(null);
               } catch (error) {
                 console.error("Failed to update bank account:", error);
