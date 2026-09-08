@@ -26,6 +26,7 @@ func NewAccountDeletionRepository(db *bun.DB) user.AccountDeletionRepository {
 func (r *accountDeletionRepository) LockUserByIDForDeletion(ctx context.Context, userID uuid.UUID) error {
 	model := &userModel{ID: userID}
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		// FOR UPDATE conflicts with session and order key-share locks; a plain soft-delete UPDATE does not.
 		return idb.NewSelect().Model(model).Column("id").WherePK().For("UPDATE").Scan(ctx)
 	})
 	if err != nil {
