@@ -8,7 +8,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: ${POSTGRES_DB:-artmission}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-artmission}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-artmission}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -18,5 +22,55 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  rustfs:
+    image: rustfs/rustfs:latest
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Web console
+    environment:
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY:-admin}
+      - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY:-admin1234}
+      - RUSTFS_CONSOLE_ENABLE=true
+    volumes:
+      - rustfs_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+
+  # Creates both app buckets once rustfs is up (buckets are infra-owned, not app).
+  # artmission-public is public-read; artmission-private stays default-private.
+  rustfs-init:
+    image: amazon/aws-cli:latest
+    restart: "no"
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:-admin}
+      AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:-admin1234}
+      AWS_DEFAULT_REGION: us-east-1
+      PUBLIC_BUCKET: ${RUSTFS_PUBLIC_BUCKET:-artmission-public}
+      PRIVATE_BUCKET: ${RUSTFS_PRIVATE_BUCKET:-artmission-private}
+      PUBLIC_BUCKET_POLICY: '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::${RUSTFS_PUBLIC_BUCKET:-artmission-public}/*"]}]}'
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        for i in $$(seq 1 30); do
+          aws --endpoint-url http://rustfs:9000 s3 ls >/dev/null 2>&1 && break
+          sleep 1
+        done
+        for bucket in "$${PUBLIC_BUCKET}" "$${PRIVATE_BUCKET}"; do
+          if ! aws --endpoint-url http://rustfs:9000 s3api head-bucket --bucket "$$bucket" 2>/dev/null; then
+            aws --endpoint-url http://rustfs:9000 s3 mb "s3://$$bucket"
+          fi
+        done
+        aws --endpoint-url http://rustfs:9000 s3api put-bucket-policy --bucket "$${PUBLIC_BUCKET}" --policy "$${PUBLIC_BUCKET_POLICY}"
+        aws --endpoint-url http://rustfs:9000 s3 ls
+
 volumes:
   postgres_data:
+  rustfs_data:

@@ -12,3 +12,12 @@ auth:
   access_token_ttl: "1h"
   refresh_token_ttl: "168h" # 7 days
   refresh_cookie_domain: ""
+
+s3:
+  public_bucket_name: "artmission-public"
+  private_bucket_name: "artmission-private"
+  public_base_url: "http://localhost:9000/artmission-public"
+  endpoint: "http://localhost:9000"
+  region: auto
+  access_key_id: "admin"
+  secret_access_key: "admin1234"
