@@ -114,7 +114,7 @@ vercel link                  # creates an empty project, prompts for scope + nam
 cat .vercel/project.json     # -> { "projectId": "...", "orgId": "..." }
 ```
 
-Create a token: Vercel dashboard → Account Settings → **Tokens** → Create Token, scoped to the team, named e.g. `gh-actions-artmission`.
+Create a token: Vercel dashboard → Account Settings → **Tokens** → Create Token, named e.g. `gh-actions-artmission`. **Scope it to the team** — the scope dropdown also offers individual projects, but a project-scoped token cannot satisfy `vercel pull`'s internal team-info lookup and fails with a misleading `Could not retrieve Project Settings` error.
 
 Once the backend is deployed and its Cloud Run URL is known, set it as a Vercel project env var:
 
@@ -166,5 +166,5 @@ Both are independent of `ci.yml`/`backend.yml` (which only run on pull requests)
 
 - **`deploy-cloudrun` step fails with a permission error on Secret Manager**: confirm `GCP_RUN_SERVICE_ACCOUNT` (not the deploy SA) has `roles/secretmanager.secretAccessor`, and that the `--service-account` flag in the workflow points at it.
 - **WIF auth fails with `attribute condition was not met`**: the OIDC provider's `--attribute-condition` only allows `AiSiriRak/Artmission`; a fork or renamed repo needs the provider recreated with the new value.
-- **Vercel build fails with missing project**: re-run `vercel link` locally and confirm `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` in GitHub match `.vercel/project.json` exactly.
+- **`vercel pull` fails with `Could not retrieve Project Settings` despite correct/matching `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` and a valid, non-expired token**: run the pull step with `--debug` — it calls `GET /v2/user`, `GET /teams/:id`, and `GET /v9/projects/:id` separately, and the generic error fires if *any* of them fails, even if the project lookup itself succeeds. A `403` specifically on `GET /teams/:id` means the token was created with **Scope = a single project** (Account Settings → Tokens) instead of **Scope = the team**; project-scoped tokens can read that one project but can never satisfy `vercel pull`'s team-level lookup. Recreate the token scoped to the team itself.
 - **Cloud Run service rejects traffic / 403**: confirm the `--allow-unauthenticated` flag deployed successfully; Cloud Run defaults new services to requiring IAM auth.
