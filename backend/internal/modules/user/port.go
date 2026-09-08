@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/google/uuid"
 )
 
@@ -20,6 +21,7 @@ type UserUsecase interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	UpdateAccount(ctx context.Context, id uuid.UUID, in UpdateAccountInput) (*User, error)
 	UpdateBankAccount(ctx context.Context, userID uuid.UUID, role Role, in BankAccountInput) (*BankAccount, error)
+	DeleteAccount(ctx context.Context, userID uuid.UUID) error
 	GetBankAccount(ctx context.Context, userID uuid.UUID, role Role) (*BankAccount, error)
 }
 
@@ -34,6 +36,14 @@ type BankAccountRepository interface {
 	Create(ctx context.Context, ba *BankAccount) error
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*BankAccount, error)
 	UpsertByUserID(ctx context.Context, ba *BankAccount) (*BankAccount, error)
+}
+
+type AccountDeletionRepository interface {
+	LockUserByIDForDeletion(ctx context.Context, userID uuid.UUID) error
+	HasOrdersInStatuses(ctx context.Context, userID uuid.UUID, statuses []order.Status) (bool, error)
+	DeleteBankAccountByUserID(ctx context.Context, userID uuid.UUID) error
+	DeleteSessionsByUserID(ctx context.Context, userID uuid.UUID) error
+	SoftDeleteUserByID(ctx context.Context, userID uuid.UUID) error
 }
 
 // ArtistRegistrar is implemented by the artist module and injected at wiring

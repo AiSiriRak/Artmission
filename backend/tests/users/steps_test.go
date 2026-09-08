@@ -7,17 +7,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/security"
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 )
 
 type usersContext struct {
 	client       *apptest.Client
 	account      apptest.Account
+	customer     apptest.Account
+	artist       apptest.Account
 	accessToken  string
 	originalBank *bankAccountRecord
 	resp         *apptest.Response
@@ -63,6 +67,19 @@ type bankAccountRecord struct {
 	UpdatedAt         time.Time `bun:"updated_at"`
 }
 
+type deletionOrderRow struct {
+	bun.BaseModel `bun:"table:orders"`
+
+	ID          uuid.UUID `bun:"id,pk"`
+	CustomerID  uuid.UUID `bun:"customer_id"`
+	ArtistID    uuid.UUID `bun:"artist_id"`
+	Description string    `bun:"description"`
+	Price       float64   `bun:"price"`
+	Status      string    `bun:"status"`
+	CreatedAt   time.Time `bun:"created_at"`
+	UpdatedAt   time.Time `bun:"updated_at"`
+}
+
 func (u *usersContext) theUserHasARegisteredAccount() error {
 	account, err := apptest.RegisterCustomer(app, u.client)
 	if err != nil {
@@ -83,6 +100,126 @@ func (u *usersContext) theUserHasLoggedIn() error {
 		return err
 	}
 	u.accessToken = accessToken
+	return nil
+}
+
+func (u *usersContext) aCustomerAndArtistHaveAnActiveOrder() error {
+	customer, err := apptest.RegisterCustomer(app, u.client)
+	if err != nil {
+		return err
+	}
+	artist, err := apptest.RegisterArtist(app, apptest.NewClient(app.BaseURL()), "Commission artist")
+	if err != nil {
+		return err
+	}
+	u.customer = customer
+	u.artist = artist
+
+	now := time.Now()
+	order := &deletionOrderRow{
+		ID:          uuid.New(),
+		CustomerID:  uuid.MustParse(customer.ID),
+		ArtistID:    uuid.MustParse(artist.ID),
+		Description: "Active commission",
+		Price:       100,
+		Status:      "IN_PROCESS",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	_, err = app.DB.NewInsert().Model(order).Exec(context.Background())
+	return err
+}
+
+func (u *usersContext) theCustomerHasLoggedIn() error {
+	u.account = u.customer
+	return u.theUserHasLoggedIn()
+}
+
+func (u *usersContext) theArtistHasLoggedIn() error {
+	u.account = u.artist
+	return u.theUserHasLoggedIn()
+}
+
+func (u *usersContext) theUserDeletesTheirAccount() error {
+	resp, err := u.client.Do(http.MethodDelete, "/users/me", nil, map[string]string{"Authorization": "Bearer " + u.accessToken})
+	if err != nil {
+		return err
+	}
+	u.resp = resp
+	return nil
+}
+
+func (u *usersContext) aUserDeletesAnAccountWithoutLoggingIn() error {
+	resp, err := u.client.Do(http.MethodDelete, "/users/me", nil, nil)
+	if err != nil {
+		return err
+	}
+	u.resp = resp
+	return nil
+}
+
+func (u *usersContext) theAccountIsSoftDeletedAndAllPrivateAccessDataIsRemoved() error {
+	if u.resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("expected status 204, got %d: %s", u.resp.StatusCode, u.resp.Body)
+	}
+	if len(u.resp.Body) != 0 {
+		return fmt.Errorf("expected an empty response body, got %q", u.resp.Body)
+	}
+	setCookie := u.resp.Header.Get("Set-Cookie")
+	if !strings.Contains(setCookie, "refresh_token=") || !strings.Contains(setCookie, "Max-Age=0") {
+		return fmt.Errorf("expected refresh cookie to be cleared, got %q", setCookie)
+	}
+
+	userID := uuid.MustParse(u.account.ID)
+	row := new(struct {
+		DeletedAt *time.Time `bun:"deleted_at"`
+	})
+	if err := app.DB.NewSelect().Table("users").Column("deleted_at").Where("id = ?", userID).Scan(context.Background(), row); err != nil {
+		return fmt.Errorf("load deleted account: %w", err)
+	}
+	if row.DeletedAt == nil {
+		return fmt.Errorf("expected user to be soft-deleted")
+	}
+	for table, label := range map[string]string{"bank_accounts": "bank account", "sessions": "sessions"} {
+		count, err := app.DB.NewSelect().Table(table).Where("user_id = ?", userID).Count(context.Background())
+		if err != nil {
+			return fmt.Errorf("count %s: %w", label, err)
+		}
+		if count != 0 {
+			return fmt.Errorf("expected %s to be removed, found %d rows", label, count)
+		}
+	}
+
+	if err := u.getAccount(u.accessToken); err != nil {
+		return err
+	}
+	if u.resp.StatusCode != http.StatusUnauthorized {
+		return fmt.Errorf("expected old access token to return 401, got %d: %s", u.resp.StatusCode, u.resp.Body)
+	}
+	login, err := apptest.NewClient(app.BaseURL()).Do(http.MethodPost, "/auth/login", map[string]string{
+		"email": u.account.Email, "password": u.account.Password,
+	}, nil)
+	if err != nil {
+		return err
+	}
+	if login.StatusCode != http.StatusUnauthorized {
+		return fmt.Errorf("expected deleted account login to return 401, got %d: %s", login.StatusCode, login.Body)
+	}
+	return nil
+}
+
+func (u *usersContext) theSystemRejectsAccountDeletionBecauseTheOrderIsActive() error {
+	if u.resp.StatusCode != http.StatusConflict {
+		return fmt.Errorf("expected status 409, got %d: %s", u.resp.StatusCode, u.resp.Body)
+	}
+	userID := uuid.MustParse(u.account.ID)
+	count, err := app.DB.NewSelect().Table("users").Where("id = ? AND deleted_at IS NULL", userID).Count(context.Background())
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return fmt.Errorf("expected active account to remain unchanged")
+	}
 	return nil
 }
 
@@ -384,6 +521,13 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 
 	sc.Step(`^the user has a registered account$`, func() error { return u.theUserHasARegisteredAccount() })
 	sc.Step(`^the user has logged in$`, func() error { return u.theUserHasLoggedIn() })
+	sc.Step(`^a customer and artist have an active order$`, func() error { return u.aCustomerAndArtistHaveAnActiveOrder() })
+	sc.Step(`^the customer has logged in$`, func() error { return u.theCustomerHasLoggedIn() })
+	sc.Step(`^the artist has logged in$`, func() error { return u.theArtistHasLoggedIn() })
+	sc.Step(`^the user deletes their account$`, func() error { return u.theUserDeletesTheirAccount() })
+	sc.Step(`^a user deletes an account without logging in$`, func() error { return u.aUserDeletesAnAccountWithoutLoggingIn() })
+	sc.Step(`^the account is soft-deleted and all private access data is removed$`, func() error { return u.theAccountIsSoftDeletedAndAllPrivateAccessDataIsRemoved() })
+	sc.Step(`^the system rejects account deletion because the order is active$`, func() error { return u.theSystemRejectsAccountDeletionBecauseTheOrderIsActive() })
 	sc.Step(`^the user has no saved bank account$`, func() error { return u.theUserHasNoSavedBankAccount() })
 	sc.Step(`^the user updates their bank account with valid details$`, func() error { return u.theUserUpdatesTheirBankAccountWithValidDetails() })
 	sc.Step(`^the user updates a bank account without logging in$`, func() error { return u.theUserUpdatesABankAccountWithoutLoggingIn() })

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/security"
 	"github.com/google/uuid"
@@ -14,6 +15,7 @@ type userUsecase struct {
 	repo            UserRepository
 	bankRepo        BankAccountRepository
 	artistRegistrar ArtistRegistrar
+	deletionRepo    AccountDeletionRepository
 	tx              Transactioner
 }
 
@@ -21,14 +23,40 @@ func NewUserUsecase(
 	repo UserRepository,
 	bankRepo BankAccountRepository,
 	artistRegistrar ArtistRegistrar,
+	deletionRepo AccountDeletionRepository,
 	tx Transactioner,
 ) UserUsecase {
 	return &userUsecase{
 		repo:            repo,
 		bankRepo:        bankRepo,
 		artistRegistrar: artistRegistrar,
+		deletionRepo:    deletionRepo,
 		tx:              tx,
 	}
+}
+
+func (u *userUsecase) DeleteAccount(ctx context.Context, userID uuid.UUID) error {
+	blockingStatuses := []order.Status{order.StatusPending, order.StatusNotPaid, order.StatusInProcess}
+
+	return u.tx.Transaction(ctx, func(ctx context.Context) error {
+		if err := u.deletionRepo.LockUserByIDForDeletion(ctx, userID); err != nil {
+			return err
+		}
+		hasActiveOrders, err := u.deletionRepo.HasOrdersInStatuses(ctx, userID, blockingStatuses)
+		if err != nil {
+			return err
+		}
+		if hasActiveOrders {
+			return ErrActiveOrders
+		}
+		if err := u.deletionRepo.DeleteBankAccountByUserID(ctx, userID); err != nil {
+			return err
+		}
+		if err := u.deletionRepo.DeleteSessionsByUserID(ctx, userID); err != nil {
+			return err
+		}
+		return u.deletionRepo.SoftDeleteUserByID(ctx, userID)
+	})
 }
 
 func (u *userUsecase) Register(ctx context.Context, in RegisterInput) (*User, error) {

@@ -14,4 +14,5 @@ var (
 	ErrBankAccountNotFound       = apperror.NotFound("bank account not found")
 	ErrPasswordFieldsRequired    = apperror.InvalidInput("old password and new password must be provided together", nil)
 	ErrInvalidCurrentPassword    = apperror.Unauthorized("old password is incorrect")
+	ErrActiveOrders              = apperror.Conflict("account cannot be deleted while an order is pending, awaiting payment, or in progress")
 )

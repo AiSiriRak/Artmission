@@ -46,7 +46,12 @@ func (u *authUsecase) Login(ctx context.Context, email, password string) (*AuthR
 		}
 		return nil, err
 	}
-	return u.issueSession(ctx, found)
+
+	result, err := u.issueSession(ctx, found)
+	if err == ErrSessionNotFound {
+		return nil, ErrInvalidCredential
+	}
+	return result, err
 }
 
 func (u *authUsecase) Refresh(ctx context.Context, refreshToken string) (*AuthResult, error) {
