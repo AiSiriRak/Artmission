@@ -48,7 +48,7 @@ func Wire(cfg Config) *httpserver.Server {
 	tokenIssuer := token.NewJWTIssuer(cfg.Auth.JWTSecret)
 	tx := baserepo.NewTransactioner(cfg.DB)
 
-	artistUsecase := artist.NewProfileUsecase(artistRepo)
+	artistUsecase := artist.NewProfileUsecase(artistRepo, tx)
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage)
@@ -56,11 +56,13 @@ func Wire(cfg Config) *httpserver.Server {
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	orderHandler := rest.NewOrderHandler(orderUsecase, authUsecase)
+	artistHandler := rest.NewArtistHandler(artistUsecase, authUsecase)
 
 	api, server := httpserver.New(cfg.App.Address, cfg.App.BasePath, cfg.App.AllowedOrigins, cfg.Logger, []httpserver.Pinger{cfg.DB, cfg.ObjectStorage})
 	authHandler.Register(api)
 	userHandler.Register(api)
 	orderHandler.Register(api)
+	artistHandler.Register(api)
 
 	return server
 }
