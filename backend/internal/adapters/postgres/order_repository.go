@@ -18,14 +18,13 @@ type orderModel struct {
 	ID                          uuid.UUID  `bun:"id,pk"`
 	CustomerID                  uuid.UUID  `bun:"customer_id"`
 	ArtistID                    uuid.UUID  `bun:"artist_id"`
+	Name                        string     `bun:"name"`
 	ArtworkID                   *uuid.UUID `bun:"artwork_id"`
 	ArtworkNameSnapshot         string     `bun:"artwork_name_snapshot"`
 	ArtworkDescriptionSnapshot  string     `bun:"artwork_description_snapshot"`
 	PriceSatangSnapshot         int64      `bun:"price_satang_snapshot"`
 	MinimumDeadlineDaysSnapshot int        `bun:"minimum_deadline_days_snapshot"`
-	PreviewImageURLSnapshot     string     `bun:"preview_image_url_snapshot"`
 	CustomerDescription         string     `bun:"customer_description"`
-	SelectedDeadlineDays        int        `bun:"selected_deadline_days"`
 	DeadlineAt                  *time.Time `bun:"deadline_at"`
 	Status                      string     `bun:"status"`
 	CompletedAt                 *time.Time `bun:"completed_at"`
@@ -38,9 +37,10 @@ type orderDeliverableModel struct {
 
 	ID               uuid.UUID `bun:"id,pk"`
 	OrderID          uuid.UUID `bun:"order_id"`
-	OriginalImageURL string    `bun:"original_image_url"`
-	PreviewImageURL  string    `bun:"preview_image_url"`
-	SortOrder        int       `bun:"sort_order"`
+	Version          int       `bun:"version"`
+	Decision         *string   `bun:"decision"`
+	OriginalImageKey string    `bun:"original_image_key"`
+	PreviewImageKey  string    `bun:"preview_image_key"`
 	CreatedAt        time.Time `bun:"created_at"`
 }
 
@@ -49,29 +49,18 @@ func (m *orderModel) toDomain() order.Order {
 		ID:                          m.ID,
 		CustomerID:                  m.CustomerID,
 		ArtistID:                    m.ArtistID,
+		Name:                        m.Name,
 		ArtworkID:                   m.ArtworkID,
 		ArtworkNameSnapshot:         m.ArtworkNameSnapshot,
 		ArtworkDescriptionSnapshot:  m.ArtworkDescriptionSnapshot,
 		PriceSatangSnapshot:         m.PriceSatangSnapshot,
 		MinimumDeadlineDaysSnapshot: m.MinimumDeadlineDaysSnapshot,
-		PreviewImageURLSnapshot:     m.PreviewImageURLSnapshot,
 		CustomerDescription:         m.CustomerDescription,
-		SelectedDeadlineDays:        m.SelectedDeadlineDays,
 		DeadlineAt:                  m.DeadlineAt,
 		Status:                      order.Status(m.Status),
 		CompletedAt:                 m.CompletedAt,
 		CreatedAt:                   m.CreatedAt,
 		UpdatedAt:                   m.UpdatedAt,
-	}
-}
-
-func (m *orderDeliverableModel) toDomain() order.Deliverable {
-	return order.Deliverable{
-		ID:               m.ID,
-		OriginalImageURL: m.OriginalImageURL,
-		PreviewImageURL:  m.PreviewImageURL,
-		SortOrder:        m.SortOrder,
-		CreatedAt:        m.CreatedAt,
 	}
 }
 
@@ -107,8 +96,8 @@ func applyStatusFilter(q *bun.SelectQuery, statuses []order.Status) *bun.SelectQ
 // ListOrders scopes strictly to query.Participant/ParticipantID, applies
 // query.Statuses, and paginates by query.Sort/Order/Limit/Offset via the
 // shared baserepo.Paginate helper. query is assumed already validated and
-// defaulted by orderUsecase.ViewOrders. Successful orders are enriched
-// with their delivered images (order_deliverables).
+// defaulted by orderUsecase.ViewOrders. Every order is enriched with its
+// latest submitted deliverable's preview key, regardless of status.
 func (r *orderRepository) ListOrders(ctx context.Context, query order.ListQuery) (order.Page, error) {
 	column, ok := orderSortColumns[query.Sort]
 	if !ok {
@@ -152,42 +141,44 @@ func (r *orderRepository) ListOrders(ctx context.Context, query order.ListQuery)
 	for i, m := range page.Items {
 		orders[i] = m.toDomain()
 	}
-	if err := r.attachDeliverables(ctx, orders); err != nil {
-		return order.Page{}, apperror.Internal("failed to list order deliverables", err)
+	if err := r.attachLatestDeliverablePreviewKeys(ctx, orders); err != nil {
+		return order.Page{}, apperror.Internal("failed to attach deliverable preview keys", err)
 	}
 
 	return order.Page{Orders: orders, Total: page.Total}, nil
 }
 
-// attachDeliverables loads delivered images for every successful order in
-// orders and appends them in place. Only successful orders may expose
-// delivered images, regardless of which participant is viewing.
-func (r *orderRepository) attachDeliverables(ctx context.Context, orders []order.Order) error {
-	successfulOrderIDs := make([]uuid.UUID, 0, len(orders))
+// attachLatestDeliverablePreviewKeys sets DeliverablePreviewKey on every
+// order in orders to its most recently submitted deliverable version's
+// preview_image_key, regardless of order status — nil if none has been
+// submitted yet.
+func (r *orderRepository) attachLatestDeliverablePreviewKeys(ctx context.Context, orders []order.Order) error {
+	if len(orders) == 0 {
+		return nil
+	}
+
+	orderIDs := make([]uuid.UUID, len(orders))
 	byOrderID := make(map[uuid.UUID]*order.Order, len(orders))
 	for i := range orders {
+		orderIDs[i] = orders[i].ID
 		byOrderID[orders[i].ID] = &orders[i]
-		// Only successful orders may expose delivered images to the customer.
-		if orders[i].Status == order.StatusSuccess {
-			successfulOrderIDs = append(successfulOrderIDs, orders[i].ID)
-		}
-	}
-	if len(successfulOrderIDs) == 0 {
-		return nil
 	}
 
 	return r.exec.Run(ctx, func(idb bun.IDB) error {
 		var deliverables []orderDeliverableModel
 		if err := idb.NewSelect().
 			Model(&deliverables).
-			Where("od.order_id IN (?)", bun.List(successfulOrderIDs)).
-			OrderExpr("od.order_id ASC, od.sort_order ASC").
+			Column("order_id", "preview_image_key").
+			DistinctOn("od.order_id").
+			Where("od.order_id IN (?)", bun.List(orderIDs)).
+			OrderExpr("od.order_id ASC, od.version DESC").
 			Scan(ctx); err != nil {
 			return err
 		}
 		for i := range deliverables {
-			o := byOrderID[deliverables[i].OrderID]
-			o.Deliverables = append(o.Deliverables, deliverables[i].toDomain())
+			orderID := deliverables[i].OrderID
+			key := deliverables[i].PreviewImageKey
+			byOrderID[orderID].DeliverablePreviewKey = &key
 		}
 		return nil
 	})

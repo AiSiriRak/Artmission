@@ -94,28 +94,26 @@ type Order struct {
 	ID                          uuid.UUID
 	CustomerID                  uuid.UUID
 	ArtistID                    uuid.UUID
+	Name                        string
 	ArtworkID                   *uuid.UUID
 	ArtworkNameSnapshot         string
 	ArtworkDescriptionSnapshot  string
 	PriceSatangSnapshot         int64
 	MinimumDeadlineDaysSnapshot int
-	PreviewImageURLSnapshot     string
 	CustomerDescription         string
-	SelectedDeadlineDays        int
 	DeadlineAt                  *time.Time
 	Status                      Status
-	Deliverables                []Deliverable
-	CompletedAt                 *time.Time
-	CreatedAt                   time.Time
-	UpdatedAt                   time.Time
-}
-
-type Deliverable struct {
-	ID               uuid.UUID
-	OriginalImageURL string
-	PreviewImageURL  string
-	SortOrder        int
-	CreatedAt        time.Time
+	// DeliverablePreviewKey is the private-bucket object key of the most
+	// recently submitted deliverable version, regardless of order status;
+	// nil if the artist hasn't submitted one yet. Populated by
+	// OrderRepository.ListOrders.
+	DeliverablePreviewKey *string
+	// DeliverablePreviewURL is DeliverablePreviewKey resolved to a
+	// short-lived presigned GET URL by ViewOrders.
+	DeliverablePreviewURL *string
+	CompletedAt           *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 // ListQuery is ViewOrders input

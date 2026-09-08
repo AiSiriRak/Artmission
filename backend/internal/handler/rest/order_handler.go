@@ -27,37 +27,28 @@ func (h *OrderHandler) Register(api huma.API) {
 			o.Summary = "ViewOrders"
 			o.Description = "List the authenticated customer's or artist's orders, filtered by status, " +
 				"sorted by deadline/price/updated_at, and paginated by limit/offset. " +
-				"Deliverables are only populated once an order's status is SUCCESS."
+				"deliverable_preview_url is the artist's most recently submitted deliverable preview, presigned and time-limited, regardless of order status; null if none has been submitted yet."
 			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireAnyRole(api, user.RoleCustomer, user.RoleArtist))
 		})
 }
 
-type deliverableView struct {
-	ID               string    `json:"id"`
-	OriginalImageURL string    `json:"original_image_url"`
-	PreviewImageURL  string    `json:"preview_image_url"`
-	SortOrder        int       `json:"sort_order"`
-	CreatedAt        time.Time `json:"created_at"`
-}
-
 type orderView struct {
-	ID                   string            `json:"id"`
-	CustomerID           string            `json:"customer_id"`
-	ArtistID             string            `json:"artist_id"`
-	ArtworkID            *string           `json:"artwork_id,omitempty"`
-	ArtworkName          string            `json:"artwork_name"`
-	ArtworkDescription   string            `json:"artwork_description"`
-	PriceSatang          int64             `json:"price_satang"`
-	MinimumDeadlineDays  int               `json:"minimum_deadline_days"`
-	PreviewImageURL      string            `json:"preview_image_url"`
-	CustomerDescription  string            `json:"customer_description"`
-	SelectedDeadlineDays int               `json:"selected_deadline_days"`
-	DeadlineAt           *time.Time        `json:"deadline_at,omitempty"`
-	Status               string            `json:"status"`
-	Deliverables         []deliverableView `json:"deliverables" doc:"Populated only when status is SUCCESS; empty otherwise."`
-	CompletedAt          *time.Time        `json:"completed_at,omitempty"`
-	CreatedAt            time.Time         `json:"created_at"`
-	UpdatedAt            time.Time         `json:"updated_at"`
+	ID                    string     `json:"id"`
+	CustomerID            string     `json:"customer_id"`
+	ArtistID              string     `json:"artist_id"`
+	Name                  string     `json:"name"`
+	ArtworkID             *string    `json:"artwork_id,omitempty"`
+	ArtworkName           string     `json:"artwork_name"`
+	ArtworkDescription    string     `json:"artwork_description"`
+	PriceSatang           int64      `json:"price_satang"`
+	MinimumDeadlineDays   int        `json:"minimum_deadline_days"`
+	CustomerDescription   string     `json:"customer_description"`
+	DeadlineAt            *time.Time `json:"deadline_at,omitempty"`
+	Status                string     `json:"status"`
+	DeliverablePreviewURL *string    `json:"deliverable_preview_url" doc:"Presigned URL of the most recently submitted deliverable's preview image, regardless of order status; null if none has been submitted yet."`
+	CompletedAt           *time.Time `json:"completed_at,omitempty"`
+	CreatedAt             time.Time  `json:"created_at"`
+	UpdatedAt             time.Time  `json:"updated_at"`
 }
 
 type ViewOrdersInput struct {
@@ -128,34 +119,22 @@ func toOrderView(o *order.Order) orderView {
 		artworkID = &id
 	}
 
-	deliverables := make([]deliverableView, len(o.Deliverables))
-	for i, d := range o.Deliverables {
-		deliverables[i] = deliverableView{
-			ID:               d.ID.String(),
-			OriginalImageURL: d.OriginalImageURL,
-			PreviewImageURL:  d.PreviewImageURL,
-			SortOrder:        d.SortOrder,
-			CreatedAt:        d.CreatedAt,
-		}
-	}
-
 	return orderView{
-		ID:                   o.ID.String(),
-		CustomerID:           o.CustomerID.String(),
-		ArtistID:             o.ArtistID.String(),
-		ArtworkID:            artworkID,
-		ArtworkName:          o.ArtworkNameSnapshot,
-		ArtworkDescription:   o.ArtworkDescriptionSnapshot,
-		PriceSatang:          o.PriceSatangSnapshot,
-		MinimumDeadlineDays:  o.MinimumDeadlineDaysSnapshot,
-		PreviewImageURL:      o.PreviewImageURLSnapshot,
-		CustomerDescription:  o.CustomerDescription,
-		SelectedDeadlineDays: o.SelectedDeadlineDays,
-		DeadlineAt:           o.DeadlineAt,
-		Status:               string(o.Status),
-		Deliverables:         deliverables,
-		CompletedAt:          o.CompletedAt,
-		CreatedAt:            o.CreatedAt,
-		UpdatedAt:            o.UpdatedAt,
+		ID:                    o.ID.String(),
+		CustomerID:            o.CustomerID.String(),
+		ArtistID:              o.ArtistID.String(),
+		Name:                  o.Name,
+		ArtworkID:             artworkID,
+		ArtworkName:           o.ArtworkNameSnapshot,
+		ArtworkDescription:    o.ArtworkDescriptionSnapshot,
+		PriceSatang:           o.PriceSatangSnapshot,
+		MinimumDeadlineDays:   o.MinimumDeadlineDaysSnapshot,
+		CustomerDescription:   o.CustomerDescription,
+		DeadlineAt:            o.DeadlineAt,
+		Status:                string(o.Status),
+		DeliverablePreviewURL: o.DeliverablePreviewURL,
+		CompletedAt:           o.CompletedAt,
+		CreatedAt:             o.CreatedAt,
+		UpdatedAt:             o.UpdatedAt,
 	}
 }

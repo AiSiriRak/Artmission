@@ -18,7 +18,9 @@ import (
 // artwork-image endpoints exist; GetPresignedURL and PublicURL are the
 // only operations ViewOrders needs today.
 type Client struct {
+	raw               *s3.Client
 	presign           *s3.PresignClient
+	publicBucketName  string
 	privateBucketName string
 	publicBaseURL     string
 }
@@ -41,7 +43,9 @@ func NewS3Client(ctx context.Context, cfg config.S3) (*Client, error) {
 	})
 
 	return &Client{
+		raw:               client,
 		presign:           s3.NewPresignClient(client),
+		publicBucketName:  cfg.PublicBucketName,
 		privateBucketName: cfg.PrivateBucketName,
 		publicBaseURL:     strings.TrimRight(cfg.PublicBaseURL, "/"),
 	}, nil
@@ -60,4 +64,14 @@ func (c *Client) GetPresignedURL(ctx context.Context, key string, ttl time.Durat
 
 func (c *Client) PublicURL(key string) string {
 	return fmt.Sprintf("%s/%s", c.publicBaseURL, path.Clean(key))
+}
+
+func (c *Client) PingContext(ctx context.Context) error {
+	if _, err := c.raw.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(c.privateBucketName)}); err != nil {
+		return fmt.Errorf("head private bucket %q: %w", c.privateBucketName, err)
+	}
+	if _, err := c.raw.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(c.publicBucketName)}); err != nil {
+		return fmt.Errorf("head public bucket %q: %w", c.publicBucketName, err)
+	}
+	return nil
 }

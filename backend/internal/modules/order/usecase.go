@@ -4,25 +4,48 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/google/uuid"
 )
 
 type orderUsecase struct {
-	repo OrderRepository
+	repo    OrderRepository
+	storage ObjectStorage
 }
 
-func NewOrderUsecase(repo OrderRepository) OrderUsecase {
-	return &orderUsecase{repo: repo}
+func NewOrderUsecase(repo OrderRepository, storage ObjectStorage) OrderUsecase {
+	return &orderUsecase{repo: repo, storage: storage}
 }
+
+const orderDeliverableTTL = 15 * time.Minute
 
 func (u *orderUsecase) ViewOrders(ctx context.Context, query ListQuery) (Page, error) {
 	normalized, err := normalizeListQuery(query)
 	if err != nil {
 		return Page{}, err
 	}
-	return u.repo.ListOrders(ctx, normalized)
+
+	page, err := u.repo.ListOrders(ctx, normalized)
+	if err != nil {
+		return Page{}, err
+	}
+
+	for i := range page.Orders {
+		key := page.Orders[i].DeliverablePreviewKey
+		if key == nil {
+			continue
+		}
+		// TODO: Fix this N+1 query problem here later
+		url, err := u.storage.GetPresignedURL(ctx, *key, orderDeliverableTTL)
+		if err != nil {
+			return Page{}, apperror.Internal("failed to presign deliverable preview image", err)
+		}
+		page.Orders[i].DeliverablePreviewURL = &url
+	}
+
+	return page, nil
 }
 
 // normalizeListQuery validates query and defaults every optional field.
