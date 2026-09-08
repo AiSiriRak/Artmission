@@ -1,4 +1,5 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_TOKEN_TEST = process.env.NEXT_PUBLIC_API_TOKEN_TEST;
 
 export async function apiFetch<T>(
   path: string,
@@ -8,13 +9,16 @@ export async function apiFetch<T>(
     throw new Error("NEXT_PUBLIC_API_BASE_URL is not defined");
   }
 
+  const headers = new Headers(options.headers);
+
+  headers.set("Content-Type", "application/json");
+  if (API_TOKEN_TEST) {
+    headers.set("Authorization", `Bearer ${API_TOKEN_TEST}`);
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
-
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
