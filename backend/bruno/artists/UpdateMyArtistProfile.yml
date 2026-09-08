@@ -1,0 +1,28 @@
+info:
+  name: UpdateMyArtistProfile
+  type: http
+  seq: 2
+  tags:
+    - artists
+
+http:
+  method: PUT
+  url: "{{api_url}}/artists/me"
+  auth: inherit
+  body:
+    type: json
+    data: |-
+      {
+        "description": "I create expressive digital portraits.",
+        "style_ids": [],
+        "min_price_satang": 10000,
+        "max_price_satang": 50000
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Replace the authenticated artist's description, selected styles, and accepted price range.
