@@ -135,7 +135,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /**
+     * GetBankAccount
+     * @description Get the authenticated user's bank account
+     */
+    get: operations["get-bank-account"];
     /**
      * UpdateBankAccount
      * @description Update the authenticated user's bank account
@@ -533,6 +537,35 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AccountView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-bank-account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BankAccountView"];
         };
       };
       /** @description Error */
