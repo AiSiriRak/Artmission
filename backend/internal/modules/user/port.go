@@ -22,6 +22,7 @@ type UserUsecase interface {
 	UpdateAccount(ctx context.Context, id uuid.UUID, in UpdateAccountInput) (*User, error)
 	UpdateBankAccount(ctx context.Context, userID uuid.UUID, role Role, in BankAccountInput) (*BankAccount, error)
 	DeleteAccount(ctx context.Context, userID uuid.UUID) error
+	GetBankAccount(ctx context.Context, userID uuid.UUID, role Role) (*BankAccount, error)
 }
 
 type UserRepository interface {
@@ -33,6 +34,7 @@ type UserRepository interface {
 
 type BankAccountRepository interface {
 	Create(ctx context.Context, ba *BankAccount) error
+	GetByUserID(ctx context.Context, userID uuid.UUID) (*BankAccount, error)
 	UpsertByUserID(ctx context.Context, ba *BankAccount) (*BankAccount, error)
 }
 

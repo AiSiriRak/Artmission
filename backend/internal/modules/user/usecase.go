@@ -191,3 +191,10 @@ func (u *userUsecase) UpdateBankAccount(ctx context.Context, userID uuid.UUID, r
 	}
 	return u.bankRepo.UpsertByUserID(ctx, bank)
 }
+
+func (u *userUsecase) GetBankAccount(ctx context.Context, userID uuid.UUID, role Role) (*BankAccount, error) {
+	if role != RoleCustomer && role != RoleArtist {
+		return nil, ErrBankAccountNotAllowed
+	}
+	return u.bankRepo.GetByUserID(ctx, userID)
+}
