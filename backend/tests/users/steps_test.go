@@ -97,6 +97,14 @@ func (u *usersContext) theUserUpdatesABankAccountWithoutLoggingIn() error {
 	return u.updateBankAccount(bankAccountBody{BankName: "Kasikorn", AccountHolderName: "Test User", AccountNumber: "1234567890"}, "")
 }
 
+func (u *usersContext) theUserViewsTheirBankAccount() error {
+	return u.getBankAccount(u.accessToken)
+}
+
+func (u *usersContext) theUserViewsABankAccountWithoutLoggingIn() error {
+	return u.getBankAccount("")
+}
+
 func (u *usersContext) theUserUpdatesTheirBankAccountWithABlankBankName() error {
 	return u.updateBankAccount(bankAccountBody{BankName: "", AccountHolderName: "Test User", AccountNumber: "1234567890"}, u.accessToken)
 }
@@ -107,6 +115,19 @@ func (u *usersContext) updateBankAccount(body bankAccountBody, accessToken strin
 		headers["Authorization"] = "Bearer " + accessToken
 	}
 	resp, err := u.client.Do(http.MethodPut, "/users/me/bank-account", body, headers)
+	if err != nil {
+		return err
+	}
+	u.resp = resp
+	return nil
+}
+
+func (u *usersContext) getBankAccount(accessToken string) error {
+	headers := map[string]string{}
+	if accessToken != "" {
+		headers["Authorization"] = "Bearer " + accessToken
+	}
+	resp, err := u.client.Do(http.MethodGet, "/users/me/bank-account", nil, headers)
 	if err != nil {
 		return err
 	}
@@ -146,6 +167,20 @@ func (u *usersContext) theSystemSavesTheUpdatedBankAccountDetails() error {
 	return nil
 }
 
+func (u *usersContext) theSystemReturnsTheirMaskedBankAccountDetails() error {
+	if u.resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("expected status 200, got %d: %s", u.resp.StatusCode, u.resp.Body)
+	}
+	var body bankAccountResponse
+	if err := u.resp.JSON(&body); err != nil {
+		return fmt.Errorf("decode bank account response: %w", err)
+	}
+	if body.BankName != "Test Bank" || body.AccountHolderName != "Test User" || body.AccountLast4 != "••••7890" {
+		return fmt.Errorf("unexpected bank account response: %+v", body)
+	}
+	return nil
+}
+
 func (u *usersContext) theSystemRequiresTheUserToLogIn() error {
 	if u.resp.StatusCode != http.StatusUnauthorized {
 		return fmt.Errorf("expected status 401, got %d: %s", u.resp.StatusCode, u.resp.Body)
@@ -173,8 +208,11 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user has no saved bank account$`, func() error { return u.theUserHasNoSavedBankAccount() })
 	sc.Step(`^the user updates their bank account with valid details$`, func() error { return u.theUserUpdatesTheirBankAccountWithValidDetails() })
 	sc.Step(`^the user updates a bank account without logging in$`, func() error { return u.theUserUpdatesABankAccountWithoutLoggingIn() })
+	sc.Step(`^the user views their bank account$`, func() error { return u.theUserViewsTheirBankAccount() })
+	sc.Step(`^the user views a bank account without logging in$`, func() error { return u.theUserViewsABankAccountWithoutLoggingIn() })
 	sc.Step(`^the user updates their bank account with a blank bank name$`, func() error { return u.theUserUpdatesTheirBankAccountWithABlankBankName() })
 	sc.Step(`^the system saves the updated bank account details$`, func() error { return u.theSystemSavesTheUpdatedBankAccountDetails() })
+	sc.Step(`^the system returns their masked bank account details$`, func() error { return u.theSystemReturnsTheirMaskedBankAccountDetails() })
 	sc.Step(`^the system requires the user to log in$`, func() error { return u.theSystemRequiresTheUserToLogIn() })
 	sc.Step(`^the system rejects the bank account update$`, func() error { return u.theSystemRejectsTheBankAccountUpdate() })
 }

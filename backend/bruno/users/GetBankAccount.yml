@@ -1,0 +1,19 @@
+info:
+  name: GetBankAccount
+  type: http
+  seq: 2
+  tags:
+    - users
+
+http:
+  method: GET
+  url: "{{api_url}}/users/me/bank-account"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Get the authenticated user's masked bank account details.
