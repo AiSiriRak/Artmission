@@ -20,7 +20,7 @@ export function TextInput({
       type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`mt-1 w-full rounded border-2 border-primary-500 px-3 py-2 text-small
+      className={`w-full rounded border-2 border-primary-500 px-3 py-2 text-small
         disabled:cursor-not-allowed 
         disabled:bg-neutral-400 
         disabled:text-neutral 
