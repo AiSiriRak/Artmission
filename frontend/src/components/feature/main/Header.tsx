@@ -22,7 +22,7 @@ export default function Header({
   const navItems =
     usertype == "customer"
       ? [
-          { name: "Home", path: routes.order.history, icon: "/icons/home.svg" },
+          { name: "Home", path: routes.home, icon: "/icons/home.svg" },
           {
             name: "Order",
             path: routes.order.history,
