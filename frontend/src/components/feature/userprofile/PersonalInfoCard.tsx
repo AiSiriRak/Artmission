@@ -45,13 +45,13 @@ export function PersonalInfoCard({
 
     // Validate username
     if (!username.trim()) {
-      setUsernameError("Please enter a password.");
+      setUsernameError("Please enter your name.");
       hasError = true;
-    } else if (username.length < 8) {
-      setUsernameError("Password must be at least 8 characters.");
+    } else if (username.length < 3) {
+      setUsernameError("Name must be at least 3 characters.");
       hasError = true;
-    } else if (username.length > 16) {
-      setUsernameError("Password must be 16 characters or less.");
+    } else if (username.length > 20) {
+      setUsernameError("Name must be 20 characters or less.");
       hasError = true;
     } else {
       setUsernameError("");
@@ -63,8 +63,9 @@ export function PersonalInfoCard({
       setOldpasswordError("");
       setNewpasswordError("");
       setConfirmpasswordError("");
+      // Old password
       if (!oldpassword.trim()) {
-        setOldpasswordError("Please enter a password.");
+        setOldpasswordError("Please enter your old password.");
         hasError = true;
       }
       // New password
