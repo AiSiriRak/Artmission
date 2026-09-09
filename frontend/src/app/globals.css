@@ -22,6 +22,22 @@
   --color-neutral-200: #f4f4f4;
   --color-white: #ffffff;
 
+  /* Status Color */
+  --color-status-pending-vibrant: #ffbf00;
+  --color-status-pending-pale: #ffedb5;
+
+  --color-status-cancel-vibrant: #ff1d1d;
+  --color-status-cancel-pale: #ffb7b7;
+
+  --color-status-success-vibrant: #00e047;
+  --color-status-success-pale: #b7ffce;
+
+  --color-status-notpaid-vibrant: #1d99ff;
+  --color-status-notpaid-pale: #b6deff;
+
+  --color-status-inprocess-vibrant: #ff1d96;
+  --color-status-inprocess-pale: #ffb6dd;
+
   /* Shadow */
   --shadow-card: 0 4.5px 12px 0 rgba(0, 0, 0, 0.5);
 
@@ -62,7 +78,10 @@
   --text-link--line-height: 18px;
   --text-link--font-weight: 400;
 }
+
 @theme {
+  --font-sans: var(--font-anuphan), sans-serif;
+
   /* Color */
   --color-primary-500: var(--color-primary-500);
   --color-primary-400: var(--color-primary-400);
@@ -83,6 +102,22 @@
   --color-neutral-400: var(--color-neutral-400);
   --color-neutral-200: var(--color-neutral-200);
   --color-white: var(--color-white);
+
+  /* Status Color */
+  --color-status-pending-vibrant: var(--color-status-pending-vibrant);
+  --color-status-pending-pale: var(--color-status-pending-pale);
+
+  --color-status-cancel-vibrant: var(--color-status-cancel-vibrant);
+  --color-status-cancel-pale: var(--color-status-cancel-pale);
+
+  --color-status-success-vibrant: var(--color-status-success-vibrant);
+  --color-status-success-pale: var(--color-status-success-pale);
+
+  --color-status-notpaid-vibrant: var(--color-status-notpaid-vibrant);
+  --color-status-notpaid-pale: var(--color-status-notpaid-pale);
+
+  --color-status-inprocess-vibrant: var(--color-status-inprocess-vibrant);
+  --color-status-inprocess-pale: var(--color-status-inprocess-pale);
 
   /* Shadow */
   --shadow-card: var(--shadow-card);
@@ -124,8 +159,9 @@
   --text-link--line-height: var(--text-link--line-height);
   --text-link--font-weight: var(--text-link--font-weight);
 }
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
