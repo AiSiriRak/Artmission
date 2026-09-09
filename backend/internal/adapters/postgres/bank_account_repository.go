@@ -1,0 +1,102 @@
+package postgres
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"time"
+
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
+	"github.com/google/uuid"
+	"github.com/uptrace/bun"
+)
+
+type bankAccountModel struct {
+	bun.BaseModel `bun:"table:bank_accounts,alias:ba"`
+
+	UserID            uuid.UUID `bun:"user_id,pk"`
+	BankName          string    `bun:"bank_name"`
+	AccountHolderName string    `bun:"account_holder_name"`
+	AccountNumber     string    `bun:"account_number"`
+	CreatedAt         time.Time `bun:"created_at,nullzero"`
+	UpdatedAt         time.Time `bun:"updated_at,nullzero"`
+}
+
+func newBankAccountModel(ba *user.BankAccount) *bankAccountModel {
+	return &bankAccountModel{
+		UserID:            ba.UserID,
+		BankName:          ba.BankName,
+		AccountHolderName: ba.AccountHolderName,
+		AccountNumber:     ba.AccountNumber,
+		CreatedAt:         ba.CreatedAt,
+		UpdatedAt:         ba.UpdatedAt,
+	}
+}
+
+func (m *bankAccountModel) toDomain() *user.BankAccount {
+	return &user.BankAccount{
+		UserID:            m.UserID,
+		BankName:          m.BankName,
+		AccountHolderName: m.AccountHolderName,
+		AccountNumber:     m.AccountNumber,
+		CreatedAt:         m.CreatedAt,
+		UpdatedAt:         m.UpdatedAt,
+	}
+}
+
+type bankAccountRepository struct {
+	exec baserepo.Executor
+}
+
+var _ user.BankAccountRepository = (*bankAccountRepository)(nil)
+
+func NewBankAccountRepository(db *bun.DB) user.BankAccountRepository {
+	return &bankAccountRepository{exec: baserepo.NewExecutor(db)}
+}
+
+func (r *bankAccountRepository) Create(ctx context.Context, ba *user.BankAccount) error {
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		_, err := idb.NewInsert().Model(newBankAccountModel(ba)).Exec(ctx)
+		return err
+	})
+	if err != nil {
+		return apperror.Internal("failed to create bank account", err)
+	}
+	return nil
+}
+
+func (r *bankAccountRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*user.BankAccount, error) {
+	model := new(bankAccountModel)
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		return idb.NewSelect().Model(model).Where("user_id = ?", userID).Scan(ctx)
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, user.ErrBankAccountNotFound
+		}
+		return nil, apperror.Internal("failed to look up bank account", err)
+	}
+	return model.toDomain(), nil
+}
+
+func (r *bankAccountRepository) UpsertByUserID(ctx context.Context, ba *user.BankAccount) (*user.BankAccount, error) {
+	model := newBankAccountModel(ba)
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		_, err := idb.NewInsert().
+			Model(model).
+			On("CONFLICT (user_id) DO UPDATE").
+			Set("bank_name = EXCLUDED.bank_name").
+			Set("account_holder_name = EXCLUDED.account_holder_name").
+			Set("account_number = EXCLUDED.account_number").
+			Set("updated_at = EXCLUDED.updated_at").
+			Returning("*").
+			Exec(ctx)
+		return err
+	})
+	if err != nil {
+		return nil, apperror.Internal("failed to upsert bank account", err)
+	}
+	return model.toDomain(), nil
+}
