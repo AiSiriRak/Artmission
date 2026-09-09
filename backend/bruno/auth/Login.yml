@@ -12,8 +12,8 @@ http:
     type: json
     data: |-
       {
-        "email": "{{email}}",
-        "password": "{{password}}"
+        "email": "artist@example.com",
+        "password": "password123"
       }
   auth: inherit
 
@@ -27,6 +27,7 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
 
 examples:
   - name: 200 Response
