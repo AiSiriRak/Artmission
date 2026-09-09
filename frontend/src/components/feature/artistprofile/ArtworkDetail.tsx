@@ -161,7 +161,7 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
             {!isCustomerMode && (
               isEditing ? (
                 <div className="flex gap-3">
-                  <Button variant="light" className="text-cursor" onClick={() => setIsEditing(false)}>Cancel</Button>
+                  <Button variant="light" className="text-cursor !border" onClick={() => setIsEditing(false)}>Cancel</Button>
                   <Button variant="dark" className="text-cursor" onClick={handleSave}>Save</Button>
                 </div>
               ) : (
@@ -173,7 +173,6 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
           {/* Tags Dropdown Section */}
           {isEditing && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-               {/* โค้ดส่วน Dropdown Category และ Style คงเดิม (เพื่อให้จัดการ State ง่าย) */}
                {/* --- Category Section --- */}
                <div className="relative">
                   <label className="text-body font-bold text-primary-500 block mb-3">Category:</label>
@@ -287,7 +286,6 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
         </div>
       </div>
 
-      {/* 📍 เรียกใช้งาน Modal Component ที่แยกออกไป */}
       <DeleteArtworkModal 
         isOpen={showDeleteConfirm} 
         onClose={() => setShowDeleteConfirm(false)} 

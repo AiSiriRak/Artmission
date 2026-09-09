@@ -8,7 +8,8 @@ interface TagListProps {
 export default function TagList({ items, variant = "category" }: TagListProps) {
   if (!items || items.length === 0) return <p className="text-gray-400">-</p>;
 
-  // กำหนดสีตามชนิดของ Tag
+  // Category = pink
+  // Style = brown
   const tagStyle =
     variant === "style"
       ? "bg-secondary-600 text-primary-400"

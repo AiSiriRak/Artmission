@@ -41,7 +41,7 @@ export default function ProfileSidebar({ imageUrl, isEditing, onEdit, onSave, on
                   className="w-4 h-4 object-contain" 
                 />
               }
-              className="w-full flex justify-center items-center gap-1 text-xs whitespace-nowrap rounded-full font-semibold !border"
+              className="!border"
             >
               Edit
             </Button>
@@ -57,7 +57,7 @@ export default function ProfileSidebar({ imageUrl, isEditing, onEdit, onSave, on
                   />
                 </div>
               }
-              className="w-full flex justify-center items-center gap-1 text-xs whitespace-nowrap rounded-full font-semibold"
+              className="w-full"
             >
               Preview
             </Button>
@@ -67,14 +67,13 @@ export default function ProfileSidebar({ imageUrl, isEditing, onEdit, onSave, on
             <Button 
               onClick={onSave} 
               variant="dark" 
-              className="w-full flex justify-center items-center text-xs whitespace-nowrap rounded-full font-semibold"
             >
               Save
             </Button>
             <Button 
               onClick={onCancel} 
               variant="light" 
-              className="w-full flex justify-center items-center text-xs whitespace-nowrap rounded-full font-semibold"
+              className="!border"
             >
               Cancel
             </Button>

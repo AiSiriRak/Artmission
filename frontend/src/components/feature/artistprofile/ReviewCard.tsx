@@ -1,28 +1,35 @@
-import { ReviewData } from "../../../app/artist/types"; // 📍 หมายเหตุ: เช็ค path ตรงนี้ให้ตรงกับไฟล์ types ของคุณด้วยนะครับ
+import { ReviewData } from "../../../app/artist/types"; 
 
 export default function ReviewCard({ review }: { review: ReviewData }) {
   return (
-    <div className="flex gap-4 p-6 rounded-xl bg-secondary-400 mb-4 last:mb-0">
+    <div className="bg-secondary-300 rounded-2xl p-5 flex items-start gap-4">
       
-      {/* รูปโปรไฟล์คนรีวิว (ถ้าไม่มีให้แสดงวงกลมสีเทา) */}
+      {/* รูปโปรไฟล์คนรีวิว */}
       <div className="w-12 h-12 rounded-full bg-gray-300 flex-shrink-0 overflow-hidden">
         {review.avatarUrl && (
           <img 
             src={review.avatarUrl} 
-            alt={review.reviewerName} 
+            alt={review.reviewerName || "Reviewer"} 
             className="w-full h-full object-cover" 
           />
         )}
       </div>
 
       {/* ข้อมูลรีวิว */}
-      <div className="flex flex-col text-sm text-gray-900 font-bold">
-        <div className="mb-1">
-          {review.reviewerName} <span className="text-gray-400 font-normal text-xs ml-2">• {review.timeAgo}</span>
+      <div className="flex-1 text-sm text-gray-800 leading-relaxed">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-bold text-gray-900">{review.reviewerName || "Name"}</span>
+          <span className="text-gray-400 text-xs">• {review.timeAgo || "2 hrs ago"}</span>
         </div>
-        <div className="mb-1">Order: {review.orderName}</div>
-        <div className="mb-2">Rating: {review.rating}/5</div>
-        <p className="font-normal">{review.comment}</p>
+        
+        <p className="font-semibold text-gray-900">
+          Order: <span className="font-normal">{review.orderName || "Pixel Art"}</span>
+        </p>
+        <p className="font-semibold text-gray-900 mb-2">
+          Rating: <span className="font-normal">{review.rating}/5</span>
+        </p>
+        
+        <p className="text-gray-700">{review.comment}</p>
       </div>
       
     </div>

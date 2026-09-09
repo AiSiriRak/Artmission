@@ -15,7 +15,7 @@ export default function ArtworkSampleGallery({
   onRemove 
 }: ArtworkSampleGalleryProps) {
   
-  // 📍 สร้าง ref ไว้ข้างในนี้เลย Component จะจัดการตัวเองได้ ไม่พึ่งพาไฟล์แม่
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddSampleClick = () => {
@@ -31,13 +31,11 @@ export default function ArtworkSampleGallery({
           <>
             <Button 
               variant="transparent"
-              onClick={handleAddSampleClick} // เรียกใช้ฟังก์ชันด้านบน
-              className="text-button"
+              onClick={handleAddSampleClick}
             >
               + Add Sample
             </Button>
             
-            {/* ซ่อน input ไว้ตรงนี้ได้เลย เพราะมันผูกกับ ref ในไฟล์นี้แล้ว */}
             <input 
               type="file" 
               accept="image/*" 

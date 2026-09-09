@@ -17,7 +17,6 @@ import ReviewList from "./ReviewList";
 
 // Shared UI Components
 import { Button } from "@/components/ui/Button";
-import { WhiteCard } from "@/components/ui/WhiteCard";
 import { Loading } from "@/components/ui/Loading";
 
 export default function ProfileManager({ 
@@ -30,7 +29,7 @@ export default function ProfileManager({
 
   const [isCustomerMode, setIsCustomerMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false); // 📍 เพิ่ม State สำหรับ Loading ระหว่าง API Save
+  const [isSaving, setIsSaving] = useState(false); 
 
   const [selectedArtwork, setSelectedArtwork] = useState<ArtworkData | 'new' | null>(null);
   const [artworks, setArtworks] = useState<ArtworkData[]>(initialArtworks);
@@ -53,7 +52,7 @@ export default function ProfileManager({
   };
 
   const handleSave = async () => {
-    setIsSaving(true); // 📍 เริ่มแสดง Loading
+    setIsSaving(true);
     try {
       const profile = initialProfile as Record<string, any>;
 
@@ -86,7 +85,7 @@ export default function ProfileManager({
       console.error("Save failed:", error);
       alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
     } finally {
-      setIsSaving(false); // 📍 ซ่อน Loading เมื่อทำงานเสร็จ
+      setIsSaving(false); 
     }
   };
 
@@ -138,7 +137,6 @@ export default function ProfileManager({
     ? (reviews.reduce((sum, item) => sum + item.rating, 0) / reviews.length).toFixed(1)
     : "0.0";
 
-  // 📍 หากกำลังบันทึกข้อมูล แสดงผล Loading สวยงาม
   if (isSaving) {
     return <Loading />;
   }
@@ -157,21 +155,16 @@ export default function ProfileManager({
 
   return (
     <div className="w-full">
-      {/* ------------------------------------------- */}
-      {/* ส่วนที่ 1: Profile Layout (แยกตามโหมด) */}
-      {/* ------------------------------------------- */}
+      
+      {/* -- Profile -- */}
+
       {!isCustomerMode ? (
         
-        // --- 1.1 โหมด ARTIST (มุมมองเจ้าของ) ---
+        // Editor mode
         <div className="max-w-5xl mx-auto px-8 pt-10">
-          <h1 className="text-2xl font-bold mb-10">Your Information</h1>
-          
-          {/* 📍 นำ WhiteCard มาครอบกล่องแก้ไขข้อมูลเพื่อความสวยงามและคงดีไซน์ของทีม */}
-          <WhiteCard 
-            margin="mb-12" 
-            padding="p-6 md:p-10" 
-            className="max-w-none shadow-sm border border-neutral-200"
-          >
+          <h1 className="text-h3 font-bold mb-10">Your Information</h1>
+
+          <div className="mb-12">
             <div className="flex flex-col md:flex-row gap-10">
               <ProfileSidebar 
                 imageUrl={artistData.profileImage}
@@ -212,12 +205,12 @@ export default function ProfileManager({
                 </div>
               </div>
             </div>
-          </WhiteCard>
+          </div>
         </div>
 
       ) : (
 
-        // --- 1.2 โหมด VIEW AS (มุมมองลูกค้า) ---
+        // Preview mode
         <div className="w-full">
           <div className="w-full h-48 bg-secondary-300 border border-neutral"></div>
           
@@ -238,7 +231,6 @@ export default function ProfileManager({
                     className="w-4 h-4 object-contain" 
                   />
                 } 
-                className="px-4 py-1.5 text-xs sm:text-sm flex items-center gap-2 rounded-full cursor-pointer font-semibold mb-8 shadow-md"
               >
                 Exit Preview
               </Button>
@@ -278,12 +270,10 @@ export default function ProfileManager({
         </div>
       )}
 
-      {/* ------------------------------------------- */}
-      {/* ส่วนที่ 2: Artwork (ใช้ร่วมกันทั้ง 2 โหมด) */}
-      {/* ------------------------------------------- */}
+      {/* -- Artwork -- */}
       <div className="max-w-5xl mx-auto px-8 pb-10">
         {isCustomerMode ? (
-          <div className="flex items-center gap-2 bg-secondary-300 border-l-4 border-accent-500 px-4 py-2.5 mb-6 rounded-r-md text-lg font-bold text-gray-900">
+          <div className="flex items-center gap-2 bg-secondary-300 border-l-4 border-accent-500 px-4 py-2.5 mb-6 rounded-r-md text-h3 font-bold text-gray-900">
             <span>Artworks</span>
           </div>
         ) : (
@@ -291,7 +281,7 @@ export default function ProfileManager({
             <hr className="border-gray-200 mb-10" />
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold text-gray-900">Your Artwork</h2>
+                <h2 className="text-h3 font-bold text-gray-900">Your Artwork</h2>
                 <span className="text-sm font-normal text-gray-400">{artworks.length} samples</span>
               </div>
             </div>
@@ -326,12 +316,10 @@ export default function ProfileManager({
         </div>
       </div>
 
-      {/* ------------------------------------------- */}
-      {/* ส่วนที่ 3: Reviews */}
-      {/* ------------------------------------------- */}
+      {/* -- Review -- */}
       <div className="max-w-5xl mx-auto px-8 pb-20">
         {isCustomerMode ? (
-          <div className="flex items-center gap-2 bg-secondary-300 border-l-4 border-accent-500 px-4 py-2.5 mb-6 rounded-r-md text-lg font-bold text-gray-900">
+          <div className="flex items-center gap-2 bg-secondary-300 border-l-4 border-accent-500 px-4 py-2.5 mb-6 rounded-r-md text-h3 font-bold text-gray-900">
             <span>Reviews</span>
             <span className="text-red-400 text-base ml-1">☆</span>
             <span>{avgRating}/5</span>
@@ -341,7 +329,7 @@ export default function ProfileManager({
             <hr className="border-gray-200 mb-6" />
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold text-gray-900">Your Reviews</h2>
+                <h2 className="text-h3 font-bold text-gray-900">Your Reviews</h2>
                 <span className="text-sm font-normal text-gray-400">{reviews.length} reviews</span>
               </div>
               <div className="flex items-center gap-1 font-bold text-gray-900 text-base">
