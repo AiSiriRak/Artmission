@@ -53,7 +53,7 @@ export default async function ArtistProfilePage() {
   ];
 
   return (
-    <MainLayout headerProps={{ activeMenu: "Artist Profile" }}>
+    <MainLayout page="Artist Profile" usertype="artist">
       <div className="w-full bg-white text-black">
         <ProfileManager 
           initialProfile={artistInitialData} 
