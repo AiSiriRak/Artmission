@@ -1,0 +1,18 @@
+info:
+  name: GetArtistProfile
+  type: http
+  seq: 1
+  tags:
+    - artists
+
+http:
+  method: GET
+  url: "{{api_url}}/artists/{{artist_id}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Get a public artist profile by artist user ID.
