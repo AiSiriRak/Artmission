@@ -20,10 +20,36 @@ export async function apiFetch<T>(
     ...options,
     headers,
   });
-
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+    const text = await response.text();
+
+    let message = `API request failed: ${response.status}`;
+
+    if (text) {
+      try {
+        const errorData = JSON.parse(text);
+        message =
+          errorData.detail || errorData.message || errorData.title || message;
+      } catch {
+        // Response is not JSON
+        message = text;
+      }
+    }
+
+    throw new Error(message);
   }
 
-  return response.json();
+  // 204 No Content
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const text = await response.text();
+
+  // Response with no Body
+  if (!text) {
+    return undefined as T;
+  }
+
+  return JSON.parse(text);
 }
