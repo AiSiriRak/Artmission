@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { BankAccount, UpdateBankAccountInput } from "@/lib/api/types";
+import { BANK_LABELS } from "@/lib/types";
 
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import { TextInput } from "@/components/ui/TextInput";
@@ -11,10 +12,6 @@ import { SelectInput } from "@/components/ui/SelectInput";
 
 interface BankAccountCard {
   bankAccount: BankAccount;
-  bankOptions: {
-    value: string;
-    label: string;
-  }[];
   isEditing: boolean;
   disabled: boolean;
   onEdit: () => void;
@@ -24,7 +21,6 @@ interface BankAccountCard {
 
 export function BankAccountCard({
   bankAccount,
-  bankOptions,
   isEditing,
   disabled,
   onEdit,
@@ -32,12 +28,44 @@ export function BankAccountCard({
   onSave,
 }: BankAccountCard) {
   const [bankName, setBankName] = useState(bankAccount.bank_name);
+
   const [accountHolder, setAccountHolder] = useState(
     bankAccount.account_holder_name,
   );
   const [accountNumber, setAccountNumber] = useState("");
 
+  const [accountHolderError, setAccountHolderError] = useState("");
+  const [accountNumberError, setAccountNumberError] = useState("");
+
+  const bankOptions = Object.entries(BANK_LABELS).map(([value, label]) => ({
+    value,
+    label,
+  }));
+
   const handleSave = () => {
+    let hasError = false;
+
+    // Validate account holder
+    if (!accountHolder.trim()) {
+      setAccountHolderError("Please enter the account holder's name.");
+      hasError = true;
+    } else {
+      setAccountHolderError("");
+    }
+
+    // Validate account number
+    if (!accountNumber.trim()) {
+      setAccountNumberError("Please enter your bank account number.");
+      hasError = true;
+    } else if (!/^\d{8,16}$/.test(accountNumber.trim())) {
+      setAccountNumberError("Please enter a valid bank account number.");
+      hasError = true;
+    } else {
+      setAccountNumberError("");
+    }
+
+    if (hasError) return;
+
     const updatedBank: UpdateBankAccountInput = {
       bank_name: bankName,
       account_holder_name: accountHolder,
@@ -49,8 +77,10 @@ export function BankAccountCard({
   const handleCancel = () => {
     setBankName(bankAccount.bank_name);
     setAccountHolder(bankAccount.account_holder_name);
-    setAccountNumber(bankAccount.account_last4);
+    setAccountNumber("");
 
+    setAccountHolderError("");
+    setAccountNumberError("");
     onCancel();
   };
 
@@ -80,7 +110,10 @@ export function BankAccountCard({
               value={accountHolder}
               onChange={setAccountHolder}
               placeholder="Enter account holder name"
-            />
+            />{" "}
+            <span className="flex mt-1 text-small text-error justify-center">
+              {accountHolderError}
+            </span>
           </div>
           {/* Account number */}
           <div>
@@ -91,7 +124,10 @@ export function BankAccountCard({
               value={accountNumber}
               onChange={setAccountNumber}
               placeholder="Enter account number"
-            />
+            />{" "}
+            <span className="flex mt-1 text-small text-error justify-center">
+              {accountNumberError}
+            </span>
           </div>
 
           {/* Buttons */}
@@ -111,9 +147,8 @@ export function BankAccountCard({
           {/* Name */}
           <div className="space-y-3">
             <label className="text-small text-primary-500">Bank</label>
-
             <p className="mt-1 text-body indent-2 text-primary-500">
-              {bankAccount.bank_name}
+              {BANK_LABELS[bankAccount.bank_name as keyof typeof BANK_LABELS]}
             </p>
           </div>
           <div className="space-y-3">

@@ -18,14 +18,7 @@ import { BankAccountCard } from "@/components/feature/userprofile/BankAccountCar
 import { DeleteAccountCard } from "@/components/feature/userprofile/DeleteAccountCard";
 import { DeleteAccountPopup } from "@/components/feature/userprofile/DeleteAccountPopup";
 import { Loading } from "@/components/ui/Loading";
-
-const bankOptions = [
-  { value: "ธนาคารกรุงเทพ (BBL)", label: "ธนาคารกรุงเทพ (BBL)" },
-  { value: "ธนาคารกสิกรไทย (KBANK)", label: "ธนาคารกสิกรไทย (KBANK)" },
-  { value: "ธนาคารกรุงไทย (KTB)", label: "ธนาคารกรุงไทย (KTB)" },
-  { value: "ธนาคารไทยพาณิชย์ (SCB)", label: "ธนาคารไทยพาณิชย์ (SCB)" },
-  { value: "ธนาคารกรุงศรีอยุธยา (BAY)", label: "ธนาคารกรุงศรีอยุธยา (BAY)" },
-];
+import MainLayout from "@/components/feature/main/MainLayout";
 
 export default function HomePage() {
   const router = useRouter();
@@ -58,7 +51,7 @@ export default function HomePage() {
 
   const handleConfirmDelete = async () => {
     try {
-      deleteAccount();
+      await deleteAccount();
       console.log("Account deleted successfully");
       setDeleteStatus("success");
       setEditingSection(null);
@@ -68,69 +61,77 @@ export default function HomePage() {
   };
 
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto flex max-w-5xl flex-col items-center">
-        <>
-          <ProfileHeader
-            username={user.username}
-            onUpload={function (imageUrl: File): void {
-              setProfile(imageUrl);
-            }}
-          />
-          <PersonalInfoCard
-            user={user}
-            isEditing={editingSection === "personal"}
-            disabled={editingSection !== null && editingSection !== "personal"}
-            onEdit={() => setEditingSection("personal")}
-            onCancel={() => setEditingSection(null)}
-            onSave={async (updatedAccount) => {
-              try {
-                const savedUser = await updateAccount(updatedAccount);
-
-                setUser(savedUser);
-                setEditingSection(null);
-              } catch (error) {
-                console.error("Failed to update user:", error);
+    <MainLayout page={"Home"} usertype={user.role} showFooter={false}>
+      <main className="min-h-screen">
+        <div className="mx-auto flex max-w-5xl flex-col items-center">
+          <>
+            <ProfileHeader
+              username={user.username}
+              onUpload={function (imageUrl: File): void {
+                setProfile(imageUrl);
+              }}
+            />
+            <PersonalInfoCard
+              user={user}
+              isEditing={editingSection === "personal"}
+              disabled={
+                editingSection !== null && editingSection !== "personal"
               }
-            }}
-          />
-          <BankAccountCard
-            bankAccount={bank}
-            bankOptions={bankOptions}
-            isEditing={editingSection === "bank"}
-            disabled={editingSection !== null && editingSection !== "bank"}
-            onEdit={() => setEditingSection("bank")}
-            onCancel={() => setEditingSection(null)}
-            onSave={async (updatedBankAccount) => {
-              try {
-                const savedBank = await updateBankAccount(updatedBankAccount);
+              onEdit={() => setEditingSection("personal")}
+              onCancel={() => setEditingSection(null)}
+              onSave={async (updatedAccount) => {
+                try {
+                  const savedUser = await updateAccount(updatedAccount);
 
-                setBank(savedBank);
-                setEditingSection(null);
-              } catch (error) {
-                console.error("Failed to update bank account:", error);
-              }
-            }}
-          />
-          <DeleteAccountCard
-            disabled={editingSection !== null}
-            onDelete={() => setIsDeletePopupOpen(true)}
-          />
-          <DeleteAccountPopup
-            isOpen={isDeletePopupOpen}
-            onCancel={
-              deleteStatus == "success"
-                ? () => router.push("/")
-                : () => {
-                    setIsDeletePopupOpen(false);
-                    setDeleteStatus("default");
+                  setUser(savedUser);
+                  setEditingSection(null);
+
+                  return null;
+                } catch (error: any) {
+                  if (error.message == "old password is incorrect") {
+                    return "Old password is incorrect.";
                   }
-            }
-            onConfirm={handleConfirmDelete}
-            status={deleteStatus}
-          />
-        </>
-      </div>
-    </main>
+                  return "Failed to update account.";
+                }
+              }}
+            />
+            <BankAccountCard
+              bankAccount={bank}
+              isEditing={editingSection === "bank"}
+              disabled={editingSection !== null && editingSection !== "bank"}
+              onEdit={() => setEditingSection("bank")}
+              onCancel={() => setEditingSection(null)}
+              onSave={async (updatedBankAccount) => {
+                try {
+                  const savedBank = await updateBankAccount(updatedBankAccount);
+
+                  setBank(savedBank);
+                  setEditingSection(null);
+                } catch (error) {
+                  console.error("Failed to update bank account:", error);
+                }
+              }}
+            />
+            <DeleteAccountCard
+              disabled={editingSection !== null}
+              onDelete={() => setIsDeletePopupOpen(true)}
+            />
+            <DeleteAccountPopup
+              isOpen={isDeletePopupOpen}
+              onCancel={
+                deleteStatus == "success"
+                  ? () => router.push("/")
+                  : () => {
+                      setIsDeletePopupOpen(false);
+                      setDeleteStatus("default");
+                    }
+              }
+              onConfirm={handleConfirmDelete}
+              status={deleteStatus}
+            />
+          </>
+        </div>
+      </main>
+    </MainLayout>
   );
 }
