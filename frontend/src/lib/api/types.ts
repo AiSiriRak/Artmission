@@ -15,10 +15,7 @@ export type Order = components["schemas"]["OrderView"];
 
 // Artist
 export type ArtistProfile = components["schemas"]["ArtistProfileView"];
-export interface UpdateArtistInput {
-  description?: string;
-  // profileImage?: string; 
-}
+export type UpdateArtistInput = components["schemas"]["UpdateMyArtistProfileInputBody"];
 
 // ==========================================
 // Artwork (หาก Backend มีเพิ่ม Schema ในอนาคต ค่อยมาเปลี่ยนเป็นแบบด้านบน)

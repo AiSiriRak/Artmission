@@ -1,6 +1,9 @@
 "use client";
 import { useState } from "react";
-import { ArtistData, ArtworkData, ReviewData } from "../../../app/artist/[id]/types";
+import { useRouter } from "next/navigation"; 
+import { updateArtistProfile } from "@/lib/api/artist"; 
+import type { UpdateArtistInput } from "@/lib/api/types";
+import { ArtistData, ArtworkData, ReviewData } from "../../../app/artist/types";
 import ProfileSidebar from "./ProfileSidebar";
 import EditorField from "./EditorField";
 import ArtworkCard from "./ArtworkCard";
@@ -11,11 +14,15 @@ import ReviewList from "./ReviewList";
 import { Button } from "@/components/ui/Button";
 
 
+
 export default function ProfileManager({ 
   initialProfile, initialArtworks, initialReviews = []
 }: { 
   initialProfile: ArtistData, initialArtworks: ArtworkData[], initialReviews?: ReviewData[]
 }) {
+
+  const router = useRouter();
+
   const [isCustomerMode, setIsCustomerMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -40,9 +47,40 @@ export default function ProfileManager({
     setArtistData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSave = () => {
-    setSavedData(artistData);
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      const profile = initialProfile as Record<string, any>;
+
+      // ดึง ID สไตล์เดิมที่มีอยู่ หรือส่ง null หากไม่มีข้อมูล
+      const existingStyleIds = Array.isArray(profile.style_ids) && profile.style_ids.length > 0
+        ? profile.style_ids
+        : (Array.isArray(profile.styles) ? profile.styles.map((s: any) => s.id) : null);
+
+      const payload: UpdateArtistInput = {
+        description: artistData.description || "",
+        min_price_satang: Number(profile.min_price_satang ?? profile.minPriceSatang ?? 0),
+        max_price_satang: Number(profile.max_price_satang ?? profile.maxPriceSatang ?? 0),
+        style_ids: existingStyleIds, // เปลี่ยนจาก [] เป็น null หรือ ID เดิม
+      };
+
+      const updatedProfile = await updateArtistProfile(payload);
+
+      const updatedData: ArtistData = {
+        ...artistData,
+        description: updatedProfile.description || artistData.description,
+      };
+
+      setSavedData(updatedData);
+      setArtistData(updatedData);
+      setIsEditing(false);
+      
+      router.refresh(); 
+      alert("บันทึกข้อมูลเรียบร้อยแล้ว");
+      
+    } catch (error: any) {
+      console.error("Save failed:", error);
+      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+    }
   };
 
   const handleSaveArtwork = (savedArtwork: ArtworkData) => {

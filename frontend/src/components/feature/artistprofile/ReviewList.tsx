@@ -1,4 +1,4 @@
-import { ReviewData } from "../../../app/artist/[id]/types";
+import { ReviewData } from "../../../app/artist/types";
 
 interface ReviewListProps {
   title?: string; // 📍 ใส่ ? เพื่อให้ title เป็น optional (ไม่ส่งมาได้)

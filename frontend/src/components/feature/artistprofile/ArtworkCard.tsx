@@ -1,4 +1,4 @@
-import { ArtworkData } from "../../../app/artist/[id]/types";
+import { ArtworkData } from "../../../app/artist/types";
 
 interface ArtworkCardProps {
   artwork: ArtworkData;

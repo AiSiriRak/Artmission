@@ -1,4 +1,4 @@
-import { ReviewData } from "../../../app/artist/[id]/types"; // 📍 หมายเหตุ: เช็ค path ตรงนี้ให้ตรงกับไฟล์ types ของคุณด้วยนะครับ
+import { ReviewData } from "../../../app/artist/types"; // 📍 หมายเหตุ: เช็ค path ตรงนี้ให้ตรงกับไฟล์ types ของคุณด้วยนะครับ
 
 export default function ReviewCard({ review }: { review: ReviewData }) {
   return (
