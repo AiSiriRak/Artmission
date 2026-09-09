@@ -53,7 +53,8 @@ func (f *fakeUserIdentity) GetByID(_ context.Context, id uuid.UUID) (*user.User,
 var _ UserIdentity = (*fakeUserIdentity)(nil)
 
 type fakeSessionRepo struct {
-	sessions map[uuid.UUID]*Session
+	sessions  map[uuid.UUID]*Session
+	createErr error
 }
 
 func newFakeSessionRepo() *fakeSessionRepo {
@@ -61,6 +62,9 @@ func newFakeSessionRepo() *fakeSessionRepo {
 }
 
 func (f *fakeSessionRepo) Create(_ context.Context, s *Session) error {
+	if f.createErr != nil {
+		return f.createErr
+	}
 	cp := *s
 	f.sessions[s.ID] = &cp
 	return nil
@@ -178,6 +182,17 @@ func TestLogin_WrongPasswordCreatesNoSession(t *testing.T) {
 	}
 	if len(sessionRepo.sessions) != 0 {
 		t.Errorf("Login() with bad credentials created %d sessions, want 0", len(sessionRepo.sessions))
+	}
+}
+
+func TestLogin_MapsRejectedSessionCreationToInvalidCredentials(t *testing.T) {
+	uc, userUsecase, sessionRepo, _ := newTestAuthUsecase()
+	userUsecase.addUser(alice, "secret")
+	sessionRepo.createErr = ErrSessionNotFound
+
+	_, err := uc.Login(context.Background(), alice.Email, "secret")
+	if !errors.Is(err, ErrInvalidCredential) {
+		t.Errorf("Login() error = %v, want ErrInvalidCredential", err)
 	}
 }
 

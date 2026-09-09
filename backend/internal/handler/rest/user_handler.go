@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
@@ -10,12 +11,21 @@ import (
 )
 
 type UserHandler struct {
-	userUsecase user.UserUsecase
-	authUsecase auth.AuthUsecase
+	userUsecase  user.UserUsecase
+	authUsecase  auth.AuthUsecase
+	basePath     string
+	isProduction bool
+	cookieDomain string
 }
 
-func NewUserHandler(userUsecase user.UserUsecase, authUsecase auth.AuthUsecase) *UserHandler {
-	return &UserHandler{userUsecase: userUsecase, authUsecase: authUsecase}
+func NewUserHandler(userUsecase user.UserUsecase, authUsecase auth.AuthUsecase, basePath string, isProduction bool, cookieDomain string) *UserHandler {
+	return &UserHandler{
+		userUsecase:  userUsecase,
+		authUsecase:  authUsecase,
+		basePath:     basePath,
+		isProduction: isProduction,
+		cookieDomain: cookieDomain,
+	}
 }
 
 func (h *UserHandler) Register(api huma.API) {
@@ -39,6 +49,16 @@ func (h *UserHandler) Register(api huma.API) {
 		},
 	)
 
+	huma.Get(api, "/users/me/bank-account", h.getBankAccount,
+		huma.OperationTags("users"),
+		func(o *huma.Operation) {
+			o.OperationID = "get-bank-account"
+			o.Summary = "GetBankAccount"
+			o.Description = "Get the authenticated user's bank account"
+			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase))
+		},
+	)
+
 	huma.Put(api, "/users/me/bank-account", h.updateBankAccount,
 		huma.OperationTags("users"),
 		func(o *huma.Operation) {
@@ -48,6 +68,38 @@ func (h *UserHandler) Register(api huma.API) {
 			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase))
 		},
 	)
+
+	huma.Delete(api, "/users/me", h.deleteAccount,
+		huma.OperationTags("users"),
+		func(o *huma.Operation) {
+			o.OperationID = "delete-account"
+			o.Summary = "DeleteAccount"
+			o.Description = "Delete the authenticated user's account when they have no active orders"
+			o.DefaultStatus = http.StatusNoContent
+			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase))
+		},
+	)
+}
+
+type DeleteAccountInput struct{}
+
+type DeleteAccountOutput struct {
+	SetCookie string `header:"Set-Cookie"`
+}
+
+func (h *UserHandler) deleteAccount(ctx context.Context, _ *DeleteAccountInput) (*DeleteAccountOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	if err := h.userUsecase.DeleteAccount(ctx, info.UserID); err != nil {
+		return nil, mapAppError(err)
+	}
+
+	return &DeleteAccountOutput{
+		SetCookie: clearRefreshCookie(h.basePath, h.isProduction, h.cookieDomain),
+	}, nil
 }
 
 type accountView struct {
@@ -122,6 +174,8 @@ type updateBankAccountInput struct {
 	}
 }
 
+type getBankAccountInput struct{}
+
 type bankAccountView struct {
 	BankName          string `json:"bank_name"`
 	AccountHolderName string `json:"account_holder_name"`
@@ -129,6 +183,10 @@ type bankAccountView struct {
 }
 
 type UpdateBankAccountOutput struct {
+	Body bankAccountView
+}
+
+type GetBankAccountOutput struct {
 	Body bankAccountView
 }
 
@@ -152,6 +210,23 @@ func (h *UserHandler) updateBankAccount(ctx context.Context, in *updateBankAccou
 	}
 
 	return &UpdateBankAccountOutput{Body: bankAccountView{
+		BankName:          bank.BankName,
+		AccountHolderName: bank.AccountHolderName,
+		AccountLast4:      maskAccountNumber(bank.AccountNumber),
+	}}, nil
+}
+
+func (h *UserHandler) getBankAccount(ctx context.Context, _ *getBankAccountInput) (*GetBankAccountOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	bank, err := h.userUsecase.GetBankAccount(ctx, info.UserID, info.Role)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+	return &GetBankAccountOutput{Body: bankAccountView{
 		BankName:          bank.BankName,
 		AccountHolderName: bank.AccountHolderName,
 		AccountLast4:      maskAccountNumber(bank.AccountNumber),
