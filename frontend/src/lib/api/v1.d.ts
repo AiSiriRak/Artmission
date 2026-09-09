@@ -4,644 +4,785 @@
  */
 
 export interface paths {
-  "/auth/login": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/artists/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * UpdateMyArtistProfile
+         * @description Replace the authenticated artist's editable profile details
+         */
+        put: operations["update-my-artist-profile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Login
-     * @description Log in with email and password
-     */
-    post: operations["login"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/auth/logout": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/artists/{artist_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetArtistProfile
+         * @description Get a public artist profile
+         */
+        get: operations["get-artist-profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Logout
-     * @description Log out and terminate the current session
-     */
-    post: operations["logout"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/auth/refresh": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description Log in with email and password
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Refresh
-     * @description Exchange a refresh token (cookie) for a new access token
-     */
-    post: operations["refresh"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/auth/register": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description Log out and terminate the current session
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Register
-     * @description Register a new account
-     */
-    post: operations["register"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/orders/history": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh
+         * @description Exchange a refresh token (cookie) for a new access token
+         */
+        post: operations["refresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * ViewHiringHistory
-     * @description View the authenticated customer's hiring history
-     */
-    get: operations["view-hiring-history"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/users/me": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register
+         * @description Register a new account
+         */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * GetAccount
-     * @description Get the authenticated user's account information
-     */
-    get: operations["get-account"];
-    /**
-     * UpdateAccount
-     * @description Update the authenticated user's username and optionally change their password
-     */
-    put: operations["update-account"];
-    post?: never;
-    /**
-     * DeleteAccount
-     * @description Delete the authenticated user's account when they have no active orders
-     */
-    delete: operations["delete-account"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/users/me/bank-account": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/orders/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * ViewHiringHistory
+         * @description View the authenticated customer's hiring history
+         */
+        get: operations["view-hiring-history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * GetBankAccount
-     * @description Get the authenticated user's bank account
-     */
-    get: operations["get-bank-account"];
-    /**
-     * UpdateBankAccount
-     * @description Update the authenticated user's bank account
-     */
-    put: operations["update-bank-account"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
+    "/users/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetAccount
+         * @description Get the authenticated user's account information
+         */
+        get: operations["get-account"];
+        /**
+         * UpdateAccount
+         * @description Update the authenticated user's username and optionally change their password
+         */
+        put: operations["update-account"];
+        post?: never;
+        /**
+         * DeleteAccount
+         * @description Delete the authenticated user's account when they have no active orders
+         */
+        delete: operations["delete-account"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/me/bank-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetBankAccount
+         * @description Get the authenticated user's bank account
+         */
+        get: operations["get-bank-account"];
+        /**
+         * UpdateBankAccount
+         * @description Update the authenticated user's bank account
+         */
+        put: operations["update-bank-account"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    AccountView: {
-      /**
-       * Format: uri
-       * @description A URL to the JSON Schema for this object.
-       * @example /api/v1/schemas/AccountView.json
-       */
-      readonly $schema?: string;
-      email: string;
-      id: string;
-      role: string;
-      username: string;
+    schemas: {
+        AccountView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/AccountView.json
+             */
+            readonly $schema?: string;
+            email: string;
+            id: string;
+            role: string;
+            username: string;
+        };
+        ArtistProfileView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ArtistProfileView.json
+             */
+            readonly $schema?: string;
+            artist_id: string;
+            artist_name: string;
+            categories: components["schemas"]["ArtistReferenceView"][] | null;
+            description: string;
+            /** Format: int64 */
+            max_price_satang: number | null;
+            /** Format: int64 */
+            min_price_satang: number | null;
+            /** Format: double */
+            review_score: number | null;
+            styles: components["schemas"]["ArtistReferenceView"][] | null;
+        };
+        ArtistReferenceView: {
+            id: string;
+            label: string;
+        };
+        AuthResultBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/AuthResultBody.json
+             */
+            readonly $schema?: string;
+            access_token: string;
+        };
+        BankAccountView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/BankAccountView.json
+             */
+            readonly $schema?: string;
+            account_holder_name: string;
+            account_last4: string;
+            bank_name: string;
+        };
+        CategoryView: {
+            id: string;
+            label: string;
+        };
+        ErrorDetail: {
+            /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
+            location?: string;
+            /** @description Error message text */
+            message?: string;
+            /** @description The value at the given location */
+            value?: unknown;
+        };
+        ErrorModel: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ErrorModel.json
+             */
+            readonly $schema?: string;
+            /**
+             * @description A human-readable explanation specific to this occurrence of the problem.
+             * @example Property foo is required but is missing.
+             */
+            detail?: string;
+            /** @description Optional list of individual error details */
+            errors?: components["schemas"]["ErrorDetail"][] | null;
+            /**
+             * Format: uri
+             * @description A URI reference that identifies the specific occurrence of the problem.
+             * @example https://example.com/error-log/abc123
+             */
+            instance?: string;
+            /**
+             * Format: int64
+             * @description HTTP status code
+             * @example 400
+             */
+            status?: number;
+            /**
+             * @description A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+             * @example Bad Request
+             */
+            title?: string;
+            /**
+             * Format: uri
+             * @description A URI reference to human-readable documentation for the error.
+             * @default about:blank
+             * @example https://example.com/errors/example
+             */
+            type: string;
+        };
+        LoginInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/LoginInputBody.json
+             */
+            readonly $schema?: string;
+            /** Format: email */
+            email: string;
+            password: string;
+        };
+        OrderView: {
+            artist_id: string;
+            category?: components["schemas"]["CategoryView"];
+            /** Format: date-time */
+            completed_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            deadline?: string;
+            description: string;
+            id: string;
+            /** Format: double */
+            price?: number;
+            status: string;
+            style?: components["schemas"]["StyleView"];
+        };
+        RegisterArtistBody: {
+            description: string;
+        };
+        RegisterBankAccountBody: {
+            account_holder_name: string;
+            account_number: string;
+            bank_name: string;
+        };
+        RegisterInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/RegisterInputBody.json
+             */
+            readonly $schema?: string;
+            artist?: components["schemas"]["RegisterArtistBody"];
+            bank_account: components["schemas"]["RegisterBankAccountBody"];
+            /** Format: email */
+            email: string;
+            password: string;
+            /** @enum {string} */
+            role: "customer" | "artist";
+            username: string;
+        };
+        StyleView: {
+            id: string;
+            label: string;
+        };
+        UpdateAccountInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/UpdateAccountInputBody.json
+             */
+            readonly $schema?: string;
+            new_password?: string;
+            old_password?: string;
+            username: string;
+        };
+        UpdateBankAccountInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/UpdateBankAccountInputBody.json
+             */
+            readonly $schema?: string;
+            account_holder_name: string;
+            account_number: string;
+            bank_name: string;
+        };
+        UpdateMyArtistProfileInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/UpdateMyArtistProfileInputBody.json
+             */
+            readonly $schema?: string;
+            description: string;
+            /** Format: int64 */
+            max_price_satang: number;
+            /** Format: int64 */
+            min_price_satang: number;
+            style_ids: string[] | null;
+        };
+        ViewHiringHistoryOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ViewHiringHistoryOutputBody.json
+             */
+            readonly $schema?: string;
+            orders: components["schemas"]["OrderView"][] | null;
+        };
     };
-    AuthResultBody: {
-      /**
-       * Format: uri
-       * @description A URL to the JSON Schema for this object.
-       * @example /api/v1/schemas/AuthResultBody.json
-       */
-      readonly $schema?: string;
-      access_token: string;
-    };
-    BankAccountView: {
-      /**
-       * Format: uri
-       * @description A URL to the JSON Schema for this object.
-       * @example /api/v1/schemas/BankAccountView.json
-       */
-      readonly $schema?: string;
-      account_holder_name: string;
-      account_last4: string;
-      bank_name: string;
-    };
-    CategoryView: {
-      id: string;
-      label: string;
-    };
-    ErrorDetail: {
-      /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
-      location?: string;
-      /** @description Error message text */
-      message?: string;
-      /** @description The value at the given location */
-      value?: unknown;
-    };
-    ErrorModel: {
-      /**
-       * Format: uri
-       * @description A URL to the JSON Schema for this object.
-       * @example /api/v1/schemas/ErrorModel.json
-       */
-      readonly $schema?: string;
-      /**
-       * @description A human-readable explanation specific to this occurrence of the problem.
-       * @example Property foo is required but is missing.
-       */
-      detail?: string;
-      /** @description Optional list of individual error details */
-      errors?: components["schemas"]["ErrorDetail"][] | null;
-      /**
-       * Format: uri
-       * @description A URI reference that identifies the specific occurrence of the problem.
-       * @example https://example.com/error-log/abc123
-       */
-      instance?: string;
-      /**
-       * Format: int64
-       * @description HTTP status code
-       * @example 400
-       */
-      status?: number;
-      /**
-       * @description A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
-       * @example Bad Request
-       */
-      title?: string;
-      /**
-       * Format: uri
-       * @description A URI reference to human-readable documentation for the error.
-       * @default about:blank
-       * @example https://example.com/errors/example
-       */
-      type: string;
-    };
-    LoginInputBody: {
-      /**
-       * Format: uri
-       * @description A URL to the JSON Schema for this object.
-       * @example /api/v1/schemas/LoginInputBody.json
-       */
-      readonly $schema?: string;
-      /** Format: email */
-      email: string;
-      password: string;
-    };
-    OrderView: {
-      artist_id: string;
-      category?: components["schemas"]["CategoryView"];
-      /** Format: date-time */
-      completed_at?: string;
-      /** Format: date-time */
-      created_at: string;
-      /** Format: date-time */
-      deadline?: string;
-      description: string;
-      id: string;
-      /** Format: double */
-      price?: number;
-      status: string;
-      style?: components["schemas"]["StyleView"];
-    };
-    RegisterArtistBody: {
-      description: string;
-    };
-    RegisterBankAccountBody: {
-      account_holder_name: string;
-      account_number: string;
-      bank_name: string;
-    };
-    RegisterInputBody: {
-      /**
-       * Format: uri
-       * @description A URL to the JSON Schema for this object.
-       * @example /api/v1/schemas/RegisterInputBody.json
-       */
-      readonly $schema?: string;
-      artist?: components["schemas"]["RegisterArtistBody"];
-      bank_account: components["schemas"]["RegisterBankAccountBody"];
-      /** Format: email */
-      email: string;
-      password: string;
-      /** @enum {string} */
-      role: "customer" | "artist";
-      username: string;
-    };
-    StyleView: {
-      id: string;
-      label: string;
-    };
-    UpdateAccountInputBody: {
-      /**
-       * Format: uri
-       * @description A URL to the JSON Schema for this object.
-       * @example /api/v1/schemas/UpdateAccountInputBody.json
-       */
-      readonly $schema?: string;
-      new_password?: string;
-      old_password?: string;
-      username: string;
-    };
-    UpdateBankAccountInputBody: {
-      /**
-       * Format: uri
-       * @description A URL to the JSON Schema for this object.
-       * @example /api/v1/schemas/UpdateBankAccountInputBody.json
-       */
-      readonly $schema?: string;
-      account_holder_name: string;
-      account_number: string;
-      bank_name: string;
-    };
-    ViewHiringHistoryOutputBody: {
-      /**
-       * Format: uri
-       * @description A URL to the JSON Schema for this object.
-       * @example /api/v1/schemas/ViewHiringHistoryOutputBody.json
-       */
-      readonly $schema?: string;
-      orders: components["schemas"]["OrderView"][] | null;
-    };
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  login: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "update-my-artist-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMyArtistProfileInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistProfileView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["LoginInputBody"];
-      };
+    "get-artist-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtistProfileView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
     };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          "Set-Cookie"?: string;
-          [name: string]: unknown;
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["AuthResultBody"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginInputBody"];
+            };
         };
-      };
-      /** @description Error */
-      default: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthResultBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
         };
-        content: {
-          "application/problem+json": components["schemas"]["ErrorModel"];
-        };
-      };
     };
-  };
-  logout: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description No Content */
-      204: {
-        headers: {
-          "Set-Cookie"?: string;
-          [name: string]: unknown;
+    refresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                refresh_token?: string;
+            };
         };
-        content?: never;
-      };
-      /** @description Error */
-      default: {
-        headers: {
-          [name: string]: unknown;
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthResultBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
         };
-        content: {
-          "application/problem+json": components["schemas"]["ErrorModel"];
-        };
-      };
     };
-  };
-  refresh: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: {
-        refresh_token?: string;
-      };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          "Set-Cookie"?: string;
-          [name: string]: unknown;
+    "view-hiring-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["AuthResultBody"];
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewHiringHistoryOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
         };
-      };
-      /** @description Error */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/problem+json": components["schemas"]["ErrorModel"];
-        };
-      };
     };
-  };
-  register: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "get-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["RegisterInputBody"];
-      };
+    "update-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAccountInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
     };
-    responses: {
-      /** @description Created */
-      201: {
-        headers: {
-          [name: string]: unknown;
+    "delete-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content?: never;
-      };
-      /** @description Error */
-      default: {
-        headers: {
-          [name: string]: unknown;
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
         };
-        content: {
-          "application/problem+json": components["schemas"]["ErrorModel"];
-        };
-      };
     };
-  };
-  "view-hiring-history": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "get-bank-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankAccountView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    "update-bank-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["ViewHiringHistoryOutputBody"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBankAccountInputBody"];
+            };
         };
-      };
-      /** @description Error */
-      default: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankAccountView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
         };
-        content: {
-          "application/problem+json": components["schemas"]["ErrorModel"];
-        };
-      };
     };
-  };
-  "get-account": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AccountView"];
-        };
-      };
-      /** @description Error */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/problem+json": components["schemas"]["ErrorModel"];
-        };
-      };
-    };
-  };
-  "update-account": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["UpdateAccountInputBody"];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AccountView"];
-        };
-      };
-      /** @description Error */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/problem+json": components["schemas"]["ErrorModel"];
-        };
-      };
-    };
-  };
-  "delete-account": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description No Content */
-      204: {
-        headers: {
-          "Set-Cookie"?: string;
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Error */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/problem+json": components["schemas"]["ErrorModel"];
-        };
-      };
-    };
-  };
-  "get-bank-account": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["BankAccountView"];
-        };
-      };
-      /** @description Error */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/problem+json": components["schemas"]["ErrorModel"];
-        };
-      };
-    };
-  };
-  "update-bank-account": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["UpdateBankAccountInputBody"];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["BankAccountView"];
-        };
-      };
-      /** @description Error */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/problem+json": components["schemas"]["ErrorModel"];
-        };
-      };
-    };
-  };
 }
