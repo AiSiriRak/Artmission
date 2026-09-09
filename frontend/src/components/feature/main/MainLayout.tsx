@@ -2,14 +2,14 @@ import React from "react";
 
 import Header from "./Header";
 import Footer from "./Footer";
-import { PageType, UserType } from "@/lib/types";
+import { PageType } from "@/lib/types";
 
 interface MainLayoutProps {
   children: React.ReactNode;
   showHeader?: boolean;
   showFooter?: boolean;
   page: PageType;
-  usertype: UserType;
+  usertype: string;
 }
 
 export default function MainLayout({

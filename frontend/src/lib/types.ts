@@ -6,5 +6,3 @@ export type PageType =
   | "Setting"
   | "Artist Profile"
   | "Order History";
-
-export type UserType = "customer" | "artist" | "admin";

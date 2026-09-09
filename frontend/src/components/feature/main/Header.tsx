@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 
-import { PageType, UserType } from "@/lib/types";
+import { PageType } from "@/lib/types";
 import { routes } from "@/lib/routes";
 
 import { Button } from "@/components/ui/Button";
@@ -11,7 +11,7 @@ import { TextInput } from "@/components/ui/TextInput";
 
 interface HeaderProps {
   page: PageType;
-  usertype: UserType;
+  usertype: string;
 }
 
 export default function Header({
