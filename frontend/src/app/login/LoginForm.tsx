@@ -12,13 +12,27 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const canSubmit = email.trim().length > 0 && password.trim().length > 0;
 
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!canSubmit) {
+      return;
+    }
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-secondary-200 px-6 py-6">
+    <main className="relative flex min-h-screen items-center justify-center bg-white px-6 py-6">
+      <Image
+        src="/icons/artmission_logo.svg"
+        alt="Artmission logo"
+        width={176}
+        height={30}
+        priority
+        className="absolute left-24 top-6 h-auto w-36 sm:w-52"
+      />
+
       <WhiteCard>
         <div className="mb-8 text-center">
           <h1 className="mt-2 text-h1 text-primary-500">Login</h1>
@@ -75,7 +89,11 @@ export function LoginForm() {
           <Button
             type="submit"
             variant="accent-500"
-            className="mt-4 w-full py-3 text-white"
+            disabled={!canSubmit}
+            aria-disabled={!canSubmit}
+            className={`mt-4 w-full py-3 text-white transition ${
+              canSubmit ? "opacity-100" : "opacity-50"
+            }`}
           >
             Log in
           </Button>
