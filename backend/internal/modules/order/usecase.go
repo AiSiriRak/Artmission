@@ -37,7 +37,6 @@ func (u *orderUsecase) ViewOrders(ctx context.Context, query ListQuery) (Page, e
 		if key == nil {
 			continue
 		}
-		// TODO: Fix this N+1 query problem here later
 		url, err := u.storage.GetPresignedURL(ctx, *key, orderDeliverableTTL)
 		if err != nil {
 			return Page{}, apperror.Internal("failed to presign deliverable preview image", err)
