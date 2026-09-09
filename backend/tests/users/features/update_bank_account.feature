@@ -9,6 +9,12 @@ Feature: Update bank account
     When the user updates their bank account with valid details
     Then the system saves the updated bank account details
 
+  Scenario: view saved bank account
+    Given the user has a registered account
+    And the user has logged in
+    When the user views their bank account
+    Then the system returns their masked bank account details
+
   Scenario: create a missing bank account through update
     Given the user has a registered account
     And the user has logged in
@@ -18,6 +24,10 @@ Feature: Update bank account
 
   Scenario: update bank account without logging in
     When the user updates a bank account without logging in
+    Then the system requires the user to log in
+
+  Scenario: view bank account without logging in
+    When the user views a bank account without logging in
     Then the system requires the user to log in
 
   Scenario: update bank account with blank details

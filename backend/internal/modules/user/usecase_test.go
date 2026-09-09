@@ -3,9 +3,11 @@ package user_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/security"
 	"github.com/google/uuid"
@@ -90,6 +92,15 @@ func (f *fakeBankRepo) Create(_ context.Context, ba *user.BankAccount) error {
 	return nil
 }
 
+func (f *fakeBankRepo) GetByUserID(_ context.Context, userID uuid.UUID) (*user.BankAccount, error) {
+	ba, ok := f.byUserID[userID]
+	if !ok {
+		return nil, user.ErrBankAccountNotFound
+	}
+	cp := *ba
+	return &cp, nil
+}
+
 func (f *fakeBankRepo) UpsertByUserID(_ context.Context, ba *user.BankAccount) (*user.BankAccount, error) {
 	f.upsertCalls++
 	if f.upsertErr != nil {
@@ -132,8 +143,47 @@ func (f *fakeTx) Transaction(ctx context.Context, fn func(ctx context.Context) e
 
 var _ user.Transactioner = (*fakeTx)(nil)
 
+type fakeAccountDeletionRepo struct {
+	hasActiveOrders bool
+	statuses        []order.Status
+	calls           []string
+	lockErr         error
+	checkErr        error
+	bankErr         error
+	sessionsErr     error
+	userErr         error
+}
+
+func (f *fakeAccountDeletionRepo) LockUserByIDForDeletion(_ context.Context, _ uuid.UUID) error {
+	f.calls = append(f.calls, "lock-user")
+	return f.lockErr
+}
+
+func (f *fakeAccountDeletionRepo) HasOrdersInStatuses(_ context.Context, _ uuid.UUID, statuses []order.Status) (bool, error) {
+	f.calls = append(f.calls, "check-orders")
+	f.statuses = append([]order.Status(nil), statuses...)
+	return f.hasActiveOrders, f.checkErr
+}
+
+func (f *fakeAccountDeletionRepo) DeleteBankAccountByUserID(_ context.Context, _ uuid.UUID) error {
+	f.calls = append(f.calls, "delete-bank")
+	return f.bankErr
+}
+
+func (f *fakeAccountDeletionRepo) DeleteSessionsByUserID(_ context.Context, _ uuid.UUID) error {
+	f.calls = append(f.calls, "delete-sessions")
+	return f.sessionsErr
+}
+
+func (f *fakeAccountDeletionRepo) SoftDeleteUserByID(_ context.Context, _ uuid.UUID) error {
+	f.calls = append(f.calls, "delete-user")
+	return f.userErr
+}
+
+var _ user.AccountDeletionRepository = (*fakeAccountDeletionRepo)(nil)
+
 func newUsecase(repo *fakeRepo, bank *fakeBankRepo, artist *fakeArtistRegistrar) user.UserUsecase {
-	return user.NewUserUsecase(repo, bank, artist, &fakeTx{})
+	return user.NewUserUsecase(repo, bank, artist, &fakeAccountDeletionRepo{}, &fakeTx{})
 }
 
 func customerInput() user.RegisterInput {
@@ -147,6 +197,50 @@ func customerInput() user.RegisterInput {
 			AccountHolderName: "Alice Wong",
 			AccountNumber:     "1234567890",
 		},
+	}
+}
+
+func TestDeleteAccount_DeletesPrivateDataAndSessions(t *testing.T) {
+	deletion := &fakeAccountDeletionRepo{}
+	usecase := user.NewUserUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar(), deletion, &fakeTx{})
+
+	if err := usecase.DeleteAccount(context.Background(), uuid.New()); err != nil {
+		t.Fatalf("DeleteAccount() error = %v, want nil", err)
+	}
+
+	wantCalls := []string{"lock-user", "check-orders", "delete-bank", "delete-sessions", "delete-user"}
+	if !slices.Equal(deletion.calls, wantCalls) {
+		t.Errorf("DeleteAccount() calls = %v, want %v", deletion.calls, wantCalls)
+	}
+	wantStatuses := []order.Status{order.StatusPending, order.StatusNotPaid, order.StatusInProcess}
+	if !slices.Equal(deletion.statuses, wantStatuses) {
+		t.Errorf("DeleteAccount() blocking statuses = %v, want %v", deletion.statuses, wantStatuses)
+	}
+}
+
+func TestDeleteAccount_RejectsActiveOrdersWithoutDeletingAnything(t *testing.T) {
+	deletion := &fakeAccountDeletionRepo{hasActiveOrders: true}
+	usecase := user.NewUserUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar(), deletion, &fakeTx{})
+
+	err := usecase.DeleteAccount(context.Background(), uuid.New())
+	if !errors.Is(err, user.ErrActiveOrders) {
+		t.Errorf("DeleteAccount() error = %v, want ErrActiveOrders", err)
+	}
+	if !slices.Equal(deletion.calls, []string{"lock-user", "check-orders"}) {
+		t.Errorf("DeleteAccount() calls = %v, want only active-order check", deletion.calls)
+	}
+}
+
+func TestDeleteAccount_StopsWhenAccountCannotBeLocked(t *testing.T) {
+	deletion := &fakeAccountDeletionRepo{lockErr: user.ErrUserNotFound}
+	usecase := user.NewUserUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar(), deletion, &fakeTx{})
+
+	err := usecase.DeleteAccount(context.Background(), uuid.New())
+	if !errors.Is(err, user.ErrUserNotFound) {
+		t.Errorf("DeleteAccount() error = %v, want ErrUserNotFound", err)
+	}
+	if !slices.Equal(deletion.calls, []string{"lock-user"}) {
+		t.Errorf("DeleteAccount() calls = %v, want only account lock", deletion.calls)
 	}
 }
 
@@ -475,6 +569,44 @@ func TestUpdateBankAccount_RejectsAdmin(t *testing.T) {
 	}
 	if bank.upsertCalls != 0 {
 		t.Errorf("UpsertByUserID calls = %d, want 0", bank.upsertCalls)
+	}
+}
+
+func TestGetBankAccount_ReturnsSavedAccount(t *testing.T) {
+	bank := newFakeBankRepo()
+	userID := uuid.New()
+	bank.byUserID[userID] = &user.BankAccount{
+		UserID:            userID,
+		BankName:          "Kasikorn",
+		AccountHolderName: "Alice Wong",
+		AccountNumber:     "1234567890",
+	}
+	usecase := newUsecase(newFakeRepo(), bank, newFakeArtistRegistrar())
+
+	got, err := usecase.GetBankAccount(context.Background(), userID, user.RoleArtist)
+	if err != nil {
+		t.Fatalf("GetBankAccount() error = %v, want nil", err)
+	}
+	if got.BankName != "Kasikorn" || got.AccountHolderName != "Alice Wong" || got.AccountNumber != "1234567890" {
+		t.Errorf("GetBankAccount() = %+v, want saved bank account", got)
+	}
+}
+
+func TestGetBankAccount_RejectsAdmin(t *testing.T) {
+	usecase := newUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar())
+
+	_, err := usecase.GetBankAccount(context.Background(), uuid.New(), user.RoleAdmin)
+	if !errors.Is(err, user.ErrBankAccountNotAllowed) {
+		t.Errorf("GetBankAccount() error = %v, want ErrBankAccountNotAllowed", err)
+	}
+}
+
+func TestGetBankAccount_ReturnsNotFound(t *testing.T) {
+	usecase := newUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar())
+
+	_, err := usecase.GetBankAccount(context.Background(), uuid.New(), user.RoleCustomer)
+	if !errors.Is(err, user.ErrBankAccountNotFound) {
+		t.Errorf("GetBankAccount() error = %v, want ErrBankAccountNotFound", err)
 	}
 }
 

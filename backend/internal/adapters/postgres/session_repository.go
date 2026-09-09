@@ -42,21 +42,42 @@ func (m *sessionModel) toDomain() *auth.Session {
 	}
 }
 
-// sessionRepository is a thin wrapper over baserepo.BaseRepo: sessions need
-// no query beyond CRUD-by-id, so it maps directly onto the generic ops.
+// sessionRepository creates sessions only while a shared lock confirms the
+// account is live, so an account-deletion lock cannot race a new session in.
 type sessionRepository struct {
 	base baserepo.BaseRepo[sessionModel]
+	exec baserepo.Executor
 }
 
 var _ auth.SessionRepository = (*sessionRepository)(nil)
 
 func NewSessionRepository(db *bun.DB) auth.SessionRepository {
-	return &sessionRepository{base: baserepo.NewBaseRepo[sessionModel](db, "session")}
+	return &sessionRepository{
+		base: baserepo.NewBaseRepo[sessionModel](db, "session"),
+		exec: baserepo.NewExecutor(db),
+	}
 }
 
 func (r *sessionRepository) Create(ctx context.Context, s *auth.Session) error {
-	if err := r.base.Create(ctx, newSessionModel(s)); err != nil {
+	var rowsAffected int64
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		result, err := idb.NewRaw(`
+			INSERT INTO sessions (id, user_id, refresh_token_hash, expires_at, created_at)
+			SELECT ?, ?, ?, ?, ?
+			FROM users
+			WHERE id = ? AND deleted_at IS NULL
+			FOR KEY SHARE
+		`, s.ID, s.UserID, s.RefreshTokenHash, s.ExpiresAt, s.CreatedAt, s.UserID).Exec(ctx)
+		if err == nil {
+			rowsAffected, err = result.RowsAffected()
+		}
+		return err
+	})
+	if err != nil {
 		return apperror.Internal("failed to create session", err)
+	}
+	if rowsAffected == 0 {
+		return auth.ErrSessionNotFound
 	}
 	return nil
 }
