@@ -32,17 +32,12 @@ func (h *OrderHandler) Register(api huma.API) {
 		})
 }
 
-type orderView struct {
+type orderSummaryView struct {
 	ID                    string     `json:"id"`
 	CustomerID            string     `json:"customer_id"`
 	ArtistID              string     `json:"artist_id"`
 	Name                  string     `json:"name"`
-	ArtworkID             *string    `json:"artwork_id,omitempty"`
-	ArtworkName           string     `json:"artwork_name"`
-	ArtworkDescription    string     `json:"artwork_description"`
 	PriceSatang           int64      `json:"price_satang"`
-	MinimumDeadlineDays   int        `json:"minimum_deadline_days"`
-	CustomerDescription   string     `json:"customer_description"`
 	DeadlineAt            *time.Time `json:"deadline_at,omitempty"`
 	Status                string     `json:"status"`
 	DeliverablePreviewURL *string    `json:"deliverable_preview_url" doc:"Presigned URL of the most recently submitted deliverable's preview image, regardless of order status; null if none has been submitted yet."`
@@ -61,8 +56,8 @@ type ViewOrdersInput struct {
 
 type ViewOrdersOutput struct {
 	Body struct {
-		Orders []orderView `json:"orders"`
-		Total  int         `json:"total"`
+		Orders []orderSummaryView `json:"orders"`
+		Total  int                `json:"total"`
 	}
 }
 
@@ -93,9 +88,9 @@ func (h *OrderHandler) viewOrders(ctx context.Context, in *ViewOrdersInput) (*Vi
 	}
 
 	out := &ViewOrdersOutput{}
-	out.Body.Orders = make([]orderView, len(page.Orders))
+	out.Body.Orders = make([]orderSummaryView, len(page.Orders))
 	for i, o := range page.Orders {
-		out.Body.Orders[i] = toOrderView(&o)
+		out.Body.Orders[i] = toOrderSummaryView(&o)
 	}
 	out.Body.Total = page.Total
 	return out, nil
@@ -112,24 +107,13 @@ func participantForRole(role user.Role) order.Participant {
 	}
 }
 
-func toOrderView(o *order.Order) orderView {
-	var artworkID *string
-	if o.ArtworkID != nil {
-		id := o.ArtworkID.String()
-		artworkID = &id
-	}
-
-	return orderView{
+func toOrderSummaryView(o *order.Order) orderSummaryView {
+	return orderSummaryView{
 		ID:                    o.ID.String(),
 		CustomerID:            o.CustomerID.String(),
 		ArtistID:              o.ArtistID.String(),
 		Name:                  o.Name,
-		ArtworkID:             artworkID,
-		ArtworkName:           o.ArtworkNameSnapshot,
-		ArtworkDescription:    o.ArtworkDescriptionSnapshot,
 		PriceSatang:           o.PriceSatangSnapshot,
-		MinimumDeadlineDays:   o.MinimumDeadlineDaysSnapshot,
-		CustomerDescription:   o.CustomerDescription,
 		DeadlineAt:            o.DeadlineAt,
 		Status:                string(o.Status),
 		DeliverablePreviewURL: o.DeliverablePreviewURL,

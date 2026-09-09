@@ -35,7 +35,7 @@ type ordersContext struct {
 	lastDeliverablePreviewKey string // most recently seeded deliverable version's preview_image_key
 
 	resp *apptest.Response
-	page orderViewBody // last response decoded while resp.StatusCode == 200
+	page viewOrdersOutput // last response decoded while resp.StatusCode == 200
 }
 
 // --- given ---
@@ -234,7 +234,7 @@ func (o *ordersContext) getOrders(values url.Values) error {
 		return err
 	}
 	o.resp = resp
-	o.page = orderViewBody{}
+	o.page = viewOrdersOutput{}
 	if resp.StatusCode == http.StatusOK {
 		if err := resp.JSON(&o.page); err != nil {
 			return fmt.Errorf("decode orders response: %w (body: %s)", err, resp.Body)
@@ -312,27 +312,23 @@ func (o *ordersContext) theUserPagesThroughAllOfTheirOrdersUsingALimit(limit int
 
 // --- then ---
 
-type orderViewItem struct {
+type orderSummaryView struct {
 	ID                    string  `json:"id"`
 	CustomerID            string  `json:"customer_id"`
 	ArtistID              string  `json:"artist_id"`
 	Name                  string  `json:"name"`
-	ArtworkName           string  `json:"artwork_name"`
-	ArtworkDescription    string  `json:"artwork_description"`
 	PriceSatang           int64   `json:"price_satang"`
-	MinimumDeadlineDays   int     `json:"minimum_deadline_days"`
-	CustomerDescription   string  `json:"customer_description"`
 	Status                string  `json:"status"`
 	DeadlineAt            *string `json:"deadline_at"`
 	DeliverablePreviewURL *string `json:"deliverable_preview_url"`
 }
 
-type orderViewBody struct {
-	Orders []orderViewItem `json:"orders"`
-	Total  int             `json:"total"`
+type viewOrdersOutput struct {
+	Orders []orderSummaryView `json:"orders"`
+	Total  int                `json:"total"`
 }
 
-func idsOf(orders []orderViewItem) []string {
+func idsOf(orders []orderSummaryView) []string {
 	ids := make([]string, len(orders))
 	for i, o := range orders {
 		ids[i] = o.ID
@@ -351,13 +347,9 @@ func (o *ordersContext) theSystemShowsAllOfTheUsersOrdersWithTheirCurrentStatus(
 		if ord.Status == "" {
 			return fmt.Errorf("expected every order to have a status, got: %+v", ord)
 		}
-		if ord.ArtworkName != seedArtworkName ||
-			ord.ArtworkDescription != seedArtworkDescription ||
-			ord.PriceSatang != seedPriceSatang ||
-			ord.MinimumDeadlineDays != seedMinimumDeadlineDays ||
-			ord.Name != seedOrderName ||
-			ord.CustomerDescription != seedCustomerDescription {
-			return fmt.Errorf("order %s did not preserve its artwork and customer snapshots: %+v", ord.ID, ord)
+		if ord.PriceSatang != seedPriceSatang ||
+			ord.Name != seedOrderName {
+			return fmt.Errorf("order %s did not preserve its name/price snapshot: %+v", ord.ID, ord)
 		}
 		got[ord.ID] = ord.Status
 	}
@@ -418,7 +410,7 @@ func (o *ordersContext) theSystemReturnsOrdersSortedByDeadline(order string) err
 // against real Postgres: values monotonic in the requested direction, and
 // every null-deadline order grouped at the correct end (last for asc,
 // first for desc) rather than interleaved or silently dropped.
-func assertDeadlineOrder(orders []orderViewItem, ascending bool) error {
+func assertDeadlineOrder(orders []orderSummaryView, ascending bool) error {
 	nullsFirst := !ascending
 	sawOppositeBucket := false
 	for i, ord := range orders {
@@ -551,9 +543,9 @@ func (o *ordersContext) theSystemRequiresTheUserToLogIn() error {
 	return o.expectStatus(http.StatusUnauthorized)
 }
 
-func (o *ordersContext) decodeOrders() (orderViewBody, error) {
+func (o *ordersContext) decodeOrders() (viewOrdersOutput, error) {
 	if o.resp.StatusCode != http.StatusOK {
-		return orderViewBody{}, fmt.Errorf("expected response status 200, got %d: %s", o.resp.StatusCode, o.resp.Body)
+		return viewOrdersOutput{}, fmt.Errorf("expected response status 200, got %d: %s", o.resp.StatusCode, o.resp.Body)
 	}
 	return o.page, nil
 }
