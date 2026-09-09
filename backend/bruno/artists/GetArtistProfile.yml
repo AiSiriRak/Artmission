@@ -9,10 +9,16 @@ http:
   method: GET
   url: "{{api_url}}/artists/{{artist_id}}"
 
+runtime:
+  variables:
+    - name: artist_id
+      value: 149834a9-9980-41a7-a7dc-0070224b7889
+
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
 
 docs: Get a public artist profile by artist user ID.

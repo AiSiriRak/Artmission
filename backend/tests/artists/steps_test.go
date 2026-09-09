@@ -84,11 +84,11 @@ func (a *artistsContext) seedArtworkCategories() error {
 		return err
 	}
 	_, err = app.DB.ExecContext(context.Background(), `
-		INSERT INTO artworks (id, artist_id, category_id, name, description, price_satang, minimum_deadline_days)
+		INSERT INTO artist_samples (id, artist_id, category_id, name, description, price, original_image_url, preview_image_url)
 		VALUES
-			(?, ?, ?, 'First', 'First artwork', 1000, 1),
-			(?, ?, ?, 'Second', 'Second artwork', 2000, 2),
-			(?, ?, ?, 'Third', 'Third artwork', 3000, 3)
+			(?, ?, ?, 'First', 'First sample', 10.00, 'https://example.com/first-original.jpg', 'https://example.com/first-preview.jpg'),
+			(?, ?, ?, 'Second', 'Second sample', 20.00, 'https://example.com/second-original.jpg', 'https://example.com/second-preview.jpg'),
+			(?, ?, ?, 'Third', 'Third sample', 30.00, 'https://example.com/third-original.jpg', 'https://example.com/third-preview.jpg')
 	`, uuid.New(), artistID, categoryA, uuid.New(), artistID, categoryA, uuid.New(), artistID, categoryB)
 	return err
 }
@@ -251,7 +251,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the artist has a registered account$`, func() error { return a.registerArtist() })
 	sc.Step(`^reference styles are available$`, func() error { return a.seedStyles() })
 	sc.Step(`^the artist has logged in$`, func() error { return a.loginArtist() })
-	sc.Step(`^the artist has artworks in multiple categories$`, func() error { return a.seedArtworkCategories() })
+	sc.Step(`^the artist has samples in multiple categories$`, func() error { return a.seedArtworkCategories() })
 	sc.Step(`^the artist has a review score$`, func() error { return a.seedReviewScore() })
 	sc.Step(`^the artist account has been deleted$`, func() error {
 		_, err := app.DB.ExecContext(context.Background(), "UPDATE users SET deleted_at = now() WHERE id = ?", a.artist.ID)

@@ -104,8 +104,8 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*
 			TableExpr("categories AS c").
 			ColumnExpr("DISTINCT c.id").
 			ColumnExpr("c.label").
-			Join("JOIN artworks AS a ON a.category_id = c.id").
-			Where("a.artist_id = ?", userID).
+			Join("JOIN artist_samples AS s ON s.category_id = c.id").
+			Where("s.artist_id = ?", userID).
 			OrderExpr("c.label ASC, c.id ASC").
 			Scan(ctx, &categories); err != nil {
 			return err

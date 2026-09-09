@@ -10,7 +10,7 @@ Feature: Artist profile
 
   Scenario: retrieve artwork categories and review score
     Given the artist has a registered account
-    And the artist has artworks in multiple categories
+    And the artist has samples in multiple categories
     And the artist has a review score
     When a visitor requests the artist profile
     Then the system returns distinct artwork categories and the review score
