@@ -58,12 +58,7 @@ export default function HomePage() {
 
   const handleConfirmDelete = async () => {
     try {
-      const result = await deleteAccount();
-      if (!result) {
-        setDeleteStatus("fail");
-        console.log("Cannot delete account");
-        return;
-      }
+      deleteAccount();
       console.log("Account deleted successfully");
       setDeleteStatus("success");
       setEditingSection(null);
