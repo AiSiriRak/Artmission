@@ -122,7 +122,11 @@ export interface paths {
      */
     put: operations["update-account"];
     post?: never;
-    delete?: never;
+    /**
+     * DeleteAccount
+     * @description Delete the authenticated user's account when they have no active orders
+     */
+    delete: operations["delete-account"];
     options?: never;
     head?: never;
     patch?: never;
@@ -538,6 +542,34 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["AccountView"];
         };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "delete-account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description No Content */
+      204: {
+        headers: {
+          "Set-Cookie"?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Error */
       default: {

@@ -43,16 +43,17 @@ func Wire(cfg Config) *httpserver.Server {
 	artistRepo := postgres.NewArtistRepository(cfg.DB)
 	sessionRepo := postgres.NewSessionRepository(cfg.DB)
 	orderRepo := postgres.NewOrderRepository(cfg.DB)
+	accountDeletionRepo := postgres.NewAccountDeletionRepository(cfg.DB)
 	tokenIssuer := token.NewJWTIssuer(cfg.Auth.JWTSecret)
 	tx := baserepo.NewTransactioner(cfg.DB)
 
 	artistUsecase := artist.NewProfileUsecase(artistRepo)
-	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, tx)
+	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 	orderUsecase := order.NewOrderUsecase(orderRepo)
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
-	userHandler := rest.NewUserHandler(userUsecase, authUsecase)
+	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	orderHandler := rest.NewOrderHandler(orderUsecase, authUsecase)
 
 	api, server := httpserver.New(cfg.App.Address, cfg.App.BasePath, cfg.App.AllowedOrigins, cfg.Logger, []httpserver.Pinger{cfg.DB})

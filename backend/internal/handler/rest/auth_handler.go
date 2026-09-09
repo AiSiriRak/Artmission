@@ -217,14 +217,18 @@ func (h *AuthHandler) refreshCookie(value string, expiresAt time.Time) string {
 }
 
 func (h *AuthHandler) clearRefreshCookie() string {
+	return clearRefreshCookie(h.basePath, h.isProduction, h.cookieDomain)
+}
+
+func clearRefreshCookie(basePath string, isProduction bool, cookieDomain string) string {
 	c := &http.Cookie{
 		Name:     refreshCookieName,
 		Value:    "",
-		Path:     h.basePath + "/auth/refresh",
-		Domain:   h.cookieDomain,
+		Path:     basePath + "/auth/refresh",
+		Domain:   cookieDomain,
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   h.isProduction,
+		Secure:   isProduction,
 		SameSite: http.SameSiteStrictMode,
 	}
 	return c.String()
