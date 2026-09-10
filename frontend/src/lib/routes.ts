@@ -3,14 +3,15 @@ export const routes = {
   login: "/login",
   register: "/register",
   notification: "/notification",
-  settings: "/userprofle",
+  settings: "/userprofile",
 
   artist: {
     profile: "/artist-profile",
   },
 
   order: {
-    history: "/order-history",
-    detail: (id: string) => `/order-history/${id}`,
+    artist: "/orderartist",
+    history: "/orderhistory",
+    detail: (id: string) => `/orderhistory/${id}`,
   },
 } as const;
