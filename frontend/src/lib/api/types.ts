@@ -16,5 +16,5 @@ export type UpdateBankAccountInput =
   components["schemas"]["UpdateBankAccountInputBody"];
 
 // Order
-export type OrderHistory = components["schemas"]["ViewHiringHistoryOutputBody"];
-export type Order = components["schemas"]["OrderView"];
+export type OrderHistory = components["schemas"]["ViewOrdersOutputBody"];
+export type Order = components["schemas"]["OrderSummaryView"];
