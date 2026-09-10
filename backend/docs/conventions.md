@@ -40,9 +40,9 @@ Unknown/unexpected errors (a plain `error` that isn't an `*apperror.Error`) shou
 ## REST handlers (huma)
 
 - Register each route with the verb-specific helper (`huma.Get`/`huma.Post`/`huma.Put`/...), not the lower-level `huma.Register{Operation}` — the HTTP method lives in the call, not a string field that can drift from it.
-- `OperationID`: kebab-case, stable (drives generated client function names / OpenAPI `operationId`) — e.g. `view-hiring-history`.
-- `Summary`: short PascalCase identifier matching the handler method it wraps, e.g. `ViewHiringHistory` for `h.viewHiringHistory`. This is what request-naming tools (Bruno, Postman, generated SDKs) use as the request's display name — keep it a name, not a sentence.
-- `Description`: the human sentence (what used to live in `Summary`), e.g. `"View the authenticated customer's hiring history"`.
+- `OperationID`: kebab-case, stable (drives generated client function names / OpenAPI `operationId`) — e.g. `view-orders`.
+- `Summary`: short PascalCase identifier matching the handler method it wraps, e.g. `ViewOrders` for `h.viewOrders`. This is what request-naming tools (Bruno, Postman, generated SDKs) use as the request's display name — keep it a name, not a sentence.
+- `Description`: the human sentence (what used to live in `Summary`), e.g. `"List the authenticated customer's or artist's orders"`.
 - `Tags`: one per module (`"auth"`, `"orders"`, ...) — groups operations in the generated docs UI and in codegen output.
 
 ## Config

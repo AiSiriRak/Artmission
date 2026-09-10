@@ -1,5 +1,5 @@
 info:
-  name: ViewHiringHistory
+  name: ViewOrders
   type: http
   seq: 1
   tags:
@@ -7,7 +7,26 @@ info:
 
 http:
   method: GET
-  url: "{{api_url}}/orders/history"
+  url: "{{api_url}}/orders?limit=20&offset=0&status=PENDING&status=IN_PROCESS&sort=updated_at&order=desc"
+  params:
+    - name: limit
+      value: "20"
+      type: query
+    - name: offset
+      value: "0"
+      type: query
+    - name: status
+      value: PENDING
+      type: query
+    - name: status
+      value: IN_PROCESS
+      type: query
+    - name: sort
+      value: updated_at
+      type: query
+    - name: order
+      value: desc
+      type: query
   auth: inherit
 
 settings:
@@ -15,12 +34,13 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
 
 examples:
   - name: 200 Response
     description: OK
     request:
-      url: "{{api_url}}/orders/history"
+      url: "{{api_url}}/orders"
       method: GET
     response:
       status: 200
@@ -33,12 +53,13 @@ examples:
         data: |-
           {
             "$schema": "",
-            "orders": ""
+            "orders": [],
+            "total": 0
           }
   - name: default Response
     description: Error
     request:
-      url: "{{api_url}}/orders/history"
+      url: "{{api_url}}/orders"
       method: GET
     response:
       headers:
@@ -57,4 +78,4 @@ examples:
             "type": ""
           }
 
-docs: View the authenticated customer's hiring history
+docs: List the authenticated customer's or artist's orders, filtered by status, sorted by deadline/price/updated_at, and paginated by limit/offset. Deliverables are only populated once an order's status is SUCCESS.

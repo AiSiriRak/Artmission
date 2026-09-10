@@ -79,7 +79,7 @@ type registerBankAccountBody struct {
 }
 
 type registerArtistBody struct {
-	Description string `json:"description" minLength:"1"`
+	Description string `json:"description,omitempty"`
 }
 
 type registerInputBody struct {

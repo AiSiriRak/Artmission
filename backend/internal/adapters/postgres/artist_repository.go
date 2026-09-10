@@ -15,7 +15,7 @@ type artistProfileModel struct {
 	bun.BaseModel `bun:"table:artist_profiles,alias:ap"`
 
 	UserID      uuid.UUID `bun:"user_id,pk"`
-	Description string    `bun:"description"`
+	Description string    `bun:"description,nullzero"`
 	ReviewScore *float64  `bun:"review_score"`
 	CreatedAt   time.Time `bun:"created_at,nullzero"`
 	UpdatedAt   time.Time `bun:"updated_at,nullzero"`

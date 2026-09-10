@@ -18,7 +18,7 @@ backend/
 │   ├── modules/                    the domain — one directory per bounded concern, see below
 │   │   ├── user/                     account identity + credentials
 │   │   ├── auth/                     session/token lifecycle (login, refresh, logout)
-│   │   └── order/                    commission orders, hiring history
+│   │   └── order/                    commission orders, view orders
 │   │                                 (snapshot, not exhaustive — more land as features ship; check the directory itself for the current list)
 │   │
 │   ├── adapters/                   implements each module's ports against real technology
@@ -71,7 +71,7 @@ Not one file per module like the other layers — instead:
 |---|---|
 | `<module>_handler.go` | One `*Handler` struct per module, each with a `Register(api huma.API)` method that declares every HTTP operation for that module (path, method, request/response DTOs). |
 | `httperror.go` | `mapAppError` — the one place an `apperror.Code` becomes an HTTP status, shared by every handler. |
-| `middleware.go` | `requireAuth`/`requireRole` — huma per-operation middleware, attached only to routes that need them. |
+| `middleware.go` | `requireAuth`/`requireRole`/`requireAnyRole` — huma per-operation middleware, attached only to routes that need them. |
 | `requestctx.go` | `AuthInfo` — what `requireAuth` injects into the request context, and how handlers read it back out. |
 
 ## Looking for X? It's in Y.

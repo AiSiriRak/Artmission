@@ -10,6 +10,7 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/database"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/logger"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/migrations"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/objectstorage"
 	"github.com/AiSiriRak/Artmission/backend/internal/wiring"
 	"github.com/pressly/goose/v3"
 	"github.com/spf13/cobra"
@@ -35,7 +36,12 @@ var serveCmd = &cobra.Command{
 			return err
 		}
 
-		server := wiring.Wire(wiring.Config{DB: db, Logger: log, App: cfg.App(), Auth: cfg.Auth()})
+		objectStorage, err := objectstorage.NewS3Client(context.Background(), cfg.S3())
+		if err != nil {
+			return err
+		}
+
+		server := wiring.Wire(wiring.Config{DB: db, Logger: log, App: cfg.App(), Auth: cfg.Auth(), ObjectStorage: objectStorage})
 
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
