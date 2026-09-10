@@ -19,19 +19,20 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/config"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/httpserver"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/objectstorage"
 	"github.com/uptrace/bun"
 )
 
-// Config is the wiring graph's inputs. DB and Logger are live objects
-// (a connection, a configured logger) rather than settings, since callers
-// build those differently. App and Auth are the real config package's structs,
-// reused as-is (not re-declared) so a config field renamed there can't
-// silently drift out of sync here — the compiler catches it.
+// Config is the wiring graph's inputs. DB, Logger, and ObjectStorage are
+// live objects rather than settings, since callers build those differently.
+// App and Auth are the real config package's structs, reused as-is so a
+// config field renamed there can't silently drift out of sync here.
 type Config struct {
-	DB     *bun.DB
-	Logger *slog.Logger
-	App    config.App
-	Auth   config.Auth
+	DB            *bun.DB
+	Logger        *slog.Logger
+	App           config.App
+	Auth          config.Auth
+	ObjectStorage *objectstorage.Client
 }
 
 // Wire builds the entire object graph — adapters, usecases, handlers,
@@ -47,21 +48,23 @@ func Wire(cfg Config) *httpserver.Server {
 	tokenIssuer := token.NewJWTIssuer(cfg.Auth.JWTSecret)
 	tx := baserepo.NewTransactioner(cfg.DB)
 
-	artistUsecase := artist.NewProfileUsecase(artistRepo, tx)
+	artistUsecase := artist.NewProfileUsecase(artistRepo, cfg.ObjectStorage)
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
-	orderUsecase := order.NewOrderUsecase(orderRepo)
+	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage)
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	orderHandler := rest.NewOrderHandler(orderUsecase, authUsecase)
 	artistHandler := rest.NewArtistHandler(artistUsecase, authUsecase)
+	artworkHandler := rest.NewArtworkHandler(authUsecase)
 
-	api, server := httpserver.New(cfg.App.Address, cfg.App.BasePath, cfg.App.AllowedOrigins, cfg.Logger, []httpserver.Pinger{cfg.DB})
+	api, server := httpserver.New(cfg.App.Address, cfg.App.BasePath, cfg.App.AllowedOrigins, cfg.Logger, []httpserver.Pinger{cfg.DB, cfg.ObjectStorage})
 	authHandler.Register(api)
 	userHandler.Register(api)
 	orderHandler.Register(api)
 	artistHandler.Register(api)
+	artworkHandler.Register(api)
 
 	return server
 }

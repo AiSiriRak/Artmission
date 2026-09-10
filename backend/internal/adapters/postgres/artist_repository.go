@@ -16,51 +16,52 @@ import (
 type artistProfileModel struct {
 	bun.BaseModel `bun:"table:artist_profiles,alias:ap"`
 
-	UserID         uuid.UUID `bun:"user_id,pk"`
-	Description    string    `bun:"description"`
-	ArtistName     string    `bun:"artist_name,scanonly"`
-	MinPriceSatang *int64    `bun:"min_price_satang"`
-	MaxPriceSatang *int64    `bun:"max_price_satang"`
-	ReviewScore    *float64  `bun:"review_score"`
-	CreatedAt      time.Time `bun:"created_at,nullzero"`
-	UpdatedAt      time.Time `bun:"updated_at,nullzero"`
+	UserID          uuid.UUID `bun:"user_id,pk"`
+	Description     *string   `bun:"description"`
+	ProfileImageKey *string   `bun:"profile_image_key"`
+	ArtistName      string    `bun:"artist_name,scanonly"`
+	MinPriceSatang  *int64    `bun:"min_price_satang,scanonly"`
+	MaxPriceSatang  *int64    `bun:"max_price_satang,scanonly"`
+	ReviewScore     *float64  `bun:"review_score,scanonly"`
+	CreatedAt       time.Time `bun:"created_at,nullzero"`
+	UpdatedAt       time.Time `bun:"updated_at,nullzero"`
 }
 
-func newArtistProfileModel(p *artist.Profile) *artistProfileModel {
+func newArtistProfileModel(profile *artist.Profile) *artistProfileModel {
 	return &artistProfileModel{
-		UserID:         p.UserID,
-		Description:    p.Description,
-		MinPriceSatang: p.MinPriceSatang,
-		MaxPriceSatang: p.MaxPriceSatang,
-		ReviewScore:    p.ReviewScore,
-		CreatedAt:      p.CreatedAt,
-		UpdatedAt:      p.UpdatedAt,
+		UserID:          profile.UserID,
+		Description:     profile.Description,
+		ProfileImageKey: profile.ProfileImageKey,
+		CreatedAt:       profile.CreatedAt,
+		UpdatedAt:       profile.UpdatedAt,
 	}
 }
 
-func (m *artistProfileModel) toDomain() *artist.Profile {
+func (model *artistProfileModel) toDomain() *artist.Profile {
 	return &artist.Profile{
-		UserID:         m.UserID,
-		ArtistName:     m.ArtistName,
-		Description:    m.Description,
-		MinPriceSatang: m.MinPriceSatang,
-		MaxPriceSatang: m.MaxPriceSatang,
-		ReviewScore:    m.ReviewScore,
-		CreatedAt:      m.CreatedAt,
-		UpdatedAt:      m.UpdatedAt,
+		UserID:          model.UserID,
+		ArtistName:      model.ArtistName,
+		ProfileImageKey: model.ProfileImageKey,
+		Description:     model.Description,
+		MinPriceSatang:  model.MinPriceSatang,
+		MaxPriceSatang:  model.MaxPriceSatang,
+		ReviewScore:     model.ReviewScore,
+		CreatedAt:       model.CreatedAt,
+		UpdatedAt:       model.UpdatedAt,
 	}
-}
-
-type artistStyleModel struct {
-	bun.BaseModel `bun:"table:artist_styles,alias:ars"`
-
-	ArtistID uuid.UUID `bun:"artist_id,pk"`
-	StyleID  uuid.UUID `bun:"style_id,pk"`
 }
 
 type referenceModel struct {
 	ID    uuid.UUID `bun:"id"`
 	Label string    `bun:"label"`
+}
+
+type artistReviewModel struct {
+	bun.BaseModel `bun:"table:reviews,alias:r"`
+
+	Username string `bun:"username,scanonly"`
+	Order    string `bun:"order_name,scanonly"`
+	Rating   int    `bun:"rating"`
 }
 
 type artistRepository struct {
@@ -73,9 +74,9 @@ func NewArtistRepository(db *bun.DB) artist.ProfileRepository {
 	return &artistRepository{exec: baserepo.NewExecutor(db)}
 }
 
-func (r *artistRepository) Create(ctx context.Context, p *artist.Profile) error {
+func (r *artistRepository) Create(ctx context.Context, profile *artist.Profile) error {
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		_, err := idb.NewInsert().Model(newArtistProfileModel(p)).Exec(ctx)
+		_, err := idb.NewInsert().Model(newArtistProfileModel(profile)).Exec(ctx)
 		return err
 	})
 	if err != nil {
@@ -84,16 +85,21 @@ func (r *artistRepository) Create(ctx context.Context, p *artist.Profile) error 
 	return nil
 }
 
-func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*artist.Profile, error) {
+func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID, query artist.ProfileQuery) (*artist.Profile, error) {
 	model := new(artistProfileModel)
-	var categories []referenceModel
-	var styles []referenceModel
+	categories := make([]referenceModel, 0)
+	styles := make([]referenceModel, 0)
+	reviews := make([]artistReviewModel, 0)
+	total := 0
 
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		if err := idb.NewSelect().
 			Model(model).
-			ColumnExpr("ap.*").
+			ColumnExpr("ap.user_id, ap.description, ap.profile_image_key, ap.created_at, ap.updated_at").
 			ColumnExpr("u.username AS artist_name").
+			ColumnExpr("(SELECT MIN(a.price_satang) FROM artworks AS a WHERE a.artist_id = ap.user_id) AS min_price_satang").
+			ColumnExpr("(SELECT MAX(a.price_satang) FROM artworks AS a WHERE a.artist_id = ap.user_id) AS max_price_satang").
+			ColumnExpr("(SELECT ROUND(AVG(r.rating)::numeric, 1)::double precision FROM reviews AS r WHERE r.artist_id = ap.user_id) AS review_score").
 			Join("JOIN users AS u ON u.id = ap.user_id AND u.deleted_at IS NULL").
 			Where("ap.user_id = ?", userID).
 			Scan(ctx); err != nil {
@@ -111,14 +117,32 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*
 			return err
 		}
 
-		return idb.NewSelect().
+		if err := idb.NewSelect().
 			TableExpr("styles AS s").
-			ColumnExpr("s.id").
+			ColumnExpr("DISTINCT s.id").
 			ColumnExpr("s.label").
-			Join("JOIN artist_styles AS ars ON ars.style_id = s.id").
-			Where("ars.artist_id = ?", userID).
+			Join("JOIN artwork_styles AS aws ON aws.style_id = s.id").
+			Join("JOIN artworks AS a ON a.id = aws.artwork_id").
+			Where("a.artist_id = ?", userID).
 			OrderExpr("s.label ASC, s.id ASC").
-			Scan(ctx, &styles)
+			Scan(ctx, &styles); err != nil {
+			return err
+		}
+
+		reviewQuery := idb.NewSelect().
+			Model(&reviews).
+			ColumnExpr("reviewer.username AS username").
+			ColumnExpr("o.artwork_name_snapshot AS order_name").
+			ColumnExpr("r.rating").
+			Join("JOIN users AS reviewer ON reviewer.id = r.customer_id").
+			Join("JOIN orders AS o ON o.id = r.order_id").
+			Where("r.artist_id = ?", userID).
+			OrderExpr("r.created_at DESC, r.id DESC").
+			Limit(query.Limit).
+			Offset(query.Offset)
+		var err error
+		total, err = reviewQuery.ScanAndCount(ctx)
+		return err
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -136,25 +160,33 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*
 	for i, style := range styles {
 		profile.Styles[i] = artist.Style{ID: style.ID, Label: style.Label}
 	}
+	profile.Reviews = make([]artist.Review, len(reviews))
+	for i, review := range reviews {
+		profile.Reviews[i] = artist.Review{Username: review.Username, Order: review.Order, Rating: review.Rating}
+	}
+	profile.Total = total
 	return profile, nil
 }
 
-func (r *artistRepository) UpdateByUserID(ctx context.Context, userID uuid.UUID, in artist.ProfileUpdate) error {
+func (r *artistRepository) UpdateByUserID(ctx context.Context, userID uuid.UUID, update artist.ProfileUpdate) error {
 	model := &artistProfileModel{
-		UserID:         userID,
-		Description:    in.Description,
-		MinPriceSatang: &in.MinPriceSatang,
-		MaxPriceSatang: &in.MaxPriceSatang,
-		UpdatedAt:      in.UpdatedAt,
+		UserID:          userID,
+		Description:     update.Description,
+		ProfileImageKey: update.ProfileImageKey,
+		UpdatedAt:       update.UpdatedAt,
 	}
+	columns := []string{"updated_at"}
+	if update.DescriptionSet {
+		columns = append(columns, "description")
+	}
+	if update.ProfileImageKeySet {
+		columns = append(columns, "profile_image_key")
+	}
+
 	var result sql.Result
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		var err error
-		result, err = idb.NewUpdate().
-			Model(model).
-			Column("description", "min_price_satang", "max_price_satang", "updated_at").
-			WherePK().
-			Exec(ctx)
+		result, err = idb.NewUpdate().Model(model).Column(columns...).WherePK().Exec(ctx)
 		return err
 	})
 	if err != nil {
@@ -166,45 +198,6 @@ func (r *artistRepository) UpdateByUserID(ctx context.Context, userID uuid.UUID,
 	}
 	if rows == 0 {
 		return artist.ErrProfileNotFound
-	}
-	return nil
-}
-
-func (r *artistRepository) CountStylesByIDs(ctx context.Context, styleIDs []uuid.UUID) (int, error) {
-	if len(styleIDs) == 0 {
-		return 0, nil
-	}
-
-	var count int
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		var err error
-		count, err = idb.NewSelect().Table("styles").Where("id IN (?)", bun.In(styleIDs)).Count(ctx)
-		return err
-	})
-	if err != nil {
-		return 0, apperror.Internal("failed to validate artist styles", err)
-	}
-	return count, nil
-}
-
-func (r *artistRepository) ReplaceStyles(ctx context.Context, userID uuid.UUID, styleIDs []uuid.UUID) error {
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		if _, err := idb.NewDelete().Model(new(artistStyleModel)).Where("artist_id = ?", userID).Exec(ctx); err != nil {
-			return err
-		}
-		if len(styleIDs) == 0 {
-			return nil
-		}
-
-		models := make([]artistStyleModel, len(styleIDs))
-		for i, styleID := range styleIDs {
-			models[i] = artistStyleModel{ArtistID: userID, StyleID: styleID}
-		}
-		_, err := idb.NewInsert().Model(&models).Exec(ctx)
-		return err
-	})
-	if err != nil {
-		return apperror.Internal("failed to replace artist styles", err)
 	}
 	return nil
 }

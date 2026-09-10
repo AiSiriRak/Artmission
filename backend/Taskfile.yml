@@ -10,7 +10,7 @@ tasks:
     desc: copies .env.example to .env if missing, starts docker infra, and runs the api with hot reload
     cmds:
       - test -f .env || cp .env.example .env
-      - docker compose up -d
+      - docker compose up -d --wait
       - go tool air
 
   down:
@@ -38,6 +38,12 @@ tasks:
     cmds:
       - go run . --env-file {{.ENV_FILE}} migrate create {{.CLI_ARGS}}
 
+  test-all:
+    desc: runs the unit test and BDD test
+    cmds:
+      - task: test
+      - task: test-bdd
+
   test:
     desc: runs the test suite
     cmds:
@@ -56,12 +62,14 @@ tasks:
       - task: npm-install
       - node scripts/gen-report.js
 
+  # --- Internal Tasks --- #
+
   test-bdd-run:
     internal: true
     cmds:
       - rm -rf reports/json
       - mkdir -p reports/json
-      - go test -tags=integration ./tests/... -v {{.CLI_ARGS}}
+      - go test -p 1 -tags=integration ./tests/... -v {{.CLI_ARGS}}
 
   npm-install:
     internal: true

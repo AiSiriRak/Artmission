@@ -8,21 +8,35 @@ info:
 http:
   method: PUT
   url: "{{api_url}}/artists/me"
-  auth: inherit
   body:
-    type: json
-    data: |-
-      {
-        "description": "I create expressive digital portraits.",
-        "style_ids": [],
-        "min_price_satang": 10000,
-        "max_price_satang": 50000
-      }
+    type: multipart-form
+    data:
+      - name: description
+        type: text
+        value: I create expressive digital portraits.
+        contentType: text/plain
+      - name: profile_image
+        type: file
+        value: []
+        contentType: image/png
+        disabled: true
+      - name: remove_profile_image
+        type: text
+        value: "true"
+        contentType: text/plain
+        disabled: true
+  auth: inherit
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
 
-docs: Replace the authenticated artist's description, selected styles, and accepted price range.
+docs: |-
+  Update the authenticated artist's description or public profile image.
+
+  Select a JPEG, PNG, or WebP file for `profile_image` to upload it. Enable
+  `remove_profile_image` instead to remove the current image; the two fields
+  cannot be sent together. Omitted fields preserve their current values.

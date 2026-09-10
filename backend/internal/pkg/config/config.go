@@ -22,6 +22,7 @@ type Config interface {
 	App() App
 	Database() Database
 	Auth() Auth
+	S3() S3
 
 	String() string
 }
@@ -44,22 +45,35 @@ type Auth struct {
 	RefreshCookieDomain string        `mapstructure:"refresh_cookie_domain"`
 }
 
+type S3 struct {
+	PublicBucketName  string `mapstructure:"public_bucket_name"   validate:"required"`
+	PrivateBucketName string `mapstructure:"private_bucket_name"  validate:"required"`
+	PublicBaseURL     string `mapstructure:"public_base_url"      validate:"required"`
+	Endpoint          string `mapstructure:"endpoint"             validate:"required"`
+	Region            string `mapstructure:"region"               validate:"required"`
+	AccessKeyID       string `mapstructure:"access_key_id"        validate:"required"`
+	SecretAccessKey   string `mapstructure:"secret_access_key"    validate:"required"`
+}
+
 // -------------------------------------------------------------------------- //
 
 type config struct {
 	AppCfg      App      `mapstructure:"app"`
 	DatabaseCfg Database `mapstructure:"database"`
 	AuthCfg     Auth     `mapstructure:"auth"`
+	S3Cfg       S3       `mapstructure:"s3"`
 }
 
 func (c *config) App() App           { return c.AppCfg }
 func (c *config) Database() Database { return c.DatabaseCfg }
 func (c *config) Auth() Auth         { return c.AuthCfg }
+func (c *config) S3() S3             { return c.S3Cfg }
 
 func (c *config) String() string {
 	redacted := *c
 	redacted.DatabaseCfg.DSN = "***"
 	redacted.AuthCfg.JWTSecret = "***"
+	redacted.S3Cfg.SecretAccessKey = "***"
 
 	jsonBytes, err := json.MarshalIndent(&redacted, "", "  ")
 	if err != nil {

@@ -49,7 +49,7 @@ type AccountDeletionRepository interface {
 // ArtistRegistrar is implemented by the artist module and injected at wiring
 // time so this package never imports artist (artist will later import user).
 type ArtistRegistrar interface {
-	CreateProfile(ctx context.Context, userID uuid.UUID, description string) error
+	CreateProfile(ctx context.Context, userID uuid.UUID, description *string) error
 }
 
 type Transactioner interface {
@@ -62,7 +62,8 @@ type RegisterInput struct {
 	Password    string
 	Role        Role
 	BankAccount BankAccountInput
-	// Artist is required when Role is artist, and must be nil for a customer.
+	// Artist is only allowed when Role is artist; omitting it creates a profile
+	// with a null description.
 	Artist *ArtistProfileInput
 }
 
@@ -85,5 +86,5 @@ type AccountUpdate struct {
 }
 
 type ArtistProfileInput struct {
-	Description string
+	Description *string
 }

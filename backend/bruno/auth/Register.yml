@@ -12,18 +12,18 @@ http:
     type: json
     data: |-
       {
-        "username": "testartist",
-        "email": "artist@example.com",
-        "password": "password123",
+        "username": "{{username}}",
+        "email": "test@example.com",
+        "password": "{{password}}",
         "role": "artist",
         "bank_account": {
-          "account_number": "1234567890",
-          "account_holder_name": "Test Artist",
+          "account_number": "1234",
+          "account_holder_name": "Test User",
           "bank_name": "kbank"
-        },
-        "artist": {
-          "description": "Digital illustrator and visual storyteller."
         }
+      //   "artist": {
+      //     "description": ""
+      //   }
       }
   auth: inherit
 
