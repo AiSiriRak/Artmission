@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
@@ -30,8 +31,11 @@ type ordersContext struct {
 	traversed    map[string]bool   // order IDs seen while paging through every page
 	firstPageIDs []string          // remembered first page, for later-offset assertions
 
+	lastOrderID               string // most recently seeded order's ID, for single-order deliverable-preview assertions
+	lastDeliverablePreviewKey string // most recently seeded deliverable version's preview_image_key
+
 	resp *apptest.Response
-	page orderViewBody // last response decoded while resp.StatusCode == 200
+	page viewOrdersOutput // last response decoded while resp.StatusCode == 200
 }
 
 // --- given ---
@@ -103,6 +107,41 @@ func (o *ordersContext) theUserHasAnOrderWithStatus(status string) error {
 		return err
 	}
 	o.seededOrders[id] = status
+	return nil
+}
+
+// theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersions seeds one
+// order at status, then n order_deliverables rows for it at versions
+// 1..n with deterministic preview keys — proving ViewOrders resolves the
+// highest version's preview regardless of the order's status (including
+// terminal ones like CANCEL). Every version before the last is seeded
+// REJECTED (the order_deliverables_order_id_pending_key unique index
+// allows at most one pending row per order); only the last version is
+// left pending (decision nil).
+func (o *ordersContext) theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersions(status string, n int) error {
+	counterpart, err := o.sharedCounterpart()
+	if err != nil {
+		return err
+	}
+	id, err := o.seedForAccount(orderSeed{Status: status}, counterpart)
+	if err != nil {
+		return err
+	}
+	o.seededOrders[id] = status
+	o.lastOrderID = id
+
+	rejected := "REJECTED"
+	for v := 1; v <= n; v++ {
+		key := fmt.Sprintf("orders/%s/v%d/preview.png", id, v)
+		var decision *string
+		if v < n {
+			decision = &rejected
+		}
+		if err := seedDeliverable(id, v, key, decision); err != nil {
+			return err
+		}
+		o.lastDeliverablePreviewKey = key
+	}
 	return nil
 }
 
@@ -195,7 +234,7 @@ func (o *ordersContext) getOrders(values url.Values) error {
 		return err
 	}
 	o.resp = resp
-	o.page = orderViewBody{}
+	o.page = viewOrdersOutput{}
 	if resp.StatusCode == http.StatusOK {
 		if err := resp.JSON(&o.page); err != nil {
 			return fmt.Errorf("decode orders response: %w (body: %s)", err, resp.Body)
@@ -273,28 +312,23 @@ func (o *ordersContext) theUserPagesThroughAllOfTheirOrdersUsingALimit(limit int
 
 // --- then ---
 
-type orderViewItem struct {
-	ID                   string  `json:"id"`
-	CustomerID           string  `json:"customer_id"`
-	ArtistID             string  `json:"artist_id"`
-	ArtworkName          string  `json:"artwork_name"`
-	ArtworkDescription   string  `json:"artwork_description"`
-	PriceSatang          int64   `json:"price_satang"`
-	MinimumDeadlineDays  int     `json:"minimum_deadline_days"`
-	PreviewImageURL      string  `json:"preview_image_url"`
-	CustomerDescription  string  `json:"customer_description"`
-	SelectedDeadlineDays int     `json:"selected_deadline_days"`
-	Status               string  `json:"status"`
-	DeadlineAt           *string `json:"deadline_at"`
-	Deliverables         []any   `json:"deliverables"`
+type orderSummaryView struct {
+	ID                    string  `json:"id"`
+	CustomerID            string  `json:"customer_id"`
+	ArtistID              string  `json:"artist_id"`
+	Name                  string  `json:"name"`
+	PriceSatang           int64   `json:"price_satang"`
+	Status                string  `json:"status"`
+	DeadlineAt            *string `json:"deadline_at"`
+	DeliverablePreviewURL *string `json:"deliverable_preview_url"`
 }
 
-type orderViewBody struct {
-	Orders []orderViewItem `json:"orders"`
-	Total  int             `json:"total"`
+type viewOrdersOutput struct {
+	Orders []orderSummaryView `json:"orders"`
+	Total  int                `json:"total"`
 }
 
-func idsOf(orders []orderViewItem) []string {
+func idsOf(orders []orderSummaryView) []string {
 	ids := make([]string, len(orders))
 	for i, o := range orders {
 		ids[i] = o.ID
@@ -313,17 +347,9 @@ func (o *ordersContext) theSystemShowsAllOfTheUsersOrdersWithTheirCurrentStatus(
 		if ord.Status == "" {
 			return fmt.Errorf("expected every order to have a status, got: %+v", ord)
 		}
-		if ord.ArtworkName != seedArtworkName ||
-			ord.ArtworkDescription != seedArtworkDescription ||
-			ord.PriceSatang != seedPriceSatang ||
-			ord.MinimumDeadlineDays != seedMinimumDeadlineDays ||
-			ord.PreviewImageURL != seedPreviewImageURL ||
-			ord.CustomerDescription != seedCustomerDescription ||
-			ord.SelectedDeadlineDays != seedSelectedDeadlineDays {
-			return fmt.Errorf("order %s did not preserve its artwork and customer snapshots: %+v", ord.ID, ord)
-		}
-		if ord.Deliverables == nil {
-			return fmt.Errorf("order %s: expected deliverables to be an array", ord.ID)
+		if ord.PriceSatang != seedPriceSatang ||
+			ord.Name != seedOrderName {
+			return fmt.Errorf("order %s did not preserve its name/price snapshot: %+v", ord.ID, ord)
 		}
 		got[ord.ID] = ord.Status
 	}
@@ -384,7 +410,7 @@ func (o *ordersContext) theSystemReturnsOrdersSortedByDeadline(order string) err
 // against real Postgres: values monotonic in the requested direction, and
 // every null-deadline order grouped at the correct end (last for asc,
 // first for desc) rather than interleaved or silently dropped.
-func assertDeadlineOrder(orders []orderViewItem, ascending bool) error {
+func assertDeadlineOrder(orders []orderSummaryView, ascending bool) error {
 	nullsFirst := !ascending
 	sawOppositeBucket := false
 	for i, ord := range orders {
@@ -436,6 +462,47 @@ func (o *ordersContext) theSystemShowsOnlyOrdersWithStatus(status string) error 
 	return nil
 }
 
+// theSystemShowsTheOrdersLatestDeliverablePreview asserts the response's
+// deliverable_preview_url for o.lastOrderID is non-null and references
+// o.lastDeliverablePreviewKey — the highest version seeded, proving the
+// repository's DISTINCT ON ... ORDER BY version DESC picks the latest
+// row and the usecase presigns it correctly.
+func (o *ordersContext) theSystemShowsTheOrdersLatestDeliverablePreview() error {
+	body, err := o.decodeOrders()
+	if err != nil {
+		return err
+	}
+	for _, ord := range body.Orders {
+		if ord.ID != o.lastOrderID {
+			continue
+		}
+		if ord.DeliverablePreviewURL == nil {
+			return fmt.Errorf("order %s: expected a deliverable preview url, got null", ord.ID)
+		}
+		if !strings.Contains(*ord.DeliverablePreviewURL, o.lastDeliverablePreviewKey) {
+			return fmt.Errorf("order %s: expected preview url to reference key %q, got %q", ord.ID, o.lastDeliverablePreviewKey, *ord.DeliverablePreviewURL)
+		}
+		return nil
+	}
+	return fmt.Errorf("order %s not found in response", o.lastOrderID)
+}
+
+// theSystemShowsNoDeliverablePreviewForTheOrder asserts every order in the
+// response has a null deliverable_preview_url — used by the "no
+// deliverable submitted yet" scenario, where exactly one order exists.
+func (o *ordersContext) theSystemShowsNoDeliverablePreviewForTheOrder() error {
+	body, err := o.decodeOrders()
+	if err != nil {
+		return err
+	}
+	for _, ord := range body.Orders {
+		if ord.DeliverablePreviewURL != nil {
+			return fmt.Errorf("order %s: expected no deliverable preview url, got %q", ord.ID, *ord.DeliverablePreviewURL)
+		}
+	}
+	return nil
+}
+
 func (o *ordersContext) theSystemReturnsEveryOrderExactlyOnce() error {
 	if len(o.traversed) != len(o.seededOrders) {
 		return fmt.Errorf("traversed %d distinct orders, want exactly the %d seeded", len(o.traversed), len(o.seededOrders))
@@ -476,9 +543,9 @@ func (o *ordersContext) theSystemRequiresTheUserToLogIn() error {
 	return o.expectStatus(http.StatusUnauthorized)
 }
 
-func (o *ordersContext) decodeOrders() (orderViewBody, error) {
+func (o *ordersContext) decodeOrders() (viewOrdersOutput, error) {
 	if o.resp.StatusCode != http.StatusOK {
-		return orderViewBody{}, fmt.Errorf("expected response status 200, got %d: %s", o.resp.StatusCode, o.resp.Body)
+		return viewOrdersOutput{}, fmt.Errorf("expected response status 200, got %d: %s", o.resp.StatusCode, o.resp.Body)
 	}
 	return o.page, nil
 }
@@ -523,6 +590,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user has one or more orders$`, func() error { return o.theUserHasOneOrMoreOrders() })
 	sc.Step(`^the user has an order$`, func() error { return o.theUserHasAnOrder() })
 	sc.Step(`^the user has an order with status "([^"]*)"$`, func(status string) error { return o.theUserHasAnOrderWithStatus(status) })
+	sc.Step(`^the user has an order with status "([^"]*)" and (\d+) submitted deliverable versions$`, func(status string, n int) error {
+		return o.theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersions(status, n)
+	})
 	sc.Step(`^the user has an order with deadline "([^"]*)"$`, func(deadline string) error { return o.theUserHasAnOrderWithDeadline(deadline) })
 	sc.Step(`^the user has an order with no deadline$`, func() error { return o.theUserHasAnOrderWithDeadline("") })
 	sc.Step(`^the user has (\d+) orders$`, func(n int) error { return o.theUserHasNOrders(n) })
@@ -557,6 +627,12 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system shows an empty order list$`, func() error { return o.theSystemShowsAnEmptyOrderList() })
 	sc.Step(`^the system shows only orders with status "([^"]*)"$`, func(status string) error {
 		return o.theSystemShowsOnlyOrdersWithStatus(status)
+	})
+	sc.Step(`^the system shows the order's latest deliverable preview$`, func() error {
+		return o.theSystemShowsTheOrdersLatestDeliverablePreview()
+	})
+	sc.Step(`^the system shows no deliverable preview for the order$`, func() error {
+		return o.theSystemShowsNoDeliverablePreviewForTheOrder()
 	})
 	sc.Step(`^the system returns every seeded order exactly once$`, func() error { return o.theSystemReturnsEveryOrderExactlyOnce() })
 	sc.Step(`^the system returns orders sorted by deadline in "([^"]*)" order$`, func(order string) error {

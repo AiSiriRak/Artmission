@@ -10,12 +10,9 @@ CREATE TABLE IF NOT EXISTS orders (
     artwork_description_snapshot   text NOT NULL,
     price_satang_snapshot          bigint NOT NULL CHECK (price_satang_snapshot >= 0),
     minimum_deadline_days_snapshot integer NOT NULL CHECK (minimum_deadline_days_snapshot > 0),
-    preview_image_url_snapshot     text NOT NULL,
 
+    name                           text NOT NULL,
     customer_description           text NOT NULL,
-    -- Duration is the original agreement; deadline_at is set when work starts and may move after an approved extension.
-    selected_deadline_days         integer NOT NULL
-                                   CHECK (selected_deadline_days >= minimum_deadline_days_snapshot),
     deadline_at                    timestamptz,
     status                         text NOT NULL DEFAULT 'PENDING'
                                    CHECK (status IN ('PENDING', 'NOT_PAID', 'IN_PROCESS', 'SUCCESS', 'CANCEL')),

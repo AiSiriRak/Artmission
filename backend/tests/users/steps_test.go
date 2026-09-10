@@ -73,13 +73,12 @@ type deletionOrderRow struct {
 	ID                          uuid.UUID `bun:"id,pk"`
 	CustomerID                  uuid.UUID `bun:"customer_id"`
 	ArtistID                    uuid.UUID `bun:"artist_id"`
+	Name                        string    `bun:"name"`
 	ArtworkNameSnapshot         string    `bun:"artwork_name_snapshot"`
 	ArtworkDescriptionSnapshot  string    `bun:"artwork_description_snapshot"`
 	PriceSatangSnapshot         int64     `bun:"price_satang_snapshot"`
 	MinimumDeadlineDaysSnapshot int       `bun:"minimum_deadline_days_snapshot"`
-	PreviewImageURLSnapshot     string    `bun:"preview_image_url_snapshot"`
 	CustomerDescription         string    `bun:"customer_description"`
-	SelectedDeadlineDays        int       `bun:"selected_deadline_days"`
 	Status                      string    `bun:"status"`
 	CreatedAt                   time.Time `bun:"created_at"`
 	UpdatedAt                   time.Time `bun:"updated_at"`
@@ -125,13 +124,12 @@ func (u *usersContext) aCustomerAndArtistHaveAnActiveOrder() error {
 		ID:                          uuid.New(),
 		CustomerID:                  uuid.MustParse(customer.ID),
 		ArtistID:                    uuid.MustParse(artist.ID),
+		Name:                        "Anniversary portrait",
 		ArtworkNameSnapshot:         "Portrait commission",
 		ArtworkDescriptionSnapshot:  "A hand-painted portrait",
 		PriceSatangSnapshot:         10000,
 		MinimumDeadlineDaysSnapshot: 7,
-		PreviewImageURLSnapshot:     "https://example.test/portrait-preview.jpg",
 		CustomerDescription:         "Active commission",
-		SelectedDeadlineDays:        7,
 		Status:                      "IN_PROCESS",
 		CreatedAt:                   now,
 		UpdatedAt:                   now,

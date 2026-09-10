@@ -11,6 +11,7 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/config"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/database"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/logger"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/objectstorage"
 	"github.com/AiSiriRak/Artmission/backend/internal/wiring"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -24,6 +25,14 @@ const (
 	jwtSecret       = "bdd-test-secret-never-used-outside-tests"
 	accessTokenTTL  = 15 * time.Minute
 	refreshTokenTTL = 24 * time.Hour
+
+	s3PublicBucket    = "artmission-public-test"
+	s3PrivateBucket   = "artmission-private-test"
+	s3PublicBaseURL   = "http://localhost:9000/artmission-public-test"
+	s3Endpoint        = "http://localhost:9000"
+	s3Region          = "auto"
+	s3AccessKeyID     = "test-access-key"
+	s3SecretAccessKey = "test-secret-key"
 )
 
 // App is the real Artmission HTTP application — every adapter, usecase and
@@ -52,9 +61,23 @@ func NewApp(tb testing.TB, dsn string) *App {
 	}
 	tb.Cleanup(func() { _ = db.Close() })
 
+	objectStorage, err := objectstorage.NewS3Client(context.Background(), config.S3{
+		PublicBucketName:  s3PublicBucket,
+		PrivateBucketName: s3PrivateBucket,
+		PublicBaseURL:     s3PublicBaseURL,
+		Endpoint:          s3Endpoint,
+		Region:            s3Region,
+		AccessKeyID:       s3AccessKeyID,
+		SecretAccessKey:   s3SecretAccessKey,
+	})
+	if err != nil {
+		tb.Fatalf("apptest: build object storage client: %v", err)
+	}
+
 	server := wiring.Wire(wiring.Config{
-		DB:     db,
-		Logger: logger.NewLogger(false),
+		DB:            db,
+		Logger:        logger.NewLogger(false),
+		ObjectStorage: objectStorage,
 		App: config.App{
 			// Never dialed — Start() is never called — so it need not be
 			// a real, free port.

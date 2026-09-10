@@ -38,6 +38,12 @@ tasks:
     cmds:
       - go run . --env-file {{.ENV_FILE}} migrate create {{.CLI_ARGS}}
 
+  test-all:
+    desc: runs the unit test and BDD test
+    cmds:
+      - task: test
+      - task: test-bdd
+
   test:
     desc: runs the test suite
     cmds:
@@ -55,6 +61,8 @@ tasks:
         ignore_error: true
       - task: npm-install
       - node scripts/gen-report.js
+
+  # --- Internal Tasks --- #
 
   test-bdd-run:
     internal: true

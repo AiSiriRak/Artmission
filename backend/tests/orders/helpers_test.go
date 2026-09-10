@@ -12,13 +12,12 @@ import (
 )
 
 const (
-	seedArtworkName          = "Portrait commission"
-	seedArtworkDescription   = "A hand-painted portrait"
-	seedPriceSatang          = int64(10000)
-	seedMinimumDeadlineDays  = 7
-	seedPreviewImageURL      = "https://example.test/portrait-preview.jpg"
-	seedCustomerDescription  = "Please use a blue background."
-	seedSelectedDeadlineDays = 7
+	seedArtworkName         = "Portrait commission"
+	seedArtworkDescription  = "A hand-painted portrait"
+	seedPriceSatang         = int64(10000)
+	seedMinimumDeadlineDays = 7
+	seedOrderName           = "Anniversary portrait"
+	seedCustomerDescription = "Please use a blue background."
 )
 
 // orderRow is a minimal bun model for the orders table, defined locally
@@ -33,13 +32,12 @@ type orderRow struct {
 	ID                          uuid.UUID  `bun:"id,pk"`
 	CustomerID                  uuid.UUID  `bun:"customer_id"`
 	ArtistID                    uuid.UUID  `bun:"artist_id"`
+	Name                        string     `bun:"name"`
 	ArtworkNameSnapshot         string     `bun:"artwork_name_snapshot"`
 	ArtworkDescriptionSnapshot  string     `bun:"artwork_description_snapshot"`
 	PriceSatangSnapshot         int64      `bun:"price_satang_snapshot"`
 	MinimumDeadlineDaysSnapshot int        `bun:"minimum_deadline_days_snapshot"`
-	PreviewImageURLSnapshot     string     `bun:"preview_image_url_snapshot"`
 	CustomerDescription         string     `bun:"customer_description"`
-	SelectedDeadlineDays        int        `bun:"selected_deadline_days"`
 	DeadlineAt                  *time.Time `bun:"deadline_at"`
 	Status                      string     `bun:"status"`
 	CreatedAt                   time.Time  `bun:"created_at"`
@@ -51,9 +49,9 @@ type orderRow struct {
 // has to name the field it actually cares about — e.g. an explicit
 // UpdatedAt to control ViewOrders' default sort order deterministically.
 // The remaining NOT NULL snapshot columns (artwork name/description,
-// minimum deadline days, preview image URL, customer description,
-// selected deadline days) are not test inputs: every seeded order shares
-// the fixed seed* constants above, and assertions check against them.
+// minimum deadline days, order name, customer description) are not test
+// inputs: every seeded order shares the fixed seed* constants above, and
+// assertions check against them.
 type orderSeed struct {
 	CustomerID          string
 	ArtistID            string
@@ -85,13 +83,12 @@ func seedOrder(seed orderSeed) (string, error) {
 		ID:                          uuid.New(),
 		CustomerID:                  uuid.MustParse(seed.CustomerID),
 		ArtistID:                    uuid.MustParse(seed.ArtistID),
+		Name:                        seedOrderName,
 		ArtworkNameSnapshot:         seedArtworkName,
 		ArtworkDescriptionSnapshot:  seedArtworkDescription,
 		PriceSatangSnapshot:         price,
 		MinimumDeadlineDaysSnapshot: seedMinimumDeadlineDays,
-		PreviewImageURLSnapshot:     seedPreviewImageURL,
 		CustomerDescription:         seedCustomerDescription,
-		SelectedDeadlineDays:        seedSelectedDeadlineDays,
 		DeadlineAt:                  seed.DeadlineAt,
 		Status:                      status,
 		CreatedAt:                   now,
@@ -101,6 +98,42 @@ func seedOrder(seed orderSeed) (string, error) {
 		return "", err
 	}
 	return row.ID.String(), nil
+}
+
+// orderDeliverableRow is a minimal bun model for order_deliverables,
+// mirroring orderRow's role: the one way this suite creates deliverable
+// fixtures, since no submit-deliverable HTTP endpoint exists yet.
+type orderDeliverableRow struct {
+	bun.BaseModel `bun:"table:order_deliverables"`
+
+	ID               uuid.UUID `bun:"id,pk"`
+	OrderID          uuid.UUID `bun:"order_id"`
+	Version          int       `bun:"version"`
+	Decision         *string   `bun:"decision"`
+	OriginalImageKey string    `bun:"original_image_key"`
+	PreviewImageKey  string    `bun:"preview_image_key"`
+	CreatedAt        time.Time `bun:"created_at"`
+}
+
+// seedDeliverable inserts one order_deliverables row directly against the
+// database for orderID at version, with previewKey as its
+// preview_image_key. decision is nil for a pending (undecided) row, or
+// "APPROVED"/"REJECTED" for a terminal one — the order_deliverables_
+// order_id_pending_key unique index allows at most one pending row per
+// order, so every version before the latest in a multi-version fixture
+// must pass a non-nil decision.
+func seedDeliverable(orderID string, version int, previewKey string, decision *string) error {
+	row := &orderDeliverableRow{
+		ID:               uuid.New(),
+		OrderID:          uuid.MustParse(orderID),
+		Version:          version,
+		Decision:         decision,
+		OriginalImageKey: previewKey + ".original",
+		PreviewImageKey:  previewKey,
+		CreatedAt:        time.Now(),
+	}
+	_, err := app.DB.NewInsert().Model(row).Exec(context.Background())
+	return err
 }
 
 // sharedCounterpart returns the account backing the other side of every

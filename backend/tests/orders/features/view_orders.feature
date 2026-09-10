@@ -105,3 +105,17 @@ Feature: View Orders
     And the user has an order with no deadline
     When the user views their orders sorted by deadline in "desc" order
     Then the system returns orders sorted by deadline in "desc" order
+
+  Scenario: an order's deliverable preview reflects the latest submitted version regardless of status
+    Given the user has a registered customer account
+    And the user has logged in
+    And the user has an order with status "CANCEL" and 2 submitted deliverable versions
+    When the user views their orders
+    Then the system shows the order's latest deliverable preview
+
+  Scenario: an order with no submitted deliverables has no preview
+    Given the user has a registered customer account
+    And the user has logged in
+    And the user has an order
+    When the user views their orders
+    Then the system shows no deliverable preview for the order
