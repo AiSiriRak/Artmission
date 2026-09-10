@@ -1,3 +1,5 @@
+import { getAccessToken } from "@/lib/token";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const API_TOKEN_TEST = process.env.NEXT_PUBLIC_API_TOKEN_TEST;
 
@@ -12,6 +14,15 @@ export async function apiFetch<T>(
   const headers = new Headers(options.headers);
 
   headers.set("Content-Type", "application/json");
+
+  if (!headers.has("Authorization")) {
+    const accessToken = getAccessToken();
+
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
+  }
+
   if (API_TOKEN_TEST) {
     headers.set("Authorization", `Bearer ${API_TOKEN_TEST}`);
   }
