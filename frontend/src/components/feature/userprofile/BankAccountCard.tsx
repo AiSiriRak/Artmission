@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 import { BankAccount, UpdateBankAccountInput } from "@/lib/api/types";
 import { BANK_LABELS } from "@/lib/types";
@@ -72,6 +73,11 @@ export function BankAccountCard({
       account_number: accountNumber,
     };
     onSave(updatedBank);
+    setBankName(bankAccount.bank_name);
+    setAccountHolder(bankAccount.account_holder_name);
+    setAccountNumber("");
+    setAccountHolderError("");
+    setAccountNumberError("");
   };
 
   const handleCancel = () => {
@@ -133,11 +139,28 @@ export function BankAccountCard({
           {/* Buttons */}
 
           <div className="flex w-full justify-between gap-2 pt-2">
-            <Button variant="light" icon={<></>} onClick={handleCancel}>
+            <Button
+              variant="light"
+              icon={
+                <Image
+                  src="/icons/cancel.svg"
+                  alt={""}
+                  width={24}
+                  height={24}
+                />
+              }
+              onClick={handleCancel}
+            >
               Cancel
             </Button>
-            <Button variant="dark" icon={<></>} onClick={handleSave}>
-              Save
+            <Button
+              variant="dark"
+              icon={
+                <Image src="/icons/done.svg" alt={""} width={24} height={24} />
+              }
+              onClick={handleSave}
+            >
+              Done
             </Button>
           </div>
         </div>
@@ -173,7 +196,18 @@ export function BankAccountCard({
           {/* Edit Button */}
           {!isEditing && !disabled && (
             <div className="flex justify-end pt-2">
-              <Button variant="light" icon={<></>} onClick={onEdit}>
+              <Button
+                variant="light"
+                icon={
+                  <Image
+                    src="/icons/edit.svg"
+                    alt={""}
+                    width={24}
+                    height={24}
+                  />
+                }
+                onClick={onEdit}
+              >
                 Edit
               </Button>
             </div>

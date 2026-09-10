@@ -106,6 +106,17 @@ export function PersonalInfoCard({
       setOldpasswordError(error);
       return;
     }
+    setUserame(user.username);
+    setIsEditingPassword(false);
+    setEmail(user.email);
+    setOldPassword("");
+    setNewPassword("");
+    setConfimPassword("");
+
+    setUsernameError("");
+    setOldpasswordError("");
+    setNewpasswordError("");
+    setConfirmpasswordError("");
   };
 
   const handleCancel = () => {
