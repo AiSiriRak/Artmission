@@ -11,6 +11,7 @@ import {
   updateBankAccount,
 } from "@/lib/api/users";
 import { BankAccount, UserAccount } from "@/lib/api/types";
+import { routes } from "@/lib/routes";
 
 import { PersonalInfoCard } from "@/components/feature/userprofile/PersonalInfoCard";
 import { ProfileHeader } from "@/components/feature/userprofile/ProfileHeader";
@@ -120,7 +121,7 @@ export default function HomePage() {
               isOpen={isDeletePopupOpen}
               onCancel={
                 deleteStatus == "success"
-                  ? () => router.push("/")
+                  ? () => router.push(routes.login)
                   : () => {
                       setIsDeletePopupOpen(false);
                       setDeleteStatus("default");

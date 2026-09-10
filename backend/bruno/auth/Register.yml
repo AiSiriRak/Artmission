@@ -19,7 +19,7 @@ http:
         "bank_account": {
           "account_number": "1234567890",
           "account_holder_name": "Test Artist",
-          "bank_name": "kbank"
+          "bank_name": "kasikorn"
         },
         "artist": {
           "description": "Digital illustrator and visual storyteller."
