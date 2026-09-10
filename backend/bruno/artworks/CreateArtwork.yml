@@ -1,0 +1,36 @@
+info:
+  name: CreateArtwork
+  type: http
+  seq: 1
+  tags:
+    - artworks
+
+http:
+  method: POST
+  url: "{{api_url}}/artworks"
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Frontend draft",
+        "category": "Illustration",
+        "styles": ["Watercolor"],
+        "description": "The dummy endpoint ignores these values.",
+        "artwork_samples": [
+          {
+            "image_url": "https://example.com/frontend-draft.png"
+          }
+        ],
+        "minimum_deadline_days": 14,
+        "price_satang": 100000
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: Temporary authenticated endpoint that returns a fixed artwork for frontend integration.
