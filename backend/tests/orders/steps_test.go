@@ -122,8 +122,17 @@ func (o *ordersContext) theUserViewsTheirHiringHistoryWithoutLoggingIn() error {
 
 type orderViewBody struct {
 	Orders []struct {
-		ID     string `json:"id"`
-		Status string `json:"status"`
+		ID                   string `json:"id"`
+		ArtistID             string `json:"artist_id"`
+		ArtworkName          string `json:"artwork_name"`
+		ArtworkDescription   string `json:"artwork_description"`
+		PriceSatang          int64  `json:"price_satang"`
+		MinimumDeadlineDays  int    `json:"minimum_deadline_days"`
+		PreviewImageURL      string `json:"preview_image_url"`
+		CustomerDescription  string `json:"customer_description"`
+		SelectedDeadlineDays int    `json:"selected_deadline_days"`
+		Status               string `json:"status"`
+		Deliverables         []any  `json:"deliverables"`
 	} `json:"orders"`
 }
 
@@ -137,6 +146,19 @@ func (o *ordersContext) theSystemShowsAllOfTheUsersOrdersWithTheirCurrentStatus(
 	for _, order := range body.Orders {
 		if order.Status == "" {
 			return fmt.Errorf("expected every order to have a status, got: %+v", order)
+		}
+		if order.ArtistID != o.artist.ID ||
+			order.ArtworkName != seedArtworkName ||
+			order.ArtworkDescription != seedArtworkDescription ||
+			order.PriceSatang != seedPriceSatang ||
+			order.MinimumDeadlineDays != seedMinimumDeadlineDays ||
+			order.PreviewImageURL != seedPreviewImageURL ||
+			order.CustomerDescription != seedCustomerDescription ||
+			order.SelectedDeadlineDays != seedSelectedDeadlineDays {
+			return fmt.Errorf("order %s did not preserve its artwork and customer snapshots: %+v", order.ID, order)
+		}
+		if order.Deliverables == nil {
+			return fmt.Errorf("order %s: expected deliverables to be an array", order.ID)
 		}
 		got[order.ID] = order.Status
 	}

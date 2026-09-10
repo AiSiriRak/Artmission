@@ -70,14 +70,19 @@ type bankAccountRecord struct {
 type deletionOrderRow struct {
 	bun.BaseModel `bun:"table:orders"`
 
-	ID          uuid.UUID `bun:"id,pk"`
-	CustomerID  uuid.UUID `bun:"customer_id"`
-	ArtistID    uuid.UUID `bun:"artist_id"`
-	Description string    `bun:"description"`
-	Price       float64   `bun:"price"`
-	Status      string    `bun:"status"`
-	CreatedAt   time.Time `bun:"created_at"`
-	UpdatedAt   time.Time `bun:"updated_at"`
+	ID                          uuid.UUID `bun:"id,pk"`
+	CustomerID                  uuid.UUID `bun:"customer_id"`
+	ArtistID                    uuid.UUID `bun:"artist_id"`
+	ArtworkNameSnapshot         string    `bun:"artwork_name_snapshot"`
+	ArtworkDescriptionSnapshot  string    `bun:"artwork_description_snapshot"`
+	PriceSatangSnapshot         int64     `bun:"price_satang_snapshot"`
+	MinimumDeadlineDaysSnapshot int       `bun:"minimum_deadline_days_snapshot"`
+	PreviewImageURLSnapshot     string    `bun:"preview_image_url_snapshot"`
+	CustomerDescription         string    `bun:"customer_description"`
+	SelectedDeadlineDays        int       `bun:"selected_deadline_days"`
+	Status                      string    `bun:"status"`
+	CreatedAt                   time.Time `bun:"created_at"`
+	UpdatedAt                   time.Time `bun:"updated_at"`
 }
 
 func (u *usersContext) theUserHasARegisteredAccount() error {
@@ -117,14 +122,19 @@ func (u *usersContext) aCustomerAndArtistHaveAnActiveOrder() error {
 
 	now := time.Now()
 	order := &deletionOrderRow{
-		ID:          uuid.New(),
-		CustomerID:  uuid.MustParse(customer.ID),
-		ArtistID:    uuid.MustParse(artist.ID),
-		Description: "Active commission",
-		Price:       100,
-		Status:      "IN_PROCESS",
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:                          uuid.New(),
+		CustomerID:                  uuid.MustParse(customer.ID),
+		ArtistID:                    uuid.MustParse(artist.ID),
+		ArtworkNameSnapshot:         "Portrait commission",
+		ArtworkDescriptionSnapshot:  "A hand-painted portrait",
+		PriceSatangSnapshot:         10000,
+		MinimumDeadlineDaysSnapshot: 7,
+		PreviewImageURLSnapshot:     "https://example.test/portrait-preview.jpg",
+		CustomerDescription:         "Active commission",
+		SelectedDeadlineDays:        7,
+		Status:                      "IN_PROCESS",
+		CreatedAt:                   now,
+		UpdatedAt:                   now,
 	}
 	_, err = app.DB.NewInsert().Model(order).Exec(context.Background())
 	return err
