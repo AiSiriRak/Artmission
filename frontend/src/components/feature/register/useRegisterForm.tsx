@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import type { MouseEvent, SubmitEvent } from "react";
 import { useState } from "react";
+import { register } from "@/lib/api/auth";
 import type {
   RegisterStep,
   RegisterValidationField,
@@ -27,6 +28,8 @@ export function useRegisterForm() {
   const [accountNumber, setAccountNumber] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<RegisterValidationErrors>({});
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
 
   const values = {
@@ -43,9 +46,11 @@ export function useRegisterForm() {
 
   function clearErrors() {
     setFieldErrors({});
+    setSubmitError("");
   }
 
   function clearFieldError(field: RegisterValidationField) {
+    setSubmitError("");
     setFieldErrors((currentErrors) => {
       if (!currentErrors[field]) {
         return currentErrors;
@@ -133,8 +138,12 @@ export function useRegisterForm() {
     setStep((currentStep) => (currentStep === 3 ? 2 : 1));
   }
 
-  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (isSubmitting) {
+      return;
+    }
 
     const errors = validateCurrentStep();
 
@@ -143,8 +152,34 @@ export function useRegisterForm() {
       return;
     }
 
-    clearErrors();
-    setAccountCreated(true);
+    setSubmitError("");
+    setIsSubmitting(true);
+
+    try {
+      await register({
+        username: username.trim(),
+        email: email.trim(),
+        password,
+        role: role === "artist" ? "artist" : "customer",
+        bank_account: {
+          bank_name: bank.trim(),
+          account_holder_name: accountHolderName.trim(),
+          account_number: accountNumber.trim(),
+        },
+        ...(role === "artist"
+          ? { artist: { description: `${username.trim()} artist profile` } }
+          : {}),
+      });
+
+      clearErrors();
+      setAccountCreated(true);
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Failed to create account",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function goLogIn() {
@@ -155,6 +190,8 @@ export function useRegisterForm() {
     step,
     values,
     fieldErrors,
+    submitError,
+    isSubmitting,
     accountCreated,
     selectRole,
     changeEmail,

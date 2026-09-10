@@ -57,6 +57,8 @@ export function RegisterForm() {
 
           <RegisterActions
             step={registerForm.step}
+            submitError={registerForm.submitError}
+            isSubmitting={registerForm.isSubmitting}
             onBack={registerForm.goBack}
             onNext={registerForm.goNext}
           />
