@@ -117,17 +117,20 @@ func (f *fakeBankRepo) UpsertByUserID(_ context.Context, ba *user.BankAccount) (
 var _ user.BankAccountRepository = (*fakeBankRepo)(nil)
 
 type fakeArtistRegistrar struct {
-	profiles map[uuid.UUID]string
+	profiles map[uuid.UUID]*string
 	err      error
 }
 
 func newFakeArtistRegistrar() *fakeArtistRegistrar {
-	return &fakeArtistRegistrar{profiles: map[uuid.UUID]string{}}
+	return &fakeArtistRegistrar{profiles: map[uuid.UUID]*string{}}
 }
 
-func (f *fakeArtistRegistrar) CreateProfile(_ context.Context, userID uuid.UUID, description string) error {
+func (f *fakeArtistRegistrar) CreateProfile(_ context.Context, userID uuid.UUID, description *string) error {
 	if f.err != nil {
 		return f.err
+	}
+	if description != nil {
+		description = stringPointer(*description)
 	}
 	f.profiles[userID] = description
 	return nil
@@ -286,14 +289,14 @@ func TestRegister_ArtistCreatesProfile(t *testing.T) {
 	in.Username = "bob"
 	in.Email = "bob@example.com"
 	in.Role = user.RoleArtist
-	in.Artist = &user.ArtistProfileInput{Description: "I paint portraits"}
+	in.Artist = &user.ArtistProfileInput{Description: stringPointer("I paint portraits")}
 
 	got, err := usecase.Register(context.Background(), in)
 	if err != nil {
 		t.Fatalf("Register() error = %v, want nil", err)
 	}
-	if desc, ok := artist.profiles[got.ID]; !ok || desc != "I paint portraits" {
-		t.Errorf("Register(artist) profile = %q, ok=%v", desc, ok)
+	if desc, ok := artist.profiles[got.ID]; !ok || desc == nil || *desc != "I paint portraits" {
+		t.Errorf("Register(artist) profile = %v, ok=%v", desc, ok)
 	}
 	if _, ok := bank.byUserID[got.ID]; !ok {
 		t.Error("Register(artist) did not persist a bank account")
@@ -310,8 +313,8 @@ func TestRegister_ArtistOmitsDescription(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Register() error = %v, want nil", err)
 	}
-	if desc, ok := artist.profiles[got.ID]; !ok || desc != "" {
-		t.Errorf("Register(artist) profile = %q, ok=%v", desc, ok)
+	if desc, ok := artist.profiles[got.ID]; !ok || desc != nil {
+		t.Errorf("Register(artist) profile = %v, ok=%v", desc, ok)
 	}
 }
 
@@ -319,7 +322,7 @@ func TestRegister_CustomerRejectsArtistFields(t *testing.T) {
 	usecase := newUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar())
 
 	in := customerInput()
-	in.Artist = &user.ArtistProfileInput{Description: "should not be here"}
+	in.Artist = &user.ArtistProfileInput{Description: stringPointer("should not be here")}
 	_, err := usecase.Register(context.Background(), in)
 	if !errors.Is(err, user.ErrArtistFieldsNotAllowed) {
 		t.Errorf("Register() error = %v, want ErrArtistFieldsNotAllowed", err)
@@ -653,3 +656,5 @@ func TestAuthenticate_UnknownEmailLooksLikeWrongPassword(t *testing.T) {
 		t.Errorf("Authenticate() error = %v, want ErrInvalidCredential (must not leak account existence)", err)
 	}
 }
+
+func stringPointer(value string) *string { return &value }

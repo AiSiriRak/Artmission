@@ -12,7 +12,7 @@ http:
 runtime:
   variables:
     - name: artist_id
-      value: 149834a9-9980-41a7-a7dc-0070224b7889
+      value: 615e6dd6-2648-40ba-ae0f-ee3efac0d9ff
 
 settings:
   encodeUrl: true

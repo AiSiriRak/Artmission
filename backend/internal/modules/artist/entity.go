@@ -10,7 +10,7 @@ import (
 type Profile struct {
 	UserID         uuid.UUID
 	ArtistName     string
-	Description    string
+	Description    *string
 	Categories     []Category
 	Styles         []Style
 	MinPriceSatang *int64

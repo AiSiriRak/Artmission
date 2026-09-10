@@ -21,7 +21,7 @@ type referenceResponse struct {
 type artistProfileResponse struct {
 	ArtistID       string              `json:"artist_id"`
 	ArtistName     string              `json:"artist_name"`
-	Description    string              `json:"description"`
+	Description    *string             `json:"description"`
 	Categories     []referenceResponse `json:"categories"`
 	Styles         []referenceResponse `json:"styles"`
 	MinPriceSatang *int64              `json:"min_price_satang"`
@@ -30,7 +30,7 @@ type artistProfileResponse struct {
 }
 
 type updateArtistProfileBody struct {
-	Description    string   `json:"description"`
+	Description    *string  `json:"description"`
 	StyleIDs       []string `json:"style_ids"`
 	MinPriceSatang int64    `json:"min_price_satang"`
 	MaxPriceSatang int64    `json:"max_price_satang"`
@@ -47,6 +47,15 @@ type artistsContext struct {
 
 func (a *artistsContext) registerArtist() error {
 	account, err := apptest.RegisterArtist(app, a.client, "Original description")
+	if err != nil {
+		return err
+	}
+	a.artist = account
+	return nil
+}
+
+func (a *artistsContext) registerArtistWithoutDescription() error {
+	account, err := apptest.RegisterArtist(app, a.client, "")
 	if err != nil {
 		return err
 	}
@@ -84,11 +93,11 @@ func (a *artistsContext) seedArtworkCategories() error {
 		return err
 	}
 	_, err = app.DB.ExecContext(context.Background(), `
-		INSERT INTO artist_samples (id, artist_id, category_id, name, description, price, original_image_url, preview_image_url)
+		INSERT INTO artworks (id, artist_id, category_id, name, description, price_satang, minimum_deadline_days)
 		VALUES
-			(?, ?, ?, 'First', 'First sample', 10.00, 'https://example.com/first-original.jpg', 'https://example.com/first-preview.jpg'),
-			(?, ?, ?, 'Second', 'Second sample', 20.00, 'https://example.com/second-original.jpg', 'https://example.com/second-preview.jpg'),
-			(?, ?, ?, 'Third', 'Third sample', 30.00, 'https://example.com/third-original.jpg', 'https://example.com/third-preview.jpg')
+			(?, ?, ?, 'First', 'First artwork', 1000, 7),
+			(?, ?, ?, 'Second', 'Second artwork', 2000, 7),
+			(?, ?, ?, 'Third', 'Third artwork', 3000, 7)
 	`, uuid.New(), artistID, categoryA, uuid.New(), artistID, categoryA, uuid.New(), artistID, categoryB)
 	return err
 }
@@ -122,7 +131,7 @@ func (a *artistsContext) updateArtistProfile(body updateArtistProfileBody, token
 
 func (a *artistsContext) validUpdate() updateArtistProfileBody {
 	return updateArtistProfileBody{
-		Description:    "  Updated commission profile  ",
+		Description:    stringPointer("  Updated commission profile  "),
 		StyleIDs:       []string{a.styleIDs[0].String(), a.styleIDs[1].String(), a.styleIDs[0].String()},
 		MinPriceSatang: 10_000,
 		MaxPriceSatang: 50_000,
@@ -158,7 +167,7 @@ func (a *artistsContext) assertInitialProfile() error {
 	if err != nil {
 		return err
 	}
-	if profile.ArtistID != a.artist.ID || profile.ArtistName != a.artist.Username || profile.Description != "Original description" {
+	if profile.ArtistID != a.artist.ID || profile.ArtistName != a.artist.Username || profile.Description == nil || *profile.Description != "Original description" {
 		return fmt.Errorf("unexpected initial profile: %+v", profile)
 	}
 	if profile.MinPriceSatang != nil || profile.MaxPriceSatang != nil || profile.ReviewScore != nil {
@@ -189,7 +198,7 @@ func (a *artistsContext) assertSavedProfile() error {
 	if err != nil {
 		return err
 	}
-	if profile.Description != "Updated commission profile" || profile.MinPriceSatang == nil || *profile.MinPriceSatang != 10_000 || profile.MaxPriceSatang == nil || *profile.MaxPriceSatang != 50_000 {
+	if profile.Description == nil || *profile.Description != "Updated commission profile" || profile.MinPriceSatang == nil || *profile.MinPriceSatang != 10_000 || profile.MaxPriceSatang == nil || *profile.MaxPriceSatang != 50_000 {
 		return fmt.Errorf("unexpected updated profile: %+v", profile)
 	}
 	if len(profile.Styles) != 2 || profile.Styles[0].Label > profile.Styles[1].Label {
@@ -202,7 +211,7 @@ func (a *artistsContext) assertSavedProfile() error {
 	if err != nil {
 		return err
 	}
-	if public.Description != profile.Description || !reflect.DeepEqual(public.Styles, profile.Styles) {
+	if !sameOptionalString(public.Description, profile.Description) || !reflect.DeepEqual(public.Styles, profile.Styles) {
 		return fmt.Errorf("public profile does not reflect update: %+v", public)
 	}
 	return nil
@@ -249,6 +258,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 
 	sc.Step(`^the artist has a registered account$`, func() error { return a.registerArtist() })
+	sc.Step(`^the artist has a registered account without a description$`, func() error { return a.registerArtistWithoutDescription() })
 	sc.Step(`^reference styles are available$`, func() error { return a.seedStyles() })
 	sc.Step(`^the artist has logged in$`, func() error { return a.loginArtist() })
 	sc.Step(`^the artist has samples in multiple categories$`, func() error { return a.seedArtworkCategories() })
@@ -270,27 +280,37 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^a visitor requests an artist profile that does not exist$`, func() error { return a.getArtistProfile(uuid.NewString()) })
 	sc.Step(`^the artist updates their profile with valid details$`, func() error { return a.updateArtistProfile(a.validUpdate(), a.accessToken) })
 	sc.Step(`^the artist clears their selected styles$`, func() error {
-		return a.updateArtistProfile(updateArtistProfileBody{Description: "No selected styles", StyleIDs: []string{}, MinPriceSatang: 100, MaxPriceSatang: 200}, a.accessToken)
+		return a.updateArtistProfile(updateArtistProfileBody{Description: stringPointer("No selected styles"), StyleIDs: []string{}, MinPriceSatang: 100, MaxPriceSatang: 200}, a.accessToken)
 	})
 	sc.Step(`^the artist updates their profile with an invalid price range$`, func() error {
 		body := a.validUpdate()
-		body.Description = "must not persist"
+		body.Description = stringPointer("must not persist")
 		body.MinPriceSatang, body.MaxPriceSatang = 500, 100
 		return a.updateArtistProfile(body, a.accessToken)
 	})
 	sc.Step(`^the artist updates their profile with an unknown style$`, func() error {
 		body := a.validUpdate()
-		body.Description = "must not persist"
+		body.Description = stringPointer("must not persist")
 		body.StyleIDs = []string{uuid.NewString()}
 		return a.updateArtistProfile(body, a.accessToken)
 	})
 	sc.Step(`^someone updates the artist profile without logging in$`, func() error {
-		return a.updateArtistProfile(updateArtistProfileBody{Description: "new", StyleIDs: []string{}, MaxPriceSatang: 1}, "")
+		return a.updateArtistProfile(updateArtistProfileBody{Description: stringPointer("new"), StyleIDs: []string{}, MaxPriceSatang: 1}, "")
 	})
 	sc.Step(`^the customer updates the artist profile$`, func() error {
-		return a.updateArtistProfile(updateArtistProfileBody{Description: "new", StyleIDs: []string{}, MaxPriceSatang: 1}, a.accessToken)
+		return a.updateArtistProfile(updateArtistProfileBody{Description: stringPointer("new"), StyleIDs: []string{}, MaxPriceSatang: 1}, a.accessToken)
 	})
 	sc.Step(`^the system returns the initial public artist profile$`, func() error { return a.assertInitialProfile() })
+	sc.Step(`^the system returns a null artist description$`, func() error {
+		profile, err := a.requireProfile(http.StatusOK)
+		if err != nil {
+			return err
+		}
+		if profile.Description != nil {
+			return fmt.Errorf("description = %q, want null", *profile.Description)
+		}
+		return nil
+	})
 	sc.Step(`^the system returns distinct artwork categories and the review score$`, func() error { return a.assertCategoriesAndReview() })
 	sc.Step(`^the system saves and returns the complete artist profile$`, func() error { return a.assertSavedProfile() })
 	sc.Step(`^the system returns an empty style selection$`, func() error {
@@ -322,4 +342,13 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		}
 		return nil
 	})
+}
+
+func stringPointer(value string) *string { return &value }
+
+func sameOptionalString(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return *left == *right
 }

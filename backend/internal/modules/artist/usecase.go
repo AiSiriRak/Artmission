@@ -19,11 +19,11 @@ func NewProfileUsecase(repo ProfileRepository, tx Transactioner) ProfileUsecase 
 	return &profileUsecase{repo: repo, tx: tx}
 }
 
-func (u *profileUsecase) CreateProfile(ctx context.Context, userID uuid.UUID, description string) error {
+func (u *profileUsecase) CreateProfile(ctx context.Context, userID uuid.UUID, description *string) error {
 	now := time.Now()
 	return u.repo.Create(ctx, &Profile{
 		UserID:      userID,
-		Description: description,
+		Description: normalizeDescription(description),
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	})
@@ -34,10 +34,7 @@ func (u *profileUsecase) GetProfile(ctx context.Context, userID uuid.UUID) (*Pro
 }
 
 func (u *profileUsecase) UpdateProfile(ctx context.Context, userID uuid.UUID, in UpdateProfileInput) (*Profile, error) {
-	description := strings.TrimSpace(in.Description)
-	if description == "" {
-		return nil, ErrDescriptionRequired
-	}
+	description := normalizeDescription(in.Description)
 	if in.MinPriceSatang < 0 || in.MaxPriceSatang < 0 {
 		return nil, ErrPriceMustBeNonNegative
 	}
@@ -74,6 +71,18 @@ func (u *profileUsecase) UpdateProfile(ctx context.Context, userID uuid.UUID, in
 	}
 
 	return u.repo.GetByUserID(ctx, userID)
+}
+
+func normalizeDescription(description *string) *string {
+	if description == nil {
+		return nil
+	}
+
+	normalized := strings.TrimSpace(*description)
+	if normalized == "" {
+		return nil
+	}
+	return &normalized
 }
 
 func normalizeStyleIDs(styleIDs []uuid.UUID) ([]uuid.UUID, error) {

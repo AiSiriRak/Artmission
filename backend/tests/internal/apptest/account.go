@@ -37,7 +37,7 @@ type BankAccountBody struct {
 }
 
 type ArtistBody struct {
-	Description string `json:"description"`
+	Description *string `json:"description"`
 }
 
 type RegisterBody struct {
@@ -70,7 +70,7 @@ func NewArtistRegisterBody(username, email, password, description string) Regist
 	body := NewCustomerRegisterBody(username, email, password)
 	body.Role = "artist"
 	if description != "" {
-		body.Artist = &ArtistBody{Description: description}
+		body.Artist = &ArtistBody{Description: &description}
 	}
 	return body
 }

@@ -17,7 +17,7 @@ type artistProfileModel struct {
 	bun.BaseModel `bun:"table:artist_profiles,alias:ap"`
 
 	UserID         uuid.UUID `bun:"user_id,pk"`
-	Description	   string    `bun:"description,nullzero"`
+	Description    *string   `bun:"description,nullzero"`
 	ArtistName     string    `bun:"artist_name,scanonly"`
 	MinPriceSatang *int64    `bun:"min_price_satang"`
 	MaxPriceSatang *int64    `bun:"max_price_satang"`
@@ -104,8 +104,8 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*
 			TableExpr("categories AS c").
 			ColumnExpr("DISTINCT c.id").
 			ColumnExpr("c.label").
-			Join("JOIN artist_samples AS s ON s.category_id = c.id").
-			Where("s.artist_id = ?", userID).
+			Join("JOIN artworks AS a ON a.category_id = c.id").
+			Where("a.artist_id = ?", userID).
 			OrderExpr("c.label ASC, c.id ASC").
 			Scan(ctx, &categories); err != nil {
 			return err

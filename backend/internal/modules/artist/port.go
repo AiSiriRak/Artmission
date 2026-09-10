@@ -8,7 +8,7 @@ import (
 )
 
 type ProfileUsecase interface {
-	CreateProfile(ctx context.Context, userID uuid.UUID, description string) error
+	CreateProfile(ctx context.Context, userID uuid.UUID, description *string) error
 	GetProfile(ctx context.Context, userID uuid.UUID) (*Profile, error)
 	UpdateProfile(ctx context.Context, userID uuid.UUID, in UpdateProfileInput) (*Profile, error)
 }
@@ -26,14 +26,14 @@ type Transactioner interface {
 }
 
 type UpdateProfileInput struct {
-	Description    string
+	Description    *string
 	StyleIDs       []uuid.UUID
 	MinPriceSatang int64
 	MaxPriceSatang int64
 }
 
 type ProfileUpdate struct {
-	Description    string
+	Description    *string
 	MinPriceSatang int64
 	MaxPriceSatang int64
 	UpdatedAt      time.Time

@@ -48,7 +48,7 @@ type artistReferenceView struct {
 type artistProfileView struct {
 	ArtistID       uuid.UUID             `json:"artist_id"`
 	ArtistName     string                `json:"artist_name"`
-	Description    string                `json:"description"`
+	Description    *string               `json:"description"`
 	Categories     []artistReferenceView `json:"categories"`
 	Styles         []artistReferenceView `json:"styles"`
 	MinPriceSatang *int64                `json:"min_price_satang"`
@@ -74,7 +74,7 @@ func (h *ArtistHandler) getArtistProfile(ctx context.Context, in *GetArtistProfi
 
 type updateMyArtistProfileInput struct {
 	Body struct {
-		Description    string      `json:"description" minLength:"1"`
+		Description    *string     `json:"description"`
 		StyleIDs       []uuid.UUID `json:"style_ids"`
 		MinPriceSatang int64       `json:"min_price_satang" minimum:"0"`
 		MaxPriceSatang int64       `json:"max_price_satang" minimum:"0"`

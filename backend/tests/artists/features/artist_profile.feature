@@ -8,6 +8,11 @@ Feature: Artist profile
     When a visitor requests the artist profile
     Then the system returns the initial public artist profile
 
+  Scenario: retrieve an artist profile with no description
+    Given the artist has a registered account without a description
+    When a visitor requests the artist profile
+    Then the system returns a null artist description
+
   Scenario: retrieve artwork categories and review score
     Given the artist has a registered account
     And the artist has samples in multiple categories
