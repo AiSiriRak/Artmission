@@ -15,7 +15,6 @@ export default function ArtworkCard({ artwork, showEditControls, onClick }: Artw
       <div className="relative">
         <img src={artwork.coverImage} alt={artwork.name} className="w-full h-56 object-cover" />
         
-        {/* ไอคอนดินสอ (แสดงเฉพาะเมื่อ showEditControls เป็น true) */}
         {showEditControls && (
           <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
             <img 
