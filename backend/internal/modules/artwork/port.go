@@ -24,9 +24,10 @@ type Repository interface {
 }
 
 type ObjectStorage interface {
-	UploadPublic(ctx context.Context, key string, body io.Reader, size int64, contentType string) error
-	DeletePublicURL(ctx context.Context, rawURL string) error
+	Upload(ctx context.Context, key string, body io.Reader, contentType string) error
+	Delete(ctx context.Context, key string) error
 	PublicURL(key string) string
+	KeyFromURL(rawURL string) (key string, ok bool)
 }
 
 type Transactioner interface {

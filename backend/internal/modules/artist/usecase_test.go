@@ -62,7 +62,6 @@ func (fake *fakeRepo) UpdateByUserID(_ context.Context, userID uuid.UUID, update
 type uploadCall struct {
 	key         string
 	content     []byte
-	size        int64
 	contentType string
 }
 
@@ -73,7 +72,7 @@ type fakeStorage struct {
 	deletes   []string
 }
 
-func (fake *fakeStorage) UploadPublic(_ context.Context, key string, body io.Reader, size int64, contentType string) error {
+func (fake *fakeStorage) Upload(_ context.Context, key string, body io.Reader, contentType string) error {
 	if fake.uploadErr != nil {
 		return fake.uploadErr
 	}
@@ -81,11 +80,11 @@ func (fake *fakeStorage) UploadPublic(_ context.Context, key string, body io.Rea
 	if err != nil {
 		return err
 	}
-	fake.uploads = append(fake.uploads, uploadCall{key: key, content: content, size: size, contentType: contentType})
+	fake.uploads = append(fake.uploads, uploadCall{key: key, content: content, contentType: contentType})
 	return nil
 }
 
-func (fake *fakeStorage) DeletePublic(_ context.Context, key string) error {
+func (fake *fakeStorage) Delete(_ context.Context, key string) error {
 	fake.deletes = append(fake.deletes, key)
 	return fake.deleteErr
 }
@@ -177,7 +176,7 @@ func TestUpdateProfile_AcceptsImageAtExactSizeLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateProfile() error = %v", err)
 	}
-	if len(storage.uploads) != 1 || storage.uploads[0].size != artist.MaxProfileImageSize {
+	if len(storage.uploads) != 1 || len(storage.uploads[0].content) != artist.MaxProfileImageSize {
 		t.Fatalf("upload = %+v", storage.uploads)
 	}
 }
@@ -248,7 +247,7 @@ func TestUpdateProfile_UploadsImageAndDeletesPreviousObject(t *testing.T) {
 	if got.Description == nil || *got.Description != "preserved" {
 		t.Fatalf("description was not preserved: %#v", got.Description)
 	}
-	if len(storage.uploads) != 1 || storage.uploads[0].contentType != "image/png" || storage.uploads[0].size != int64(len(image)) || !bytes.Equal(storage.uploads[0].content, image) {
+	if len(storage.uploads) != 1 || storage.uploads[0].contentType != "image/png" || !bytes.Equal(storage.uploads[0].content, image) {
 		t.Fatalf("upload = %+v", storage.uploads)
 	}
 	if !strings.HasPrefix(storage.uploads[0].key, "artist-profiles/"+userID.String()+"/") || !strings.HasSuffix(storage.uploads[0].key, ".png") {

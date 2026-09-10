@@ -69,7 +69,7 @@ func (u *profileUsecase) UpdateProfile(ctx context.Context, userID uuid.UUID, in
 			return nil, err
 		}
 		key := fmt.Sprintf("artist-profiles/%s/%s.%s", userID, uuid.New(), extension)
-		if err := u.storage.UploadPublic(ctx, key, bytes.NewReader(content), int64(len(content)), contentType); err != nil {
+		if err := u.storage.Upload(ctx, key, bytes.NewReader(content), contentType); err != nil {
 			return nil, apperror.Internal("failed to upload artist profile image", err)
 		}
 		newKey = &key
@@ -81,13 +81,13 @@ func (u *profileUsecase) UpdateProfile(ctx context.Context, userID uuid.UUID, in
 
 	if err := u.repo.UpdateByUserID(ctx, userID, update); err != nil {
 		if newKey != nil {
-			_ = u.storage.DeletePublic(ctx, *newKey)
+			_ = u.storage.Delete(ctx, *newKey)
 		}
 		return nil, err
 	}
 
 	if update.ProfileImageKeySet && current.ProfileImageKey != nil {
-		_ = u.storage.DeletePublic(ctx, *current.ProfileImageKey)
+		_ = u.storage.Delete(ctx, *current.ProfileImageKey)
 	}
 
 	return u.GetProfile(ctx, userID, ProfileQuery{Limit: DefaultReviewLimit})

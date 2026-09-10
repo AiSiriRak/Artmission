@@ -201,7 +201,7 @@ func (u *usecase) uploadSamples(ctx context.Context, item *Artwork, files []io.R
 			return nil, err
 		}
 		key := fmt.Sprintf("artists/%s/artworks/%s/%s.%s", item.ArtistID, item.ID, uuid.New(), extension)
-		if err := u.storage.UploadPublic(ctx, key, bytes.NewReader(content), int64(len(content)), contentType); err != nil {
+		if err := u.storage.Upload(ctx, key, bytes.NewReader(content), contentType); err != nil {
 			u.deleteSampleURLs(ctx, uploadedURLs)
 			return nil, apperror.Internal("failed to upload artwork sample", err)
 		}
@@ -214,7 +214,11 @@ func (u *usecase) uploadSamples(ctx context.Context, item *Artwork, files []io.R
 
 func (u *usecase) deleteSampleURLs(ctx context.Context, urls []string) {
 	for _, imageURL := range urls {
-		_ = u.storage.DeletePublicURL(ctx, imageURL)
+		key, ok := u.storage.KeyFromURL(imageURL)
+		if !ok {
+			continue
+		}
+		_ = u.storage.Delete(ctx, key)
 	}
 }
 
