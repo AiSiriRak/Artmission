@@ -22,5 +22,17 @@ type Artwork struct {
 }
 
 type Sample struct {
-	ImageURL string
+	ImageURL  string
+	SortOrder int
+}
+
+type CreateInput struct {
+	ArtistID            uuid.UUID
+	Name                string
+	Category            string
+	Styles              []string
+	Description         string
+	Samples             []Sample
+	MinimumDeadlineDays int
+	PriceSatang         int64
 }

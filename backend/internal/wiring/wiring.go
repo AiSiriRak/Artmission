@@ -51,7 +51,7 @@ func Wire(cfg Config) *httpserver.Server {
 	tx := baserepo.NewTransactioner(cfg.DB)
 
 	artistUsecase := artist.NewProfileUsecase(artistRepo, cfg.ObjectStorage)
-	artworkUsecase := artwork.NewUsecase(artworkRepo)
+	artworkUsecase := artwork.NewUsecase(artworkRepo, tx)
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage)
