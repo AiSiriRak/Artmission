@@ -26,7 +26,7 @@ Drop the rest: later increments, “this slice only…”, how another package d
 **Keep** (a rule you cannot see from the signature or the next line):
 
 ```go
-// Artist is required when Role is artist, and must be nil for a customer.
+// Artist may be nil when Role is artist (description is optional); must be nil for a customer.
 Artist *ArtistProfileInput
 
 // RoleAdmin is never accepted (admins are seeded/ops-managed, not self-registered).

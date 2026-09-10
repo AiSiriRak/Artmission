@@ -300,14 +300,18 @@ func TestRegister_ArtistCreatesProfile(t *testing.T) {
 	}
 }
 
-func TestRegister_ArtistMissingDescription(t *testing.T) {
-	usecase := newUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar())
+func TestRegister_ArtistOmitsDescription(t *testing.T) {
+	artist := newFakeArtistRegistrar()
+	usecase := newUsecase(newFakeRepo(), newFakeBankRepo(), artist)
 
 	in := customerInput()
 	in.Role = user.RoleArtist
-	_, err := usecase.Register(context.Background(), in)
-	if !errors.Is(err, user.ErrArtistDescriptionRequired) {
-		t.Errorf("Register() error = %v, want ErrArtistDescriptionRequired", err)
+	got, err := usecase.Register(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Register() error = %v, want nil", err)
+	}
+	if desc, ok := artist.profiles[got.ID]; !ok || desc != "" {
+		t.Errorf("Register(artist) profile = %q, ok=%v", desc, ok)
 	}
 }
 
