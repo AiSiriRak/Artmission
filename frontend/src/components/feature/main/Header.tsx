@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 
 import { PageType } from "@/lib/types";
 import { routes } from "@/lib/routes";
@@ -15,10 +16,10 @@ interface HeaderProps {
 }
 
 export default function Header({
-  page: activeMenu = "Login",
   usertype = "customer",
+  page = "Login",
 }: HeaderProps) {
-  // กำหนดรายการเมนู
+  const pathname = usePathname();
   const navItems =
     usertype == "customer"
       ? [
@@ -50,8 +51,8 @@ export default function Header({
       : [
           {
             name: "Order",
-            page: "Order Artist",
-            path: routes.order.artist,
+            page: "Home",
+            path: routes.home,
             icon: "/icons/order.svg",
           },
           {
@@ -128,7 +129,7 @@ export default function Header({
         <div className="flex items-center gap-4">
           <nav className="hidden md:flex items-center gap-2">
             {navItems.map((item) => {
-              const isActive = activeMenu === item.page;
+              const isActive = pathname === item.path;
 
               return (
                 <Link

@@ -1,10 +1,11 @@
-import MainLayout from "@/components/feature/main/MainLayout";
-import Image from "next/image";
+"use client";
+
+import { Loading } from "@/components/ui/Loading";
+import { useEffect, useState } from "react";
+
+import OrderArtistPage from "@/components/feature/homepage/OrderArtistPage";
+import HomePage from "@/components/feature/homepage/HomePage";
 
 export default function Home() {
-  return (
-    <MainLayout page={"Home"} usertype={"customer"}>
-      <div>(Home Page)</div>
-    </MainLayout>
-  );
+  return <HomePage />;
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Anuphan } from "next/font/google";
 import "./globals.css";
+import MainLayout from "@/components/feature/main/MainLayout";
 
 const anuphan = Anuphan({
   variable: "--font-anuphan",
