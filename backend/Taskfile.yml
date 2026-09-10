@@ -38,6 +38,21 @@ tasks:
     cmds:
       - go run . --env-file {{.ENV_FILE}} migrate create {{.CLI_ARGS}}
 
+  seed:
+    desc: removes and reloads fixture data
+    cmds:
+      - go run . --env-file {{.ENV_FILE}} seed reseed {{.CLI_ARGS}}
+
+  seed-up:
+    desc: loads fixture data
+    cmds:
+      - go run . --env-file {{.ENV_FILE}} seed up {{.CLI_ARGS}}
+
+  seed-down:
+    desc: removes fixture data
+    cmds:
+      - go run . --env-file {{.ENV_FILE}} seed down {{.CLI_ARGS}}
+
   check-migrations:
     desc: fails if SQL migrations edit an existing file or insert one out of version order
     platforms: [linux, darwin]

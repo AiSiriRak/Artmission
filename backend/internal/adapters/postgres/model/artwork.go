@@ -41,12 +41,11 @@ type Artwork struct {
 type ArtworkImage struct {
 	bun.BaseModel `bun:"table:artwork_images,alias:ai"`
 
-	ID               uuid.UUID `bun:"id,pk"`
-	ArtworkID        uuid.UUID `bun:"artwork_id"`
-	OriginalImageKey string    `bun:"original_image_key"`
-	PreviewImageKey  string    `bun:"preview_image_key"`
-	SortOrder        int       `bun:"sort_order"`
-	CreatedAt        time.Time `bun:"created_at,nullzero"`
+	ID        uuid.UUID `bun:"id,pk"`
+	ArtworkID uuid.UUID `bun:"artwork_id"`
+	ImageURL  string    `bun:"image_url"`
+	SortOrder int       `bun:"sort_order"`
+	CreatedAt time.Time `bun:"created_at,nullzero"`
 }
 
 type ArtworkStyle struct {

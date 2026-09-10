@@ -1,6 +1,8 @@
-// Package cmd wires the process's CLI entrypoints: `serve` runs the HTTP
-// API, `migrate` drives goose. Both share config loading via
-// getConfigFromCmd.
+// Package cmd wires the process's CLI entrypoints:
+//
+//   - serve runs the HTTP API
+//   - migrate drives goose
+//   - seed populates local/dev fixture data.
 package cmd
 
 import (
@@ -17,6 +19,7 @@ func init() {
 	RootCmd.PersistentFlags().String("env-file", "", "path to a .env file to load")
 	RootCmd.AddCommand(serveCmd)
 	RootCmd.AddCommand(migrateCmd)
+	RootCmd.AddCommand(seedCmd)
 }
 
 func getConfigFromCmd(cmd *cobra.Command) (config.Config, error) {
