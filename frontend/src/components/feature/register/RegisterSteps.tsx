@@ -326,12 +326,14 @@ function RegisterAccountInformationStep({
       <div className="relative">
         <label className="text-caption text-primary-500">
           Email
-          <TextInput
-            type="email"
-            value={values.email}
-            onChange={onEmailChange}
-            placeholder="Enter your email"
-          />
+          <div className="mt-1 [&_input]:mt-0">
+            <TextInput
+              type="email"
+              value={values.email}
+              onChange={onEmailChange}
+              placeholder="Enter your email"
+            />
+          </div>
         </label>
         <RegisterFieldError field="email" fieldErrors={fieldErrors} />
       </div>
@@ -339,11 +341,13 @@ function RegisterAccountInformationStep({
       <div className="relative">
         <label className="text-caption text-primary-500">
           Username
-          <TextInput
-            value={values.username}
-            onChange={onUsernameChange}
-            placeholder="Enter your username"
-          />
+          <div className="mt-1 [&_input]:mt-0">
+            <TextInput
+              value={values.username}
+              onChange={onUsernameChange}
+              placeholder="Enter your username"
+            />
+          </div>
         </label>
         <RegisterFieldError field="username" fieldErrors={fieldErrors} />
       </div>
@@ -439,11 +443,13 @@ function RegisterBankAccountStep({
       <div className="relative">
         <label className="text-caption text-primary-500">
           Account holder name
-          <TextInput
-            value={values.accountHolderName}
-            onChange={onAccountHolderNameChange}
-            placeholder="Enter account holder name"
-          />
+          <div className="mt-1 [&_input]:mt-0">
+            <TextInput
+              value={values.accountHolderName}
+              onChange={onAccountHolderNameChange}
+              placeholder="Enter account holder name"
+            />
+          </div>
         </label>
         <RegisterFieldError field="accountHolderName" fieldErrors={fieldErrors} />
       </div>
@@ -451,11 +457,13 @@ function RegisterBankAccountStep({
       <div className="relative">
         <label className="text-caption text-primary-500">
           Account number
-          <TextInput
-            value={values.accountNumber}
-            onChange={onAccountNumberChange}
-            placeholder="Enter account number"
-          />
+          <div className="mt-1 [&_input]:mt-0">
+            <TextInput
+              value={values.accountNumber}
+              onChange={onAccountNumberChange}
+              placeholder="Enter account number"
+            />
+          </div>
         </label>
         <RegisterFieldError field="accountNumber" fieldErrors={fieldErrors} />
       </div>
