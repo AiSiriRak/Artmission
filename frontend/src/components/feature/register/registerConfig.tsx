@@ -1,3 +1,5 @@
+import { accountConstraints } from "@/lib/constraint";
+
 export type RegisterStep = 1 | 2 | 3;
 export type Role = "artist" | "customer" | "";
 
@@ -40,7 +42,7 @@ export const fieldErrorIds: Record<RegisterValidationField, string> = {
   acceptedTerms: "accepted-terms-error",
 };
 
-const registerValidationMessages = {
+export const registerValidationMessages = {
   role: {
     required: "Please choose your role.",
   },
@@ -78,8 +80,6 @@ const registerValidationMessages = {
   },
 } as const;
 
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const bankAccountNumberPattern = /^\d{6,20}$/;
 
 export function validateRegisterStepFields(
   step: RegisterStep,
@@ -102,26 +102,27 @@ export function validateRegisterStepFields(
   if (step === 2) {
     if (!email) {
       errors.email = registerValidationMessages.email.required;
-    } else if (!emailPattern.test(email)) {
+    } else if (!accountConstraints.email.pattern.test(email)) {
       errors.email = registerValidationMessages.email.invalid;
     }
 
     if (!username) {
       errors.username = registerValidationMessages.username.required;
-    } else if (username.length < 3) {
+    } else if (username.length < accountConstraints.username.minLength) {
       errors.username = registerValidationMessages.username.minLength;
-    } else if (username.length > 20) {
+    } else if (username.length > accountConstraints.username.maxLength) {
       errors.username = registerValidationMessages.username.maxLength;
     }
 
     const hasValidPasswordLength =
-      values.password.length >= 8 && values.password.length <= 16;
+      values.password.length >= accountConstraints.password.minLength &&
+      values.password.length <= accountConstraints.password.maxLength;
 
     if (!values.password) {
       errors.password = registerValidationMessages.password.required;
-    } else if (values.password.length < 8) {
+    } else if (values.password.length < accountConstraints.password.minLength) {
       errors.password = registerValidationMessages.password.minLength;
-    } else if (values.password.length > 16) {
+    } else if (values.password.length > accountConstraints.password.maxLength) {
       errors.password = registerValidationMessages.password.maxLength;
     }
 
@@ -144,7 +145,9 @@ export function validateRegisterStepFields(
 
   if (!accountNumber) {
     errors.accountNumber = registerValidationMessages.accountNumber.required;
-  } else if (!bankAccountNumberPattern.test(accountNumber)) {
+  } else if (
+    !accountConstraints.bankAccount.accountNumber.pattern.test(accountNumber)
+  ) {
     errors.accountNumber = registerValidationMessages.accountNumber.invalid;
   }
 

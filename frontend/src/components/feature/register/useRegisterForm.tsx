@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import type { MouseEvent, SubmitEvent } from "react";
 import { useState } from "react";
 import { register } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 import type {
   RegisterStep,
   RegisterValidationField,
@@ -12,8 +13,17 @@ import type {
 } from "./registerConfig";
 import {
   hasValidationErrors,
+  registerValidationMessages,
   validateRegisterStepFields,
 } from "./registerConfig";
+
+function isDuplicateEmailError(error: unknown) {
+  if (!(error instanceof ApiError) || error.status !== 409) {
+    return false;
+  }
+
+  return error.message.toLowerCase().includes("email");
+}
 
 export function useRegisterForm() {
   const router = useRouter();
@@ -174,6 +184,15 @@ export function useRegisterForm() {
       clearErrors();
       setAccountCreated(true);
     } catch (error) {
+      if (isDuplicateEmailError(error)) {
+        setStep(2);
+        setSubmitError("");
+        setFieldErrors({
+          email: registerValidationMessages.email.duplicate,
+        });
+        return;
+      }
+
       setSubmitError(
         error instanceof Error ? error.message : "Failed to create account",
       );

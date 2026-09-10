@@ -1,5 +1,35 @@
+import { getAccessToken } from "@/lib/token";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const API_TOKEN_TEST = process.env.NEXT_PUBLIC_API_TOKEN_TEST;
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly body: unknown,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+function messageFromErrorBody(body: unknown, fallback: string) {
+  if (body && typeof body === "object") {
+    const errorData = body as Record<string, unknown>;
+    const message = errorData.detail || errorData.message || errorData.title;
+
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+  }
+
+  if (typeof body === "string" && body.trim()) {
+    return body;
+  }
+
+  return fallback;
+}
 
 export async function apiFetch<T>(
   path: string,
@@ -12,6 +42,15 @@ export async function apiFetch<T>(
   const headers = new Headers(options.headers);
 
   headers.set("Content-Type", "application/json");
+
+  if (!headers.has("Authorization")) {
+    const accessToken = getAccessToken();
+
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
+  }
+
   if (API_TOKEN_TEST) {
     headers.set("Authorization", `Bearer ${API_TOKEN_TEST}`);
   }
@@ -22,21 +61,22 @@ export async function apiFetch<T>(
   });
   if (!response.ok) {
     const text = await response.text();
-
-    let message = `API request failed: ${response.status}`;
+    let body: unknown = text;
 
     if (text) {
       try {
-        const errorData = JSON.parse(text);
-        message =
-          errorData.detail || errorData.message || errorData.title || message;
+        body = JSON.parse(text) as unknown;
       } catch {
-        // Response is not JSON
-        message = text;
+        // Response is not JSON; keep the raw text body.
       }
     }
 
-    throw new Error(message);
+    const message = messageFromErrorBody(
+      body,
+      `API request failed: ${response.status}`,
+    );
+
+    throw new ApiError(message, response.status, body);
   }
 
   // 204 No Content
