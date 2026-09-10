@@ -57,12 +57,14 @@ func Wire(cfg Config) *httpserver.Server {
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	orderHandler := rest.NewOrderHandler(orderUsecase, authUsecase)
 	artistHandler := rest.NewArtistHandler(artistUsecase, authUsecase)
+	artworkHandler := rest.NewArtworkHandler(authUsecase)
 
 	api, server := httpserver.New(cfg.App.Address, cfg.App.BasePath, cfg.App.AllowedOrigins, cfg.Logger, []httpserver.Pinger{cfg.DB, cfg.ObjectStorage})
 	authHandler.Register(api)
 	userHandler.Register(api)
 	orderHandler.Register(api)
 	artistHandler.Register(api)
+	artworkHandler.Register(api)
 
 	return server
 }
