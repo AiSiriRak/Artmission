@@ -3,8 +3,8 @@ package postgres
 import (
 	"context"
 	"errors"
-	"time"
 
+	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
@@ -12,39 +12,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type orderModel struct {
-	bun.BaseModel `bun:"table:orders,alias:o"`
-
-	ID                          uuid.UUID  `bun:"id,pk"`
-	CustomerID                  uuid.UUID  `bun:"customer_id"`
-	ArtistID                    uuid.UUID  `bun:"artist_id"`
-	Name                        string     `bun:"name"`
-	ArtworkID                   *uuid.UUID `bun:"artwork_id"`
-	ArtworkNameSnapshot         string     `bun:"artwork_name_snapshot"`
-	ArtworkDescriptionSnapshot  string     `bun:"artwork_description_snapshot"`
-	PriceSatangSnapshot         int64      `bun:"price_satang_snapshot"`
-	MinimumDeadlineDaysSnapshot int        `bun:"minimum_deadline_days_snapshot"`
-	CustomerDescription         string     `bun:"customer_description"`
-	DeadlineAt                  *time.Time `bun:"deadline_at"`
-	Status                      string     `bun:"status"`
-	CompletedAt                 *time.Time `bun:"completed_at"`
-	CreatedAt                   time.Time  `bun:"created_at,nullzero"`
-	UpdatedAt                   time.Time  `bun:"updated_at,nullzero"`
-}
-
-type orderDeliverableModel struct {
-	bun.BaseModel `bun:"table:order_deliverables,alias:od"`
-
-	ID               uuid.UUID `bun:"id,pk"`
-	OrderID          uuid.UUID `bun:"order_id"`
-	Version          int       `bun:"version"`
-	Decision         *string   `bun:"decision"`
-	OriginalImageKey string    `bun:"original_image_key"`
-	PreviewImageKey  string    `bun:"preview_image_key"`
-	CreatedAt        time.Time `bun:"created_at"`
-}
-
-func (m *orderModel) toDomain() order.Order {
+func orderModelToDomain(m *pgmodel.Order) order.Order {
 	return order.Order{
 		ID:                          m.ID,
 		CustomerID:                  m.CustomerID,
@@ -115,7 +83,7 @@ func (r *orderRepository) ListOrders(ctx context.Context, query order.ListQuery)
 		dir = "DESC"
 	}
 
-	page, err := baserepo.Paginate[orderModel](ctx, r.exec, func(q *bun.SelectQuery) *bun.SelectQuery {
+	page, err := baserepo.Paginate[pgmodel.Order](ctx, r.exec, func(q *bun.SelectQuery) *bun.SelectQuery {
 		if query.Participant == order.ParticipantArtist {
 			q = q.Where("o.artist_id = ?", query.ParticipantID)
 		} else {
@@ -139,7 +107,7 @@ func (r *orderRepository) ListOrders(ctx context.Context, query order.ListQuery)
 
 	orders := make([]order.Order, len(page.Items))
 	for i, m := range page.Items {
-		orders[i] = m.toDomain()
+		orders[i] = orderModelToDomain(&m)
 	}
 	if err := r.attachLatestDeliverablePreviewKeys(ctx, orders); err != nil {
 		return order.Page{}, apperror.Internal("failed to attach deliverable preview keys", err)
@@ -165,7 +133,7 @@ func (r *orderRepository) attachLatestDeliverablePreviewKeys(ctx context.Context
 	}
 
 	return r.exec.Run(ctx, func(idb bun.IDB) error {
-		var deliverables []orderDeliverableModel
+		var deliverables []pgmodel.OrderDeliverable
 		if err := idb.NewSelect().
 			Model(&deliverables).
 			Column("order_id", "preview_image_key").

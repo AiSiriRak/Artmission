@@ -3,8 +3,8 @@ package postgres
 import (
 	"context"
 	"errors"
-	"time"
 
+	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
@@ -12,27 +12,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type sessionModel struct {
-	bun.BaseModel `bun:"table:sessions,alias:s"`
-
-	ID               uuid.UUID `bun:"id,pk"`
-	UserID           uuid.UUID `bun:"user_id"`
-	RefreshTokenHash string    `bun:"refresh_token_hash"`
-	ExpiresAt        time.Time `bun:"expires_at"`
-	CreatedAt        time.Time `bun:"created_at,nullzero"`
-}
-
-func newSessionModel(s *auth.Session) *sessionModel {
-	return &sessionModel{
-		ID:               s.ID,
-		UserID:           s.UserID,
-		RefreshTokenHash: s.RefreshTokenHash,
-		ExpiresAt:        s.ExpiresAt,
-		CreatedAt:        s.CreatedAt,
-	}
-}
-
-func (m *sessionModel) toDomain() *auth.Session {
+func sessionModelToDomain(m *pgmodel.Session) *auth.Session {
 	return &auth.Session{
 		ID:               m.ID,
 		UserID:           m.UserID,
@@ -45,7 +25,7 @@ func (m *sessionModel) toDomain() *auth.Session {
 // sessionRepository creates sessions only while a shared lock confirms the
 // account is live, so an account-deletion lock cannot race a new session in.
 type sessionRepository struct {
-	base baserepo.BaseRepo[sessionModel]
+	base baserepo.BaseRepo[pgmodel.Session]
 	exec baserepo.Executor
 }
 
@@ -53,7 +33,7 @@ var _ auth.SessionRepository = (*sessionRepository)(nil)
 
 func NewSessionRepository(db *bun.DB) auth.SessionRepository {
 	return &sessionRepository{
-		base: baserepo.NewBaseRepo[sessionModel](db, "session"),
+		base: baserepo.NewBaseRepo[pgmodel.Session](db, "session"),
 		exec: baserepo.NewExecutor(db),
 	}
 }
@@ -90,7 +70,7 @@ func (r *sessionRepository) FindByID(ctx context.Context, id uuid.UUID) (*auth.S
 		}
 		return nil, apperror.Internal("failed to look up session", err)
 	}
-	return model.toDomain(), nil
+	return sessionModelToDomain(model), nil
 }
 
 func (r *sessionRepository) DeleteByID(ctx context.Context, id uuid.UUID) error {

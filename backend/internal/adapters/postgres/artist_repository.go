@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
+	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/artist"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
@@ -13,22 +13,8 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type artistProfileModel struct {
-	bun.BaseModel `bun:"table:artist_profiles,alias:ap"`
-
-	UserID          uuid.UUID `bun:"user_id,pk"`
-	Description     *string   `bun:"description"`
-	ProfileImageKey *string   `bun:"profile_image_key"`
-	ArtistName      string    `bun:"artist_name,scanonly"`
-	MinPriceSatang  *int64    `bun:"min_price_satang,scanonly"`
-	MaxPriceSatang  *int64    `bun:"max_price_satang,scanonly"`
-	ReviewScore     *float64  `bun:"review_score,scanonly"`
-	CreatedAt       time.Time `bun:"created_at,nullzero"`
-	UpdatedAt       time.Time `bun:"updated_at,nullzero"`
-}
-
-func newArtistProfileModel(profile *artist.Profile) *artistProfileModel {
-	return &artistProfileModel{
+func newArtistProfileModel(profile *artist.Profile) *pgmodel.ArtistProfile {
+	return &pgmodel.ArtistProfile{
 		UserID:          profile.UserID,
 		Description:     profile.Description,
 		ProfileImageKey: profile.ProfileImageKey,
@@ -37,7 +23,7 @@ func newArtistProfileModel(profile *artist.Profile) *artistProfileModel {
 	}
 }
 
-func (model *artistProfileModel) toDomain() *artist.Profile {
+func artistProfileToDomain(model *pgmodel.ArtistProfile) *artist.Profile {
 	return &artist.Profile{
 		UserID:          model.UserID,
 		ArtistName:      model.ArtistName,
@@ -57,10 +43,8 @@ type referenceModel struct {
 }
 
 type artistReviewModel struct {
-	bun.BaseModel `bun:"table:reviews,alias:r"`
-
-	Username string `bun:"username,scanonly"`
-	Order    string `bun:"order_name,scanonly"`
+	Username string `bun:"username"`
+	Order    string `bun:"order_name"`
 	Rating   int    `bun:"rating"`
 }
 
@@ -86,7 +70,7 @@ func (r *artistRepository) Create(ctx context.Context, profile *artist.Profile) 
 }
 
 func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID, query artist.ProfileQuery) (*artist.Profile, error) {
-	model := new(artistProfileModel)
+	model := new(pgmodel.ArtistProfile)
 	categories := make([]referenceModel, 0)
 	styles := make([]referenceModel, 0)
 	reviews := make([]artistReviewModel, 0)
@@ -130,7 +114,7 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID, qu
 		}
 
 		reviewQuery := idb.NewSelect().
-			Model(&reviews).
+			TableExpr("reviews AS r").
 			ColumnExpr("reviewer.username AS username").
 			ColumnExpr("o.artwork_name_snapshot AS order_name").
 			ColumnExpr("r.rating").
@@ -141,7 +125,7 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID, qu
 			Limit(query.Limit).
 			Offset(query.Offset)
 		var err error
-		total, err = reviewQuery.ScanAndCount(ctx)
+		total, err = reviewQuery.ScanAndCount(ctx, &reviews)
 		return err
 	})
 	if err != nil {
@@ -151,7 +135,7 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID, qu
 		return nil, apperror.Internal("failed to get artist profile", err)
 	}
 
-	profile := model.toDomain()
+	profile := artistProfileToDomain(model)
 	profile.Categories = make([]artist.Category, len(categories))
 	for i, category := range categories {
 		profile.Categories[i] = artist.Category{ID: category.ID, Label: category.Label}
@@ -169,7 +153,7 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID, qu
 }
 
 func (r *artistRepository) UpdateByUserID(ctx context.Context, userID uuid.UUID, update artist.ProfileUpdate) error {
-	model := &artistProfileModel{
+	model := &pgmodel.ArtistProfile{
 		UserID:          userID,
 		Description:     update.Description,
 		ProfileImageKey: update.ProfileImageKey,

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
@@ -13,50 +14,39 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type artworkModel struct {
-	bun.BaseModel `bun:"table:artworks,alias:a"`
-
-	ID                  uuid.UUID `bun:"id,pk"`
-	ArtistID            uuid.UUID `bun:"artist_id"`
-	CategoryID          uuid.UUID `bun:"category_id"`
-	Name                string    `bun:"name"`
-	Category            string    `bun:"category,scanonly"`
-	Description         string    `bun:"description"`
-	PriceSatang         int64     `bun:"price_satang"`
-	MinimumDeadlineDays int       `bun:"minimum_deadline_days"`
-	CreatedAt           time.Time `bun:"created_at"`
-	UpdatedAt           time.Time `bun:"updated_at"`
+func newArtworkModel(item *artwork.Artwork, categoryID uuid.UUID) *pgmodel.Artwork {
+	return &pgmodel.Artwork{
+		ID:                  item.ID,
+		ArtistID:            item.ArtistID,
+		CategoryID:          categoryID,
+		Name:                item.Name,
+		Description:         item.Description,
+		PriceSatang:         item.PriceSatang,
+		MinimumDeadlineDays: item.MinimumDeadlineDays,
+		CreatedAt:           item.CreatedAt,
+		UpdatedAt:           item.UpdatedAt,
+	}
 }
 
-type artworkStyleModel struct {
-	bun.BaseModel `bun:"table:artwork_styles,alias:aws"`
-
-	ArtworkID uuid.UUID `bun:"artwork_id,pk"`
-	StyleID   uuid.UUID `bun:"style_id,pk"`
-	Label     string    `bun:"label,scanonly"`
+func artworkModelToDomain(model *pgmodel.Artwork) artwork.Artwork {
+	return artwork.Artwork{
+		ID:                  model.ID,
+		ArtistID:            model.ArtistID,
+		Name:                model.Name,
+		Category:            model.Category,
+		Styles:              make([]string, 0),
+		Description:         model.Description,
+		Samples:             make([]artwork.Sample, 0),
+		MinimumDeadlineDays: model.MinimumDeadlineDays,
+		PriceSatang:         model.PriceSatang,
+		CreatedAt:           model.CreatedAt,
+		UpdatedAt:           model.UpdatedAt,
+	}
 }
 
-type artworkImageModel struct {
-	bun.BaseModel `bun:"table:artwork_images,alias:ai"`
-
-	ID        uuid.UUID `bun:"id,pk"`
+type artworkStyleLabel struct {
 	ArtworkID uuid.UUID `bun:"artwork_id"`
-	ImageURL  string    `bun:"image_url"`
-	SortOrder int       `bun:"sort_order"`
-}
-
-type artworkCategoryModel struct {
-	bun.BaseModel `bun:"table:categories,alias:c"`
-
-	ID    uuid.UUID `bun:"id,pk"`
-	Label string    `bun:"label"`
-}
-
-type artworkReferenceStyleModel struct {
-	bun.BaseModel `bun:"table:styles,alias:s"`
-
-	ID    uuid.UUID `bun:"id,pk"`
-	Label string    `bun:"label"`
+	Label     string    `bun:"label"`
 }
 
 type artworkRepository struct {
@@ -70,7 +60,7 @@ func NewArtworkRepository(db *bun.DB) artwork.Repository {
 }
 
 func (repo *artworkRepository) FindOrCreateCategory(ctx context.Context, label string) (uuid.UUID, error) {
-	model := &artworkCategoryModel{ID: uuid.New(), Label: label}
+	model := &pgmodel.Category{ID: uuid.New(), Label: label}
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
 		// A no-op update lets RETURNING return the existing category ID.
 		_, err := idb.NewInsert().
@@ -90,7 +80,7 @@ func (repo *artworkRepository) FindOrCreateCategory(ctx context.Context, label s
 func (repo *artworkRepository) FindOrCreateStyles(ctx context.Context, labels []string) ([]uuid.UUID, error) {
 	styleIDs := make([]uuid.UUID, len(labels))
 	for index, label := range labels {
-		model := &artworkReferenceStyleModel{ID: uuid.New(), Label: label}
+		model := &pgmodel.Style{ID: uuid.New(), Label: label}
 		err := repo.exec.Run(ctx, func(idb bun.IDB) error {
 			// A no-op update lets RETURNING return the existing style ID.
 			_, err := idb.NewInsert().
@@ -111,24 +101,14 @@ func (repo *artworkRepository) FindOrCreateStyles(ctx context.Context, labels []
 
 func (repo *artworkRepository) Create(ctx context.Context, item *artwork.Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) error {
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
-		if _, err := idb.NewInsert().Model(&artworkModel{
-			ID:                  item.ID,
-			ArtistID:            item.ArtistID,
-			CategoryID:          categoryID,
-			Name:                item.Name,
-			Description:         item.Description,
-			PriceSatang:         item.PriceSatang,
-			MinimumDeadlineDays: item.MinimumDeadlineDays,
-			CreatedAt:           item.CreatedAt,
-			UpdatedAt:           item.UpdatedAt,
-		}).Exec(ctx); err != nil {
+		if _, err := idb.NewInsert().Model(newArtworkModel(item, categoryID)).Exec(ctx); err != nil {
 			return err
 		}
 
 		if len(styleIDs) > 0 {
-			styles := make([]artworkStyleModel, len(styleIDs))
+			styles := make([]pgmodel.ArtworkStyle, len(styleIDs))
 			for index, styleID := range styleIDs {
-				styles[index] = artworkStyleModel{ArtworkID: item.ID, StyleID: styleID}
+				styles[index] = pgmodel.ArtworkStyle{ArtworkID: item.ID, StyleID: styleID}
 			}
 			if _, err := idb.NewInsert().Model(&styles).Exec(ctx); err != nil {
 				return err
@@ -136,9 +116,9 @@ func (repo *artworkRepository) Create(ctx context.Context, item *artwork.Artwork
 		}
 
 		if len(item.Samples) > 0 {
-			samples := make([]artworkImageModel, len(item.Samples))
+			samples := make([]pgmodel.ArtworkImage, len(item.Samples))
 			for index, sample := range item.Samples {
-				samples[index] = artworkImageModel{
+				samples[index] = pgmodel.ArtworkImage{
 					ID:        uuid.New(),
 					ArtworkID: item.ID,
 					ImageURL:  sample.ImageURL,
@@ -163,16 +143,7 @@ func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.
 		CreatedAt time.Time `bun:"created_at"`
 		UpdatedAt time.Time `bun:"updated_at"`
 	}{}
-	model := &artworkModel{
-		ID:                  item.ID,
-		ArtistID:            item.ArtistID,
-		CategoryID:          categoryID,
-		Name:                item.Name,
-		Description:         item.Description,
-		PriceSatang:         item.PriceSatang,
-		MinimumDeadlineDays: item.MinimumDeadlineDays,
-		UpdatedAt:           item.UpdatedAt,
-	}
+	model := newArtworkModel(item, categoryID)
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
 		err := idb.NewUpdate().
 			Model(model).
@@ -186,7 +157,7 @@ func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.
 		if err != nil {
 			return err
 		}
-		existingImages := make([]artworkImageModel, 0)
+		existingImages := make([]pgmodel.ArtworkImage, 0)
 		if err := idb.NewSelect().
 			Model(&existingImages).
 			Column("id", "artwork_id", "image_url", "sort_order").
@@ -219,26 +190,26 @@ func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.
 			item.Samples[index].SortOrder = index
 		}
 
-		if _, err := idb.NewDelete().Model(new(artworkStyleModel)).Where("artwork_id = ?", item.ID).Exec(ctx); err != nil {
+		if _, err := idb.NewDelete().Model(new(pgmodel.ArtworkStyle)).Where("artwork_id = ?", item.ID).Exec(ctx); err != nil {
 			return err
 		}
-		if _, err := idb.NewDelete().Model(new(artworkImageModel)).Where("artwork_id = ?", item.ID).Exec(ctx); err != nil {
+		if _, err := idb.NewDelete().Model(new(pgmodel.ArtworkImage)).Where("artwork_id = ?", item.ID).Exec(ctx); err != nil {
 			return err
 		}
 
 		if len(styleIDs) > 0 {
-			styles := make([]artworkStyleModel, len(styleIDs))
+			styles := make([]pgmodel.ArtworkStyle, len(styleIDs))
 			for index, styleID := range styleIDs {
-				styles[index] = artworkStyleModel{ArtworkID: item.ID, StyleID: styleID}
+				styles[index] = pgmodel.ArtworkStyle{ArtworkID: item.ID, StyleID: styleID}
 			}
 			if _, err := idb.NewInsert().Model(&styles).Exec(ctx); err != nil {
 				return err
 			}
 		}
 		if len(item.Samples) > 0 {
-			samples := make([]artworkImageModel, len(item.Samples))
+			samples := make([]pgmodel.ArtworkImage, len(item.Samples))
 			for index, sample := range item.Samples {
-				samples[index] = artworkImageModel{
+				samples[index] = pgmodel.ArtworkImage{
 					ID:        uuid.New(),
 					ArtworkID: item.ID,
 					ImageURL:  sample.ImageURL,
@@ -271,7 +242,7 @@ func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, art
 	var result sql.Result
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
 		if err := idb.NewSelect().
-			Model(new(artworkImageModel)).
+			Model(new(pgmodel.ArtworkImage)).
 			Column("ai.image_url").
 			Join("JOIN artworks AS a ON a.id = ai.artwork_id").
 			Where("ai.artwork_id = ? AND a.artist_id = ?", artworkID, artistID).
@@ -280,7 +251,7 @@ func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, art
 		}
 		var err error
 		result, err = idb.NewDelete().
-			Model(new(artworkModel)).
+			Model(new(pgmodel.Artwork)).
 			Where("id = ? AND artist_id = ?", artworkID, artistID).
 			Exec(ctx)
 		return err
@@ -299,9 +270,9 @@ func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, art
 }
 
 func (repo *artworkRepository) ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]artwork.Artwork, error) {
-	models := make([]artworkModel, 0)
-	styleModels := make([]artworkStyleModel, 0)
-	imageModels := make([]artworkImageModel, 0)
+	models := make([]pgmodel.Artwork, 0)
+	styleLabels := make([]artworkStyleLabel, 0)
+	imageModels := make([]pgmodel.ArtworkImage, 0)
 
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
 		exists, err := idb.NewSelect().
@@ -318,11 +289,11 @@ func (repo *artworkRepository) ListByArtistID(ctx context.Context, artistID uuid
 
 		if err := idb.NewSelect().
 			Model(&models).
-			ColumnExpr("a.id, a.artist_id, a.name, a.description, a.price_satang, a.minimum_deadline_days, a.created_at, a.updated_at").
+			ColumnExpr("art.id, art.artist_id, art.name, art.description, art.price_satang, art.minimum_deadline_days, art.created_at, art.updated_at").
 			ColumnExpr("c.label AS category").
-			Join("JOIN categories AS c ON c.id = a.category_id").
-			Where("a.artist_id = ?", artistID).
-			OrderExpr("a.created_at DESC, a.id DESC").
+			Join("JOIN categories AS c ON c.id = art.category_id").
+			Where("art.artist_id = ?", artistID).
+			OrderExpr("art.created_at DESC, art.id DESC").
 			Scan(ctx); err != nil {
 			return err
 		}
@@ -340,16 +311,16 @@ func (repo *artworkRepository) ListByArtistID(ctx context.Context, artistID uuid
 			ColumnExpr("aws.artwork_id").
 			ColumnExpr("s.label").
 			Join("JOIN styles AS s ON s.id = aws.style_id").
-			Where("aws.artwork_id IN (?)", bun.In(artworkIDs)).
+			Where("aws.artwork_id IN (?)", bun.List(artworkIDs)).
 			OrderExpr("aws.artwork_id ASC, s.label ASC, s.id ASC").
-			Scan(ctx, &styleModels); err != nil {
+			Scan(ctx, &styleLabels); err != nil {
 			return err
 		}
 
 		return idb.NewSelect().
 			TableExpr("artwork_images AS ai").
 			ColumnExpr("ai.artwork_id, ai.image_url").
-			Where("ai.artwork_id IN (?)", bun.In(artworkIDs)).
+			Where("ai.artwork_id IN (?)", bun.List(artworkIDs)).
 			OrderExpr("ai.artwork_id ASC, ai.sort_order ASC, ai.id ASC").
 			Scan(ctx, &imageModels)
 	})
@@ -362,23 +333,11 @@ func (repo *artworkRepository) ListByArtistID(ctx context.Context, artistID uuid
 
 	artworks := make([]artwork.Artwork, len(models))
 	indexByID := make(map[uuid.UUID]int, len(models))
-	for index, model := range models {
-		artworks[index] = artwork.Artwork{
-			ID:                  model.ID,
-			ArtistID:            model.ArtistID,
-			Name:                model.Name,
-			Category:            model.Category,
-			Styles:              make([]string, 0),
-			Description:         model.Description,
-			Samples:             make([]artwork.Sample, 0),
-			MinimumDeadlineDays: model.MinimumDeadlineDays,
-			PriceSatang:         model.PriceSatang,
-			CreatedAt:           model.CreatedAt,
-			UpdatedAt:           model.UpdatedAt,
-		}
-		indexByID[model.ID] = index
+	for index := range models {
+		artworks[index] = artworkModelToDomain(&models[index])
+		indexByID[models[index].ID] = index
 	}
-	for _, style := range styleModels {
+	for _, style := range styleLabels {
 		index := indexByID[style.ArtworkID]
 		artworks[index].Styles = append(artworks[index].Styles, style.Label)
 	}

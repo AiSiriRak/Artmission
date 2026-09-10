@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
+	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
@@ -13,19 +13,8 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type bankAccountModel struct {
-	bun.BaseModel `bun:"table:bank_accounts,alias:ba"`
-
-	UserID            uuid.UUID `bun:"user_id,pk"`
-	BankName          string    `bun:"bank_name"`
-	AccountHolderName string    `bun:"account_holder_name"`
-	AccountNumber     string    `bun:"account_number"`
-	CreatedAt         time.Time `bun:"created_at,nullzero"`
-	UpdatedAt         time.Time `bun:"updated_at,nullzero"`
-}
-
-func newBankAccountModel(ba *user.BankAccount) *bankAccountModel {
-	return &bankAccountModel{
+func newBankAccountModel(ba *user.BankAccount) *pgmodel.BankAccount {
+	return &pgmodel.BankAccount{
 		UserID:            ba.UserID,
 		BankName:          ba.BankName,
 		AccountHolderName: ba.AccountHolderName,
@@ -35,7 +24,7 @@ func newBankAccountModel(ba *user.BankAccount) *bankAccountModel {
 	}
 }
 
-func (m *bankAccountModel) toDomain() *user.BankAccount {
+func bankAccountModelToDomain(m *pgmodel.BankAccount) *user.BankAccount {
 	return &user.BankAccount{
 		UserID:            m.UserID,
 		BankName:          m.BankName,
@@ -68,7 +57,7 @@ func (r *bankAccountRepository) Create(ctx context.Context, ba *user.BankAccount
 }
 
 func (r *bankAccountRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*user.BankAccount, error) {
-	model := new(bankAccountModel)
+	model := new(pgmodel.BankAccount)
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		return idb.NewSelect().Model(model).Where("user_id = ?", userID).Scan(ctx)
 	})
@@ -78,7 +67,7 @@ func (r *bankAccountRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 		}
 		return nil, apperror.Internal("failed to look up bank account", err)
 	}
-	return model.toDomain(), nil
+	return bankAccountModelToDomain(model), nil
 }
 
 func (r *bankAccountRepository) UpsertByUserID(ctx context.Context, ba *user.BankAccount) (*user.BankAccount, error) {
@@ -98,5 +87,5 @@ func (r *bankAccountRepository) UpsertByUserID(ctx context.Context, ba *user.Ban
 	if err != nil {
 		return nil, apperror.Internal("failed to upsert bank account", err)
 	}
-	return model.toDomain(), nil
+	return bankAccountModelToDomain(model), nil
 }
