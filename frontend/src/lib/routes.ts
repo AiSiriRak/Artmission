@@ -10,7 +10,8 @@ export const routes = {
   },
 
   order: {
-    history: "/order-history",
-    detail: (id: string) => `/order-history/${id}`,
+    artist: "/orderartist",
+    history: "/orderhistory",
+    detail: (id: string) => `/orderhistory/${id}`,
   },
 } as const;

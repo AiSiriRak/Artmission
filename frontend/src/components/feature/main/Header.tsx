@@ -22,19 +22,27 @@ export default function Header({
   const navItems =
     usertype == "customer"
       ? [
-          { name: "Home", path: routes.home, icon: "/icons/home.svg" },
+          {
+            name: "Home",
+            page: "Home",
+            path: routes.home,
+            icon: "/icons/home.svg",
+          },
           {
             name: "Order",
+            page: "Order History",
             path: routes.order.history,
             icon: "/icons/order.svg",
           },
           {
             name: "Notification",
+            page: "Notification",
             path: routes.notification,
             icon: "/icons/notification.svg",
           },
           {
             name: "Setting",
+            page: "Setting",
             path: routes.settings,
             icon: "/icons/setting.svg",
           },
@@ -42,21 +50,25 @@ export default function Header({
       : [
           {
             name: "Order",
-            path: routes.order.history,
+            page: "Order Artist",
+            path: routes.order.artist,
             icon: "/icons/order.svg",
           },
           {
             name: "Artist Profile",
+            page: "Artist Profile",
             path: routes.artist.profile,
             icon: "/icons/artist_profile.svg",
           },
           {
             name: "Notification",
+            page: "Notification",
             path: routes.notification,
             icon: "/icons/notification.svg",
           },
           {
             name: "Setting",
+            page: "Setting",
             path: routes.settings,
             icon: "/icons/setting.svg",
           },
@@ -116,7 +128,7 @@ export default function Header({
         <div className="flex items-center gap-4">
           <nav className="hidden md:flex items-center gap-2">
             {navItems.map((item) => {
-              const isActive = activeMenu === item.name;
+              const isActive = activeMenu === item.page;
 
               return (
                 <Link

@@ -42,41 +42,43 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <div className="flex items-center justify-between m-10">
-        <p className="truncate text-primary-500 text-h2 ">Recently Orders</p>
-        <div className="flex space-x-8">
-          <div className="w-48">
-            <CheckboxDropdown options={status_list}></CheckboxDropdown>
-          </div>
-          <div className="w-48">
-            <SelectInput
-              value={sortOrder ? sortOrder : ""}
-              onChange={(e) => {
-                setSortOrder(e.target.value);
-              }}
-              options={sortOrder_list}
-            />
+    <MainLayout page={"Order History"} usertype={"customer"}>
+      <div className="min-h-screen">
+        <div className="flex items-center justify-between m-10">
+          <p className="truncate text-primary-500 text-h2 ">Recently Orders</p>
+          <div className="flex space-x-8">
+            <div className="w-48">
+              <CheckboxDropdown options={status_list}></CheckboxDropdown>
+            </div>
+            <div className="w-48">
+              <SelectInput
+                value={sortOrder ? sortOrder : ""}
+                onChange={(e) => {
+                  setSortOrder(e.target.value);
+                }}
+                options={sortOrder_list}
+              />
+            </div>
           </div>
         </div>
+        {/* Order List */}
+        <div className="px-10 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] gap-6 space-y-12 item justify-between mb-20">
+          {order.orders ? (
+            order.orders.map((option) => (
+              <OrderCard key={option.id} order={option} status={status_list} />
+            ))
+          ) : (
+            <div />
+          )}{" "}
+          {order.orders ? (
+            order.orders.map((option) => (
+              <OrderCard key={option.id} order={option} status={status_list} />
+            ))
+          ) : (
+            <div />
+          )}
+        </div>
       </div>
-      {/* Order List */}
-      <div className="px-10 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] gap-6 space-y-12 item justify-between mb-20">
-        {order.orders ? (
-          order.orders.map((option) => (
-            <OrderCard key={option.id} order={option} status={status_list} />
-          ))
-        ) : (
-          <div />
-        )}{" "}
-        {order.orders ? (
-          order.orders.map((option) => (
-            <OrderCard key={option.id} order={option} status={status_list} />
-          ))
-        ) : (
-          <div />
-        )}
-      </div>
-    </div>
+    </MainLayout>
   );
 }
