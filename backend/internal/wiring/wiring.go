@@ -48,7 +48,7 @@ func Wire(cfg Config) *httpserver.Server {
 	tokenIssuer := token.NewJWTIssuer(cfg.Auth.JWTSecret)
 	tx := baserepo.NewTransactioner(cfg.DB)
 
-	artistUsecase := artist.NewProfileUsecase(artistRepo, tx)
+	artistUsecase := artist.NewProfileUsecase(artistRepo, cfg.ObjectStorage)
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage)

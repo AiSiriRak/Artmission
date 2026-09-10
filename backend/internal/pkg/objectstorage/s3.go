@@ -3,6 +3,7 @@ package objectstorage
 import (
 	"context"
 	"fmt"
+	"io"
 	"path"
 	"strings"
 	"time"
@@ -14,15 +15,31 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// TODO: add Upload/Delete once the artist deliverable-submission and
-// artwork-image endpoints exist; GetPresignedURL and PublicURL are the
-// only operations ViewOrders needs today.
 type Client struct {
 	raw               *s3.Client
 	presign           *s3.PresignClient
 	publicBucketName  string
 	privateBucketName string
 	publicBaseURL     string
+}
+
+func (c *Client) UploadPublic(ctx context.Context, key string, body io.Reader, size int64, contentType string) error {
+	_, err := c.raw.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:        aws.String(c.publicBucketName),
+		Key:           aws.String(key),
+		Body:          body,
+		ContentLength: aws.Int64(size),
+		ContentType:   aws.String(contentType),
+	})
+	return err
+}
+
+func (c *Client) DeletePublic(ctx context.Context, key string) error {
+	_, err := c.raw.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(c.publicBucketName),
+		Key:    aws.String(key),
+	})
+	return err
 }
 
 func NewS3Client(ctx context.Context, cfg config.S3) (*Client, error) {
