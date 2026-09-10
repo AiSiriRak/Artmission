@@ -63,11 +63,7 @@ func (u *userUsecase) Register(ctx context.Context, in RegisterInput) (*User, er
 	if in.Role != RoleCustomer && in.Role != RoleArtist {
 		return nil, ErrInvalidRole
 	}
-	if in.Role == RoleArtist {
-		if in.Artist == nil || strings.TrimSpace(in.Artist.Description) == "" {
-			return nil, ErrArtistDescriptionRequired
-		}
-	} else if in.Artist != nil {
+	if in.Role != RoleArtist && in.Artist != nil {
 		return nil, ErrArtistFieldsNotAllowed
 	}
 	if strings.TrimSpace(in.BankAccount.BankName) == "" || strings.TrimSpace(in.BankAccount.AccountHolderName) == "" || strings.TrimSpace(in.BankAccount.AccountNumber) == "" {
@@ -106,7 +102,11 @@ func (u *userUsecase) Register(ctx context.Context, in RegisterInput) (*User, er
 			return err
 		}
 		if in.Role == RoleArtist {
-			return u.artistRegistrar.CreateProfile(ctx, newUser.ID, strings.TrimSpace(in.Artist.Description))
+			description := ""
+			if in.Artist != nil {
+				description = strings.TrimSpace(in.Artist.Description)
+			}
+			return u.artistRegistrar.CreateProfile(ctx, newUser.ID, description)
 		}
 		return nil
 	})

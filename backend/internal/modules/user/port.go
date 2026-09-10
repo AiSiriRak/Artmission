@@ -62,7 +62,7 @@ type RegisterInput struct {
 	Password    string
 	Role        Role
 	BankAccount BankAccountInput
-	// Artist is required when Role is artist, and must be nil for a customer.
+	// Artist may be nil when Role is artist (description is optional); must be nil for a customer.
 	Artist *ArtistProfileInput
 }
 
