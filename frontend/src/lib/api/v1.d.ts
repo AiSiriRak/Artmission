@@ -14,7 +14,7 @@ export interface paths {
         get?: never;
         /**
          * UpdateMyArtistProfile
-         * @description Replace the authenticated artist's editable profile details
+         * @description Update the authenticated artist's description or public profile image
          */
         put: operations["update-my-artist-profile"];
         post?: never;
@@ -33,12 +33,52 @@ export interface paths {
         };
         /**
          * GetArtistProfile
-         * @description Get a public artist profile
+         * @description Get a public artist profile with artwork-derived details and paginated reviews
          */
         get: operations["get-artist-profile"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/artworks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * CreateArtwork
+         * @description Return a fixed artwork response for frontend integration
+         */
+        post: operations["create-artwork"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/artworks/{artwork_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * DeleteArtwork
+         * @description Return a successful deletion response for frontend integration
+         */
+        delete: operations["delete-artwork"];
         options?: never;
         head?: never;
         patch?: never;
@@ -124,7 +164,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/orders/history": {
+    "/orders": {
         parameters: {
             query?: never;
             header?: never;
@@ -132,10 +172,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * ViewHiringHistory
-         * @description View the authenticated customer's hiring history
+         * ViewOrders
+         * @description List the authenticated customer's or artist's orders, filtered by status, sorted by deadline/price/updated_at, and paginated by limit/offset. deliverable_preview_url is the artist's most recently submitted deliverable preview, presigned and time-limited, regardless of order status; null if none has been submitted yet.
          */
-        get: operations["view-hiring-history"];
+        get: operations["view-orders"];
         put?: never;
         post?: never;
         delete?: never;
@@ -222,18 +262,49 @@ export interface components {
             artist_id: string;
             artist_name: string;
             categories: components["schemas"]["ArtistReferenceView"][] | null;
-            description: string;
+            description: string | null;
             /** Format: int64 */
             max_price_satang: number | null;
             /** Format: int64 */
             min_price_satang: number | null;
+            profile_url: string | null;
             /** Format: double */
             review_score: number | null;
+            reviews: components["schemas"]["ArtistReviewView"][] | null;
             styles: components["schemas"]["ArtistReferenceView"][] | null;
+            /** Format: int64 */
+            total: number;
         };
         ArtistReferenceView: {
             id: string;
             label: string;
+        };
+        ArtistReviewView: {
+            order: string;
+            /** Format: int64 */
+            rating: number;
+            username: string;
+        };
+        ArtworkSampleView: {
+            /** Format: uri */
+            image_url: string;
+        };
+        ArtworkView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ArtworkView.json
+             */
+            readonly $schema?: string;
+            artwork_samples: components["schemas"]["ArtworkSampleView"][] | null;
+            category: string;
+            description: string;
+            /** Format: int64 */
+            minimum_deadline_days: number;
+            name: string;
+            /** Format: int64 */
+            price_satang: number;
+            styles: string[] | null;
         };
         AuthResultBody: {
             /**
@@ -255,9 +326,22 @@ export interface components {
             account_last4: string;
             bank_name: string;
         };
-        CategoryView: {
-            id: string;
-            label: string;
+        CreateArtworkInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/CreateArtworkInputBody.json
+             */
+            readonly $schema?: string;
+            artwork_samples: components["schemas"]["ArtworkSampleView"][] | null;
+            category: string;
+            description: string;
+            /** Format: int64 */
+            minimum_deadline_days: number;
+            name: string;
+            /** Format: int64 */
+            price_satang: number;
+            styles: string[] | null;
         };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -317,24 +401,27 @@ export interface components {
             email: string;
             password: string;
         };
-        OrderView: {
+        OrderSummaryView: {
             artist_id: string;
-            category?: components["schemas"]["CategoryView"];
             /** Format: date-time */
             completed_at?: string;
             /** Format: date-time */
             created_at: string;
+            customer_id: string;
             /** Format: date-time */
-            deadline?: string;
-            description: string;
+            deadline_at?: string;
+            /** @description Presigned URL of the most recently submitted deliverable's preview image, regardless of order status; null if none has been submitted yet. */
+            deliverable_preview_url: string | null;
             id: string;
-            /** Format: double */
-            price?: number;
+            name: string;
+            /** Format: int64 */
+            price_satang: number;
             status: string;
-            style?: components["schemas"]["StyleView"];
+            /** Format: date-time */
+            updated_at: string;
         };
         RegisterArtistBody: {
-            description: string;
+            description?: string;
         };
         RegisterBankAccountBody: {
             account_holder_name: string;
@@ -356,10 +443,6 @@ export interface components {
             /** @enum {string} */
             role: "customer" | "artist";
             username: string;
-        };
-        StyleView: {
-            id: string;
-            label: string;
         };
         UpdateAccountInputBody: {
             /**
@@ -383,28 +466,16 @@ export interface components {
             account_number: string;
             bank_name: string;
         };
-        UpdateMyArtistProfileInputBody: {
+        ViewOrdersOutputBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/UpdateMyArtistProfileInputBody.json
+             * @example /api/v1/schemas/ViewOrdersOutputBody.json
              */
             readonly $schema?: string;
-            description: string;
+            orders: components["schemas"]["OrderSummaryView"][] | null;
             /** Format: int64 */
-            max_price_satang: number;
-            /** Format: int64 */
-            min_price_satang: number;
-            style_ids: string[] | null;
-        };
-        ViewHiringHistoryOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ViewHiringHistoryOutputBody.json
-             */
-            readonly $schema?: string;
-            orders: components["schemas"]["OrderView"][] | null;
+            total: number;
         };
     };
     responses: never;
@@ -422,9 +493,14 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["UpdateMyArtistProfileInputBody"];
+                "multipart/form-data": {
+                    description?: string;
+                    /** Format: binary */
+                    profile_image?: string;
+                    remove_profile_image?: boolean;
+                };
             };
         };
         responses: {
@@ -450,7 +526,12 @@ export interface operations {
     };
     "get-artist-profile": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum number of reviews to return. */
+                limit?: number;
+                /** @description Number of reviews to skip. */
+                offset?: number;
+            };
             header?: never;
             path: {
                 artist_id: string;
@@ -467,6 +548,68 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ArtistProfileView"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-artwork": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateArtworkInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtworkView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-artwork": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artwork_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -604,9 +747,20 @@ export interface operations {
             };
         };
     };
-    "view-hiring-history": {
+    "view-orders": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Filter by one or more order statuses. Repeated values are OR'd. Omit for every status. */
+                status?: ("PENDING" | "NOT_PAID" | "IN_PROCESS" | "SUCCESS" | "CANCEL")[] | null;
+                /** @description Field to sort by. */
+                sort?: "deadline" | "price" | "updated_at";
+                /** @description Sort direction. */
+                order?: "asc" | "desc";
+                /** @description Maximum number of orders to return. */
+                limit?: number;
+                /** @description Number of matching orders to skip before the first returned row. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -619,7 +773,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ViewHiringHistoryOutputBody"];
+                    "application/json": components["schemas"]["ViewOrdersOutputBody"];
                 };
             };
             /** @description Error */

@@ -2,9 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation"; 
-import { updateArtistProfile } from "@/lib/api/artist"; 
-import type { UpdateArtistInput } from "@/lib/api/types";
-import { ArtistData, ArtworkData, ReviewData } from "../../../app/artist/types";
+import { updateArtistProfile } from "@/lib/api/artists"; 
+import type { UpdateArtistInput, ArtistProfile, Artwork } from "@/lib/api/types";
+
+// กำหนด Type ของ Review ไว้ในนี้ชั่วคราว (จนกว่า Backend จะมี Review Type)
+export interface ReviewData {
+  id: string | number;
+  reviewerName: string;
+  timeAgo: string;
+  orderName: string;
+  rating: number;
+  comment: string;
+  avatarUrl?: string;
+}
 
 // Custom / Local Components
 import ProfileSidebar from "./ProfileSidebar";
@@ -19,11 +29,17 @@ import ReviewList from "./ReviewList";
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
 
+interface ProfileManagerProps {
+  initialProfile: ArtistProfile;
+  initialArtworks: Artwork[];
+  initialReviews?: ReviewData[];
+}
+
 export default function ProfileManager({ 
-  initialProfile, initialArtworks, initialReviews = []
-}: { 
-  initialProfile: ArtistData, initialArtworks: ArtworkData[], initialReviews?: ReviewData[]
-}) {
+  initialProfile, 
+  initialArtworks, 
+  initialReviews = []
+}: ProfileManagerProps) {
 
   const router = useRouter();
 
@@ -31,21 +47,19 @@ export default function ProfileManager({
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false); 
 
-  const [selectedArtwork, setSelectedArtwork] = useState<ArtworkData | 'new' | null>(null);
-  const [artworks, setArtworks] = useState<ArtworkData[]>(initialArtworks);
+  const [selectedArtwork, setSelectedArtwork] = useState<Artwork | 'new' | null>(null);
+  const [artworks, setArtworks] = useState<Artwork[]>(initialArtworks);
 
   const [reviews, setReviews] = useState<ReviewData[]>(
     initialReviews.length > 0 ? initialReviews : [
       { id: 1, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
       { id: 2, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
       { id: 3, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
-      { id: 4, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
-      { id: 5, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
     ]
   );
   
-  const [savedData, setSavedData] = useState<ArtistData>(initialProfile);
-  const [artistData, setArtistData] = useState<ArtistData>(initialProfile);
+  const [savedData, setSavedData] = useState<ArtistProfile>(initialProfile);
+  const [artistData, setArtistData] = useState<ArtistProfile>(initialProfile);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setArtistData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -54,24 +68,18 @@ export default function ProfileManager({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const profile = initialProfile as Record<string, any>;
-
-      const existingStyleIds = Array.isArray(profile.style_ids) && profile.style_ids.length > 0
-        ? profile.style_ids
-        : (Array.isArray(profile.styles) ? profile.styles.map((s: any) => s.id) : null);
-
+      // ส่งเฉพาะฟิลด์ที่ UpdateArtistInput อนุญาตให้อัปเดต
       const payload: UpdateArtistInput = {
         description: artistData.description || "",
-        min_price_satang: Number(profile.min_price_satang ?? profile.minPriceSatang ?? 0),
-        max_price_satang: Number(profile.max_price_satang ?? profile.maxPriceSatang ?? 0),
-        style_ids: existingStyleIds,
       };
 
       const updatedProfile = await updateArtistProfile(payload);
 
-      const updatedData: ArtistData = {
+      const updatedData: ArtistProfile = {
         ...artistData,
         description: updatedProfile.description || artistData.description,
+        min_price_satang: updatedProfile.min_price_satang,
+        max_price_satang: updatedProfile.max_price_satang,
       };
 
       setSavedData(updatedData);
@@ -81,27 +89,36 @@ export default function ProfileManager({
       router.refresh(); 
       alert("บันทึกข้อมูลเรียบร้อยแล้ว");
       
+    
     } catch (error: any) {
       console.error("Save failed:", error);
+
+      // 🛑 เพิ่มบรรทัดนี้เพื่อปริ้นต์รายละเอียด Validation Error จาก Backend ออกมาดู
+      if (error.body) {
+        console.log("Detailed Validation Error:", JSON.stringify(error.body, null, 2));
+      }
+
       alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
     } finally {
-      setIsSaving(false); 
+      setIsSaving(false);
     }
   };
 
-  const handleSaveArtwork = (savedArtwork: ArtworkData) => {
+  const handleSaveArtwork = (savedArtwork: Artwork) => {
     setArtworks((prevArtworks) => {
-      const exists = prevArtworks.some((item) => item.id === savedArtwork.id);
+      const exists = prevArtworks.some((item) => item.name === savedArtwork.name);
       if (exists) {
-        return prevArtworks.map((item) => item.id === savedArtwork.id ? savedArtwork : item);
+        return prevArtworks.map((item) => 
+          item.name === savedArtwork.name ? savedArtwork : item
+        );
       } else {
         return [...prevArtworks, savedArtwork];
       }
     });
   };
 
-  const handleDeleteArtwork = (idToDelete: number | string) => {
-    setArtworks((prevArtworks) => prevArtworks.filter(art => art.id !== idToDelete));
+  const handleDeleteArtwork = (nameToDelete: string | number) => {
+    setArtworks((prevArtworks) => prevArtworks.filter(art => art.name !== nameToDelete));
     setSelectedArtwork(null);
   };
 
@@ -112,20 +129,24 @@ export default function ProfileManager({
   };
 
   const handleImageChange = (newImageUrl: string) => {
-    setArtistData((prev) => ({ ...prev, profileImage: newImageUrl }));
+    setArtistData((prev) => ({ ...prev, profile_url: newImageUrl } as ArtistProfile));
   };
 
-  // --- ลอจิกดึงข้อมูลอัตโนมัติ ---
+  // --- ลอจิกดึงข้อมูลอัตโนมัติ (อิงตาม ArtworkView schema) ---
   const derivedCategories = [...new Set(artworks.map(art => art.category).filter(Boolean))];
+  
   const derivedStyles = [...new Set(
-    artworks.flatMap(art => 
-      art.style ? art.style.split(',').map(s => s.trim()) : []
-    ).filter(Boolean)
-  )];
+    artworks.flatMap(art => art.styles || [])
+  )].filter(Boolean);
 
-  const prices = artworks.map(art => Number(art.price)).filter(p => !isNaN(p) && p > 0);
+  // คำนวณราคาจาก price_satang เป็นบาท
+  const prices = artworks
+    .map(art => Number(art.price_satang ? art.price_satang / 100 : 0))
+    .filter(p => !isNaN(p) && p > 0);
+    
   const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
   const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+  
   const priceRangeText = prices.length === 0 
     ? "N/A" 
     : minPrice === maxPrice 
@@ -144,11 +165,11 @@ export default function ProfileManager({
   if (selectedArtwork) {
     return (
       <ArtworkDetail 
-        artwork={selectedArtwork === 'new' ? null : selectedArtwork} 
+        artwork={(selectedArtwork === 'new' ? null : selectedArtwork) as any}
         onBack={() => setSelectedArtwork(null)}
         isCustomerMode={isCustomerMode}
-        onSave={handleSaveArtwork}
-        onDelete={handleDeleteArtwork}
+        onSave={handleSaveArtwork as any}
+        onDelete={handleDeleteArtwork as any}
       />
     );
   }
@@ -167,7 +188,7 @@ export default function ProfileManager({
           <div className="mb-12">
             <div className="flex flex-col md:flex-row gap-10">
               <ProfileSidebar 
-                imageUrl={artistData.profileImage}
+                imageUrl={(artistData as any).profile_url || (artistData as any).profileImage || ""}
                 isEditing={isEditing}
                 onEdit={() => setIsEditing(true)}
                 onSave={handleSave}
@@ -177,8 +198,21 @@ export default function ProfileManager({
               />
 
               <div className="flex-1">
-                <EditorField label="Profile Name" name="name" value={artistData.name} isEditing={false} onChange={handleChange} />
-                <EditorField label="Description" name="description" value={artistData.description} isEditing={isEditing} onChange={handleChange} isTextArea />
+                <EditorField 
+                  label="Profile Name" 
+                  name="artist_name" 
+                  value={(artistData as any).artist_name || (artistData as any).name || ""} 
+                  isEditing={false} 
+                  onChange={handleChange} 
+                />
+                <EditorField 
+                  label="Description" 
+                  name="description" 
+                  value={artistData.description || ""} 
+                  isEditing={isEditing} 
+                  onChange={handleChange} 
+                  isTextArea 
+                />
                 
                 <div className="grid grid-cols-2 gap-6 mt-8">
                   <div>
@@ -217,7 +251,7 @@ export default function ProfileManager({
           <div className="max-w-5xl mx-auto px-8 relative">
             <div className="flex justify-between items-end -mt-16 sm:-mt-20 mb-6 relative z-10">
               <ProfileImage 
-                imageUrl={artistData.profileImage}
+                imageUrl={(artistData as any).profile_url || (artistData as any).profileImage || ""}
                 className="w-36 h-36 md:w-44 md:h-44"
               />
 
@@ -237,10 +271,12 @@ export default function ProfileManager({
             </div>
 
             <div className="mb-6">
-              <h1 className="text-h2 font-bold text-gray-900">{artistData.name}</h1>
+              <h1 className="text-h2 font-bold text-gray-900">
+                {(artistData as any).artist_name || (artistData as any).name || "Unknown Artist"}
+              </h1>
             </div>
 
-            <p className="text-gray-700 text-sm md:text-base leading-relaxed mb-8">
+            <p className="text-gray-700 text-sm md:text-base leading-relaxed mb-8 whitespace-pre-wrap">
               {artistData.description}
             </p>
 
@@ -301,10 +337,10 @@ export default function ProfileManager({
             </div>
           )}
 
-          {artworks.map((art) => (
+          {artworks.map((art, idx) => (
             <ArtworkCard 
-              key={art.id} 
-              artwork={art} 
+              key={(art as any).id || art.name || idx} 
+              artwork={art as any} 
               showEditControls={showEditControls}
               onClick={() => {
                 if (!isEditing) {
@@ -340,7 +376,7 @@ export default function ProfileManager({
           </>
         )}
 
-        <ReviewList reviews={reviews} />
+        <ReviewList reviews={reviews as any} />
       </div>
 
     </div>

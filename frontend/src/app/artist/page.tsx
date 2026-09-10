@@ -1,63 +1,48 @@
 import ProfileManager from "@/components/feature/artistprofile/ProfileManager";
-import { ArtistData, ArtworkData } from "./types";
 import MainLayout from "@/components/feature/main/MainLayout";
-import { getArtistProfile } from "@/lib/api/artist";
-import { ArtistProfile } from "@/lib/api/types"; 
+import { getArtistProfile } from "@/lib/api/artists";
+import { getAccount } from "@/lib/api/users"; // 1. นำเข้า getAccount เพื่อหา ID ของผู้ใช้ปัจจุบัน
+import type { ArtistProfile, Artwork } from "@/lib/api/types";
 
 export default async function ArtistProfilePage() {
-  let username = "Artist's Name";
-  let artistProfileData: Partial<ArtistProfile> = {};
+  let artistProfile: ArtistProfile | null = null;
+  let artworks: Artwork[] = []; 
 
   try {
-    const artist = await getArtistProfile();
-    if (artist) {
-      artistProfileData = artist;
-      username = artist.artist_name || username; 
+    // 1. ดึงข้อมูล Account ของผู้ใช้
+    const account = await getAccount();
+
+    // 2. ใช้ account.id ส่งไปยัง GET /artists/{artist_id}
+    if (account?.id) {
+      artistProfile = await getArtistProfile(account.id);
+    } else {
+      console.warn("Account ID not found");
     }
-  } catch (error) {
+    
+  } catch (error: any) {
     console.warn("Cannot fetch artist profile", error);
+    if (error.body?.errors) {
+      console.dir(error.body.errors, { depth: null });
+    }
   }
 
-  const categoryString = artistProfileData.categories?.map(c => c.label).join(", ");
-  const styleString = artistProfileData.styles?.map(s => s.label).join(", ");
-
-  // แปลงราคาจากหน่วย สตางค์ เป็น บาท (หาร 100)
-  const minTHB = artistProfileData.min_price_satang ? artistProfileData.min_price_satang / 100 : null;
-  const maxTHB = artistProfileData.max_price_satang ? artistProfileData.max_price_satang / 100 : null;
-  const priceRangeString = minTHB && maxTHB ? `${minTHB} - ${maxTHB} THB` : undefined;
-
-  const artistInitialData: ArtistData = {
-    name: username,
-    // Backend ยังไม่มีฟิลด์ profileImage ให้ส่งค่าว่างไปก่อน หรือใส่ Placeholder
-    profileImage: "", 
-    description:
-      artistProfileData.description ||
-      "Digital illustrator and visual storyteller. Bringing characters to life through rich color palettes, expressive lighting, and playful moods.\n🎨 Original prints & adoption available \n📩 Open for commissions & freelance work \n🔗 Explore the collection below: [Artmission Link]",
-    style: styleString || "Pixel Art, Cartoon, Graphic",
-    category: categoryString || "Digital Art, Poster",
-    priceRange: priceRangeString || "500 - 2,000 THB",
-  };
-
-  const initialArtworks: ArtworkData[] = [
-    { 
-      id: 1, 
-      name: "Pixel Art Portrait",
-      coverImage: "https://placehold.co/300x200", 
-      style: "Pixel Art", 
-      category: "categories", 
-      price: 300,
-      description: "Turn your favorite memories into a nostalgic pixel art style. Perfect for game lovers and retro aesthetics.",
-      deadline: 5,
-      images: ["https://placehold.co/300x200"]
-    },
-  ];
+  // Fallback กรณีดึงข้อมูลไม่สำเร็จ
+  if (!artistProfile) {
+    return (
+      <MainLayout page="Artist Profile" usertype="artist">
+        <div className="w-full min-h-screen flex items-center justify-center bg-white text-black">
+          <p className="text-xl">ไม่พบข้อมูลศิลปิน หรือเกิดข้อผิดพลาดในการโหลดข้อมูล</p>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout page="Artist Profile" usertype="artist">
       <div className="w-full bg-white text-black">
         <ProfileManager 
-          initialProfile={artistInitialData} 
-          initialArtworks={initialArtworks} 
+          initialProfile={artistProfile} 
+          initialArtworks={artworks} 
         />
       </div>
     </MainLayout>
