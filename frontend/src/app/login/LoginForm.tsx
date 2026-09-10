@@ -81,6 +81,7 @@ export function LoginForm() {
                 setErrorMessage("");
               }}
               placeholder="Enter your email"
+              className="mt-1"
             />
           </label>
 

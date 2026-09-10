@@ -129,7 +129,7 @@ interface RegisterStepIndicatorProps {
 
 export function RegisterStepIndicator({ step }: RegisterStepIndicatorProps) {
   return (
-    <div className="mx-auto mb-10 flex w-full max-w-xs items-center">
+    <div className="mx-auto mb-10 flex w-full max-w-[22rem] items-center">
       {registerSteps.map((stepNumber, index) => {
         const isActive = stepNumber === step;
         const isComplete = stepNumber < step;
@@ -138,7 +138,7 @@ export function RegisterStepIndicator({ step }: RegisterStepIndicatorProps) {
         return (
           <div key={stepNumber} className="flex flex-1 items-center last:flex-none">
             <div
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-4 ${
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-[3px] ${
                 isComplete
                   ? "border-primary-500 bg-primary-500"
                   : isActive
@@ -149,7 +149,7 @@ export function RegisterStepIndicator({ step }: RegisterStepIndicatorProps) {
             >
               {isComplete && (
                 <svg
-                  className="h-6 w-6 text-white"
+                  className="h-5 w-5 text-white"
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -331,6 +331,7 @@ function RegisterAccountInformationStep({
             value={values.email}
             onChange={onEmailChange}
             placeholder="Enter your email"
+            className="mt-1"
           />
         </label>
         <RegisterFieldError field="email" fieldErrors={fieldErrors} />
@@ -343,6 +344,7 @@ function RegisterAccountInformationStep({
             value={values.username}
             onChange={onUsernameChange}
             placeholder="Enter your username"
+            className="mt-1"
           />
         </label>
         <RegisterFieldError field="username" fieldErrors={fieldErrors} />
@@ -409,7 +411,7 @@ function RegisterBankAccountStep({
             onChange={(event) => onBankChange(event.target.value)}
             aria-invalid={Boolean(fieldErrors.bank) || undefined}
             aria-describedby={fieldErrors.bank ? fieldErrorIds.bank : undefined}
-            className="w-full appearance-none rounded border px-3 py-2 pr-10 text-small"
+            className="w-full appearance-none rounded border-2 px-3 py-2 pr-10 text-small"
           >
             <option value="">Select bank</option>
             {registerBanks.map((bankName) => (
@@ -443,6 +445,7 @@ function RegisterBankAccountStep({
             value={values.accountHolderName}
             onChange={onAccountHolderNameChange}
             placeholder="Enter account holder name"
+            className="mt-1"
           />
         </label>
         <RegisterFieldError field="accountHolderName" fieldErrors={fieldErrors} />
@@ -455,13 +458,14 @@ function RegisterBankAccountStep({
             value={values.accountNumber}
             onChange={onAccountNumberChange}
             placeholder="Enter account number"
+            className="mt-1"
           />
         </label>
         <RegisterFieldError field="accountNumber" fieldErrors={fieldErrors} />
       </div>
 
       <div className="relative mt-6">
-        <label className="flex items-start gap-3 text-subtle text-primary-500">
+        <label className="flex items-center justify-center gap-3 text-subtle text-primary-500">
           <input
             type="checkbox"
             checked={values.acceptedTerms}
@@ -474,7 +478,7 @@ function RegisterBankAccountStep({
           />
           <span
             aria-hidden="true"
-            className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded border peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent-500 ${
+            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent-500 ${
               values.acceptedTerms
                 ? "border-accent-500 bg-accent-500"
                 : "border-primary-500 bg-white"

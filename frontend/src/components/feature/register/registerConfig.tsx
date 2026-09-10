@@ -44,7 +44,7 @@ export const fieldErrorIds: Record<RegisterValidationField, string> = {
 
 export const registerValidationMessages = {
   role: {
-    required: "Please choose your role.",
+    required: "Please select your role.",
   },
   email: {
     required: "Please enter your email address.",

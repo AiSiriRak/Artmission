@@ -19,7 +19,7 @@ export function RegisterForm() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center bg-white px-6 py-6">
+    <main className="relative flex min-h-screen items-center justify-center bg-white px-6 py-12">
       <Image
         src="/icons/artmission_logo.svg"
         alt="Artmission logo"
@@ -29,9 +29,9 @@ export function RegisterForm() {
         className="absolute left-24 top-6 h-auto w-36 sm:w-52"
       />
 
-      <WhiteCard>
+      <WhiteCard className="!max-w-lg">
         <div className="mb-8 text-center">
-          <h1 className="text-h2 text-primary-500">Create Account</h1>
+          <h1 className="text-h1 text-primary-500">Create Account</h1>
         </div>
 
         <RegisterStepIndicator step={registerForm.step} />
