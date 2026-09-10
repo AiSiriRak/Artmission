@@ -6,11 +6,11 @@ export const routes = {
   settings: "/userprofile",
 
   artist: {
-    profile: "/artist-profile",
+    profile: "/artistprofile",
   },
 
   order: {
-    history: "/order-history",
-    detail: (id: string) => `/order-history/${id}`,
+    history: "/orderhistory",
+    detail: (id: string) => `/orderhistory/${id}`,
   },
 } as const;

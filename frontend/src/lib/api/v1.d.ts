@@ -84,7 +84,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/orders/history": {
+  "/orders": {
     parameters: {
       query?: never;
       header?: never;
@@ -92,10 +92,10 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * ViewHiringHistory
-     * @description View the authenticated customer's hiring history
+     * ViewOrders
+     * @description List the authenticated customer's or artist's orders, filtered by status, sorted by deadline/price/updated_at, and paginated by limit/offset. deliverable_preview_url is the artist's most recently submitted deliverable preview, presigned and time-limited, regardless of order status; null if none has been submitted yet.
      */
-    get: operations["view-hiring-history"];
+    get: operations["view-orders"];
     put?: never;
     post?: never;
     delete?: never;
@@ -122,7 +122,11 @@ export interface paths {
      */
     put: operations["update-account"];
     post?: never;
-    delete?: never;
+    /**
+     * DeleteAccount
+     * @description Delete the authenticated user's account when they have no active orders
+     */
+    delete: operations["delete-account"];
     options?: never;
     head?: never;
     patch?: never;
@@ -188,10 +192,6 @@ export interface components {
       account_last4: string;
       bank_name: string;
     };
-    CategoryView: {
-      id: string;
-      label: string;
-    };
     ErrorDetail: {
       /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
       location?: string;
@@ -250,24 +250,27 @@ export interface components {
       email: string;
       password: string;
     };
-    OrderView: {
+    OrderSummaryView: {
       artist_id: string;
-      category?: components["schemas"]["CategoryView"];
       /** Format: date-time */
       completed_at?: string;
       /** Format: date-time */
       created_at: string;
+      customer_id: string;
       /** Format: date-time */
-      deadline?: string;
-      description: string;
+      deadline_at?: string;
+      /** @description Presigned URL of the most recently submitted deliverable's preview image, regardless of order status; null if none has been submitted yet. */
+      deliverable_preview_url: string | null;
       id: string;
-      /** Format: double */
-      price?: number;
+      name: string;
+      /** Format: int64 */
+      price_satang: number;
       status: string;
-      style?: components["schemas"]["StyleView"];
+      /** Format: date-time */
+      updated_at: string;
     };
     RegisterArtistBody: {
-      description: string;
+      description?: string;
     };
     RegisterBankAccountBody: {
       account_holder_name: string;
@@ -289,10 +292,6 @@ export interface components {
       /** @enum {string} */
       role: "customer" | "artist";
       username: string;
-    };
-    StyleView: {
-      id: string;
-      label: string;
     };
     UpdateAccountInputBody: {
       /**
@@ -316,14 +315,16 @@ export interface components {
       account_number: string;
       bank_name: string;
     };
-    ViewHiringHistoryOutputBody: {
+    ViewOrdersOutputBody: {
       /**
        * Format: uri
        * @description A URL to the JSON Schema for this object.
-       * @example /api/v1/schemas/ViewHiringHistoryOutputBody.json
+       * @example /api/v1/schemas/ViewOrdersOutputBody.json
        */
       readonly $schema?: string;
-      orders: components["schemas"]["OrderView"][] | null;
+      orders: components["schemas"]["OrderSummaryView"][] | null;
+      /** Format: int64 */
+      total: number;
     };
   };
   responses: never;
@@ -459,9 +460,22 @@ export interface operations {
       };
     };
   };
-  "view-hiring-history": {
+  "view-orders": {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Filter by one or more order statuses. Repeated values are OR'd. Omit for every status. */
+        status?:
+          | ("PENDING" | "NOT_PAID" | "IN_PROCESS" | "SUCCESS" | "CANCEL")[]
+          | null;
+        /** @description Field to sort by. */
+        sort?: "deadline" | "price" | "updated_at";
+        /** @description Sort direction. */
+        order?: "asc" | "desc";
+        /** @description Maximum number of orders to return. */
+        limit?: number;
+        /** @description Number of matching orders to skip before the first returned row. */
+        offset?: number;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -474,7 +488,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ViewHiringHistoryOutputBody"];
+          "application/json": components["schemas"]["ViewOrdersOutputBody"];
         };
       };
       /** @description Error */
@@ -538,6 +552,34 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["AccountView"];
         };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "delete-account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description No Content */
+      204: {
+        headers: {
+          "Set-Cookie"?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Error */
       default: {

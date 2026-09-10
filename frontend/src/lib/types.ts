@@ -5,7 +5,8 @@ export type PageType =
   | "Notification"
   | "Setting"
   | "Artist Profile"
-  | "Order History";
+  | "Order History"
+  | "Order Artist";
 
 export const BANK_LABELS = {
   Bangkok: "ธนาคารกรุงเทพ (Bangkok)",

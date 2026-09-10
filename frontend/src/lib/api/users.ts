@@ -20,9 +20,10 @@ export async function updateAccount(
   });
 }
 
-// Not implement yet.
-export async function deleteAccount(): Promise<UserAccount> {
-  return apiFetch<UserAccount>("/users/me");
+export async function deleteAccount(): Promise<void> {
+  await apiFetch<void>("/users/me", {
+    method: "DELETE",
+  });
 }
 
 export async function getBankAccount(): Promise<BankAccount> {
