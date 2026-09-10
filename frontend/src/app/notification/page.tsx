@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 
 import OrderArtistPage from "@/components/feature/homepage/OrderArtistPage";
 import HomePage from "@/components/feature/homepage/HomePage";
+import MainLayout from "@/components/feature/main/MainLayout";
 
 export default function Home() {
   const [user, setUser] = useState<UserAccount | null>(null);
@@ -24,5 +25,9 @@ export default function Home() {
   if (!user) {
     return <Loading />;
   }
-  return user.role == "customer" ? <HomePage /> : <OrderArtistPage />;
+  return (
+    <MainLayout page={"Home"} usertype={"customer"}>
+      <div>(Notification)</div>
+    </MainLayout>
+  );
 }
