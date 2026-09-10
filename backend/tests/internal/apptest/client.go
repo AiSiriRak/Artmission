@@ -6,8 +6,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
+	"net/textproto"
 	"net/url"
 	"time"
 )
@@ -53,6 +56,13 @@ type Response struct {
 	Body       []byte
 }
 
+type MultipartFile struct {
+	FieldName   string
+	Filename    string
+	ContentType string
+	Data        []byte
+}
+
 // JSON decodes the response body into v.
 func (r *Response) JSON(v any) error {
 	return json.Unmarshal(r.Body, v)
@@ -66,6 +76,41 @@ func (c *Client) Do(method, path string, body any, headers map[string]string) (*
 	req, err := newJSONRequest(c.baseURL, method, path, body, headers)
 	if err != nil {
 		return nil, err
+	}
+	return doRequest(c.http, req)
+}
+
+func (c *Client) DoMultipart(method, path string, fields map[string]string, files []MultipartFile, headers map[string]string) (*Response, error) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for name, value := range fields {
+		if err := writer.WriteField(name, value); err != nil {
+			return nil, err
+		}
+	}
+	for _, file := range files {
+		header := make(textproto.MIMEHeader)
+		header.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": file.FieldName, "filename": file.Filename}))
+		header.Set("Content-Type", file.ContentType)
+		part, err := writer.CreatePart(header)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := part.Write(file.Data); err != nil {
+			return nil, err
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(method, c.baseURL+path, &body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	for key, value := range headers {
+		req.Header.Set(key, value)
 	}
 	return doRequest(c.http, req)
 }

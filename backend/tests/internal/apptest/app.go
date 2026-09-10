@@ -53,15 +53,7 @@ type App struct {
 // package (from TestXxx) against a freshly migrated database; every
 // scenario in that package shares this one running instance.
 func NewApp(tb testing.TB, dsn string) *App {
-	tb.Helper()
-
-	db, err := database.NewPostgresDB(config.Database{DSN: dsn})
-	if err != nil {
-		tb.Fatalf("apptest: connect to postgres: %v", err)
-	}
-	tb.Cleanup(func() { _ = db.Close() })
-
-	objectStorage, err := objectstorage.NewS3Client(context.Background(), config.S3{
+	return NewAppWithS3(tb, dsn, config.S3{
 		PublicBucketName:  s3PublicBucket,
 		PrivateBucketName: s3PrivateBucket,
 		PublicBaseURL:     s3PublicBaseURL,
@@ -70,6 +62,18 @@ func NewApp(tb testing.TB, dsn string) *App {
 		AccessKeyID:       s3AccessKeyID,
 		SecretAccessKey:   s3SecretAccessKey,
 	})
+}
+
+func NewAppWithS3(tb testing.TB, dsn string, s3Config config.S3) *App {
+	tb.Helper()
+
+	db, err := database.NewPostgresDB(config.Database{DSN: dsn})
+	if err != nil {
+		tb.Fatalf("apptest: connect to postgres: %v", err)
+	}
+	tb.Cleanup(func() { _ = db.Close() })
+
+	objectStorage, err := objectstorage.NewS3Client(context.Background(), s3Config)
 	if err != nil {
 		tb.Fatalf("apptest: build object storage client: %v", err)
 	}

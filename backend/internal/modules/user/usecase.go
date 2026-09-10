@@ -102,9 +102,9 @@ func (u *userUsecase) Register(ctx context.Context, in RegisterInput) (*User, er
 			return err
 		}
 		if in.Role == RoleArtist {
-			description := ""
+			var description *string
 			if in.Artist != nil {
-				description = strings.TrimSpace(in.Artist.Description)
+				description = in.Artist.Description
 			}
 			return u.artistRegistrar.CreateProfile(ctx, newUser.ID, description)
 		}

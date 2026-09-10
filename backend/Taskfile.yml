@@ -69,7 +69,7 @@ tasks:
     cmds:
       - rm -rf reports/json
       - mkdir -p reports/json
-      - go test -tags=integration ./tests/... -v {{.CLI_ARGS}}
+      - go test -p 1 -tags=integration ./tests/... -v {{.CLI_ARGS}}
 
   npm-install:
     internal: true

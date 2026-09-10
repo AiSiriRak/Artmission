@@ -1,0 +1,33 @@
+info:
+  name: GetArtistProfile
+  type: http
+  seq: 1
+  tags:
+    - artists
+
+http:
+  method: GET
+  url: "{{api_url}}/artists/{{artist_id}}"
+  params:
+    - name: limit
+      value: "20"
+      type: query
+      description: Maximum number of reviews to return
+    - name: offset
+      value: "0"
+      type: query
+      description: Number of reviews to skip
+
+runtime:
+  variables:
+    - name: artist_id
+      value: 8701a2e5-d820-4f00-80d0-eb59cfead613
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: Get a public artist profile by artist user ID, including artwork-derived metadata and paginated reviews.
