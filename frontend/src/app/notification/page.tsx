@@ -5,8 +5,6 @@ import { UserAccount } from "@/lib/api/types";
 import { getAccount } from "@/lib/api/users";
 import { useEffect, useState } from "react";
 
-import OrderArtistPage from "@/components/feature/homepage/OrderArtistPage";
-import HomePage from "@/components/feature/homepage/HomePage";
 import MainLayout from "@/components/feature/main/MainLayout";
 
 export default function Home() {
@@ -26,7 +24,7 @@ export default function Home() {
     return <Loading />;
   }
   return (
-    <MainLayout page={"Home"} usertype={"customer"}>
+    <MainLayout page={"Notification"} usertype={user.role}>
       <div>(Notification)</div>
     </MainLayout>
   );
