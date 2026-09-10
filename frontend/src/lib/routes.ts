@@ -3,7 +3,7 @@ export const routes = {
   login: "/login",
   register: "/register",
   notification: "/notification",
-  settings: "/userprofle",
+  settings: "/userprofile",
 
   artist: {
     profile: "/artist-profile",

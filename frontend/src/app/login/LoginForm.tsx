@@ -9,6 +9,12 @@ import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/TextInput";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import { login } from "@/lib/api/auth";
+import { setAccessToken } from "@/lib/token";
+
+const INVALID_LOGIN_MESSAGE =
+  "Cannot login because the email or password is incorrect.";
+const showPasswordLabel = "Show password";
+const hidePasswordLabel = "Hide password";
 
 export function LoginForm() {
   const router = useRouter();
@@ -36,10 +42,10 @@ export function LoginForm() {
         password,
       });
 
-      localStorage.setItem("access_token", result.access_token);
+      setAccessToken(result.access_token);
       router.push("/");
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Login failed");
+    } catch {
+      setErrorMessage(INVALID_LOGIN_MESSAGE);
     } finally {
       setIsSubmitting(false);
     }
@@ -65,7 +71,7 @@ export function LoginForm() {
         </div>
 
         <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-          <label className="text-caption text-primary-500">
+          <label className="text-small text-primary-500">
             Email
             <TextInput
               type="email"
@@ -78,7 +84,7 @@ export function LoginForm() {
             />
           </label>
 
-          <label className="text-caption text-primary-500">
+          <label className="text-small text-primary-500">
             Password
             <div className="relative mt-1 [&_input]:mt-0 [&_input]:pr-12">
               <TextInput
@@ -94,21 +100,21 @@ export function LoginForm() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center"
+                aria-label={showPassword ? hidePasswordLabel : showPasswordLabel}
               >
                 <Image
                   src={showPassword ? "/icons/eye-on.svg" : "/icons/eye-off.svg"}
                   alt=""
                   width={20}
                   height={20}
-                  className="mx-auto"
+                  className="block"
                 />
               </button>
             </div>
           </label>
 
-          <p className="mt-0.5 text-center text-subtle text-primary-500">
+          <p className="mt-1 text-center text-subtle text-primary-500">
             Don&apos;t have an account?{" "}
             <Link href="/register" className="text-accent-500 hover:underline">
               Create Account
@@ -117,7 +123,7 @@ export function LoginForm() {
 
           <p
             role={errorMessage ? "alert" : undefined}
-            className="min-h-5 text-center text-caption text-error"
+            className="flex h-10 items-end justify-center text-center text-caption text-error"
           >
             {errorMessage}
           </p>
@@ -127,7 +133,7 @@ export function LoginForm() {
             variant="accent-500"
             disabled={!canSubmit}
             aria-disabled={!canSubmit}
-            className={`mt-4 w-full py-3 text-white transition ${
+            className={`mt-0 w-full border-2 border-transparent py-3 text-white transition ${
               canSubmit ? "opacity-100" : "opacity-50"
             }`}
           >
