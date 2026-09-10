@@ -402,21 +402,37 @@ function RegisterBankAccountStep({
         <label htmlFor="bank" className="text-caption text-primary-500">
           Bank
         </label>
-        <select
-          id="bank"
-          value={values.bank}
-          onChange={(event) => onBankChange(event.target.value)}
-          aria-invalid={Boolean(fieldErrors.bank) || undefined}
-          aria-describedby={fieldErrors.bank ? fieldErrorIds.bank : undefined}
-          className="mt-1 w-full rounded border px-3 py-2 text-small"
-        >
-          <option value="">Select bank</option>
-          {registerBanks.map((bankName) => (
-            <option key={bankName} value={bankName}>
-              {bankName}
-            </option>
-          ))}
-        </select>
+        <div className="relative mt-1">
+          <select
+            id="bank"
+            value={values.bank}
+            onChange={(event) => onBankChange(event.target.value)}
+            aria-invalid={Boolean(fieldErrors.bank) || undefined}
+            aria-describedby={fieldErrors.bank ? fieldErrorIds.bank : undefined}
+            className="w-full appearance-none rounded border px-3 py-2 pr-10 text-small"
+          >
+            <option value="">Select bank</option>
+            {registerBanks.map((bankName) => (
+              <option key={bankName} value={bankName}>
+                {bankName}
+              </option>
+            ))}
+          </select>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 20 20"
+            className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary-500"
+          >
+            <path
+              d="M5 7.5L10 12.5L15 7.5"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+            />
+          </svg>
+        </div>
         <RegisterFieldError field="bank" fieldErrors={fieldErrors} />
       </div>
 
