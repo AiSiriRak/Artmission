@@ -2,23 +2,46 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { SubmitEvent } from "react";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/TextInput";
 import { WhiteCard } from "@/components/ui/WhiteCard";
+import { login } from "@/lib/api/auth";
 
 export function LoginForm() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const canSubmit = email.trim().length > 0 && password.trim().length > 0;
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const canSubmit =
+    email.trim().length > 0 && password.trim().length > 0 && !isSubmitting;
 
-  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!canSubmit) {
       return;
+    }
+
+    setErrorMessage("");
+    setIsSubmitting(true);
+
+    try {
+      const result = await login({
+        email: email.trim(),
+        password,
+      });
+
+      localStorage.setItem("access_token", result.access_token);
+      router.push("/");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Login failed");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -47,7 +70,10 @@ export function LoginForm() {
             <TextInput
               type="email"
               value={email}
-              onChange={setEmail}
+              onChange={(value) => {
+                setEmail(value);
+                setErrorMessage("");
+              }}
               placeholder="Enter your email"
             />
           </label>
@@ -58,7 +84,10 @@ export function LoginForm() {
               <TextInput
                 type={showPassword ? "text" : "password"}
                 value={password}
-                onChange={setPassword}
+                onChange={(value) => {
+                  setPassword(value);
+                  setErrorMessage("");
+                }}
                 placeholder="Enter your password"
               />
 
@@ -86,6 +115,13 @@ export function LoginForm() {
             </Link>
           </p>
 
+          <p
+            role={errorMessage ? "alert" : undefined}
+            className="min-h-5 text-center text-caption text-error"
+          >
+            {errorMessage}
+          </p>
+
           <Button
             type="submit"
             variant="accent-500"
@@ -95,7 +131,7 @@ export function LoginForm() {
               canSubmit ? "opacity-100" : "opacity-50"
             }`}
           >
-            Log in
+            {isSubmitting ? "Logging in..." : "Log in"}
           </Button>
         </form>
 
