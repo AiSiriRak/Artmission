@@ -1,7 +1,7 @@
 //go:build integration
 
 // Package orders contains the BDD suite for the orders domain
-// (view hiring history).
+// (view orders).
 package orders
 
 import (

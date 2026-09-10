@@ -2,6 +2,7 @@ package rest
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
@@ -40,6 +41,20 @@ func requireRole(api huma.API, role user.Role) func(huma.Context, func(huma.Cont
 	return func(ctx huma.Context, next func(huma.Context)) {
 		info, ok := authInfoFromContext(ctx.Context())
 		if !ok || info.Role != role {
+			huma.WriteErr(api, ctx, http.StatusForbidden, "insufficient permissions")
+			return
+		}
+		next(ctx)
+	}
+}
+
+// requireAnyRole must run after requireAuth in the same operation's
+// middleware chain. It rejects the request with 403 unless the
+// authenticated user's role is one of roles.
+func requireAnyRole(api huma.API, roles ...user.Role) func(huma.Context, func(huma.Context)) {
+	return func(ctx huma.Context, next func(huma.Context)) {
+		info, ok := authInfoFromContext(ctx.Context())
+		if !ok || !slices.Contains(roles, info.Role) {
 			huma.WriteErr(api, ctx, http.StatusForbidden, "insufficient permissions")
 			return
 		}
