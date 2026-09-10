@@ -3,11 +3,7 @@ export const routes = {
   login: "/login",
   register: "/register",
   notification: "/notification",
-<<<<<<< HEAD
-  settings: "/userprofle",
-=======
   settings: "/userprofile",
->>>>>>> feat/frontend/user-profile-page
 
   artist: {
     profile: "/artist-profile",

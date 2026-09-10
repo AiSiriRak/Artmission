@@ -1,6 +1,6 @@
 import { apiFetch } from "./client";
-import { Order } from "./types";
+import { OrderHistory } from "./types";
 
-export async function getAccount(): Promise<Order> {
-  return apiFetch<Order>("/orders/history");
+export async function getOrderHistory(): Promise<OrderHistory> {
+  return apiFetch<OrderHistory>("/orders/history");
 }
