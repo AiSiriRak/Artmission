@@ -87,7 +87,6 @@ export default function ProfileManager({
       setIsEditing(false);
       
       router.refresh(); 
-      alert("บันทึกข้อมูลเรียบร้อยแล้ว");
       
     
     } catch (error: any) {

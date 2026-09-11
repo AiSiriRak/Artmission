@@ -1,16 +1,26 @@
-import { useState, useRef } from "react";
-import { ArtworkData, ReviewData } from "../../../app/artist/types";
+import { useState, useEffect } from "react";
+import type { Artwork, CreateArtworkInput, UpdateArtworkInput } from "@/lib/api/types";
 import { Button } from "@/components/ui/Button";
 import ReviewList from "./ReviewList";
-import DeleteArtworkModal from "./DeleteArtworkModal"; // Import ใหม่
-import ArtworkSampleGallery from "./ArtworkSampleGallery"; // Import ใหม่
+import DeleteArtworkModal from "./DeleteArtworkModal"; 
+import ArtworkSampleGallery from "./ArtworkSampleGallery"; 
+
+interface ReviewData {
+  id: number;
+  reviewerName: string;
+  timeAgo: string;
+  orderName: string;
+  rating: number;
+  comment: string;
+}
 
 interface ArtworkDetailProps {
-  artwork?: ArtworkData | null;
+  // เชื่อมกับ Artwork ตรงๆ และเผื่อฟิลด์ id ไว้กรณี Backend ตกหล่นจาก Schema
+  artwork?: (Artwork & { id?: string | number }) | null;
   onBack: () => void;
   isCustomerMode: boolean;
-  onSave?: (savedArtwork: ArtworkData) => void;
-  onDelete?: (id: number | string) => void;
+  onSave?: (payload: CreateArtworkInput | UpdateArtworkInput, artworkId?: string) => void | Promise<void>;
+  onDelete?: (artworkId: string) => void | Promise<void>;
 }
 
 const AVAILABLE_CATEGORIES = ["Book", "Comic", "Game", "Animation", "Portrait", "Illustration", "Other"];
@@ -25,21 +35,24 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
   const [isEditing, setIsEditing] = useState(!artwork);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
+  // 1. Map ค่าตั้งต้นให้ตรงกับ Schema
+  const initialPriceTHB = artwork?.price_satang ? artwork.price_satang / 100 : 0;
+  
+  // แปลง artwork_samples จาก Object Array -> String Array ไว้ใช้ใน UI
+  const initialImages = artwork?.artwork_samples && artwork.artwork_samples.length > 0 
+    ? artwork.artwork_samples.map(sample => sample.image_url) 
+    : ["/placeholder.jpg"];
+
   const [savedData, setSavedData] = useState({
     name: artwork?.name || "",
     category: artwork?.category || "",
-    style: artwork?.style || "",
+    styles: artwork?.styles || [], // ใช้ Array โดยตรงตาม Schema
     description: artwork?.description || "", 
-    deadline: artwork?.deadline || 1,
-    price: artwork?.price || 0,
+    minimum_deadline_days: artwork?.minimum_deadline_days || 1,
+    price: initialPriceTHB,
   });
 
-  const [savedImages, setSavedImages] = useState<string[]>(
-    artwork?.images && artwork.images.length > 0 
-      ? artwork.images 
-      : [artwork?.coverImage || "/placeholder.jpg"]
-  );
-
+  const [savedImages, setSavedImages] = useState<string[]>(initialImages);
   const [formData, setFormData] = useState({ ...savedData });
   const [images, setImages] = useState<string[]>([...savedImages]);
 
@@ -48,7 +61,29 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
   const [showCatDropdown, setShowCatDropdown] = useState(false);
   const [showStyleDropdown, setShowStyleDropdown] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // เมื่อ Props เปลี่ยน ให้เซ็ต State ใหม่
+  useEffect(() => {
+    if (artwork) {
+      const priceTHB = artwork.price_satang ? artwork.price_satang / 100 : 0;
+      const imgArray = artwork.artwork_samples && artwork.artwork_samples.length > 0 
+        ? artwork.artwork_samples.map(sample => sample.image_url) 
+        : ["/placeholder.jpg"];
+      
+      const newData = {
+        name: artwork.name || "",
+        category: artwork.category || "",
+        styles: artwork.styles || [],
+        description: artwork.description || "",
+        minimum_deadline_days: artwork.minimum_deadline_days || 1,
+        price: priceTHB,
+      };
+
+      setSavedData(newData);
+      setFormData(newData);
+      setSavedImages(imgArray);
+      setImages(imgArray);
+    }
+  }, [artwork]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -79,37 +114,42 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
     setIsEditing(false);
 
     if (onSave) {
-        onSave({
-            ...artwork, 
-            id: artwork?.id || Date.now(), 
-            name: formData.name,
-            category: formData.category,
-            style: formData.style,
-            price: formData.price,
-            coverImage: images.length > 0 ? images[0] : "/placeholder.jpg",
-            description: formData.description,
-            deadline: Number(formData.deadline),
-            images: [...images],
-        });
+      // 2. จัด Payload ส่งกลับให้ตรงกับ Schema
+      const payload = {
+        name: formData.name,
+        description: formData.description,
+        price_satang: Math.round(Number(formData.price || 0) * 100),
+        minimum_deadline_days: Number(formData.minimum_deadline_days),
+        category: formData.category,
+        styles: formData.styles.length > 0 ? formData.styles : null,
+        // แปลงกลับจาก String Array -> Object Array
+        artwork_samples: images
+          .filter(url => url !== "/placeholder.jpg") // ข้าม placeholder เวลาส่งให้ api
+          .map(url => ({ image_url: url })),
+      };
+
+      const artworkId = artwork?.id ? String(artwork.id) : undefined;
+      
+      // เรา cast เป็น type ตามที่ API ต้องการ
+      onSave(payload as unknown as CreateArtworkInput | UpdateArtworkInput, artworkId);
     }
   };
 
   const confirmDelete = () => {
     if (onDelete && artwork?.id) {
-      onDelete(artwork.id); 
+      onDelete(String(artwork.id)); 
     }
   };
 
   const displayImages = isEditing ? images : savedImages;
 
-  // จัดการ Tags
-  const currentStyles = formData.style ? formData.style.split(',').map(s => s.trim()).filter(Boolean) : [];
+  // กรอง Style / Category
   const filteredCategories = AVAILABLE_CATEGORIES.filter(c => c.toLowerCase().includes(catSearch.toLowerCase()));
   const filteredStyles = AVAILABLE_STYLES.filter(s => s.toLowerCase().includes(styleSearch.toLowerCase()));
 
   const addStyle = (style: string) => {
-    if (!currentStyles.includes(style)) {
-      setFormData(prev => ({ ...prev, style: [...currentStyles, style].join(', ') }));
+    if (!formData.styles.includes(style)) {
+      setFormData(prev => ({ ...prev, styles: [...prev.styles, style] }));
     }
     setStyleSearch("");
     setShowStyleDropdown(false);
@@ -118,7 +158,7 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
   const removeStyle = (styleToRemove: string) => {
     setFormData(prev => ({ 
       ...prev, 
-      style: currentStyles.filter(s => s !== styleToRemove).join(', ') 
+      styles: prev.styles.filter(s => s !== styleToRemove) 
     }));
   };
 
@@ -137,7 +177,7 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
 
         <div className="border border-primary-500 rounded-3xl p-10 bg-secondary-200 shadow-sm">
           
-          {/* Header Section (Name & Buttons) */}
+          {/* Header Section */}
           <div className="flex justify-between items-start mb-8">
             <div className="w-full max-w-xl">
               {isEditing ? (
@@ -150,7 +190,7 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
                   <h1 className="text-h1 font-bold text-gray-900 mb-4">{savedData.name || "Untitled"}</h1>
                   <div className="flex flex-wrap gap-2">
                     {savedData.category && <span className="px-4 py-1.5 bg-accent-200 text-primary-400 rounded-full text-sm font-semibold shadow-sm">{savedData.category}</span>}
-                    {savedData.style && savedData.style.split(',').map(s => s.trim()).filter(Boolean).map(style => (
+                    {savedData.styles && savedData.styles.map(style => (
                       <span key={style} className="px-4 py-1.5 bg-secondary-600 text-gray-900 rounded-full text-sm font-semibold shadow-sm">{style}</span>
                     ))}
                   </div>
@@ -173,7 +213,6 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
           {/* Tags Dropdown Section */}
           {isEditing && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-               {/* --- Category Section --- */}
                <div className="relative">
                   <label className="text-body font-bold text-primary-500 block mb-3">Category:</label>
                   <input type="text" value={catSearch} onChange={(e) => { setCatSearch(e.target.value); setShowCatDropdown(true); }} onFocus={() => setShowCatDropdown(true)} onBlur={() => setTimeout(() => setShowCatDropdown(false), 200)} placeholder="Search category..." className="border border-primary-500 p-2.5 w-full max-w-xs rounded-lg bg-white outline-none focus:border-black" />
@@ -181,7 +220,7 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
                   {showCatDropdown && (
                     <div className="absolute z-10 w-full max-w-xs mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {filteredCategories.length > 0 ? filteredCategories.map(cat => (
-                        <div key={cat} className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-800" onClick={() => selectCategory(cat)}>{cat}</div>
+                        <div key={cat} onMouseDown={() => selectCategory(cat)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-800">{cat}</div>
                       )) : <div className="px-4 py-2 text-sm text-gray-400">No results found</div>}
                     </div>
                   )}
@@ -196,7 +235,6 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
                   )}
                </div>
 
-               {/* --- Style Section --- */}
                <div className="relative">
                   <label className="text-body font-bold text-gray-900 block mb-3">Style:</label>
                   <input type="text" value={styleSearch} onChange={(e) => { setStyleSearch(e.target.value); setShowStyleDropdown(true); }} onFocus={() => setShowStyleDropdown(true)} onBlur={() => setTimeout(() => setShowStyleDropdown(false), 200)} placeholder="Search style..." className="border border-primary-500 p-2.5 w-full max-w-xs rounded-lg bg-white outline-none focus:border-black" />
@@ -204,14 +242,14 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
                   {showStyleDropdown && (
                     <div className="absolute z-10 w-full max-w-xs mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {filteredStyles.length > 0 ? filteredStyles.map(style => (
-                        <div key={style} className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-primary-400" onClick={() => addStyle(style)}>{style}</div>
+                        <div key={style} onMouseDown={() => addStyle(style)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-primary-400">{style}</div>
                       )) : <div className="px-4 py-2 text-sm text-gray-400">No results found</div>}
                     </div>
                   )}
 
-                  {currentStyles.length > 0 && (
+                  {formData.styles.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3">
-                      {currentStyles.map(style => (
+                      {formData.styles.map(style => (
                         <span key={style} className="px-4 py-1.5 bg-secondary-600 text-gray-900 rounded-full text-sm font-semibold flex items-center gap-2 shadow-sm">
                           {style}
                           <button onClick={() => removeStyle(style)} className="text-gray-700 hover:text-black cursor-pointer leading-none">✕</button>
@@ -241,16 +279,16 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
           />
 
           {/* Pricing & Deadline Section */}
-          <div className="flex flex-wrap items-end gap-6 mb-4">
+          <div className="flex flex-wrap items-end gap-6 mb-4 mt-6">
             <div>
               <label className="text-body font-bold text-primary-500 block mb-2">Minimum deadline:</label>
               {isEditing ? (
                 <div className="flex items-center gap-2">
-                  <input type="number" name="deadline" value={formData.deadline} onChange={handleInputChange} className="border border-primary-500 p-2.5 w-24 rounded-lg bg-white" />
+                  <input type="number" name="minimum_deadline_days" value={formData.minimum_deadline_days} onChange={handleInputChange} className="border border-primary-500 p-2.5 w-24 rounded-lg bg-white" />
                   <span className="text-sm text-gray-600">days</span>
                 </div>
               ) : (
-                <div className="bg-primary-400 text-secondary-200 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2">⏳ {savedData.deadline} days</div>
+                <div className="bg-primary-400 text-secondary-200 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2">⏳ {savedData.minimum_deadline_days} days</div>
               )}
             </div>
             
@@ -262,11 +300,11 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
                   <span className="text-sm text-gray-600">THB</span>
                 </div>
               ) : (
-                <div className="bg-secondary-600 text-primary-400 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2">💵 {savedData.price} THB</div>
+                <div className="bg-secondary-600 text-primary-400 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2">💵 {savedData.price.toLocaleString()} THB</div>
               )}
             </div>
             
-            {isEditing && artwork && (
+            {isEditing && artwork?.id && (
               <div className="flex justify-end mt-12 w-full">
                 <Button variant="error" onClick={() => setShowDeleteConfirm(true)} icon={<img src="/icons/delete.svg" alt="Delete" className="w-4 h-4 object-contain" />}>
                   Delete Artwork
@@ -282,7 +320,7 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
             <h2 className="text-xl font-bold text-gray-900">Order Reviews</h2>
             <span className="text-sm font-normal text-gray-400">{mockArtworkReviews.length} reviews</span>
           </div>
-          <ReviewList reviews={mockArtworkReviews} />
+          <ReviewList reviews={mockArtworkReviews as any} />
         </div>
       </div>
 

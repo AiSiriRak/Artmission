@@ -1,19 +1,30 @@
-import { ArtworkData } from "../../../app/artist/types";
+import type { Artwork } from "@/lib/api/types";
 
 interface ArtworkCardProps {
-  artwork: ArtworkData;
+  artwork: Artwork;
   showEditControls: boolean;
   onClick: () => void;
 }
 
 export default function ArtworkCard({ artwork, showEditControls, onClick }: ArtworkCardProps) {
+  // รองรับทั้ง Schema ใหม่ (image_url/price_satang) และ Mock Data เดิม (coverImage/price)
+  const imageUrl = (artwork as any).coverImage || (artwork as any).image_url || (artwork as any).cover_url || "/placeholder.png";
+  
+  const displayPrice = artwork.price_satang !== undefined && artwork.price_satang !== null
+    ? (artwork.price_satang / 100).toLocaleString()
+    : Number((artwork as any).price || 0).toLocaleString();
+
   return (
     <div 
       className="relative rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-all group h-full flex flex-col"
       onClick={onClick}
     >
       <div className="relative">
-        <img src={artwork.coverImage} alt={artwork.name} className="w-full h-56 object-cover" />
+        <img 
+          src={imageUrl} 
+          alt={artwork.name || "Artwork"} 
+          className="w-full h-56 object-cover" 
+        />
         
         {showEditControls && (
           <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
@@ -28,11 +39,11 @@ export default function ArtworkCard({ artwork, showEditControls, onClick }: Artw
       
       <div className="p-4 flex flex-col flex-1 bg-neutral-200">
         <div className="flex justify-between items-start mb-1">
-          <h3 className="font-bold text-gray-900">{artwork.name}</h3>
+          <h3 className="font-bold text-gray-900">{artwork.name || "Untitled"}</h3>
         </div>
-        <p className="text-xs text-accent-500 mb-1">{artwork.category}</p>
+        <p className="text-xs text-accent-500 mb-1">{artwork.category || "Uncategorized"}</p>
         <div className="mt-auto flex justify-end items-center">
-          <p className="font-bold text-lg">{artwork.price}.-</p>
+          <p className="font-bold text-lg">{displayPrice} THB</p>
         </div>
       </div>
     </div>

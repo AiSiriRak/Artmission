@@ -1,4 +1,4 @@
-import { ReviewData } from "../../../app/artist/types"; 
+import { ReviewData } from "../../../app/artist-profile/types"; 
 
 export default function ReviewCard({ review }: { review: ReviewData }) {
   return (

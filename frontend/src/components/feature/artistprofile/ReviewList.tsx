@@ -1,4 +1,4 @@
-import { ReviewData } from "../../../app/artist/types";
+import { ReviewData } from "../../../app/artist-profile/types";
 import ReviewCard from "./ReviewCard"; // 📍 หากนำ ReviewCard ไปไว้ใน components/ui อย่าลืมอัปเดต Path ตรงนี้นะครับ
 
 interface ReviewListProps {
