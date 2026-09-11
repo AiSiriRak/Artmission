@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/httpserver"
@@ -29,6 +30,15 @@ const validArtworkBody = `{
 
 type artworkAuthStub struct {
 	role user.Role
+}
+
+type artworkUsecaseStub struct {
+	artworks []artwork.Artwork
+	err      error
+}
+
+func (stub artworkUsecaseStub) ListByArtistID(context.Context, uuid.UUID) ([]artwork.Artwork, error) {
+	return stub.artworks, stub.err
 }
 
 func (s artworkAuthStub) Login(context.Context, string, string) (*auth.AuthResult, error) {
@@ -80,6 +90,53 @@ func TestArtworkHandlerDeleteReturnsNoContent(t *testing.T) {
 	}
 }
 
+func TestArtworkHandlerListsArtistArtworksWithoutAuthentication(t *testing.T) {
+	artworkID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleArtist, artworkUsecaseStub{artworks: []artwork.Artwork{{
+		ID:                  artworkID,
+		Name:                "Watercolor portrait",
+		Category:            "Portrait",
+		Styles:              []string{"Realism", "Watercolor"},
+		Description:         "Painted portrait",
+		Samples:             []artwork.Sample{{ImageURL: "https://storage.example.com/sample.webp"}},
+		MinimumDeadlineDays: 7,
+		PriceSatang:         50000,
+	}}})
+	rec := serveArtworkRequest(handler, http.MethodGet, "/artists/00000000-0000-0000-0000-000000000001/artworks", "", false)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got struct {
+		Artworks []artistArtworkView `json:"artworks"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	want := artistArtworkView{
+		ArtworkID:           artworkID,
+		Name:                "Watercolor portrait",
+		Category:            "Portrait",
+		Styles:              []string{"Realism", "Watercolor"},
+		Description:         "Painted portrait",
+		ArtworkSamples:      []artworkSampleView{{ImageURL: "https://storage.example.com/sample.webp"}},
+		MinimumDeadlineDays: 7,
+		PriceSatang:         50000,
+	}
+	if len(got.Artworks) != 1 || !reflect.DeepEqual(got.Artworks[0], want) {
+		t.Errorf("response body = %+v, want %+v", got.Artworks, []artistArtworkView{want})
+	}
+}
+
+func TestArtworkHandlerReturnsNotFoundForMissingArtist(t *testing.T) {
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleArtist, artworkUsecaseStub{err: artwork.ErrArtistNotFound})
+	rec := serveArtworkRequest(handler, http.MethodGet, "/artists/00000000-0000-0000-0000-000000000001/artworks", "", false)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
 func TestArtworkHandlerRequiresAuthentication(t *testing.T) {
 	handler := newArtworkTestHandler(t, user.RoleArtist)
 	tests := []struct {
@@ -128,10 +185,14 @@ func TestArtworkHandlerRequiresArtistRole(t *testing.T) {
 }
 
 func newArtworkTestHandler(t *testing.T, role user.Role) http.Handler {
+	return newArtworkTestHandlerWithUsecase(t, role, artworkUsecaseStub{})
+}
+
+func newArtworkTestHandlerWithUsecase(t *testing.T, role user.Role, artworkUsecase artwork.Usecase) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	api, server := httpserver.New("", "/api/v1", nil, logger, nil)
-	NewArtworkHandler(artworkAuthStub{role: role}).Register(api)
+	NewArtworkHandler(artworkUsecase, artworkAuthStub{role: role}).Register(api)
 	return server.Handler()
 }
 

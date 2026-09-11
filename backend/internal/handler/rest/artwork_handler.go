@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/danielgtaylor/huma/v2"
@@ -24,16 +25,36 @@ type artworkView struct {
 	PriceSatang         int64               `json:"price_satang"`
 }
 
-// ArtworkHandler is a transport-only stub until artwork persistence is implemented.
-type ArtworkHandler struct {
-	authUsecase auth.AuthUsecase
+type artistArtworkView struct {
+	ArtworkID           uuid.UUID           `json:"artwork_id"`
+	Name                string              `json:"name"`
+	Category            string              `json:"category"`
+	Styles              []string            `json:"styles"`
+	Description         string              `json:"description"`
+	ArtworkSamples      []artworkSampleView `json:"artwork_samples"`
+	MinimumDeadlineDays int                 `json:"minimum_deadline_days"`
+	PriceSatang         int64               `json:"price_satang"`
 }
 
-func NewArtworkHandler(authUsecase auth.AuthUsecase) *ArtworkHandler {
-	return &ArtworkHandler{authUsecase: authUsecase}
+type ArtworkHandler struct {
+	artworkUsecase artwork.Usecase
+	authUsecase    auth.AuthUsecase
+}
+
+func NewArtworkHandler(artworkUsecase artwork.Usecase, authUsecase auth.AuthUsecase) *ArtworkHandler {
+	return &ArtworkHandler{artworkUsecase: artworkUsecase, authUsecase: authUsecase}
 }
 
 func (h *ArtworkHandler) Register(api huma.API) {
+	huma.Get(api, "/artists/{artist_id}/artworks", h.getArtistArtworks,
+		huma.OperationTags("artists", "artworks"),
+		func(operation *huma.Operation) {
+			operation.OperationID = "get-artist-artworks"
+			operation.Summary = "GetArtistArtworks"
+			operation.Description = "Get every artwork created by an artist, newest first"
+		},
+	)
+
 	huma.Post(api, "/artworks", h.createArtwork,
 		huma.OperationTags("artworks"),
 		func(o *huma.Operation) {
@@ -55,6 +76,43 @@ func (h *ArtworkHandler) Register(api huma.API) {
 			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireRole(api, user.RoleArtist))
 		},
 	)
+}
+
+type GetArtistArtworksInput struct {
+	ArtistID uuid.UUID `path:"artist_id"`
+}
+
+type GetArtistArtworksOutput struct {
+	Body struct {
+		Artworks []artistArtworkView `json:"artworks"`
+	}
+}
+
+func (h *ArtworkHandler) getArtistArtworks(ctx context.Context, input *GetArtistArtworksInput) (*GetArtistArtworksOutput, error) {
+	artworks, err := h.artworkUsecase.ListByArtistID(ctx, input.ArtistID)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	output := new(GetArtistArtworksOutput)
+	output.Body.Artworks = make([]artistArtworkView, len(artworks))
+	for index, item := range artworks {
+		samples := make([]artworkSampleView, len(item.Samples))
+		for sampleIndex, sample := range item.Samples {
+			samples[sampleIndex] = artworkSampleView{ImageURL: sample.ImageURL}
+		}
+		output.Body.Artworks[index] = artistArtworkView{
+			ArtworkID:           item.ID,
+			Name:                item.Name,
+			Category:            item.Category,
+			Styles:              item.Styles,
+			Description:         item.Description,
+			ArtworkSamples:      samples,
+			MinimumDeadlineDays: item.MinimumDeadlineDays,
+			PriceSatang:         item.PriceSatang,
+		}
+	}
+	return output, nil
 }
 
 type CreateArtworkInput struct {
