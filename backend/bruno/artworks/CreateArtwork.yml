@@ -22,7 +22,7 @@ http:
           }
         ],
         "minimum_deadline_days": 14,
-        "price_satang": 100000
+        "price_satang": 50000
       }
   auth: inherit
 
