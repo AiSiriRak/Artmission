@@ -72,22 +72,40 @@ export function CheckboxDropdown({ options, onChange }: CheckboxDropdown) {
       {/* Dropdown menu */}
       {isOpen && (
         <div className="absolute z-50 w-full rounded-lg bg-white p-3 shadow-card">
-          {options.map((option) => (
-            <label
-              key={option.value}
-              className="flex cursor-pointer items-center gap-4 px-2 py-2"
-            >
-              <input
-                type="checkbox"
-                checked={selected.includes(option.value)}
-                onChange={() => toggleOption(option.value)}
-              />
+          {options.map((option) => {
+            const isSelected = selected.includes(option.value);
 
-              <span className="text-subtle text-primary-500">
-                {option.value}
-              </span>
-            </label>
-          ))}
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => toggleOption(option.value)}
+                className="flex w-full cursor-pointer items-center gap-4 px-2 py-2 text-left hover:bg-neutral-100 rounded"
+              >
+                {/* Custom checkbox */}
+                <div
+                  className={`
+                    flex h-5 w-5 shrink-0 items-center justify-center
+                    border-2 border-accent-500
+                    ${isSelected ? "bg-accent-500" : "bg-white"}
+                  `}
+                >
+                  {isSelected && (
+                    <Image
+                      src="/icons/check.svg"
+                      width={15}
+                      height={15}
+                      alt=""
+                    />
+                  )}
+                </div>
+
+                <span className="text-subtle text-primary-500">
+                  {option.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

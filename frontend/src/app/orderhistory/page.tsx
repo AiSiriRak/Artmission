@@ -103,8 +103,8 @@ export default function HomePage() {
               <p className="text-small">Deadline</p>
               <SelectInput
                 value={sortOrder || "deadline-asc"}
-                onChange={(e) => {
-                  setSortOrder(e.target.value);
+                onChange={(value) => {
+                  setSortOrder(value);
                 }}
                 options={sortOrder_list}
               />
