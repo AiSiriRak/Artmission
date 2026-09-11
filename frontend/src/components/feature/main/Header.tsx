@@ -9,6 +9,8 @@ import { routes } from "@/lib/routes";
 
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/TextInput";
+import { SettingPopup } from "./SettingPopup";
+import { useState } from "react";
 
 interface HeaderProps {
   page: PageType;
@@ -19,6 +21,7 @@ export default function Header({
   usertype = "customer",
   page = "Login",
 }: HeaderProps) {
+  const [isSettingPopupOpen, setIsSettingPopupOpen] = useState(false);
   const pathname = usePathname();
   const navItems =
     usertype == "customer"
@@ -41,12 +44,6 @@ export default function Header({
             path: routes.notification,
             icon: "/icons/notification.svg",
           },
-          {
-            name: "Setting",
-            page: "Setting",
-            path: routes.settings,
-            icon: "/icons/setting.svg",
-          },
         ]
       : [
           {
@@ -66,12 +63,6 @@ export default function Header({
             page: "Notification",
             path: routes.notification,
             icon: "/icons/notification.svg",
-          },
-          {
-            name: "Setting",
-            page: "Setting",
-            path: routes.settings,
-            icon: "/icons/setting.svg",
           },
         ];
 
@@ -158,6 +149,30 @@ export default function Header({
               );
             })}
           </nav>
+          {/* Setting Button */}
+          <div className="relative">
+            <Button
+              onClick={() => {
+                setIsSettingPopupOpen(!isSettingPopupOpen);
+              }}
+              variant={pathname === routes.settings ? "accent-300" : "light"}
+              icon={
+                <img
+                  src="/icons/setting.svg"
+                  alt="Setting"
+                  className="w-5 h-5 object-contain"
+                />
+              }
+              className={`cursor-pointer transition-all flex items-center gap-1 ${
+                pathname != routes.settings
+                  ? "border-none text-gray-700 hover:bg-gray-100"
+                  : ""
+              }`}
+            >
+              Setting
+            </Button>
+            <SettingPopup isActive={isSettingPopupOpen}></SettingPopup>
+          </div>
         </div>
       </div>
     </header>
