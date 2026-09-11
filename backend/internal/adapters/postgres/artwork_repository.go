@@ -72,6 +72,7 @@ func NewArtworkRepository(db *bun.DB) artwork.Repository {
 func (repo *artworkRepository) FindOrCreateCategory(ctx context.Context, label string) (uuid.UUID, error) {
 	model := &artworkCategoryModel{ID: uuid.New(), Label: label}
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
+		// A no-op update lets RETURNING return the existing category ID.
 		_, err := idb.NewInsert().
 			Model(model).
 			On("CONFLICT (label) DO UPDATE").
@@ -91,6 +92,7 @@ func (repo *artworkRepository) FindOrCreateStyles(ctx context.Context, labels []
 	for index, label := range labels {
 		model := &artworkReferenceStyleModel{ID: uuid.New(), Label: label}
 		err := repo.exec.Run(ctx, func(idb bun.IDB) error {
+			// A no-op update lets RETURNING return the existing style ID.
 			_, err := idb.NewInsert().
 				Model(model).
 				On("CONFLICT (label) DO UPDATE").
