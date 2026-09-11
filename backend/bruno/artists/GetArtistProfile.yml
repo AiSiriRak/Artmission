@@ -21,7 +21,7 @@ http:
 runtime:
   variables:
     - name: artist_id
-      value: cf1d499f-fd51-4183-bdfc-b3617fcfd982
+      value: f2125c2b-f740-4aee-b216-b96d8cab3908
 
 settings:
   encodeUrl: true
