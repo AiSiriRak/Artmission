@@ -25,9 +25,8 @@ export function OrderCard({ status, order }: OrderCard) {
     SUCCESS: "bg-status-success-pale",
     CANCEL: "bg-status-cancel-pale",
   };
-
   return (
-    <div className="relative w-full min-w-0 hover:brightness-90">
+    <div className="relative w-[320px] min-w-0 hover:brightness-90">
       <div>
         {/* Status Banner */}
         <div
@@ -46,10 +45,10 @@ export function OrderCard({ status, order }: OrderCard) {
             <div className="flex w-full h-80 justify-center">
               {/* Empty Image */}
               <Image
-                src={"/icons/emptyimage.svg"}
+                src={order.deliverable_preview_url || "/icons/emptyimage.svg"}
                 alt={""}
-                width={100}
-                height={100}
+                width={1000}
+                height={1000}
                 className="relative z-10"
               />
             </div>
@@ -68,15 +67,18 @@ export function OrderCard({ status, order }: OrderCard) {
             {/* Order Name and Artist */}
             <div className="min-w-0">
               <p className="truncate text-left text-h3 text-primary-500">
-                {order.id}
+                {order.name}
               </p>
               <p className=" truncate text-left text-body text-primary-500">
+                {/* WILL BE REPLACE WITH ARTIST NAME */}
                 {order.artist_id}
               </p>
             </div>
             {/* Deadline */}
             <p className="text-left text-caption text-accent-500">
-              deadline - {format(new Date(order.created_at), "d MMM yyyy")}
+              deadline -
+              {order.deadline_at &&
+                format(new Date(order.deadline_at), "d MMM yyyy")}
             </p>
           </div>
         </WhiteCard>

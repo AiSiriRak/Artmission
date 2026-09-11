@@ -8,9 +8,10 @@ interface CheckboxDropdown {
     value: string;
     label: string;
   }[];
+  onChange?: (selected: string[]) => void;
 }
 
-export function CheckboxDropdown({ options }: CheckboxDropdown) {
+export function CheckboxDropdown({ options, onChange }: CheckboxDropdown) {
   const [isOpen, setIsOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>(
     options.map((option) => option.value),
@@ -25,6 +26,11 @@ export function CheckboxDropdown({ options }: CheckboxDropdown) {
         : [...prev, option],
     );
   }
+
+  useEffect(() => {
+    onChange?.(selected);
+  }, [selected, onChange]);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -41,6 +47,7 @@ export function CheckboxDropdown({ options }: CheckboxDropdown) {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Dropdown button */}

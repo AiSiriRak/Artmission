@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import router from "next/router";
+import { useRouter } from "next/navigation";
 
-import { OrderHistory } from "@/lib/api/types";
+import { OrderHistory, OrderSortField, OrderSortOrder } from "@/lib/api/types";
 import { getOrderHistory } from "@/lib/api/orders";
 import { routes } from "@/lib/routes";
+import { OrderStatus } from "@/lib/api/types";
 
 import { OrderCard } from "@/components/feature/orderhistory/OrderCard";
 import { SelectInput } from "@/components/ui/SelectInput";
@@ -13,26 +14,56 @@ import { CheckboxDropdown } from "@/components/ui/CheckboxDropdown";
 import { Loading } from "@/components/ui/Loading";
 import MainLayout from "@/components/feature/main/MainLayout";
 
-const status_list = [
-  { value: "PENDING", label: "PENDING" },
-  { value: "NOT_PAID", label: "NOT PAID" },
-  { value: "IN_PROCESS", label: "IN PROCESS" },
-  { value: "SUCCESS", label: "SUCCESS" },
-  { value: "CANCEL", label: "CANCEL" },
-];
-const sortOrder_list = [
-  { value: "S2L", label: "Sooner to Later" },
-  { value: "L2S", label: "Later to Sooner" },
-];
 export default function HomePage() {
+  const router = useRouter();
+
+  const status_list: { value: OrderStatus; label: string }[] = [
+    { value: "PENDING", label: "PENDING" },
+    { value: "NOT_PAID", label: "NOT PAID" },
+    { value: "IN_PROCESS", label: "IN PROCESS" },
+    { value: "SUCCESS", label: "SUCCESS" },
+    { value: "CANCEL", label: "CANCEL" },
+  ];
+
+  type SortOrderOption = {
+    value: string;
+    sort: OrderSortField;
+    order: OrderSortOrder;
+    label: string;
+  };
+
+  const sortOrder_list: SortOrderOption[] = [
+    {
+      value: "deadline-asc",
+      sort: "deadline",
+      order: "asc",
+      label: "Sooner to Later",
+    },
+    {
+      value: "deadline-desc",
+      sort: "deadline",
+      order: "desc",
+      label: "Later to Sooner",
+    },
+  ];
+
   const [order, setOrder] = useState<OrderHistory | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<string | null>("deadline-asc");
+  const selectedSortOrder = sortOrder_list.find(
+    (option) => option.value === sortOrder,
+  );
+  const [status, setStatus] = useState<OrderStatus[]>(
+    status_list.map((option) => option.value as OrderStatus),
+  );
 
   useEffect(() => {
     async function loadUser() {
       try {
-        const orderdata = await getOrderHistory();
+        const orderdata = await getOrderHistory({
+          status: status,
+          sort: selectedSortOrder?.sort,
+          order: selectedSortOrder?.order,
+        });
         setOrder(orderdata);
       } catch (error: any) {
         if (error.status === 401) {
@@ -41,7 +72,7 @@ export default function HomePage() {
       }
     }
     loadUser();
-  }, [router]);
+  }, [status, sortOrder, router]);
 
   if (!order) {
     return <Loading />;
@@ -54,11 +85,18 @@ export default function HomePage() {
           <p className="truncate text-primary-500 text-h2 ">Recently Orders</p>
           <div className="flex space-x-8">
             <div className="w-48">
-              <CheckboxDropdown options={status_list}></CheckboxDropdown>
+              <p className="text-small">Status</p>
+              <CheckboxDropdown
+                options={status_list}
+                onChange={(selected) => {
+                  setStatus(selected as OrderStatus[]);
+                }}
+              />
             </div>
             <div className="w-48">
+              <p className="text-small">Deadline</p>
               <SelectInput
-                value={sortOrder ? sortOrder : ""}
+                value={sortOrder || "deadline-asc"}
                 onChange={(e) => {
                   setSortOrder(e.target.value);
                 }}
@@ -68,21 +106,20 @@ export default function HomePage() {
           </div>
         </div>
         {/* Order List */}
-        <div className="px-10 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] gap-6 space-y-12 item justify-between mb-20">
-          {order.orders ? (
-            order.orders.map((option) => (
-              <OrderCard key={option.id} order={option} status={status_list} />
-            ))
-          ) : (
-            <div />
-          )}{" "}
-          {order.orders ? (
-            order.orders.map((option) => (
-              <OrderCard key={option.id} order={option} status={status_list} />
-            ))
-          ) : (
-            <div />
-          )}
+        <div className="relative">
+          <div className="px-10 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] gap-12 space-y-6  item justify-start mb-20">
+            {order.orders ? (
+              order.orders.map((option) => (
+                <OrderCard
+                  key={option.id}
+                  order={option}
+                  status={status_list}
+                />
+              ))
+            ) : (
+              <></>
+            )}
+          </div>
         </div>
       </div>
     </MainLayout>

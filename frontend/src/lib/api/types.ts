@@ -1,4 +1,4 @@
-import type { components } from "./v1";
+import type { components, paths } from "./v1";
 
 // Auth
 export type AuthResult = components["schemas"]["AuthResultBody"];
@@ -18,3 +18,9 @@ export type UpdateBankAccountInput =
 // Order
 export type OrderHistory = components["schemas"]["ViewOrdersOutputBody"];
 export type Order = components["schemas"]["OrderSummaryView"];
+export type OrderQuery = NonNullable<
+  paths["/orders"]["get"]["parameters"]["query"]
+>;
+export type OrderStatus = NonNullable<OrderQuery["status"]>[number];
+export type OrderSortField = OrderQuery["sort"];
+export type OrderSortOrder = OrderQuery["order"];
