@@ -17,4 +17,4 @@ settings:
   maxRedirects: 5
   forwardAuthorizationHeader: true
 
-docs: Temporary authenticated endpoint that always returns 204 for a valid artwork UUID.
+docs: Delete portfolio artwork owned by the authenticated artist.

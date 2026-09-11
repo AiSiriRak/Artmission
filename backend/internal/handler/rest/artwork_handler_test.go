@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
@@ -22,7 +23,7 @@ const validArtworkBody = `{
 	"name":"Frontend draft",
 	"category":"Illustration",
 	"styles":[],
-	"description":"Different from the dummy response",
+	"description":"A custom editorial illustration",
 	"artwork_samples":[],
 	"minimum_deadline_days":1,
 	"price_satang":0
@@ -33,12 +34,27 @@ type artworkAuthStub struct {
 }
 
 type artworkUsecaseStub struct {
-	artworks []artwork.Artwork
-	err      error
+	artworks       []artwork.Artwork
+	created        *artwork.Artwork
+	err            error
+	createInput    artwork.CreateInput
+	deleteArtistID uuid.UUID
+	deleteArtwork  uuid.UUID
 }
 
-func (stub artworkUsecaseStub) ListByArtistID(context.Context, uuid.UUID) ([]artwork.Artwork, error) {
+func (stub *artworkUsecaseStub) ListByArtistID(context.Context, uuid.UUID) ([]artwork.Artwork, error) {
 	return stub.artworks, stub.err
+}
+
+func (stub *artworkUsecaseStub) Create(_ context.Context, input artwork.CreateInput) (*artwork.Artwork, error) {
+	stub.createInput = input
+	return stub.created, stub.err
+}
+
+func (stub *artworkUsecaseStub) Delete(_ context.Context, artistID, artworkID uuid.UUID) error {
+	stub.deleteArtistID = artistID
+	stub.deleteArtwork = artworkID
+	return stub.err
 }
 
 func (s artworkAuthStub) Login(context.Context, string, string) (*auth.AuthResult, error) {
@@ -61,8 +77,9 @@ func (s artworkAuthStub) Authenticate(context.Context, string) (*auth.TokenClaim
 	}, nil
 }
 
-func TestArtworkHandlerCreateReturnsFixedResponse(t *testing.T) {
-	handler := newArtworkTestHandler(t, user.RoleArtist)
+func TestArtworkHandlerCreateReturnsCreatedArtwork(t *testing.T) {
+	usecase := &artworkUsecaseStub{created: testArtwork()}
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleArtist, usecase)
 	rec := serveArtworkRequest(handler, http.MethodPost, "/artworks", validArtworkBody, true)
 
 	if rec.Code != http.StatusCreated {
@@ -73,14 +90,19 @@ func TestArtworkHandlerCreateReturnsFixedResponse(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if want := dummyArtwork(); !reflect.DeepEqual(got, want) {
+	if want := newArtworkView(usecase.created); !reflect.DeepEqual(got, want) {
 		t.Errorf("response body = %+v, want %+v", got, want)
+	}
+	if usecase.createInput.ArtistID == uuid.Nil || usecase.createInput.Name != "Frontend draft" || usecase.createInput.Category != "Illustration" {
+		t.Errorf("create input = %+v", usecase.createInput)
 	}
 }
 
 func TestArtworkHandlerDeleteReturnsNoContent(t *testing.T) {
-	handler := newArtworkTestHandler(t, user.RoleArtist)
-	rec := serveArtworkRequest(handler, http.MethodDelete, "/artworks/00000000-0000-0000-0000-000000000003", "", true)
+	usecase := &artworkUsecaseStub{created: testArtwork()}
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleArtist, usecase)
+	artworkID := "00000000-0000-0000-0000-000000000003"
+	rec := serveArtworkRequest(handler, http.MethodDelete, "/artworks/"+artworkID, "", true)
 
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusNoContent, rec.Body.String())
@@ -88,11 +110,14 @@ func TestArtworkHandlerDeleteReturnsNoContent(t *testing.T) {
 	if rec.Body.Len() != 0 {
 		t.Errorf("response body = %q, want empty", rec.Body.String())
 	}
+	if usecase.deleteArtistID == uuid.Nil || usecase.deleteArtwork.String() != artworkID {
+		t.Errorf("delete input = artist=%s artwork=%s", usecase.deleteArtistID, usecase.deleteArtwork)
+	}
 }
 
 func TestArtworkHandlerListsArtistArtworksWithoutAuthentication(t *testing.T) {
 	artworkID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
-	handler := newArtworkTestHandlerWithUsecase(t, user.RoleArtist, artworkUsecaseStub{artworks: []artwork.Artwork{{
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleArtist, &artworkUsecaseStub{artworks: []artwork.Artwork{{
 		ID:                  artworkID,
 		Name:                "Watercolor portrait",
 		Category:            "Portrait",
@@ -129,7 +154,7 @@ func TestArtworkHandlerListsArtistArtworksWithoutAuthentication(t *testing.T) {
 }
 
 func TestArtworkHandlerReturnsNotFoundForMissingArtist(t *testing.T) {
-	handler := newArtworkTestHandlerWithUsecase(t, user.RoleArtist, artworkUsecaseStub{err: artwork.ErrArtistNotFound})
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleArtist, &artworkUsecaseStub{err: artwork.ErrArtistNotFound})
 	rec := serveArtworkRequest(handler, http.MethodGet, "/artists/00000000-0000-0000-0000-000000000001/artworks", "", false)
 
 	if rec.Code != http.StatusNotFound {
@@ -185,7 +210,24 @@ func TestArtworkHandlerRequiresArtistRole(t *testing.T) {
 }
 
 func newArtworkTestHandler(t *testing.T, role user.Role) http.Handler {
-	return newArtworkTestHandlerWithUsecase(t, role, artworkUsecaseStub{})
+	return newArtworkTestHandlerWithUsecase(t, role, &artworkUsecaseStub{created: testArtwork()})
+}
+
+func testArtwork() *artwork.Artwork {
+	createdAt := time.Date(2026, time.September, 10, 12, 0, 0, 0, time.UTC)
+	return &artwork.Artwork{
+		ID:                  uuid.MustParse("00000000-0000-0000-0000-000000000010"),
+		ArtistID:            uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+		Name:                "Frontend draft",
+		Category:            "Illustration",
+		Styles:              []string{},
+		Description:         "A custom editorial illustration",
+		Samples:             []artwork.Sample{},
+		MinimumDeadlineDays: 1,
+		PriceSatang:         0,
+		CreatedAt:           createdAt,
+		UpdatedAt:           createdAt,
+	}
 }
 
 func newArtworkTestHandlerWithUsecase(t *testing.T, role user.Role, artworkUsecase artwork.Usecase) http.Handler {
