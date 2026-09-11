@@ -34,6 +34,12 @@ export default function HomePage() {
 
   const sortOrder_list: SortOrderOption[] = [
     {
+      value: "update-asc",
+      sort: "updated_at",
+      order: "asc",
+      label: "None",
+    },
+    {
       value: "deadline-asc",
       sort: "deadline",
       order: "asc",
@@ -48,7 +54,7 @@ export default function HomePage() {
   ];
 
   const [order, setOrder] = useState<OrderHistory | null>(null);
-  const [sortOrder, setSortOrder] = useState<string | null>("deadline-asc");
+  const [sortOrder, setSortOrder] = useState<string | null>("update-asc");
   const selectedSortOrder = sortOrder_list.find(
     (option) => option.value === sortOrder,
   );
