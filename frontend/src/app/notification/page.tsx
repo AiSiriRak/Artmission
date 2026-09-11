@@ -1,10 +1,13 @@
 "use client";
 
-import { Loading } from "@/components/ui/Loading";
+import { useEffect, useState } from "react";
+import router from "next/router";
+
 import { UserAccount } from "@/lib/api/types";
 import { getAccount } from "@/lib/api/users";
-import { useEffect, useState } from "react";
+import { routes } from "@/lib/routes";
 
+import { Loading } from "@/components/ui/Loading";
 import MainLayout from "@/components/feature/main/MainLayout";
 
 export default function Home() {
@@ -12,13 +15,17 @@ export default function Home() {
 
   useEffect(() => {
     async function loadUser() {
-      const accountdata = await getAccount();
-
-      setUser(accountdata);
+      try {
+        const accountdata = await getAccount();
+        setUser(accountdata);
+      } catch (error: any) {
+        if (error.status === 401) {
+          router.replace(routes.login);
+        }
+      }
     }
-
     loadUser();
-  }, []);
+  }, [router]);
 
   if (!user) {
     return <Loading />;

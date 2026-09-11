@@ -36,15 +36,19 @@ export default function HomePage() {
 
   useEffect(() => {
     async function loadUser() {
-      const accountdata = await getAccount();
-      const bankdata = await getBankAccount();
-
-      setBank(bankdata);
-      setUser(accountdata);
+      try {
+        const accountdata = await getAccount();
+        const bankdata = await getBankAccount();
+        setUser(accountdata);
+        setBank(bankdata);
+      } catch (error: any) {
+        if (error.status === 401) {
+          router.replace(routes.login);
+        }
+      }
     }
-
     loadUser();
-  }, []);
+  }, [router]);
 
   if (!user || !bank) {
     return <Loading />;

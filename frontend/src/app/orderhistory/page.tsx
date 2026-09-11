@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import router from "next/router";
 
 import { OrderHistory } from "@/lib/api/types";
 import { getOrderHistory } from "@/lib/api/orders";
+import { routes } from "@/lib/routes";
 
 import { OrderCard } from "@/components/feature/orderhistory/OrderCard";
 import { SelectInput } from "@/components/ui/SelectInput";
 import { CheckboxDropdown } from "@/components/ui/CheckboxDropdown";
 import { Loading } from "@/components/ui/Loading";
 import MainLayout from "@/components/feature/main/MainLayout";
-import { TextInput } from "@/components/ui/TextInput";
 
 const status_list = [
   { value: "PENDING", label: "PENDING" },
@@ -30,12 +31,17 @@ export default function HomePage() {
 
   useEffect(() => {
     async function loadUser() {
-      const orderData = await getOrderHistory();
-      setOrder(orderData);
+      try {
+        const orderdata = await getOrderHistory();
+        setOrder(orderdata);
+      } catch (error: any) {
+        if (error.status === 401) {
+          router.replace(routes.login);
+        }
+      }
     }
-
     loadUser();
-  }, []);
+  }, [router]);
 
   if (!order) {
     return <Loading />;
