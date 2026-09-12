@@ -199,38 +199,6 @@ export function PersonalInfoCard({
                   Old password
                 </label>
                 <TextInput value={oldpassword} onChange={setOldPassword} />
-                <div className="relative mt-1 [&_input]:mt-0 [&_input]:pr-12">
-                  {/* <TextInput
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(value) => {
-                      setPassword(value);
-                      setErrorMessage("");
-                    }}
-                    placeholder="Enter your password"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center"
-                    aria-label={
-                      showPassword ? hidePasswordLabel : showPasswordLabel
-                    }
-                  >
-                    <Image
-                      src={
-                        showPassword
-                          ? "/icons/eye-on.svg"
-                          : "/icons/eye-off.svg"
-                      }
-                      alt=""
-                      width={20}
-                      height={20}
-                      className="block"
-                    />
-                  </button>
-                </div> */}
                 <span className="flex mt-1 text-small text-error justify-center">
                   {oldpasswordError}
                 </span>
