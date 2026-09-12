@@ -6,7 +6,7 @@ import { updateArtistProfile, getArtistArtworks } from "@/lib/api/artists";
 import { createArtwork, updateArtwork, deleteArtwork } from "@/lib/api/artworks";
 import type { UpdateArtistInput, ArtistProfile, Artwork, CreateArtworkInput, UpdateArtworkInput } from "@/lib/api/types";
 
-// กำหนด Type ของ Review ไว้ในนี้ชั่วคราว (จนกว่า Backend จะมี Review Type)
+// Temporary Type of Review
 export interface ReviewData {
   id: string | number;
   reviewerName: string;
@@ -56,6 +56,7 @@ export default function ProfileManager({
 
   const [newProfileImageFile, setNewProfileImageFile] = useState<File | null>(null);
 
+  // Mock Review
   const [reviews, setReviews] = useState<ReviewData[]>(
     initialReviews.length > 0 ? initialReviews : [
       { id: 1, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
@@ -75,7 +76,6 @@ export default function ProfileManager({
         description: artistData.description || "",
       };
 
-      // ถ้ามีการเลือกรูปใหม่ ให้แนบไฟล์ไปใน Payload (ใช้ key ว่า profile_image ตามที่ backend กำหนด)
       if (newProfileImageFile) {
         payload.profile_image = newProfileImageFile;
       }
@@ -130,11 +130,9 @@ export default function ProfileManager({
         // ถ้าเป็นการแก้ไข (มี ID ส่งมา) -> ใช้ Update API แทนการลบแล้วสร้างใหม่
         await updateArtwork(artworkId, payload as UpdateArtworkInput);
       } else {
-        // ถ้าไม่มี ID (สร้างใหม่) -> ใช้ Create API
         await createArtwork(payload as CreateArtworkInput);
       }
 
-      // ดึงรายการผลงานทั้งหมดของ Artist คนนี้ใหม่ทันที
       const artistId = artistData.artist_id || (artistData as any).id;
       if (artistId) {
         await refreshArtworks(artistId);

@@ -19,12 +19,10 @@ export default function ArtistProfilePage() {
       try {
         setIsLoading(true);
         const account = await getAccount();
-        // ถ้าไม่มี Account ID ให้ถือว่ายังไม่ได้ล็อกอินหรือเกิด Error
         if (!account?.id) {
           throw new Error("User account not found or not logged in.");
         }
 
-        // ✅ ใช้ Promise.all เพื่อเรียก API ดึง Profile และ Artworks พร้อมกัน (ช่วยลดเวลาโหลดหน้าเว็บ)
         const [profile, artworksData] = await Promise.all([
           getArtistProfile(account.id),
           getArtistArtworks(account.id)
@@ -36,9 +34,7 @@ export default function ArtistProfilePage() {
 
         setArtistProfile(profile);
 
-        // ✅ จัดการดึง Array ของ Artwork ออกมา
-        // เนื่องจาก type เป็น GetArtistArtworksOutput เราจะเผื่อกรณีที่ Backend ส่งมาเป็น Array ตรงๆ 
-        // หรือส่งมาในรูปแบบ Object เช่น { data: [...] } หรือ { items: [...] } หรือ { artworks: [...] }
+        // each artwork in the array
         const artworksList = Array.isArray(artworksData) 
           ? artworksData 
           : (artworksData as any).artworks || (artworksData as any).items || (artworksData as any).data || [];

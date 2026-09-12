@@ -5,7 +5,6 @@ import { useRef, useState, useEffect } from "react";
 interface ProfileImageProps {
   imageUrl?: string | null;
   isEditing?: boolean;
-  // ✅ เพิ่ม file?: File เข้าไปใน type
   onImageChange?: (newImageUrl: string, file?: File) => void;
   className?: string;
   defaultAvatar?: string;
@@ -40,7 +39,6 @@ export default function ProfileImage({
         URL.revokeObjectURL(imgSrc);
       }
       const newUrl = URL.createObjectURL(file);
-      // ✅ ส่งทั้ง URL ชั่วคราว (ไว้โชว์) และ File (ไว้อัปโหลด) กลับไป
       onImageChange(newUrl, file); 
     }
   };

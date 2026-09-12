@@ -42,7 +42,6 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
   const [isEditing, setIsEditing] = useState(!artwork);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
-  // 1. Map ค่าตั้งต้นให้ตรงกับ Schema
   const initialPriceTHB = artwork?.price_satang ? artwork.price_satang / 100 : 0;
   
   const initialImages: ImageItem[] = artwork?.artwork_samples && artwork.artwork_samples.length > 0 
@@ -67,7 +66,6 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
   const [showCatDropdown, setShowCatDropdown] = useState(false);
   const [showStyleDropdown, setShowStyleDropdown] = useState(false);
 
-  // เมื่อ Props เปลี่ยน ให้เซ็ต State ใหม่
   useEffect(() => {
     if (artwork) {
       const priceTHB = artwork.price_satang ? artwork.price_satang / 100 : 0;
@@ -120,17 +118,14 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
   setIsEditing(false);
 
   if (onSave) {
-    // ดึง ID ของงานมาเช็คก่อนว่าเป็นโหมดแก้ไข หรือสร้างใหม่
     const actualId = artwork?.id || (artwork as any)?.artwork_id;
     const isEditing = !!actualId; 
     const artworkId = actualId ? String(actualId) : undefined;
 
-    // 1. คัดเฉพาะ "ไฟล์รูปใหม่" ที่เพิ่งอัปโหลด
     const newImages = images
       .filter(img => img.previewUrl !== "/placeholder.jpg" && img.file)
       .map(img => img.file);
 
-    // เตรียม Payload พื้นฐาน
     const payload: any = {
       name: formData.name,
       description: formData.description,
@@ -141,25 +136,20 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
     };
 
     if (isEditing) {
-      // 🛠️ โหมดแก้ไข (PUT) -> ตาม Swagger
-      
-      // หาว่ามีรูปเก่าไหนบ้างที่โดนลบออกไป
-      // (เปรียบเทียบรูปต้นฉบับใน artwork กับรูปปัจจุบันที่เหลืออยู่ใน UI)
+
       const originalUrls = (artwork?.artwork_samples || [])
         .map((s: any) => s.image_url || (typeof s === 'string' ? s : ''))
-        .filter(Boolean); // กรองค่าว่างทิ้ง
+        .filter(Boolean); 
       const currentUrls = images
-        .filter(img => !img.file) // ดึงเฉพาะรูปเก่าที่ยังเหลืออยู่
+        .filter(img => !img.file) 
         .map(img => img.previewUrl);
       
       const deletedUrls = originalUrls.filter((url: string) => !currentUrls.includes(url));
 
-      // ใส่ฟิลด์ตาม Swagger สำหรับ PUT
       payload.uploaded_samples = newImages.length > 0 ? newImages : undefined;
       payload.deleted_sample_urls = deletedUrls.length > 0 ? deletedUrls : null;
 
     } else {
-      // 🆕 โหมดสร้างใหม่ (POST) -> ตาม Swagger
       payload.artwork_samples = newImages.length > 0 ? newImages : undefined;
     }
 
@@ -175,7 +165,7 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
 
   const displayImages = (isEditing ? images : savedImages).map(img => img.previewUrl);
 
-  // กรอง Style / Category
+  // filter Style / Category
   const filteredCategories = AVAILABLE_CATEGORIES.filter(c => c.toLowerCase().includes(catSearch.toLowerCase()));
   const filteredStyles = AVAILABLE_STYLES.filter(s => s.toLowerCase().includes(styleSearch.toLowerCase()));
 

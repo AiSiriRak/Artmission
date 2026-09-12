@@ -7,10 +7,9 @@ interface ArtworkCardProps {
 }
 
 export default function ArtworkCard({ artwork, showEditControls, onClick }: ArtworkCardProps) {
-  // ดึงรูปภาพแรกจาก artwork_samples ตาม Schema ใหม่ ถ้าไม่มีให้ใช้ placeholder
   const imageUrl = artwork.artwork_samples?.[0]?.image_url || "/placeholder.png";
   
-  // แปลงราคาจากสตางค์เป็นบาทให้ปลอดภัย
+  // Satang to Bath
   const displayPrice = artwork.price_satang != null
     ? (artwork.price_satang / 100).toLocaleString()
     : "0";
