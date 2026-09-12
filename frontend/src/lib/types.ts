@@ -9,11 +9,11 @@ export type PageType =
   | "Order Artist";
 
 export const BANK_LABELS = {
-  Bangkok: "ธนาคารกรุงเทพ (Bangkok)",
-  kasikorn: "ธนาคารกสิกรไทย (KBank)",
-  krungthai: "ธนาคารกรุงไทย (Krungthai)",
+  Bangkok: "ธนาคารกรุงเทพ (BBL)",
+  kasikorn: "ธนาคารกสิกรไทย (KBANK)",
+  krungthai: "ธนาคารกรุงไทย (KTB)",
   scb: "ธนาคารไทยพาณิชย์ (SCB)",
-  krungsri: "ธนาคารกรุงศรีอยุธยา (Krungsri)",
+  krungsri: "ธนาคารกรุงศรีอยุธยา (BAY)",
   ttb: "ธนาคารทหารไทยธนชาต (TTB)",
   gsb: "ธนาคารออมสิน (GSB)",
   lh: "ธนาคารแลนด์ แอนด์ เฮ้าส์ (LH Bank)",

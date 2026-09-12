@@ -414,9 +414,9 @@ function RegisterBankAccountStep({
             className="w-full appearance-none rounded border-2 px-3 py-2 pr-10 text-small"
           >
             <option value="">Select bank</option>
-            {registerBanks.map((bankName) => (
-              <option key={bankName} value={bankName}>
-                {bankName}
+            {registerBanks.map((bank) => (
+              <option key={bank.value} value={bank.value}>
+                {bank.label}
               </option>
             ))}
           </select>

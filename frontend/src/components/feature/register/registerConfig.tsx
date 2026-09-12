@@ -1,4 +1,5 @@
 import { accountConstraints } from "@/lib/constraint";
+import { BANK_LABELS } from "@/lib/types";
 
 export type RegisterStep = 1 | 2 | 3;
 export type Role = "artist" | "customer" | "";
@@ -20,15 +21,12 @@ export type RegisterValidationErrors = Partial<Record<RegisterValidationField, s
 
 export const registerSteps: RegisterStep[] = [1, 2, 3];
 
-export const registerBanks = [
-  "ธนาคารกรุงเทพ (BBL)",
-  "ธนาคารกสิกรไทย (KBank)",
-  "ธนาคารกรุงไทย (KTB)",
-  "ธนาคารกรุงศรีอยุธยา (BAY)",
-  "ธนาคารไทยพาณิชย์ (SCB)",
-  "ธนาคารทหารไทยธนชาต (ttb)",
-  "ธนาคารออมสิน (GSB)",
-];
+export const registerBanks = Object.entries(BANK_LABELS).map(
+  ([value, label]) => ({
+    value,
+    label,
+  }),
+);
 
 export const fieldErrorIds: Record<RegisterValidationField, string> = {
   role: "role-error",
