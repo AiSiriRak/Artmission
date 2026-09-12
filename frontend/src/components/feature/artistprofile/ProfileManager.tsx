@@ -161,8 +161,7 @@ export default function ProfileManager({
         (res as Record<string, unknown>).data ||
         [];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setArtworks(artworksList as any);
+    setArtworks(artworksList as Artwork[]);
   };
 
   const handleSaveArtwork = async (
@@ -280,14 +279,11 @@ export default function ProfileManager({
   if (selectedArtwork) {
     return (
       <ArtworkDetail
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        artwork={(selectedArtwork === "new" ? null : selectedArtwork) as any}
+        artwork={selectedArtwork === "new" ? null : selectedArtwork}
         onBack={() => setSelectedArtwork(null)}
         isCustomerMode={isCustomerMode}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onSave={handleSaveArtwork as any}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onDelete={handleDeleteArtwork as any}
+        onSave={handleSaveArtwork}
+        onDelete={handleDeleteArtwork}
       />
     );
   }
@@ -304,12 +300,7 @@ export default function ProfileManager({
           <div className="mb-12">
             <div className="flex flex-col md:flex-row gap-10">
               <ProfileSidebar
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                imageUrl={
-                  (artistData as any).profile_url ||
-                  (artistData as any).profileImage ||
-                  ""
-                }
+                imageUrl={artistData.profile_url || ""}
                 isEditing={isEditing}
                 onEdit={() => setIsEditing(true)}
                 onSave={handleSave}
@@ -483,10 +474,8 @@ export default function ProfileManager({
 
           {artworks.map((art, idx) => (
             <ArtworkCard
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              key={(art as any).id || art.name || idx}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              artwork={art as any}
+              key={art.id || art.name || idx}
+              artwork={art}
               showEditControls={showEditControls}
               onClick={() => {
                 if (!isEditing) {
@@ -526,8 +515,7 @@ export default function ProfileManager({
           </>
         )}
 
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <ReviewList reviews={reviews as any} />
+        <ReviewList reviews={reviews} />
       </div>
     </div>
   );
