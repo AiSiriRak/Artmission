@@ -136,8 +136,8 @@ export default function Header({
                       <Image
                         src={item.icon}
                         alt={item.name}
-                        width={5}
-                        height={5}
+                        width={24}
+                        height={24}
                         className="object-contain"
                       />
                     }
@@ -164,8 +164,8 @@ export default function Header({
                 <Image
                   src="/icons/setting.svg"
                   alt="Setting"
-                  width={5}
-                  height={5}
+                  width={24}
+                  height={24}
                   className="object-contain"
                 />
               }

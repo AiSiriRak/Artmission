@@ -13,9 +13,9 @@ http:
     data: |-
       {
         "username": "{{username}}",
-        "email": "test@example.com",
+        "email": "customer@example.com",
         "password": "{{password}}",
-        "role": "artist",
+        "role": "customer",
         "bank_account": {
           "account_number": "1234567890",
           "account_holder_name": "Test Artist",

@@ -14,8 +14,8 @@ export default function Footer() {
             <Image
               src="/icons/A_logo.svg"
               alt="Artmission Logo"
-              width={9}
-              height={10}
+              width={40}
+              height={40}
               className="object-contain"
             />
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 import { OrderHistory, OrderSortField, OrderSortOrder } from "@/lib/api/types";
 import { getOrderHistory } from "@/lib/api/orders";
@@ -37,7 +38,7 @@ export default function HomePage() {
     {
       value: "update-asc",
       sort: "updated_at",
-      order: "asc",
+      order: "desc",
       label: "None",
     },
     {
@@ -84,7 +85,6 @@ export default function HomePage() {
   if (!order) {
     return <Loading />;
   }
-
   return (
     <MainLayout page={"Order History"} usertype={"customer"}>
       <div className="min-h-screen">
@@ -114,20 +114,28 @@ export default function HomePage() {
         </div>
         {/* Order List */}
         <div className="relative">
-          <div className="px-10 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] gap-12 space-y-6  item justify-start mb-20">
-            {order.orders ? (
+          <div className="px-10 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] gap-12 space-y-6 item justify-start mb-20">
+            {order.orders &&
+              order.orders.length > 0 &&
               order.orders.map((option) => (
                 <OrderCard
                   key={option.id}
                   order={option}
                   status={status_list}
                 />
-              ))
-            ) : (
-              <></>
-            )}
+              ))}
           </div>
         </div>
+        {(!order.orders || order.orders.length == 0) && (
+          <div className="w-full relative flex flex-col items-center justify-center">
+            <Image src="/icons/emptydoc.svg" alt={""} width={96} height={96} />
+            <p className="text-h1 text-neutral">No orders yet</p>
+            <p className="text-body text-neutral">
+              Your commissioned artwork will appear here once you place an
+              order.
+            </p>
+          </div>
+        )}
       </div>
     </MainLayout>
   );

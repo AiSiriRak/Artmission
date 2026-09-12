@@ -77,8 +77,9 @@ export function OrderCard({ status, order }: OrderCard) {
             {/* Deadline */}
             <p className="text-left text-caption text-accent-500">
               deadline -
-              {order.deadline_at &&
-                format(new Date(order.deadline_at), "d MMM yyyy")}
+              {order.deadline_at
+                ? format(new Date(order.deadline_at), " d MMM yyyy")
+                : " None"}
             </p>
           </div>
         </WhiteCard>

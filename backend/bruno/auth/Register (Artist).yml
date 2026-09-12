@@ -14,7 +14,7 @@ http:
       {
         "username": "testartist",
         "email": "artist@example.com",
-        "password": "password123",
+        "password": "{{password}}",
         "role": "artist",
         "bank_account": {
           "account_number": "1234567890",
