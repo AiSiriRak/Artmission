@@ -49,7 +49,7 @@ type AccountDeletionRepository interface {
 // ArtistRegistrar is implemented by the artist module and injected at wiring
 // time so this package never imports artist (artist will later import user).
 type ArtistRegistrar interface {
-	CreateProfile(ctx context.Context, userID uuid.UUID, description string) error
+	CreateProfile(ctx context.Context, userID uuid.UUID, description *string) error
 }
 
 type Transactioner interface {
@@ -85,5 +85,5 @@ type AccountUpdate struct {
 }
 
 type ArtistProfileInput struct {
-	Description string
+	Description *string
 }

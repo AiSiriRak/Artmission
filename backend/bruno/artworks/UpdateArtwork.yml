@@ -1,0 +1,65 @@
+info:
+  name: UpdateArtwork
+  type: http
+  seq: 2
+  tags:
+    - artworks
+
+http:
+  method: PUT
+  url: "{{api_url}}/artworks/{{artwork_id}}"
+  body:
+    type: multipart-form
+    data:
+      - name: name
+        type: text
+        value: Updated illustration
+        contentType: text/plain
+      - name: category
+        type: text
+        value: Illustration
+        contentType: text/plain
+      - name: styles
+        type: text
+        value: '["Watercolor", "Cartoon"]'
+        contentType: application/json
+      - name: description
+        type: text
+        value: An updated watercolor illustration commission.
+        contentType: text/plain
+      - name: uploaded_samples
+        type: file
+        value: []
+        contentType: image/png
+        disabled: true
+      - name: deleted_sample_urls
+        type: text
+        value: '[]'
+        contentType: application/json
+      - name: minimum_deadline_days
+        type: text
+        value: "10"
+        contentType: text/plain
+      - name: price_satang
+        type: text
+        value: "75000"
+        contentType: text/plain
+  auth: inherit
+
+runtime:
+  variables:
+    - name: artwork_id
+      value: 00000000-0000-0000-0000-000000000001
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  Update portfolio artwork owned by the authenticated artist. Add JPEG, PNG, or
+  WebP files using repeated `uploaded_samples` fields, and remove selected files
+  by sending their current URLs in the `deleted_sample_urls` JSON array. Omitting
+  both fields keeps every current sample. Each new image may be up to 5 MiB.

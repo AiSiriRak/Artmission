@@ -12,10 +12,10 @@ http:
     type: json
     data: |-
       {
-        "username": "testcustomer",
-        "email": "customer@example.com",
-        "password": "password123",
-        "role": "customer",
+        "username": "{{username}}",
+        "email": "test@example.com",
+        "password": "{{password}}",
+        "role": "artist",
         "bank_account": {
           "account_number": "1234567890",
           "account_holder_name": "Test Artist",

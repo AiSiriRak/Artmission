@@ -1,0 +1,25 @@
+info:
+  name: GetArtistArtworks
+  type: http
+  seq: 4
+  tags:
+    - artworks
+    - artists
+
+http:
+  method: GET
+  url: "{{api_url}}/artists/{{artist_id}}/artworks"
+
+runtime:
+  variables:
+    - name: artist_id
+      value: 98e8f70f-3ea7-4fe2-ba26-8ac6bf528870
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: Get every public artwork created by an artist, newest first.

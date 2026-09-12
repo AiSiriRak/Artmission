@@ -26,7 +26,7 @@ request:
     - name: username
       value: test
     - name: email
-      value: test@example.com
+      value: test2@example.com
     - name: password
       value: password1234
 bundled: false

@@ -1,0 +1,20 @@
+info:
+  name: DeleteArtwork
+  type: http
+  seq: 3
+  tags:
+    - artworks
+
+http:
+  method: DELETE
+  url: "{{api_url}}/artworks/00000000-0000-0000-0000-000000000001"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: Delete portfolio artwork owned by the authenticated artist.

@@ -3,6 +3,8 @@ package objectstorage
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -14,15 +16,53 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// TODO: add Upload/Delete once the artist deliverable-submission and
-// artwork-image endpoints exist; GetPresignedURL and PublicURL are the
-// only operations ViewOrders needs today.
 type Client struct {
 	raw               *s3.Client
 	presign           *s3.PresignClient
 	publicBucketName  string
 	privateBucketName string
 	publicBaseURL     string
+}
+
+func (c *Client) UploadPublic(ctx context.Context, key string, body io.Reader, size int64, contentType string) error {
+	_, err := c.raw.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:        aws.String(c.publicBucketName),
+		Key:           aws.String(key),
+		Body:          body,
+		ContentLength: aws.Int64(size),
+		ContentType:   aws.String(contentType),
+	})
+	return err
+}
+
+func (c *Client) DeletePublic(ctx context.Context, key string) error {
+	_, err := c.raw.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(c.publicBucketName),
+		Key:    aws.String(key),
+	})
+	return err
+}
+
+// DeletePublicURL deletes only URLs produced by this client's public bucket.
+// Existing external URLs are ignored so legacy artwork data remains safe.
+func (c *Client) DeletePublicURL(ctx context.Context, rawURL string) error {
+	base, err := url.Parse(c.publicBaseURL)
+	if err != nil {
+		return nil
+	}
+	candidate, err := url.Parse(rawURL)
+	if err != nil || candidate.Scheme != base.Scheme || candidate.Host != base.Host {
+		return nil
+	}
+	prefix := strings.TrimRight(base.Path, "/") + "/"
+	if !strings.HasPrefix(candidate.Path, prefix) {
+		return nil
+	}
+	key := strings.TrimPrefix(candidate.Path, prefix)
+	if key == "" {
+		return nil
+	}
+	return c.DeletePublic(ctx, key)
 }
 
 func NewS3Client(ctx context.Context, cfg config.S3) (*Client, error) {
