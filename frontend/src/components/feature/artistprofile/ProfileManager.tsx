@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation"; 
 import { updateArtistProfile, getArtistArtworks } from "@/lib/api/artists"; 
-import { createArtwork, deleteArtwork } from "@/lib/api/artworks";
-import type { UpdateArtistInput, ArtistProfile, Artwork, CreateArtworkInput } from "@/lib/api/types";
+import { createArtwork, updateArtwork, deleteArtwork } from "@/lib/api/artworks";
+import type { UpdateArtistInput, ArtistProfile, Artwork, CreateArtworkInput, UpdateArtworkInput } from "@/lib/api/types";
 
 // กำหนด Type ของ Review ไว้ในนี้ชั่วคราว (จนกว่า Backend จะมี Review Type)
 export interface ReviewData {
@@ -71,7 +71,6 @@ export default function ProfileManager({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // ส่งเฉพาะฟิลด์ที่ UpdateArtistInput อนุญาตให้อัปเดต
       const payload: any = {
         description: artistData.description || "",
       };
@@ -102,7 +101,6 @@ export default function ProfileManager({
     } catch (error: any) {
       console.error("Save failed:", error);
 
-      // 🛑 เพิ่มบรรทัดนี้เพื่อปริ้นต์รายละเอียด Validation Error จาก Backend ออกมาดู
       if (error.body) {
         console.log("Detailed Validation Error:", JSON.stringify(error.body, null, 2));
       }
@@ -113,7 +111,6 @@ export default function ProfileManager({
     }
   };
 
-  // ✅ สร้างฟังก์ชันช่วยดึงรายการผลงานใหม่ และแกะ Array ออกมาใส่ State
   const refreshArtworks = async (artistId: string) => {
     const res = await getArtistArtworks(artistId);
     const artworksList = Array.isArray(res) 
@@ -123,17 +120,21 @@ export default function ProfileManager({
     setArtworks(artworksList);
   };
 
-  const handleSaveArtwork = async (payload: CreateArtworkInput, artworkId?: string) => {
-    setIsSaving(true); // โชว์หน้าโหลดป้องกันผู้ใช้กดซ้ำ
+  const handleSaveArtwork = async (
+    payload: CreateArtworkInput | UpdateArtworkInput | any, 
+    artworkId?: string
+  ) => {
+    setIsSaving(true); 
     try {
-      // ถ้าเป็นการแก้ไข (มี ID ส่งมา) ให้ลบของเก่าใน Backend ทิ้งก่อน
       if (artworkId) {
-        await deleteArtwork(artworkId);
+        // ถ้าเป็นการแก้ไข (มี ID ส่งมา) -> ใช้ Update API แทนการลบแล้วสร้างใหม่
+        await updateArtwork(artworkId, payload as UpdateArtworkInput);
+      } else {
+        // ถ้าไม่มี ID (สร้างใหม่) -> ใช้ Create API
+        await createArtwork(payload as CreateArtworkInput);
       }
 
-      await createArtwork(payload);
-
-      // ✅ ดึงรายการผลงานทั้งหมดของ Artist คนนี้ใหม่ทันที
+      // ดึงรายการผลงานทั้งหมดของ Artist คนนี้ใหม่ทันที
       const artistId = artistData.artist_id || (artistData as any).id;
       if (artistId) {
         await refreshArtworks(artistId);
@@ -153,19 +154,15 @@ export default function ProfileManager({
   };
 
   const handleDeleteArtwork = async (artworkId: string) => {
-    // ให้มีการ Confirm เพื่อป้องกันการลบพลาด
     const isConfirmed = window.confirm("คุณต้องการลบผลงานนี้ใช่หรือไม่?");
     if (!isConfirmed) return;
 
     setIsSaving(true);
     try {
-      // ส่งคำสั่งลบไปที่ Backend
       await deleteArtwork(artworkId);
 
-      // ✅ ดึงรายการผลงานใหม่หลังจากลบสำเร็จ
       const artistId = artistData.artist_id || (artistData as any).id;
       if (artistId) {
-        const updatedArtworks = await getArtistArtworks(artistId);
         await refreshArtworks(artistId);
       } else {
         setArtworks((prev) => prev.filter(art => String(art.id) !== artworkId));
@@ -187,11 +184,10 @@ export default function ProfileManager({
     setSelectedArtwork(null);
   };
 
-  // ✅ รับไฟล์จาก ProfileImage
   const handleImageChange = (newImageUrl: string, file?: File) => {
     setArtistData((prev) => ({ ...prev, profile_url: newImageUrl }));
     if (file) {
-      setNewProfileImageFile(file); // เก็บไฟล์ไว้เตรียมอัปโหลดตอนกด Save
+      setNewProfileImageFile(file); 
     }
   };
 
@@ -202,7 +198,7 @@ export default function ProfileManager({
     artworks.flatMap(art => art.styles || [])
   )].filter(Boolean);
 
-  // คำนวณราคาจาก price_satang เป็นบาท
+  // Price from Satang to Bath
   const prices = artworks
     .map(art => Number(art.price_satang ? art.price_satang / 100 : 0))
     .filter(p => !isNaN(p) && p > 0);

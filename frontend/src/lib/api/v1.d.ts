@@ -92,7 +92,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /**
+         * UpdateArtwork
+         * @description Update portfolio artwork owned by the authenticated artist
+         */
+        put: operations["update-artwork"];
         post?: never;
         /**
          * DeleteArtwork
@@ -364,23 +368,6 @@ export interface components {
             account_last4: string;
             bank_name: string;
         };
-        CreateArtworkInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/CreateArtworkInputBody.json
-             */
-            readonly $schema?: string;
-            artwork_samples: components["schemas"]["ArtworkSampleView"][] | null;
-            category: string;
-            description: string;
-            /** Format: int64 */
-            minimum_deadline_days: number;
-            name: string;
-            /** Format: int64 */
-            price_satang: number;
-            styles: string[] | null;
-        };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
             location?: string;
@@ -645,14 +632,70 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["CreateArtworkInputBody"];
+                "multipart/form-data": {
+                    artwork_samples?: string[];
+                    category: string;
+                    description: string;
+                    /** Format: int64 */
+                    minimum_deadline_days: number;
+                    name: string;
+                    /** Format: int64 */
+                    price_satang: number;
+                    styles: string[] | null;
+                };
             };
         };
         responses: {
             /** @description Created */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtworkView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-artwork": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artwork_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    category: string;
+                    deleted_sample_urls?: string[] | null;
+                    description: string;
+                    /** Format: int64 */
+                    minimum_deadline_days: number;
+                    name: string;
+                    /** Format: int64 */
+                    price_satang: number;
+                    styles: string[] | null;
+                    uploaded_samples?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

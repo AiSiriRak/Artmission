@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Artwork, CreateArtworkInput, } from "@/lib/api/types";
+import type { Artwork, CreateArtworkInput, UpdateArtworkInput} from "@/lib/api/types";
 import { Button } from "@/components/ui/Button";
 import ReviewList from "./ReviewList";
 import DeleteArtworkModal from "./DeleteArtworkModal"; 
@@ -15,11 +15,13 @@ interface ReviewData {
 }
 
 interface ArtworkDetailProps {
-  // เชื่อมกับ Artwork ตรงๆ และเผื่อฟิลด์ id ไว้กรณี Backend ตกหล่นจาก Schema
   artwork?: (Artwork & { id?: string | number }) | null;
   onBack: () => void;
   isCustomerMode: boolean;
-  onSave?: (payload: CreateArtworkInput, artworkId?: string) => void | Promise<void>;
+  onSave?: (
+    payload: CreateArtworkInput | UpdateArtworkInput | any, 
+    artworkId?: string
+  ) => void | Promise<void>;
   onDelete?: (artworkId: string) => void | Promise<void>;
 }
 
@@ -31,6 +33,11 @@ const mockArtworkReviews: ReviewData[] = [
   { id: 2, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
 ];
 
+interface ImageItem {
+  previewUrl: string;
+  file?: File;
+}
+
 export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave, onDelete }: ArtworkDetailProps) {
   const [isEditing, setIsEditing] = useState(!artwork);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -38,23 +45,22 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
   // 1. Map ค่าตั้งต้นให้ตรงกับ Schema
   const initialPriceTHB = artwork?.price_satang ? artwork.price_satang / 100 : 0;
   
-  // แปลง artwork_samples จาก Object Array -> String Array ไว้ใช้ใน UI
-  const initialImages = artwork?.artwork_samples && artwork.artwork_samples.length > 0 
-    ? artwork.artwork_samples.map(sample => sample.image_url) 
+  const initialImages: ImageItem[] = artwork?.artwork_samples && artwork.artwork_samples.length > 0 
+    ? artwork.artwork_samples.map(sample => ({ previewUrl: sample.image_url })) 
     : [];
 
   const [savedData, setSavedData] = useState({
     name: artwork?.name || "",
     category: artwork?.category || "",
-    styles: artwork?.styles || [], // ใช้ Array โดยตรงตาม Schema
+    styles: artwork?.styles || [],
     description: artwork?.description || "", 
     minimum_deadline_days: artwork?.minimum_deadline_days || 1,
     price: initialPriceTHB,
   });
 
-  const [savedImages, setSavedImages] = useState<string[]>(initialImages);
+  const [savedImages, setSavedImages] = useState<ImageItem[]>(initialImages);
   const [formData, setFormData] = useState({ ...savedData });
-  const [images, setImages] = useState<string[]>([...savedImages]);
+  const [images, setImages] = useState<ImageItem[]>([...savedImages]);
 
   const [catSearch, setCatSearch] = useState("");
   const [styleSearch, setStyleSearch] = useState("");
@@ -65,9 +71,9 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
   useEffect(() => {
     if (artwork) {
       const priceTHB = artwork.price_satang ? artwork.price_satang / 100 : 0;
-      const imgArray = artwork.artwork_samples && artwork.artwork_samples.length > 0 
-        ? artwork.artwork_samples.map(sample => sample.image_url) 
-        : ["/placeholder.jpg"];
+      const imgArray: ImageItem[] = artwork.artwork_samples && artwork.artwork_samples.length > 0 
+        ? artwork.artwork_samples.map(sample => ({ previewUrl: sample.image_url })) 
+        : [{ previewUrl: "/placeholder.jpg" }];
       
       const newData = {
         name: artwork.name || "",
@@ -93,8 +99,8 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const imageUrl = URL.createObjectURL(file);
-      setImages((prev) => [...prev, imageUrl]);
+      const previewUrl = URL.createObjectURL(file);
+      setImages((prev) => [...prev, { previewUrl, file }]);
     }
   };
 
@@ -109,39 +115,57 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
   };
 
   const handleSave = () => {
-    setSavedData({ ...formData });
-    setSavedImages([...images]);
-    setIsEditing(false);
+  setSavedData({ ...formData });
+  setSavedImages([...images]);
+  setIsEditing(false);
 
-    if (onSave) {
-      // 2. จัด Payload ส่งกลับให้ตรงกับ Schema CreateArtworkInput
-      const payload: CreateArtworkInput = {
-        name: formData.name,
-        description: formData.description,
-        price_satang: Math.round(Number(formData.price || 0) * 100),
-        minimum_deadline_days: Number(formData.minimum_deadline_days),
-        category: formData.category,
-        styles: formData.styles.length > 0 ? formData.styles : null,
-        
-        // แปลงรูปลิงก์จำลอง (blob:) เป็นรูปลิงก์จริงชั่วคราว
-        artwork_samples: images
-          .filter(url => url !== "/placeholder.jpg")
-          .map(url => {
-            if (url.startsWith("blob:")) {
-              // ถ้าเป็นรูปที่เพิ่งอัปโหลดจากคอม ส่งเป็นลิงก์จำลองตัวนี้ไปให้ Backend ก่อน
-              return { image_url: "https://placehold.co/600x400/png?text=Temporary+Artwork" };
-            }
-            // ถ้าเป็นลิงก์จริงอยู่แล้ว (จาก Database) ก็ใช้ได้เลย
-            return { image_url: url };
-          }),
-      };
+  if (onSave) {
+    // ดึง ID ของงานมาเช็คก่อนว่าเป็นโหมดแก้ไข หรือสร้างใหม่
+    const actualId = artwork?.id || (artwork as any)?.artwork_id;
+    const isEditing = !!actualId; 
+    const artworkId = actualId ? String(actualId) : undefined;
 
-      const artworkId = artwork?.id ? String(artwork.id) : undefined;
+    // 1. คัดเฉพาะ "ไฟล์รูปใหม่" ที่เพิ่งอัปโหลด
+    const newImages = images
+      .filter(img => img.previewUrl !== "/placeholder.jpg" && img.file)
+      .map(img => img.file);
+
+    // เตรียม Payload พื้นฐาน
+    const payload: any = {
+      name: formData.name,
+      description: formData.description,
+      price_satang: Math.round(Number(formData.price || 0) * 100),
+      minimum_deadline_days: Number(formData.minimum_deadline_days),
+      category: formData.category,
+      styles: formData.styles.length > 0 ? formData.styles : null,
+    };
+
+    if (isEditing) {
+      // 🛠️ โหมดแก้ไข (PUT) -> ตาม Swagger
       
-      // ✅ ส่ง Payload ที่ Type ตรงเป๊ะกลับไปให้ Parent จัดการ
-      onSave(payload, artworkId);
+      // หาว่ามีรูปเก่าไหนบ้างที่โดนลบออกไป
+      // (เปรียบเทียบรูปต้นฉบับใน artwork กับรูปปัจจุบันที่เหลืออยู่ใน UI)
+      const originalUrls = (artwork?.artwork_samples || [])
+        .map((s: any) => s.image_url || (typeof s === 'string' ? s : ''))
+        .filter(Boolean); // กรองค่าว่างทิ้ง
+      const currentUrls = images
+        .filter(img => !img.file) // ดึงเฉพาะรูปเก่าที่ยังเหลืออยู่
+        .map(img => img.previewUrl);
+      
+      const deletedUrls = originalUrls.filter((url: string) => !currentUrls.includes(url));
+
+      // ใส่ฟิลด์ตาม Swagger สำหรับ PUT
+      payload.uploaded_samples = newImages.length > 0 ? newImages : undefined;
+      payload.deleted_sample_urls = deletedUrls.length > 0 ? deletedUrls : null;
+
+    } else {
+      // 🆕 โหมดสร้างใหม่ (POST) -> ตาม Swagger
+      payload.artwork_samples = newImages.length > 0 ? newImages : undefined;
     }
-  };
+
+    onSave(payload, artworkId);
+  }
+};
 
   const confirmDelete = () => {
     if (onDelete && artwork?.id) {
@@ -149,7 +173,7 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
     }
   };
 
-  const displayImages = isEditing ? images : savedImages;
+  const displayImages = (isEditing ? images : savedImages).map(img => img.previewUrl);
 
   // กรอง Style / Category
   const filteredCategories = AVAILABLE_CATEGORIES.filter(c => c.toLowerCase().includes(catSearch.toLowerCase()));

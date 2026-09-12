@@ -44,4 +44,7 @@ export type UpdateArtistInput = RequestBody<"/artists/me", "put">;
 // Artwork
 export type Artwork = components["schemas"]["ArtworkView"];
 export type ArtworkSample = components["schemas"]["ArtworkSampleView"];
-export type CreateArtworkInput = components["schemas"]["CreateArtworkInputBody"];
+
+// Type from multipart/form-data from path
+export type CreateArtworkInput = RequestBody<"/artworks", "post">;
+export type UpdateArtworkInput = RequestBody<"/artworks/{artwork_id}", "put">;

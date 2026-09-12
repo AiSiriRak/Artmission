@@ -27,12 +27,20 @@ export async function getArtistProfile(
  * ดึงผลงานศิลปะทั้งหมดของศิลปิน
  * GET /artists/{artist_id}/artworks
  */
-export async function getArtistArtworks(
-  artistId: string,
-): Promise<GetArtistArtworksOutput> {
-  return apiFetch<GetArtistArtworksOutput>(`/artists/${artistId}/artworks`);
-}
+export async function getArtistArtworks(artistId: string) {
+  const res = await apiFetch(`/artists/${artistId}/artworks`);
+  
+  // แกะ Array ออกมา
+  const rawList = Array.isArray(res) ? res : (res as any).artworks || [];
 
+  // ✅ ทำ Data Mapping: แปลง artwork_id ให้เป็น id ทุกตัว
+  const normalizedList = rawList.map((art: any) => ({
+    ...art,
+    id: art.id || art.artwork_id, // บังคับให้มี id เสมอ
+  }));
+
+  return normalizedList;
+}
 /**
  * อัปเดตข้อมูลโปรไฟล์ศิลปินของตนเอง (รองรับทั้ง Object และ FormData)
  * PUT /artists/me
