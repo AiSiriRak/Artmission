@@ -14,6 +14,28 @@ Feature: Artist profile
     When a visitor requests the artist profile
     Then the system returns distinct artwork metadata and its price range
 
+  Scenario: retrieve every artwork created by an artist publicly
+    Given the artist has a registered account
+    And the artist has artworks in multiple categories and styles
+    When a visitor requests the artist artworks
+    Then the system returns every artist artwork newest first
+
+  Scenario: retrieve an empty artist portfolio publicly
+    Given the artist has a registered account
+    When a visitor requests the artist artworks
+    Then the system returns an empty artwork list
+
+  Scenario: retrieve artworks for a missing artist
+    When a visitor requests artworks for an artist that does not exist
+    Then the system reports that the artist artworks were not found
+
+  Scenario: hide artworks belonging to a deleted artist
+    Given the artist has a registered account
+    And the artist has artworks in multiple categories and styles
+    And the artist account has been deleted
+    When a visitor requests the artist artworks
+    Then the system reports that the artist artworks were not found
+
   Scenario: return paginated reviews and a whole-profile average
     Given the artist has a registered account
     And the artist has three customer reviews

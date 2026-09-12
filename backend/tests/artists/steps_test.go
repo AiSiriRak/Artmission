@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
@@ -38,6 +39,25 @@ type artistProfileResponse struct {
 	ReviewScore    *float64            `json:"review_score"`
 	Reviews        []reviewResponse    `json:"reviews"`
 	Total          int                 `json:"total"`
+}
+
+type artworkSampleResponse struct {
+	ImageURL string `json:"image_url"`
+}
+
+type artistArtworkResponse struct {
+	ArtworkID           string                  `json:"artwork_id"`
+	Name                string                  `json:"name"`
+	Category            string                  `json:"category"`
+	Styles              []string                `json:"styles"`
+	Description         string                  `json:"description"`
+	ArtworkSamples      []artworkSampleResponse `json:"artwork_samples"`
+	MinimumDeadlineDays int                     `json:"minimum_deadline_days"`
+	PriceSatang         int64                   `json:"price_satang"`
+}
+
+type artistArtworksResponse struct {
+	Artworks []artistArtworkResponse `json:"artworks"`
 }
 
 type artistsContext struct {
@@ -80,6 +100,7 @@ func (artistContext *artistsContext) seedArtworkMetadata() error {
 	styleA, styleB := uuid.New(), uuid.New()
 	artistContext.artworkIDs = []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
 	suffix := apptest.UniqueSuffix()
+	oldest := time.Now().Add(-3 * time.Hour)
 
 	if _, err := app.DB.ExecContext(context.Background(), `
 		INSERT INTO categories (id, label) VALUES (?, ?), (?, ?)
@@ -92,18 +113,31 @@ func (artistContext *artistsContext) seedArtworkMetadata() error {
 		return err
 	}
 	if _, err := app.DB.ExecContext(context.Background(), `
-		INSERT INTO artworks (id, artist_id, category_id, name, description, price_satang, minimum_deadline_days)
+		INSERT INTO artworks (id, artist_id, category_id, name, description, price_satang, minimum_deadline_days, created_at)
 		VALUES
-			(?, ?, ?, 'First', 'First artwork', 1000, 7),
-			(?, ?, ?, 'Second', 'Second artwork', 3000, 7),
-			(?, ?, ?, 'Third', 'Third artwork', 2000, 7)
-	`, artistContext.artworkIDs[0], artistID, categoryA, artistContext.artworkIDs[1], artistID, categoryA, artistContext.artworkIDs[2], artistID, categoryB); err != nil {
+			(?, ?, ?, 'First', 'First artwork', 1000, 7, ?),
+			(?, ?, ?, 'Second', 'Second artwork', 3000, 7, ?),
+			(?, ?, ?, 'Third', 'Third artwork', 2000, 7, ?)
+	`, artistContext.artworkIDs[0], artistID, categoryA, oldest,
+		artistContext.artworkIDs[1], artistID, categoryA, oldest.Add(time.Hour),
+		artistContext.artworkIDs[2], artistID, categoryB, oldest.Add(2*time.Hour)); err != nil {
+		return err
+	}
+	if _, err = app.DB.ExecContext(context.Background(), `
+		INSERT INTO artwork_styles (artwork_id, style_id)
+		VALUES (?, ?), (?, ?), (?, ?), (?, ?)
+	`, artistContext.artworkIDs[0], styleA, artistContext.artworkIDs[1], styleA, artistContext.artworkIDs[1], styleB, artistContext.artworkIDs[2], styleB); err != nil {
 		return err
 	}
 	_, err = app.DB.ExecContext(context.Background(), `
-		INSERT INTO artwork_styles (artwork_id, style_id)
-		VALUES (?, ?), (?, ?), (?, ?), (?, ?)
-	`, artistContext.artworkIDs[0], styleA, artistContext.artworkIDs[1], styleA, artistContext.artworkIDs[1], styleB, artistContext.artworkIDs[2], styleB)
+		INSERT INTO artwork_images (id, artwork_id, image_url, sort_order)
+		VALUES
+			(?, ?, ?, 0),
+			(?, ?, ?, 0),
+			(?, ?, ?, 0)
+	`, uuid.New(), artistContext.artworkIDs[0], "https://example.com/artworks/first/preview.webp",
+		uuid.New(), artistContext.artworkIDs[1], "https://example.com/artworks/second/preview.webp",
+		uuid.New(), artistContext.artworkIDs[2], "https://example.com/artworks/third/preview.webp")
 	return err
 }
 
@@ -151,6 +185,15 @@ func (artistContext *artistsContext) seedReviews() error {
 
 func (artistContext *artistsContext) getArtistProfile(pathSuffix string) error {
 	response, err := artistContext.client.Do(http.MethodGet, "/artists/"+artistContext.artist.ID+pathSuffix, nil, nil)
+	if err != nil {
+		return err
+	}
+	artistContext.resp = response
+	return nil
+}
+
+func (artistContext *artistsContext) getArtistArtworks() error {
+	response, err := artistContext.client.Do(http.MethodGet, "/artists/"+artistContext.artist.ID+"/artworks", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -244,6 +287,11 @@ func InitializeScenario(scenario *godog.ScenarioContext) {
 	})
 
 	scenario.Step(`^a visitor requests the artist profile$`, func() error { return artistContext.getArtistProfile("") })
+	scenario.Step(`^a visitor requests the artist artworks$`, func() error { return artistContext.getArtistArtworks() })
+	scenario.Step(`^a visitor requests artworks for an artist that does not exist$`, func() error {
+		artistContext.artist.ID = uuid.NewString()
+		return artistContext.getArtistArtworks()
+	})
 	scenario.Step(`^a visitor requests two artist reviews$`, func() error { return artistContext.getArtistProfile("?limit=2&offset=0") })
 	scenario.Step(`^a visitor requests an artist profile that does not exist$`, func() error {
 		artistContext.artist.ID = uuid.NewString()
@@ -322,6 +370,51 @@ func InitializeScenario(scenario *godog.ScenarioContext) {
 		}
 		if profile.MinPriceSatang == nil || *profile.MinPriceSatang != 1000 || profile.MaxPriceSatang == nil || *profile.MaxPriceSatang != 3000 {
 			return fmt.Errorf("unexpected derived price range: min=%v max=%v", profile.MinPriceSatang, profile.MaxPriceSatang)
+		}
+		return nil
+	})
+	scenario.Step(`^the system returns every artist artwork newest first$`, func() error {
+		if artistContext.resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("expected 200, got %d: %s", artistContext.resp.StatusCode, artistContext.resp.Body)
+		}
+		var response artistArtworksResponse
+		if err := artistContext.resp.JSON(&response); err != nil {
+			return err
+		}
+		if response.Artworks == nil || len(response.Artworks) != 3 {
+			return fmt.Errorf("expected three artworks, got %+v", response.Artworks)
+		}
+		wantNames := []string{"Third", "Second", "First"}
+		wantPrices := []int64{2000, 3000, 1000}
+		for index, item := range response.Artworks {
+			if item.ArtworkID != artistContext.artworkIDs[2-index].String() || item.Name != wantNames[index] || item.PriceSatang != wantPrices[index] {
+				return fmt.Errorf("artwork %d = %+v", index, item)
+			}
+			if item.Category == "" || item.Styles == nil || item.ArtworkSamples == nil || len(item.ArtworkSamples) != 1 {
+				return fmt.Errorf("artwork metadata is incomplete: %+v", item)
+			}
+			if !strings.HasSuffix(item.ArtworkSamples[0].ImageURL, "/artworks/"+strings.ToLower(item.Name)+"/preview.webp") {
+				return fmt.Errorf("unexpected artwork image URL: %q", item.ArtworkSamples[0].ImageURL)
+			}
+		}
+		return nil
+	})
+	scenario.Step(`^the system returns an empty artwork list$`, func() error {
+		if artistContext.resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("expected 200, got %d: %s", artistContext.resp.StatusCode, artistContext.resp.Body)
+		}
+		var response artistArtworksResponse
+		if err := artistContext.resp.JSON(&response); err != nil {
+			return err
+		}
+		if response.Artworks == nil || len(response.Artworks) != 0 {
+			return fmt.Errorf("expected an empty non-null artwork list, got %+v", response.Artworks)
+		}
+		return nil
+	})
+	scenario.Step(`^the system reports that the artist artworks were not found$`, func() error {
+		if artistContext.resp.StatusCode != http.StatusNotFound {
+			return fmt.Errorf("expected 404, got %d: %s", artistContext.resp.StatusCode, artistContext.resp.Body)
 		}
 		return nil
 	})
