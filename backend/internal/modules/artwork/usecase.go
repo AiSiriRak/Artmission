@@ -1,26 +1,112 @@
 package artwork
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"net/url"
+	"io"
 	"strings"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
 )
 
 type usecase struct {
-	repo Repository
-	tx   Transactioner
+	repo    Repository
+	tx      Transactioner
+	storage ObjectStorage
 }
 
-func NewUsecase(repo Repository, tx Transactioner) Usecase {
-	return &usecase{repo: repo, tx: tx}
+func NewUsecase(repo Repository, tx Transactioner, storage ObjectStorage) Usecase {
+	return &usecase{repo: repo, tx: tx, storage: storage}
 }
 
 func (u *usecase) Create(ctx context.Context, input CreateInput) (*Artwork, error) {
+	created, err := normalizeArtwork(uuid.New(), input)
+	if err != nil {
+		return nil, err
+	}
+	uploadedURLs, err := u.uploadSamples(ctx, created, input.SampleFiles)
+	if err != nil {
+		return nil, err
+	}
+
+	err = u.tx.Transaction(ctx, func(ctx context.Context) error {
+		categoryID, err := u.repo.FindOrCreateCategory(ctx, created.Category)
+		if err != nil {
+			return err
+		}
+		styleIDs, err := u.repo.FindOrCreateStyles(ctx, created.Styles)
+		if err != nil {
+			return err
+		}
+		return u.repo.Create(ctx, created, categoryID, styleIDs)
+	})
+	if err != nil {
+		u.deleteSampleURLs(ctx, uploadedURLs)
+		return nil, err
+	}
+	return created, nil
+}
+
+func (u *usecase) Update(ctx context.Context, input UpdateInput) (*Artwork, error) {
+	if input.ArtworkID == uuid.Nil {
+		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
+	}
+
+	updated, err := normalizeArtwork(input.ArtworkID, input.CreateInput)
+	if err != nil {
+		return nil, err
+	}
+	deletedSampleURLs, err := normalizeDeletedSampleURLs(input.DeletedSampleURLs)
+	if err != nil {
+		return nil, err
+	}
+	uploadedURLs, err := u.uploadSamples(ctx, updated, input.SampleFiles)
+	if err != nil {
+		return nil, err
+	}
+	var deletedURLs []string
+	err = u.tx.Transaction(ctx, func(ctx context.Context) error {
+		categoryID, err := u.repo.FindOrCreateCategory(ctx, updated.Category)
+		if err != nil {
+			return err
+		}
+		styleIDs, err := u.repo.FindOrCreateStyles(ctx, updated.Styles)
+		if err != nil {
+			return err
+		}
+		deletedURLs, err = u.repo.UpdateOwnedBy(ctx, updated, categoryID, styleIDs, deletedSampleURLs)
+		return err
+	})
+	if err != nil {
+		u.deleteSampleURLs(ctx, uploadedURLs)
+		return nil, err
+	}
+	u.deleteSampleURLs(ctx, deletedURLs)
+	return updated, nil
+}
+
+func (u *usecase) Delete(ctx context.Context, artistID, artworkID uuid.UUID) error {
+	if artistID == uuid.Nil || artworkID == uuid.Nil {
+		return apperror.InvalidInput("artwork id and artist id must not be empty", nil)
+	}
+	var deletedURLs []string
+	err := u.tx.Transaction(ctx, func(ctx context.Context) error {
+		var err error
+		deletedURLs, err = u.repo.DeleteOwnedBy(ctx, artworkID, artistID)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	u.deleteSampleURLs(ctx, deletedURLs)
+	return nil
+}
+
+func normalizeArtwork(id uuid.UUID, input CreateInput) (*Artwork, error) {
 	if input.ArtistID == uuid.Nil {
 		return nil, apperror.InvalidInput("artist id must not be empty", nil)
 	}
@@ -41,10 +127,6 @@ func (u *usecase) Create(ctx context.Context, input CreateInput) (*Artwork, erro
 	if err != nil {
 		return nil, err
 	}
-	samples, err := normalizeSamples(input.Samples)
-	if err != nil {
-		return nil, err
-	}
 	if input.MinimumDeadlineDays <= 0 {
 		return nil, apperror.InvalidInput("minimum deadline days must be greater than zero", nil)
 	}
@@ -53,42 +135,19 @@ func (u *usecase) Create(ctx context.Context, input CreateInput) (*Artwork, erro
 	}
 
 	now := time.Now()
-	created := &Artwork{
-		ID:                  uuid.New(),
+	return &Artwork{
+		ID:                  id,
 		ArtistID:            input.ArtistID,
 		Name:                name,
 		Category:            category,
 		Styles:              styles,
 		Description:         description,
-		Samples:             samples,
+		Samples:             make([]Sample, 0, len(input.SampleFiles)),
 		MinimumDeadlineDays: input.MinimumDeadlineDays,
 		PriceSatang:         input.PriceSatang,
 		CreatedAt:           now,
 		UpdatedAt:           now,
-	}
-
-	err = u.tx.Transaction(ctx, func(ctx context.Context) error {
-		categoryID, err := u.repo.FindOrCreateCategory(ctx, category)
-		if err != nil {
-			return err
-		}
-		styleIDs, err := u.repo.FindOrCreateStyles(ctx, styles)
-		if err != nil {
-			return err
-		}
-		return u.repo.Create(ctx, created, categoryID, styleIDs)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return created, nil
-}
-
-func (u *usecase) Delete(ctx context.Context, artistID, artworkID uuid.UUID) error {
-	if artistID == uuid.Nil || artworkID == uuid.Nil {
-		return apperror.InvalidInput("artwork id and artist id must not be empty", nil)
-	}
-	return u.repo.DeleteOwnedBy(ctx, artworkID, artistID)
+	}, nil
 }
 
 func requiredText(field, value string) (string, error) {
@@ -116,20 +175,67 @@ func normalizeStyles(labels []string) ([]string, error) {
 	return normalized, nil
 }
 
-func normalizeSamples(samples []Sample) ([]Sample, error) {
-	normalized := make([]Sample, len(samples))
-	for index, sample := range samples {
-		imageURL, err := requiredText("image url", sample.ImageURL)
+func normalizeDeletedSampleURLs(urls []string) ([]string, error) {
+	seen := make(map[string]struct{}, len(urls))
+	normalized := make([]string, 0, len(urls))
+	for _, imageURL := range urls {
+		value, err := requiredText("deleted sample URL", imageURL)
 		if err != nil {
 			return nil, err
 		}
-		parsed, err := url.Parse(imageURL)
-		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-			return nil, apperror.InvalidInput(fmt.Sprintf("artwork sample %d must have an absolute HTTP or HTTPS image URL", index+1), err)
+		if _, exists := seen[value]; exists {
+			continue
 		}
-		normalized[index] = Sample{ImageURL: imageURL, SortOrder: index}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
 	}
 	return normalized, nil
+}
+
+func (u *usecase) uploadSamples(ctx context.Context, item *Artwork, files []io.Reader) ([]string, error) {
+	uploadedURLs := make([]string, 0, len(files))
+	for index, reader := range files {
+		content, contentType, extension, err := readSampleImage(reader)
+		if err != nil {
+			u.deleteSampleURLs(ctx, uploadedURLs)
+			return nil, err
+		}
+		key := fmt.Sprintf("artists/%s/artworks/%s/%s.%s", item.ArtistID, item.ID, uuid.New(), extension)
+		if err := u.storage.UploadPublic(ctx, key, bytes.NewReader(content), int64(len(content)), contentType); err != nil {
+			u.deleteSampleURLs(ctx, uploadedURLs)
+			return nil, apperror.Internal("failed to upload artwork sample", err)
+		}
+		imageURL := u.storage.PublicURL(key)
+		item.Samples = append(item.Samples, Sample{ImageURL: imageURL, SortOrder: index})
+		uploadedURLs = append(uploadedURLs, imageURL)
+	}
+	return uploadedURLs, nil
+}
+
+func (u *usecase) deleteSampleURLs(ctx context.Context, urls []string) {
+	for _, imageURL := range urls {
+		_ = u.storage.DeletePublicURL(ctx, imageURL)
+	}
+}
+
+func readSampleImage(reader io.Reader) ([]byte, string, string, error) {
+	content, err := io.ReadAll(io.LimitReader(reader, MaxSampleImageSize+1))
+	if err != nil {
+		return nil, "", "", apperror.InvalidInput("failed to read artwork sample image", err)
+	}
+	if len(content) > MaxSampleImageSize {
+		return nil, "", "", ErrSampleImageTooLarge
+	}
+	switch mimetype.Detect(content).String() {
+	case "image/jpeg":
+		return content, "image/jpeg", "jpg", nil
+	case "image/png":
+		return content, "image/png", "png", nil
+	case "image/webp":
+		return content, "image/webp", "webp", nil
+	default:
+		return nil, "", "", ErrInvalidSampleImage
+	}
 }
 
 func (u *usecase) ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]Artwork, error) {

@@ -9,21 +9,37 @@ http:
   method: POST
   url: "{{api_url}}/artworks"
   body:
-    type: json
-    data: |-
-      {
-        "name": "Frontend draft",
-        "category": "Illustration",
-        "styles": ["Watercolor"],
-        "description": "A watercolor illustration commission.",
-        "artwork_samples": [
-          {
-            "image_url": "https://example.com/frontend-draft.png"
-          }
-        ],
-        "minimum_deadline_days": 14,
-        "price_satang": 50000
-      }
+    type: multipart-form
+    data:
+      - name: name
+        type: text
+        value: Frontend draft
+        contentType: text/plain
+      - name: category
+        type: text
+        value: Illustration
+        contentType: text/plain
+      - name: styles
+        type: text
+        value: '["Watercolor"]'
+        contentType: application/json
+      - name: description
+        type: text
+        value: A watercolor illustration commission.
+        contentType: text/plain
+      - name: artwork_samples
+        type: file
+        value: []
+        contentType: image/png
+        disabled: true
+      - name: minimum_deadline_days
+        type: text
+        value: "14"
+        contentType: text/plain
+      - name: price_satang
+        type: text
+        value: "50000"
+        contentType: text/plain
   auth: inherit
 
 settings:
@@ -33,4 +49,6 @@ settings:
   maxRedirects: 5
   forwardAuthorizationHeader: true
 
-docs: Create portfolio artwork owned by the authenticated artist.
+docs: |-
+  Create artist-owned artwork. Select one or more JPEG, PNG, or WebP files
+  using repeated `artwork_samples` fields. Each image may be up to 5 MiB.

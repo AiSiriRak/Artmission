@@ -1,7 +1,7 @@
 info:
   name: GetArtistArtworks
   type: http
-  seq: 3
+  seq: 4
   tags:
     - artworks
     - artists

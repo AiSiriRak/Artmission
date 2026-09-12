@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"time"
 
@@ -71,6 +72,16 @@ func (h *ArtworkHandler) Register(api huma.API) {
 		},
 	)
 
+	huma.Put(api, "/artworks/{artwork_id}", h.updateArtwork,
+		huma.OperationTags("artworks"),
+		func(o *huma.Operation) {
+			o.OperationID = "update-artwork"
+			o.Summary = "UpdateArtwork"
+			o.Description = "Update portfolio artwork owned by the authenticated artist"
+			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireRole(api, user.RoleArtist))
+		},
+	)
+
 	huma.Delete(api, "/artworks/{artwork_id}", h.deleteArtwork,
 		huma.OperationTags("artworks"),
 		func(o *huma.Operation) {
@@ -120,16 +131,29 @@ func (h *ArtworkHandler) getArtistArtworks(ctx context.Context, input *GetArtist
 	return output, nil
 }
 
+type artworkForm struct {
+	Name                string          `form:"name" minLength:"1" required:"true"`
+	Category            string          `form:"category" minLength:"1" required:"true"`
+	Styles              []string        `form:"styles" contentType:"application/json" required:"true"`
+	Description         string          `form:"description" minLength:"1" required:"true"`
+	ArtworkSamples      []huma.FormFile `form:"artwork_samples" contentType:"image/jpeg,image/png,image/webp" required:"false"`
+	MinimumDeadlineDays int             `form:"minimum_deadline_days" minimum:"1" required:"true"`
+	PriceSatang         int64           `form:"price_satang" minimum:"0" required:"true"`
+}
+
+type updateArtworkForm struct {
+	Name                string          `form:"name" minLength:"1" required:"true"`
+	Category            string          `form:"category" minLength:"1" required:"true"`
+	Styles              []string        `form:"styles" contentType:"application/json" required:"true"`
+	Description         string          `form:"description" minLength:"1" required:"true"`
+	UploadedSamples     []huma.FormFile `form:"uploaded_samples" contentType:"image/jpeg,image/png,image/webp" required:"false"`
+	DeletedSampleURLs   []string        `form:"deleted_sample_urls" contentType:"application/json" required:"false"`
+	MinimumDeadlineDays int             `form:"minimum_deadline_days" minimum:"1" required:"true"`
+	PriceSatang         int64           `form:"price_satang" minimum:"0" required:"true"`
+}
+
 type CreateArtworkInput struct {
-	Body struct {
-		Name                string              `json:"name" minLength:"1"`
-		Category            string              `json:"category" minLength:"1"`
-		Styles              []string            `json:"styles"`
-		Description         string              `json:"description" minLength:"1"`
-		ArtworkSamples      []artworkSampleView `json:"artwork_samples"`
-		MinimumDeadlineDays int                 `json:"minimum_deadline_days" minimum:"1"`
-		PriceSatang         int64               `json:"price_satang" minimum:"0"`
-	}
+	RawBody huma.MultipartFormFiles[artworkForm]
 }
 
 type CreateArtworkOutput struct {
@@ -142,24 +166,72 @@ func (h *ArtworkHandler) createArtwork(ctx context.Context, input *CreateArtwork
 		return nil, huma.Error401Unauthorized("missing authentication")
 	}
 
-	samples := make([]artwork.Sample, len(input.Body.ArtworkSamples))
-	for index, sample := range input.Body.ArtworkSamples {
-		samples[index] = artwork.Sample{ImageURL: sample.ImageURL}
-	}
-	created, err := h.artworkUsecase.Create(ctx, artwork.CreateInput{
-		ArtistID:            info.UserID,
-		Name:                input.Body.Name,
-		Category:            input.Body.Category,
-		Styles:              input.Body.Styles,
-		Description:         input.Body.Description,
-		Samples:             samples,
-		MinimumDeadlineDays: input.Body.MinimumDeadlineDays,
-		PriceSatang:         input.Body.PriceSatang,
-	})
+	createInput := newArtworkCreateInput(input.RawBody.Data(), info.UserID)
+	created, err := h.artworkUsecase.Create(ctx, createInput)
 	if err != nil {
 		return nil, mapAppError(err)
 	}
 	return &CreateArtworkOutput{Body: newArtworkView(created)}, nil
+}
+
+type UpdateArtworkInput struct {
+	ArtworkID uuid.UUID `path:"artwork_id"`
+	RawBody   huma.MultipartFormFiles[updateArtworkForm]
+}
+
+type UpdateArtworkOutput struct {
+	Body artworkView
+}
+
+func (h *ArtworkHandler) updateArtwork(ctx context.Context, input *UpdateArtworkInput) (*UpdateArtworkOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	updated, err := h.artworkUsecase.Update(ctx, newArtworkUpdateInput(input.RawBody.Data(), input.ArtworkID, info.UserID))
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+	return &UpdateArtworkOutput{Body: newArtworkView(updated)}, nil
+}
+
+func newArtworkCreateInput(form *artworkForm, artistID uuid.UUID) artwork.CreateInput {
+	return artwork.CreateInput{
+		ArtistID:            artistID,
+		Name:                form.Name,
+		Category:            form.Category,
+		Styles:              form.Styles,
+		Description:         form.Description,
+		SampleFiles:         artworkFileReaders(form.ArtworkSamples),
+		MinimumDeadlineDays: form.MinimumDeadlineDays,
+		PriceSatang:         form.PriceSatang,
+	}
+}
+
+func newArtworkUpdateInput(form *updateArtworkForm, artworkID, artistID uuid.UUID) artwork.UpdateInput {
+	return artwork.UpdateInput{
+		ArtworkID:         artworkID,
+		DeletedSampleURLs: form.DeletedSampleURLs,
+		CreateInput: artwork.CreateInput{
+			ArtistID:            artistID,
+			Name:                form.Name,
+			Category:            form.Category,
+			Styles:              form.Styles,
+			Description:         form.Description,
+			SampleFiles:         artworkFileReaders(form.UploadedSamples),
+			MinimumDeadlineDays: form.MinimumDeadlineDays,
+			PriceSatang:         form.PriceSatang,
+		},
+	}
+}
+
+func artworkFileReaders(files []huma.FormFile) []io.Reader {
+	readers := make([]io.Reader, len(files))
+	for index := range files {
+		readers[index] = files[index].File
+	}
+	return readers
 }
 
 type DeleteArtworkInput struct {

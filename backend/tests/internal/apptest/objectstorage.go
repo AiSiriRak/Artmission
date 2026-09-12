@@ -18,7 +18,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-const minioImage = "minio/minio:RELEASE.2024-01-16T16-07-38Z"
+const rustFSImage = "rustfs/rustfs:latest"
 
 func StartObjectStorage(ctx context.Context, tb testing.TB) config.S3 {
 	tb.Helper()
@@ -33,33 +33,32 @@ func StartObjectStorage(ctx context.Context, tb testing.TB) config.S3 {
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        minioImage,
+			Image:        rustFSImage,
 			ExposedPorts: []string{"9000/tcp"},
 			Env: map[string]string{
-				"MINIO_ROOT_USER":     accessKey,
-				"MINIO_ROOT_PASSWORD": secretKey,
+				"RUSTFS_ACCESS_KEY": accessKey,
+				"RUSTFS_SECRET_KEY": secretKey,
 			},
-			Cmd:        []string{"server", "/data"},
-			WaitingFor: wait.ForHTTP("/minio/health/live").WithPort("9000/tcp").WithStartupTimeout(2 * time.Minute),
+			WaitingFor: wait.ForHTTP("/health").WithPort("9000/tcp").WithStartupTimeout(2 * time.Minute),
 		},
 		Started: true,
 	})
 	if err != nil {
-		tb.Fatalf("apptest: start MinIO container: %v", err)
+		tb.Fatalf("apptest: start RustFS container: %v", err)
 	}
 	tb.Cleanup(func() {
 		if err := container.Terminate(context.Background()); err != nil {
-			tb.Logf("apptest: terminate MinIO container: %v", err)
+			tb.Logf("apptest: terminate RustFS container: %v", err)
 		}
 	})
 
 	host, err := container.Host(ctx)
 	if err != nil {
-		tb.Fatalf("apptest: read MinIO host: %v", err)
+		tb.Fatalf("apptest: read RustFS host: %v", err)
 	}
 	port, err := container.MappedPort(ctx, "9000/tcp")
 	if err != nil {
-		tb.Fatalf("apptest: read MinIO port: %v", err)
+		tb.Fatalf("apptest: read RustFS port: %v", err)
 	}
 	endpoint := "http://" + net.JoinHostPort(host, port.Port())
 
@@ -68,7 +67,7 @@ func StartObjectStorage(ctx context.Context, tb testing.TB) config.S3 {
 		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
 	)
 	if err != nil {
-		tb.Fatalf("apptest: configure MinIO client: %v", err)
+		tb.Fatalf("apptest: configure RustFS client: %v", err)
 	}
 	client := s3.NewFromConfig(awsConfig, func(options *s3.Options) {
 		options.BaseEndpoint = aws.String(endpoint)
