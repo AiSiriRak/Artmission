@@ -40,7 +40,11 @@ export async function apiFetch<T>(
 
   const headers = new Headers(options.headers);
 
-  headers.set("Content-Type", "application/json");
+  if (options.body instanceof FormData) {
+    headers.delete("Content-Type");
+  } else if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
 
   if (!headers.has("Authorization")) {
     const accessToken = getAccessToken();
@@ -54,6 +58,7 @@ export async function apiFetch<T>(
     ...options,
     headers,
   });
+
   if (!response.ok) {
     const text = await response.text();
     let body: unknown = text;
