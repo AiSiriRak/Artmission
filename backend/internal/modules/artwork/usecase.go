@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
 )
 
@@ -59,11 +60,15 @@ func (u *usecase) Update(ctx context.Context, input UpdateInput) (*Artwork, erro
 	if err != nil {
 		return nil, err
 	}
+	deletedSampleURLs, err := normalizeDeletedSampleURLs(input.DeletedSampleURLs)
+	if err != nil {
+		return nil, err
+	}
 	uploadedURLs, err := u.uploadSamples(ctx, updated, input.SampleFiles)
 	if err != nil {
 		return nil, err
 	}
-	var replacedURLs []string
+	var deletedURLs []string
 	err = u.tx.Transaction(ctx, func(ctx context.Context) error {
 		categoryID, err := u.repo.FindOrCreateCategory(ctx, updated.Category)
 		if err != nil {
@@ -73,14 +78,14 @@ func (u *usecase) Update(ctx context.Context, input UpdateInput) (*Artwork, erro
 		if err != nil {
 			return err
 		}
-		replacedURLs, err = u.repo.UpdateOwnedBy(ctx, updated, categoryID, styleIDs)
+		deletedURLs, err = u.repo.UpdateOwnedBy(ctx, updated, categoryID, styleIDs, deletedSampleURLs)
 		return err
 	})
 	if err != nil {
 		u.deleteSampleURLs(ctx, uploadedURLs)
 		return nil, err
 	}
-	u.deleteSampleURLs(ctx, replacedURLs)
+	u.deleteSampleURLs(ctx, deletedURLs)
 	return updated, nil
 }
 
@@ -170,6 +175,23 @@ func normalizeStyles(labels []string) ([]string, error) {
 	return normalized, nil
 }
 
+func normalizeDeletedSampleURLs(urls []string) ([]string, error) {
+	seen := make(map[string]struct{}, len(urls))
+	normalized := make([]string, 0, len(urls))
+	for _, imageURL := range urls {
+		value, err := requiredText("deleted sample URL", imageURL)
+		if err != nil {
+			return nil, err
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
+	}
+	return normalized, nil
+}
+
 func (u *usecase) uploadSamples(ctx context.Context, item *Artwork, files []io.Reader) ([]string, error) {
 	uploadedURLs := make([]string, 0, len(files))
 	for index, reader := range files {
@@ -178,7 +200,7 @@ func (u *usecase) uploadSamples(ctx context.Context, item *Artwork, files []io.R
 			u.deleteSampleURLs(ctx, uploadedURLs)
 			return nil, err
 		}
-		key := fmt.Sprintf("artworks/%s/%s/%s.%s", item.ArtistID, item.ID, uuid.New(), extension)
+		key := fmt.Sprintf("artists/%s/artworks/%s/%s.%s", item.ArtistID, item.ID, uuid.New(), extension)
 		if err := u.storage.UploadPublic(ctx, key, bytes.NewReader(content), int64(len(content)), contentType); err != nil {
 			u.deleteSampleURLs(ctx, uploadedURLs)
 			return nil, apperror.Internal("failed to upload artwork sample", err)
@@ -204,12 +226,12 @@ func readSampleImage(reader io.Reader) ([]byte, string, string, error) {
 	if len(content) > MaxSampleImageSize {
 		return nil, "", "", ErrSampleImageTooLarge
 	}
-	switch {
-	case len(content) >= 3 && bytes.Equal(content[:3], []byte{0xff, 0xd8, 0xff}):
+	switch mimetype.Detect(content).String() {
+	case "image/jpeg":
 		return content, "image/jpeg", "jpg", nil
-	case len(content) >= 8 && bytes.Equal(content[:8], []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}):
+	case "image/png":
 		return content, "image/png", "png", nil
-	case len(content) >= 12 && string(content[:4]) == "RIFF" && string(content[8:12]) == "WEBP":
+	case "image/webp":
 		return content, "image/webp", "webp", nil
 	default:
 		return nil, "", "", ErrInvalidSampleImage

@@ -29,17 +29,23 @@ Feature: Artist artwork portfolio
     When the customer creates artwork with samples
     Then the system denies artwork creation
 
-  Scenario: replace artist-owned artwork
+  Scenario: update artist-owned artwork and selected samples
     Given an artist is registered and logged in
     And the artist has created artwork with samples
-    When the artist replaces their artwork details
-    Then the artwork and its relations contain only the replacement values
+    When the artist updates their artwork details and selected samples
+    Then the artwork contains the updated values and retained samples
 
   Scenario: clear artwork styles and samples
     Given an artist is registered and logged in
     And the artist has created artwork with samples
     When the artist replaces their artwork with empty styles and samples
     Then the artwork has no styles or samples
+
+  Scenario: reject deleting a sample outside the artwork
+    Given an artist is registered and logged in
+    And the artist has created artwork with samples
+    When the artist updates the artwork with an unknown deleted sample URL
+    Then the system rejects the sample deletion and leaves the artwork unchanged
 
   Scenario: hide artwork ownership during update
     Given an artist is registered and logged in

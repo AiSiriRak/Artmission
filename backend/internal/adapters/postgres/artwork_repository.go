@@ -157,8 +157,8 @@ func (repo *artworkRepository) Create(ctx context.Context, item *artwork.Artwork
 	return nil
 }
 
-func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) ([]string, error) {
-	replacedURLs := make([]string, 0)
+func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID, deletedSampleURLs []string) ([]string, error) {
+	deletedURLs := make([]string, 0, len(deletedSampleURLs))
 	timestamps := struct {
 		CreatedAt time.Time `bun:"created_at"`
 		UpdatedAt time.Time `bun:"updated_at"`
@@ -186,12 +186,37 @@ func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.
 		if err != nil {
 			return err
 		}
+		existingImages := make([]artworkImageModel, 0)
 		if err := idb.NewSelect().
-			Model(new(artworkImageModel)).
-			Column("image_url").
+			Model(&existingImages).
+			Column("id", "artwork_id", "image_url", "sort_order").
 			Where("artwork_id = ?", item.ID).
-			Scan(ctx, &replacedURLs); err != nil {
+			OrderExpr("sort_order ASC, id ASC").
+			Scan(ctx); err != nil {
 			return err
+		}
+
+		deleteSet := make(map[string]struct{}, len(deletedSampleURLs))
+		for _, imageURL := range deletedSampleURLs {
+			deleteSet[imageURL] = struct{}{}
+		}
+		retainedSamples := make([]artwork.Sample, 0, len(existingImages))
+		for _, image := range existingImages {
+			if _, deleted := deleteSet[image.ImageURL]; deleted {
+				deletedURLs = append(deletedURLs, image.ImageURL)
+				delete(deleteSet, image.ImageURL)
+				continue
+			}
+			retainedSamples = append(retainedSamples, artwork.Sample{ImageURL: image.ImageURL})
+		}
+		if len(deleteSet) > 0 {
+			return artwork.ErrSampleNotOwned
+		}
+
+		uploadedSamples := append([]artwork.Sample(nil), item.Samples...)
+		item.Samples = append(retainedSamples, uploadedSamples...)
+		for index := range item.Samples {
+			item.Samples[index].SortOrder = index
 		}
 
 		if _, err := idb.NewDelete().Model(new(artworkStyleModel)).Where("artwork_id = ?", item.ID).Exec(ctx); err != nil {
@@ -231,11 +256,14 @@ func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.
 		if errors.Is(err, artwork.ErrArtworkNotFound) {
 			return nil, artwork.ErrArtworkNotFound
 		}
+		if errors.Is(err, artwork.ErrSampleNotOwned) {
+			return nil, artwork.ErrSampleNotOwned
+		}
 		return nil, apperror.Internal("failed to update artwork", err)
 	}
 	item.CreatedAt = timestamps.CreatedAt
 	item.UpdatedAt = timestamps.UpdatedAt
-	return replacedURLs, nil
+	return deletedURLs, nil
 }
 
 func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, artistID uuid.UUID) ([]string, error) {

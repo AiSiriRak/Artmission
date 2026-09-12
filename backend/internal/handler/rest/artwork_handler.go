@@ -77,7 +77,7 @@ func (h *ArtworkHandler) Register(api huma.API) {
 		func(o *huma.Operation) {
 			o.OperationID = "update-artwork"
 			o.Summary = "UpdateArtwork"
-			o.Description = "Replace portfolio artwork owned by the authenticated artist"
+			o.Description = "Update portfolio artwork owned by the authenticated artist"
 			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireRole(api, user.RoleArtist))
 		},
 	)
@@ -141,6 +141,17 @@ type artworkForm struct {
 	PriceSatang         int64           `form:"price_satang" minimum:"0" required:"true"`
 }
 
+type updateArtworkForm struct {
+	Name                string          `form:"name" minLength:"1" required:"true"`
+	Category            string          `form:"category" minLength:"1" required:"true"`
+	Styles              []string        `form:"styles" contentType:"application/json" required:"true"`
+	Description         string          `form:"description" minLength:"1" required:"true"`
+	UploadedSamples     []huma.FormFile `form:"uploaded_samples" contentType:"image/jpeg,image/png,image/webp" required:"false"`
+	DeletedSampleURLs   []string        `form:"deleted_sample_urls" contentType:"application/json" required:"false"`
+	MinimumDeadlineDays int             `form:"minimum_deadline_days" minimum:"1" required:"true"`
+	PriceSatang         int64           `form:"price_satang" minimum:"0" required:"true"`
+}
+
 type CreateArtworkInput struct {
 	RawBody huma.MultipartFormFiles[artworkForm]
 }
@@ -155,10 +166,7 @@ func (h *ArtworkHandler) createArtwork(ctx context.Context, input *CreateArtwork
 		return nil, huma.Error401Unauthorized("missing authentication")
 	}
 
-	createInput, err := newArtworkCreateInput(&input.RawBody, info.UserID)
-	if err != nil {
-		return nil, err
-	}
+	createInput := newArtworkCreateInput(input.RawBody.Data(), info.UserID)
 	created, err := h.artworkUsecase.Create(ctx, createInput)
 	if err != nil {
 		return nil, mapAppError(err)
@@ -168,7 +176,7 @@ func (h *ArtworkHandler) createArtwork(ctx context.Context, input *CreateArtwork
 
 type UpdateArtworkInput struct {
 	ArtworkID uuid.UUID `path:"artwork_id"`
-	RawBody   huma.MultipartFormFiles[artworkForm]
+	RawBody   huma.MultipartFormFiles[updateArtworkForm]
 }
 
 type UpdateArtworkOutput struct {
@@ -181,51 +189,49 @@ func (h *ArtworkHandler) updateArtwork(ctx context.Context, input *UpdateArtwork
 		return nil, huma.Error401Unauthorized("missing authentication")
 	}
 
-	createInput, err := newArtworkCreateInput(&input.RawBody, info.UserID)
-	if err != nil {
-		return nil, err
-	}
-	updated, err := h.artworkUsecase.Update(ctx, artwork.UpdateInput{
-		ArtworkID:   input.ArtworkID,
-		CreateInput: createInput,
-	})
+	updated, err := h.artworkUsecase.Update(ctx, newArtworkUpdateInput(input.RawBody.Data(), input.ArtworkID, info.UserID))
 	if err != nil {
 		return nil, mapAppError(err)
 	}
 	return &UpdateArtworkOutput{Body: newArtworkView(updated)}, nil
 }
 
-func newArtworkCreateInput(raw *huma.MultipartFormFiles[artworkForm], artistID uuid.UUID) (artwork.CreateInput, error) {
-	allowedValues := map[string]struct{}{
-		"name": {}, "category": {}, "styles": {}, "description": {},
-		"minimum_deadline_days": {}, "price_satang": {},
-	}
-	for field := range raw.Form.Value {
-		if _, allowed := allowedValues[field]; !allowed {
-			return artwork.CreateInput{}, huma.Error422UnprocessableEntity("unexpected multipart field: " + field)
-		}
-	}
-	for field := range raw.Form.File {
-		if field != "artwork_samples" {
-			return artwork.CreateInput{}, huma.Error422UnprocessableEntity("unexpected multipart field: " + field)
-		}
-	}
-
-	form := raw.Data()
-	files := make([]io.Reader, len(form.ArtworkSamples))
-	for index := range form.ArtworkSamples {
-		files[index] = form.ArtworkSamples[index].File
-	}
+func newArtworkCreateInput(form *artworkForm, artistID uuid.UUID) artwork.CreateInput {
 	return artwork.CreateInput{
 		ArtistID:            artistID,
 		Name:                form.Name,
 		Category:            form.Category,
 		Styles:              form.Styles,
 		Description:         form.Description,
-		SampleFiles:         files,
+		SampleFiles:         artworkFileReaders(form.ArtworkSamples),
 		MinimumDeadlineDays: form.MinimumDeadlineDays,
 		PriceSatang:         form.PriceSatang,
-	}, nil
+	}
+}
+
+func newArtworkUpdateInput(form *updateArtworkForm, artworkID, artistID uuid.UUID) artwork.UpdateInput {
+	return artwork.UpdateInput{
+		ArtworkID:         artworkID,
+		DeletedSampleURLs: form.DeletedSampleURLs,
+		CreateInput: artwork.CreateInput{
+			ArtistID:            artistID,
+			Name:                form.Name,
+			Category:            form.Category,
+			Styles:              form.Styles,
+			Description:         form.Description,
+			SampleFiles:         artworkFileReaders(form.UploadedSamples),
+			MinimumDeadlineDays: form.MinimumDeadlineDays,
+			PriceSatang:         form.PriceSatang,
+		},
+	}
+}
+
+func artworkFileReaders(files []huma.FormFile) []io.Reader {
+	readers := make([]io.Reader, len(files))
+	for index := range files {
+		readers[index] = files[index].File
+	}
+	return readers
 }
 
 type DeleteArtworkInput struct {

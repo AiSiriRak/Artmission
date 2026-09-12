@@ -1,4 +1,4 @@
-// Package artwork owns artwork portfolio retrieval.
+// Package artwork owns artist portfolio artwork.
 package artwork
 
 import (
@@ -41,6 +41,7 @@ type CreateInput struct {
 const MaxSampleImageSize = 5 * 1024 * 1024
 
 type UpdateInput struct {
-	ArtworkID uuid.UUID
+	ArtworkID         uuid.UUID
+	DeletedSampleURLs []string
 	CreateInput
 }

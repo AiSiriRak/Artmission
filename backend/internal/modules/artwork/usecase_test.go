@@ -13,15 +13,16 @@ import (
 )
 
 type fakeRepository struct {
-	artworks       []Artwork
-	err            error
-	categoryLabels []string
-	styleLabels    [][]string
-	created        *Artwork
-	updated        *Artwork
-	replacedURLs   []string
-	deletedURLs    []string
-	deleted        struct {
+	artworks        []Artwork
+	err             error
+	categoryLabels  []string
+	styleLabels     [][]string
+	created         *Artwork
+	updated         *Artwork
+	retainedSamples []Sample
+	updateDeletes   []string
+	deletedURLs     []string
+	deleted         struct {
 		artworkID uuid.UUID
 		artistID  uuid.UUID
 	}
@@ -56,15 +57,21 @@ func (repo *fakeRepository) Create(_ context.Context, item *Artwork, _ uuid.UUID
 	return nil
 }
 
-func (repo *fakeRepository) UpdateOwnedBy(_ context.Context, item *Artwork, _ uuid.UUID, _ []uuid.UUID) ([]string, error) {
+func (repo *fakeRepository) UpdateOwnedBy(_ context.Context, item *Artwork, _ uuid.UUID, _ []uuid.UUID, deletedSampleURLs []string) ([]string, error) {
 	if repo.err != nil {
 		return nil, repo.err
+	}
+	repo.updateDeletes = append([]string{}, deletedSampleURLs...)
+	uploadedSamples := append([]Sample{}, item.Samples...)
+	item.Samples = append(append([]Sample{}, repo.retainedSamples...), uploadedSamples...)
+	for index := range item.Samples {
+		item.Samples[index].SortOrder = index
 	}
 	copy := *item
 	copy.Styles = append([]string{}, item.Styles...)
 	copy.Samples = append([]Sample{}, item.Samples...)
 	repo.updated = &copy
-	return repo.replacedURLs, nil
+	return repo.updateDeletes, nil
 }
 
 func (repo *fakeRepository) DeleteOwnedBy(_ context.Context, artworkID, artistID uuid.UUID) ([]string, error) {
@@ -177,7 +184,7 @@ func TestCreateNormalizesAndPersistsArtistOwnedArtwork(t *testing.T) {
 	if created.ID == uuid.Nil || created.ArtistID != artistID || created.Name != "Book Cover" || created.Description != "A colorful book-cover commission" {
 		t.Errorf("created artwork = %+v", created)
 	}
-	if len(created.Samples) != 2 || !strings.HasPrefix(created.Samples[0].ImageURL, "https://public.test/artworks/") || created.Samples[0].SortOrder != 0 || created.Samples[1].SortOrder != 1 || len(storage.uploads) != 2 {
+	if len(created.Samples) != 2 || !strings.HasPrefix(created.Samples[0].ImageURL, "https://public.test/artists/") || created.Samples[0].SortOrder != 0 || created.Samples[1].SortOrder != 1 || len(storage.uploads) != 2 {
 		t.Errorf("samples = %+v", created.Samples)
 	}
 }
@@ -208,6 +215,38 @@ func TestCreateRejectsInvalidInputBeforeTransaction(t *testing.T) {
 	}
 }
 
+func TestReadSampleImageDetectsSupportedMIMETypes(t *testing.T) {
+	tests := []struct {
+		name        string
+		content     []byte
+		contentType string
+		extension   string
+	}{
+		{name: "jpeg", content: []byte{0xff, 0xd8, 0xff, 0x00}, contentType: "image/jpeg", extension: "jpg"},
+		{name: "png", content: testPNG(), contentType: "image/png", extension: "png"},
+		{name: "webp", content: []byte("RIFF\x00\x00\x00\x00WEBPdata"), contentType: "image/webp", extension: "webp"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			content, contentType, extension, err := readSampleImage(bytes.NewReader(test.content))
+			if err != nil {
+				t.Fatalf("readSampleImage() error = %v", err)
+			}
+			if !bytes.Equal(content, test.content) || contentType != test.contentType || extension != test.extension {
+				t.Fatalf("readSampleImage() = (%x, %q, %q), want (%x, %q, %q)", content, contentType, extension, test.content, test.contentType, test.extension)
+			}
+		})
+	}
+}
+
+func TestReadSampleImageDerivesSizeLimitErrorFromMaximum(t *testing.T) {
+	content := append(testPNG(), make([]byte, MaxSampleImageSize)...)
+	_, _, _, err := readSampleImage(bytes.NewReader(content))
+	if !errors.Is(err, ErrSampleImageTooLarge) || !strings.Contains(err.Error(), "5 MiB") {
+		t.Fatalf("readSampleImage() error = %v", err)
+	}
+}
+
 func TestDeleteScopesDeletionToArtist(t *testing.T) {
 	repo := &fakeRepository{deletedURLs: []string{"https://public.test/artworks/deleted.png"}}
 	storage := &fakeStorage{}
@@ -224,12 +263,15 @@ func TestDeleteScopesDeletionToArtist(t *testing.T) {
 }
 
 func TestUpdateNormalizesAndPersistsArtistOwnedArtwork(t *testing.T) {
-	repo := &fakeRepository{replacedURLs: []string{"https://public.test/artworks/replaced.png"}}
+	deletedURL := "https://public.test/artists/artist/artworks/artwork/deleted.png"
+	retainedURL := "https://public.test/artists/artist/artworks/artwork/retained.png"
+	repo := &fakeRepository{retainedSamples: []Sample{{ImageURL: retainedURL}}}
 	tx := &fakeTransaction{}
 	storage := &fakeStorage{}
 	artistID, artworkID := uuid.New(), uuid.New()
 	updated, err := NewUsecase(repo, tx, storage).Update(context.Background(), UpdateInput{
-		ArtworkID: artworkID,
+		ArtworkID:         artworkID,
+		DeletedSampleURLs: []string{" " + deletedURL + " ", deletedURL},
 		CreateInput: CreateInput{
 			ArtistID:            artistID,
 			Name:                "  Updated Cover  ",
@@ -250,11 +292,11 @@ func TestUpdateNormalizesAndPersistsArtistOwnedArtwork(t *testing.T) {
 	if updated.ID != artworkID || updated.ArtistID != artistID || updated.Name != "Updated Cover" || updated.Description != "Updated description" {
 		t.Errorf("updated artwork = %+v", updated)
 	}
-	if !reflect.DeepEqual(updated.Styles, []string{"Cartoon"}) || len(updated.Samples) != 1 || !strings.HasPrefix(updated.Samples[0].ImageURL, "https://public.test/artworks/") || updated.Samples[0].SortOrder != 0 {
+	if !reflect.DeepEqual(updated.Styles, []string{"Cartoon"}) || len(updated.Samples) != 2 || updated.Samples[0].ImageURL != retainedURL || !strings.HasPrefix(updated.Samples[1].ImageURL, "https://public.test/artists/") || updated.Samples[1].SortOrder != 1 {
 		t.Errorf("styles=%#v samples=%+v", updated.Styles, updated.Samples)
 	}
-	if !reflect.DeepEqual(storage.deletes, repo.replacedURLs) {
-		t.Errorf("storage deletes = %v, want %v", storage.deletes, repo.replacedURLs)
+	if !reflect.DeepEqual(repo.updateDeletes, []string{deletedURL}) || !reflect.DeepEqual(storage.deletes, []string{deletedURL}) {
+		t.Errorf("repository deletes=%v storage deletes=%v", repo.updateDeletes, storage.deletes)
 	}
 }
 

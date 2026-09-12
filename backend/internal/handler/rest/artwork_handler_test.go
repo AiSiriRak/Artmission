@@ -144,7 +144,7 @@ func TestArtworkHandlerUpdateReturnsUpdatedArtwork(t *testing.T) {
 	if want := newArtworkView(updated); !reflect.DeepEqual(got, want) {
 		t.Errorf("response body = %+v, want %+v", got, want)
 	}
-	if usecase.updateInput.ArtworkID.String() != artworkID || usecase.updateInput.ArtistID == uuid.Nil || usecase.updateInput.Name != "Frontend draft" || len(usecase.updateInput.SampleFiles) != 1 {
+	if usecase.updateInput.ArtworkID.String() != artworkID || usecase.updateInput.ArtistID == uuid.Nil || usecase.updateInput.Name != "Frontend draft" || len(usecase.updateInput.SampleFiles) != 1 || !reflect.DeepEqual(usecase.updateInput.DeletedSampleURLs, []string{"https://storage.example.com/old.png"}) {
 		t.Errorf("update input = %+v", usecase.updateInput)
 	}
 }
@@ -279,7 +279,7 @@ func serveArtworkRequest(handler http.Handler, method, path, body string, authen
 	var reader io.Reader = strings.NewReader(body)
 	contentType := ""
 	if body != "" && (method == http.MethodPost || method == http.MethodPut) {
-		encoded, multipartContentType := validArtworkMultipartBody()
+		encoded, multipartContentType := validArtworkMultipartBody(method == http.MethodPut)
 		reader = bytes.NewReader(encoded)
 		contentType = multipartContentType
 	}
@@ -295,7 +295,7 @@ func serveArtworkRequest(handler http.Handler, method, path, body string, authen
 	return rec
 }
 
-func validArtworkMultipartBody() ([]byte, string) {
+func validArtworkMultipartBody(update bool) ([]byte, string) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	for name, value := range map[string]string{
@@ -307,17 +307,28 @@ func validArtworkMultipartBody() ([]byte, string) {
 	} {
 		_ = writer.WriteField(name, value)
 	}
-	stylesHeader := make(textproto.MIMEHeader)
-	stylesHeader.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": "styles"}))
-	stylesHeader.Set("Content-Type", "application/json")
-	styles, _ := writer.CreatePart(stylesHeader)
-	_, _ = styles.Write([]byte(`[]`))
+	writeJSONPart(writer, "styles", `[]`)
+	if update {
+		writeJSONPart(writer, "deleted_sample_urls", `["https://storage.example.com/old.png"]`)
+	}
 
 	fileHeader := make(textproto.MIMEHeader)
-	fileHeader.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": "artwork_samples", "filename": "sample.png"}))
+	fileField := "artwork_samples"
+	if update {
+		fileField = "uploaded_samples"
+	}
+	fileHeader.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": fileField, "filename": "sample.png"}))
 	fileHeader.Set("Content-Type", "image/png")
 	file, _ := writer.CreatePart(fileHeader)
 	_, _ = file.Write([]byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00})
 	_ = writer.Close()
 	return body.Bytes(), writer.FormDataContentType()
+}
+
+func writeJSONPart(writer *multipart.Writer, name, value string) {
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": name}))
+	header.Set("Content-Type", "application/json")
+	part, _ := writer.CreatePart(header)
+	_, _ = part.Write([]byte(value))
 }

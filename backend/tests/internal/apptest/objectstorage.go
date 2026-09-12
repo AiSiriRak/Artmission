@@ -18,8 +18,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// Pin RustFS so integration tests do not depend on a mutable latest image.
-const rustFSImage = "rustfs/rustfs@sha256:97171b3d72cd47dc81000f92ea84de25608bfc35a94c965501afaeb5d99f6035"
+const rustFSImage = "rustfs/rustfs:latest"
 
 func StartObjectStorage(ctx context.Context, tb testing.TB) config.S3 {
 	tb.Helper()

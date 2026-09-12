@@ -19,7 +19,7 @@ type Repository interface {
 	FindOrCreateCategory(ctx context.Context, label string) (uuid.UUID, error)
 	FindOrCreateStyles(ctx context.Context, labels []string) ([]uuid.UUID, error)
 	Create(ctx context.Context, artwork *Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) error
-	UpdateOwnedBy(ctx context.Context, artwork *Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) ([]string, error)
+	UpdateOwnedBy(ctx context.Context, artwork *Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID, deletedSampleURLs []string) ([]string, error)
 	DeleteOwnedBy(ctx context.Context, artworkID, artistID uuid.UUID) ([]string, error)
 }
 

@@ -52,15 +52,18 @@ type artworkImageRow struct {
 }
 
 type artworkContext struct {
-	client        *apptest.Client
-	artist        apptest.Account
-	accessToken   string
-	artworkID     string
-	otherArtwork  string
-	response      *apptest.Response
-	requestedBody createArtworkBody
-	createdAt     time.Time
-	updatedAt     time.Time
+	client               *apptest.Client
+	artist               apptest.Account
+	accessToken          string
+	artworkID            string
+	otherArtwork         string
+	response             *apptest.Response
+	requestedBody        createArtworkBody
+	currentSampleURLs    []string
+	expectedRetainedURLs []string
+	uploadedSampleCount  int
+	createdAt            time.Time
+	updatedAt            time.Time
 }
 
 func (a *artworkContext) registerArtist() error {
@@ -87,12 +90,14 @@ func (a *artworkContext) createArtwork(token string) error {
 	if token != "" {
 		headers["Authorization"] = "Bearer " + token
 	}
-	response, err := a.client.DoMultipart(http.MethodPost, "/artworks", artworkFields(body), artworkFiles(len(body.ArtworkSamples)), headers)
+	response, err := a.client.DoMultipart(http.MethodPost, "/artworks", artworkFields(body), artworkFiles("artwork_samples", len(body.ArtworkSamples)), headers)
 	if err != nil {
 		return err
 	}
 	a.response = response
 	a.requestedBody = body
+	a.expectedRetainedURLs = nil
+	a.uploadedSampleCount = len(body.ArtworkSamples)
 	if response.StatusCode == http.StatusCreated {
 		var created artworkResponse
 		if err := response.JSON(&created); err != nil {
@@ -101,6 +106,10 @@ func (a *artworkContext) createArtwork(token string) error {
 		a.artworkID = created.ID
 		a.createdAt = created.CreatedAt
 		a.updatedAt = created.UpdatedAt
+		a.currentSampleURLs = make([]string, len(created.ArtworkSamples))
+		for index, sample := range created.ArtworkSamples {
+			a.currentSampleURLs[index] = sample.ImageURL
+		}
 	}
 	return nil
 }
@@ -116,7 +125,7 @@ func (a *artworkContext) createArtworkForOtherArtist() error {
 		return err
 	}
 	body := newArtworkBody()
-	response, err := otherClient.DoMultipart(http.MethodPost, "/artworks", artworkFields(body), artworkFiles(len(body.ArtworkSamples)), map[string]string{"Authorization": "Bearer " + token})
+	response, err := otherClient.DoMultipart(http.MethodPost, "/artworks", artworkFields(body), artworkFiles("artwork_samples", len(body.ArtworkSamples)), map[string]string{"Authorization": "Bearer " + token})
 	if err != nil {
 		return err
 	}
@@ -144,17 +153,33 @@ func (a *artworkContext) deleteArtwork(id, token string) error {
 	return nil
 }
 
-func (a *artworkContext) updateArtwork(id, token string, body createArtworkBody) error {
+func (a *artworkContext) updateArtwork(id, token string, body createArtworkBody, deletedSampleURLs []string) error {
 	headers := map[string]string{}
 	if token != "" {
 		headers["Authorization"] = "Bearer " + token
 	}
-	response, err := a.client.DoMultipart(http.MethodPut, "/artworks/"+id, artworkFields(body), artworkFiles(len(body.ArtworkSamples)), headers)
+	fields := artworkFields(body)
+	if deletedSampleURLs != nil {
+		encoded, _ := json.Marshal(deletedSampleURLs)
+		fields["deleted_sample_urls"] = string(encoded)
+	}
+	response, err := a.client.DoMultipart(http.MethodPut, "/artworks/"+id, fields, artworkFiles("uploaded_samples", len(body.ArtworkSamples)), headers)
 	if err != nil {
 		return err
 	}
 	a.response = response
 	a.requestedBody = body
+	deleted := make(map[string]struct{}, len(deletedSampleURLs))
+	for _, imageURL := range deletedSampleURLs {
+		deleted[imageURL] = struct{}{}
+	}
+	a.expectedRetainedURLs = a.expectedRetainedURLs[:0]
+	for _, imageURL := range a.currentSampleURLs {
+		if _, remove := deleted[imageURL]; !remove {
+			a.expectedRetainedURLs = append(a.expectedRetainedURLs, imageURL)
+		}
+	}
+	a.uploadedSampleCount = len(body.ArtworkSamples)
 	return nil
 }
 
@@ -187,13 +212,19 @@ func (a *artworkContext) assertPersistedArtwork(item artworkResponse) error {
 	if item.ID != a.artworkID || item.ArtistID != a.artist.ID || item.Name != a.requestedBody.Name || item.Category != a.requestedBody.Category || item.Description != a.requestedBody.Description || item.MinimumDeadlineDays != a.requestedBody.MinimumDeadlineDays || item.PriceSatang != a.requestedBody.PriceSatang || !reflect.DeepEqual(item.Styles, a.requestedBody.Styles) {
 		return fmt.Errorf("unexpected artwork: %+v", item)
 	}
-	if len(item.ArtworkSamples) != len(a.requestedBody.ArtworkSamples) {
-		return fmt.Errorf("response sample count = %d, want %d", len(item.ArtworkSamples), len(a.requestedBody.ArtworkSamples))
+	wantSampleCount := len(a.expectedRetainedURLs) + a.uploadedSampleCount
+	if len(item.ArtworkSamples) != wantSampleCount {
+		return fmt.Errorf("response sample count = %d, want %d", len(item.ArtworkSamples), wantSampleCount)
 	}
 	for index, sample := range item.ArtworkSamples {
 		parsed, err := url.Parse(sample.ImageURL)
 		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 			return fmt.Errorf("response sample %d has invalid public URL %q", index, sample.ImageURL)
+		}
+	}
+	for index, imageURL := range a.expectedRetainedURLs {
+		if item.ArtworkSamples[index].ImageURL != imageURL {
+			return fmt.Errorf("retained sample %d = %q, want %q", index, item.ArtworkSamples[index].ImageURL, imageURL)
 		}
 	}
 
@@ -256,13 +287,17 @@ func (a *artworkContext) assertPersistedArtwork(item artworkResponse) error {
 		Scan(ctx, &images); err != nil {
 		return fmt.Errorf("read artwork samples: %w", err)
 	}
-	if len(images) != len(a.requestedBody.ArtworkSamples) {
-		return fmt.Errorf("stored sample count = %d, want %d", len(images), len(a.requestedBody.ArtworkSamples))
+	if len(images) != wantSampleCount {
+		return fmt.Errorf("stored sample count = %d, want %d", len(images), wantSampleCount)
 	}
 	for i, image := range images {
 		if image.ImageURL != item.ArtworkSamples[i].ImageURL || image.SortOrder != i {
 			return fmt.Errorf("stored sample %d = %+v", i, image)
 		}
+	}
+	a.currentSampleURLs = make([]string, len(item.ArtworkSamples))
+	for index, sample := range item.ArtworkSamples {
+		a.currentSampleURLs[index] = sample.ImageURL
 	}
 	return nil
 }
@@ -337,6 +372,28 @@ func (a *artworkContext) assertNotFound() error {
 	return nil
 }
 
+func (a *artworkContext) assertInvalidSampleDeletion() error {
+	if a.response.StatusCode != http.StatusBadRequest {
+		return fmt.Errorf("expected 400, got %d: %s", a.response.StatusCode, a.response.Body)
+	}
+	artworkID, err := uuid.Parse(a.artworkID)
+	if err != nil {
+		return err
+	}
+	var name string
+	if err := app.DB.NewSelect().Table("artworks").Column("name").Where("id = ?", artworkID).Scan(context.Background(), &name); err != nil {
+		return err
+	}
+	imageCount, err := app.DB.NewSelect().Table("artwork_images").Where("artwork_id = ?", artworkID).Count(context.Background())
+	if err != nil {
+		return err
+	}
+	if name != newArtworkBody().Name || imageCount != len(newArtworkBody().ArtworkSamples) {
+		return fmt.Errorf("artwork changed after rejected sample deletion: name=%q images=%d", name, imageCount)
+	}
+	return nil
+}
+
 func newArtworkBody() createArtworkBody {
 	return createArtworkBody{
 		Name:        "Book Cover",
@@ -385,11 +442,11 @@ func artworkFields(body createArtworkBody) map[string]string {
 	}
 }
 
-func artworkFiles(count int) []apptest.MultipartFile {
+func artworkFiles(fieldName string, count int) []apptest.MultipartFile {
 	files := make([]apptest.MultipartFile, count)
 	for index := range files {
 		files[index] = apptest.MultipartFile{
-			FieldName:   "artwork_samples",
+			FieldName:   fieldName,
 			Filename:    fmt.Sprintf("sample-%d.png", index+1),
 			ContentType: "image/png",
 			Data:        []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, byte(index)},
@@ -454,35 +511,43 @@ func InitializeScenario(scenario *godog.ScenarioContext) {
 		}
 		return nil
 	})
-	scenario.Step(`^the artist replaces their artwork details$`, func() error {
-		return state.updateArtwork(state.artworkID, state.accessToken, newUpdatedArtworkBody())
+	scenario.Step(`^the artist updates their artwork details and selected samples$`, func() error {
+		return state.updateArtwork(state.artworkID, state.accessToken, newUpdatedArtworkBody(), state.currentSampleURLs[:1])
 	})
-	scenario.Step(`^the artwork and its relations contain only the replacement values$`, func() error {
+	scenario.Step(`^the artwork contains the updated values and retained samples$`, func() error {
 		return state.assertUpdatedArtwork()
 	})
 	scenario.Step(`^the artist replaces their artwork with empty styles and samples$`, func() error {
-		return state.updateArtwork(state.artworkID, state.accessToken, newClearedArtworkBody())
+		return state.updateArtwork(state.artworkID, state.accessToken, newClearedArtworkBody(), append([]string{}, state.currentSampleURLs...))
 	})
 	scenario.Step(`^the artwork has no styles or samples$`, func() error {
 		return state.assertUpdatedArtwork()
 	})
+	scenario.Step(`^the artist updates the artwork with an unknown deleted sample URL$`, func() error {
+		body := newUpdatedArtworkBody()
+		body.ArtworkSamples = nil
+		return state.updateArtwork(state.artworkID, state.accessToken, body, []string{"https://storage.example.com/not-owned.png"})
+	})
+	scenario.Step(`^the system rejects the sample deletion and leaves the artwork unchanged$`, func() error {
+		return state.assertInvalidSampleDeletion()
+	})
 	scenario.Step(`^the artist updates the other artist's artwork$`, func() error {
-		return state.updateArtwork(state.otherArtwork, state.accessToken, newUpdatedArtworkBody())
+		return state.updateArtwork(state.otherArtwork, state.accessToken, newUpdatedArtworkBody(), nil)
 	})
 	scenario.Step(`^the system reports the artwork was not found and leaves it unchanged$`, func() error {
 		return state.assertOtherArtworkWasNotUpdated()
 	})
 	scenario.Step(`^the artist updates a missing artwork$`, func() error {
-		return state.updateArtwork(uuid.NewString(), state.accessToken, newUpdatedArtworkBody())
+		return state.updateArtwork(uuid.NewString(), state.accessToken, newUpdatedArtworkBody(), nil)
 	})
 	scenario.Step(`^the system reports the artwork was not found$`, func() error {
 		return state.assertNotFound()
 	})
 	scenario.Step(`^an unauthenticated caller updates the artwork$`, func() error {
-		return state.updateArtwork(state.artworkID, "", newUpdatedArtworkBody())
+		return state.updateArtwork(state.artworkID, "", newUpdatedArtworkBody(), nil)
 	})
 	scenario.Step(`^the customer updates the artwork$`, func() error {
-		return state.updateArtwork(state.artworkID, state.accessToken, newUpdatedArtworkBody())
+		return state.updateArtwork(state.artworkID, state.accessToken, newUpdatedArtworkBody(), nil)
 	})
 	scenario.Step(`^the system denies artwork updates$`, func() error {
 		if state.response.StatusCode != http.StatusForbidden {
