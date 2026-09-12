@@ -25,7 +25,7 @@ export const accountConstraints = {
   },
   artistProfile: {
     description: {
-      minLength: 1,
+      minLength: 0,
     },
   },
 } as const;

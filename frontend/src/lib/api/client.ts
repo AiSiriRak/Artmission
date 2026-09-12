@@ -1,7 +1,6 @@
 import { getAccessToken } from "@/lib/token";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-const API_TOKEN_TEST = process.env.NEXT_PUBLIC_API_TOKEN_TEST;
 
 export class ApiError extends Error {
   constructor(
@@ -41,10 +40,6 @@ export async function apiFetch<T>(
 
   const headers = new Headers(options.headers);
 
-  // ------------------------------------------------------------------
-  // ✅ แก้ไขตรงนี้: ถ้า body เป็น FormData ให้ลบ Content-Type ออก
-  // เพื่อให้ Browser สร้าง boundary สำหรับ multipart/form-data เอง
-  // ------------------------------------------------------------------
   if (options.body instanceof FormData) {
     headers.delete("Content-Type");
   } else if (!headers.has("Content-Type")) {
@@ -59,14 +54,11 @@ export async function apiFetch<T>(
     }
   }
 
-  if (API_TOKEN_TEST) {
-    headers.set("Authorization", `Bearer ${API_TOKEN_TEST}`);
-  }
-
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,
   });
+
   if (!response.ok) {
     const text = await response.text();
     let body: unknown = text;

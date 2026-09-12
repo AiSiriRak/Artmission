@@ -22,8 +22,8 @@ export type BankAccount = components["schemas"]["BankAccountView"];
 export type UpdateBankAccountInput = components["schemas"]["UpdateBankAccountInputBody"];
 
 // Order
+export type OrderHistory = components["schemas"]["ViewOrdersOutputBody"];
 export type Order = components["schemas"]["OrderSummaryView"];
-export type ViewOrdersOutput = components["schemas"]["ViewOrdersOutputBody"];
 export type OrderQuery = NonNullable<
   paths["/orders"]["get"]["parameters"]["query"]
 >;

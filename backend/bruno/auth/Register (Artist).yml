@@ -1,7 +1,7 @@
 info:
-  name: Register
+  name: Register (Artist)
   type: http
-  seq: 4
+  seq: 5
   tags:
     - auth
 
@@ -12,18 +12,18 @@ http:
     type: json
     data: |-
       {
-        "username": "{{username}}",
-        "email": "test@example.com",
-        "password": "{{password}}",
+        "username": "testartist",
+        "email": "artist@example.com",
+        "password": "password123",
         "role": "artist",
         "bank_account": {
-          "account_number": "1234",
-          "account_holder_name": "Test User",
-          "bank_name": "kbank"
+          "account_number": "1234567890",
+          "account_holder_name": "Test Artist",
+          "bank_name": "kasikorn"
+        },
+        "artist": {
+          "description": "Digital illustrator and visual storyteller."
         }
-      //   "artist": {
-      //     "description": ""
-      //   }
       }
   auth: inherit
 
@@ -102,4 +102,4 @@ examples:
             "type": ""
           }
 
-docs: Register a new account
+docs: Register a new artist account

@@ -1,7 +1,7 @@
 info:
-  name: Login
+  name: Login (Customer)
   type: http
-  seq: 1
+  seq: 2
   tags:
     - auth
 
@@ -12,8 +12,8 @@ http:
     type: json
     data: |-
       {
-        "email": "{{email}}",
-        "password": "{{password}}"
+        "email": "customer@example.com",
+        "password": "password123"
       }
   auth: inherit
 

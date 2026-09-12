@@ -8,9 +8,8 @@ import { getAccount } from "@/lib/api/users";
 import { routes } from "@/lib/routes";
 import { isApiError } from "@/lib/api/error";
 
-import OrderArtistPage from "@/components/feature/homepage/OrderArtistPage";
-import HomePage from "@/components/feature/homepage/HomePage";
 import { Loading } from "@/components/ui/Loading";
+import MainLayout from "@/components/feature/main/MainLayout";
 
 export default function Home() {
   const router = useRouter();
@@ -33,5 +32,9 @@ export default function Home() {
   if (!user) {
     return <Loading />;
   }
-  return user.role == "customer" ? <HomePage /> : <OrderArtistPage />;
+  return (
+    <MainLayout page={"Notification"} usertype={user.role}>
+      <div>(Notification)</div>
+    </MainLayout>
+  );
 }

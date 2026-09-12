@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Footer() {
   return (
@@ -10,10 +11,12 @@ export default function Footer() {
           {/* Logo Section (ดึงดีไซน์ตาม header.tsx มาใช้) */}
           <Link href="/" className="flex items-center gap-2.5 mb-6">
             {/* 1. รูปไอคอนตัว A (ขาตั้งวาดรูป) */}
-            <img
+            <Image
               src="/icons/A_logo.svg"
               alt="Artmission Logo"
-              className="w-9 h-10 object-contain"
+              width={9}
+              height={10}
+              className="object-contain"
             />
 
             {/* 2. ข้อความ RTMISSION ใช้ class สี text-accent-500 เดียวกันกับ Header */}
