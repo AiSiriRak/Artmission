@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation"; 
-import { updateArtistProfile } from "@/lib/api/artists"; 
-import type { UpdateArtistInput, ArtistProfile, Artwork } from "@/lib/api/types";
+import { updateArtistProfile, getArtistArtworks } from "@/lib/api/artists"; 
+import { createArtwork, deleteArtwork } from "@/lib/api/artworks";
+import type { UpdateArtistInput, ArtistProfile, Artwork, CreateArtworkInput } from "@/lib/api/types";
 
 // กำหนด Type ของ Review ไว้ในนี้ชั่วคราว (จนกว่า Backend จะมี Review Type)
 export interface ReviewData {
@@ -112,22 +113,72 @@ export default function ProfileManager({
     }
   };
 
-  const handleSaveArtwork = (savedArtwork: Artwork) => {
-    setArtworks((prevArtworks) => {
-      const exists = prevArtworks.some((item) => item.name === savedArtwork.name);
-      if (exists) {
-        return prevArtworks.map((item) => 
-          item.name === savedArtwork.name ? savedArtwork : item
-        );
-      } else {
-        return [...prevArtworks, savedArtwork];
-      }
-    });
+  // ✅ สร้างฟังก์ชันช่วยดึงรายการผลงานใหม่ และแกะ Array ออกมาใส่ State
+  const refreshArtworks = async (artistId: string) => {
+    const res = await getArtistArtworks(artistId);
+    const artworksList = Array.isArray(res) 
+      ? res 
+      : (res as any).artworks || (res as any).items || (res as any).data || [];
+    
+    setArtworks(artworksList);
   };
 
-  const handleDeleteArtwork = (nameToDelete: string | number) => {
-    setArtworks((prevArtworks) => prevArtworks.filter(art => art.name !== nameToDelete));
-    setSelectedArtwork(null);
+  const handleSaveArtwork = async (payload: CreateArtworkInput, artworkId?: string) => {
+    setIsSaving(true); // โชว์หน้าโหลดป้องกันผู้ใช้กดซ้ำ
+    try {
+      // ถ้าเป็นการแก้ไข (มี ID ส่งมา) ให้ลบของเก่าใน Backend ทิ้งก่อน
+      if (artworkId) {
+        await deleteArtwork(artworkId);
+      }
+
+      await createArtwork(payload);
+
+      // ✅ ดึงรายการผลงานทั้งหมดของ Artist คนนี้ใหม่ทันที
+      const artistId = artistData.artist_id || (artistData as any).id;
+      if (artistId) {
+        await refreshArtworks(artistId);
+      }
+
+      setSelectedArtwork(null);
+
+    } catch (error: any) {
+      console.error("Failed to save artwork:", error);
+      if (error.body) {
+        console.log("Detailed Artwork Error:", JSON.stringify(error.body, null, 2));
+      }
+      alert("เกิดข้อผิดพลาดในการบันทึกผลงาน");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteArtwork = async (artworkId: string) => {
+    // ให้มีการ Confirm เพื่อป้องกันการลบพลาด
+    const isConfirmed = window.confirm("คุณต้องการลบผลงานนี้ใช่หรือไม่?");
+    if (!isConfirmed) return;
+
+    setIsSaving(true);
+    try {
+      // ส่งคำสั่งลบไปที่ Backend
+      await deleteArtwork(artworkId);
+
+      // ✅ ดึงรายการผลงานใหม่หลังจากลบสำเร็จ
+      const artistId = artistData.artist_id || (artistData as any).id;
+      if (artistId) {
+        const updatedArtworks = await getArtistArtworks(artistId);
+        await refreshArtworks(artistId);
+      } else {
+        setArtworks((prev) => prev.filter(art => String(art.id) !== artworkId));
+      }
+
+      setSelectedArtwork(null);
+      
+    } catch (error: any) {
+      console.error("Failed to delete artwork:", error);
+      alert("เกิดข้อผิดพลาดในการลบผลงาน");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleToggleMode = () => {

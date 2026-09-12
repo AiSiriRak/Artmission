@@ -122,9 +122,18 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
         minimum_deadline_days: Number(formData.minimum_deadline_days),
         category: formData.category,
         styles: formData.styles.length > 0 ? formData.styles : null,
+        
+        // แปลงรูปลิงก์จำลอง (blob:) เป็นรูปลิงก์จริงชั่วคราว
         artwork_samples: images
           .filter(url => url !== "/placeholder.jpg")
-          .map(url => ({ image_url: url })),
+          .map(url => {
+            if (url.startsWith("blob:")) {
+              // ถ้าเป็นรูปที่เพิ่งอัปโหลดจากคอม ส่งเป็นลิงก์จำลองตัวนี้ไปให้ Backend ก่อน
+              return { image_url: "https://placehold.co/600x400/png?text=Temporary+Artwork" };
+            }
+            // ถ้าเป็นลิงก์จริงอยู่แล้ว (จาก Database) ก็ใช้ได้เลย
+            return { image_url: url };
+          }),
       };
 
       const artworkId = artwork?.id ? String(artwork.id) : undefined;
