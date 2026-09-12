@@ -15,7 +15,7 @@ export function SettingPopup({ isActive }: SettingPopup) {
   return (
     isActive && (
       <WhiteCard
-        className="absolute right-0 z-[60] mt-2"
+        className="absolute right-0 z-[60] mt-2 !w-max flex flex-col items-center"
         margin="m-0"
         padding="p-2"
       >
@@ -35,6 +35,7 @@ export function SettingPopup({ isActive }: SettingPopup) {
         >
           {" "}
           <Image src="/icons/profile.svg" alt={""} width={24} height={24} />
+          {/* <Image src="/icons/profile.svg" alt={""} width={24} height={24} /> */}
           Profile
         </button>
         <button

@@ -40,6 +40,12 @@ export function PersonalInfoCard({
   const [newpasswordError, setNewpasswordError] = useState("");
   const [confirmpasswordError, setConfirmpasswordError] = useState("");
 
+  const closePassErrorMsg = () => {
+    setOldpasswordError("");
+    setNewpasswordError("");
+    setConfirmpasswordError("");
+  };
+
   const handleSave = async () => {
     let hasError = false;
 
@@ -60,9 +66,7 @@ export function PersonalInfoCard({
     // Validate password
     // Old password
     if (isEditingPassword) {
-      setOldpasswordError("");
-      setNewpasswordError("");
-      setConfirmpasswordError("");
+      closePassErrorMsg();
       // Old password
       if (!oldpassword.trim()) {
         setOldpasswordError("Please enter your old password.");
@@ -114,9 +118,7 @@ export function PersonalInfoCard({
     setConfimPassword("");
 
     setUsernameError("");
-    setOldpasswordError("");
-    setNewpasswordError("");
-    setConfirmpasswordError("");
+    closePassErrorMsg();
   };
 
   const handleCancel = () => {
