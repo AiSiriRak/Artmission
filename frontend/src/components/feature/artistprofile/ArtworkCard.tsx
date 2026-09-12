@@ -7,12 +7,13 @@ interface ArtworkCardProps {
 }
 
 export default function ArtworkCard({ artwork, showEditControls, onClick }: ArtworkCardProps) {
-  // รองรับทั้ง Schema ใหม่ (image_url/price_satang) และ Mock Data เดิม (coverImage/price)
-  const imageUrl = (artwork as any).coverImage || (artwork as any).image_url || (artwork as any).cover_url || "/placeholder.png";
+  // ดึงรูปภาพแรกจาก artwork_samples ตาม Schema ใหม่ ถ้าไม่มีให้ใช้ placeholder
+  const imageUrl = artwork.artwork_samples?.[0]?.image_url || "/placeholder.png";
   
-  const displayPrice = artwork.price_satang !== undefined && artwork.price_satang !== null
+  // แปลงราคาจากสตางค์เป็นบาทให้ปลอดภัย
+  const displayPrice = artwork.price_satang != null
     ? (artwork.price_satang / 100).toLocaleString()
-    : Number((artwork as any).price || 0).toLocaleString();
+    : "0";
 
   return (
     <div 

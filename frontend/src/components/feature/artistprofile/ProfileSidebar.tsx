@@ -10,7 +10,7 @@ interface ProfileSidebarProps {
   onSave: () => void;
   onCancel: () => void;
   onToggleView: () => void;
-  onImageChange?: (newImageUrl: string) => void;
+  onImageChange?: (newImageUrl: string, file?: File) => void;
 }
 
 export default function ProfileSidebar({ imageUrl, isEditing, onEdit, onSave, onCancel, onToggleView, onImageChange }: ProfileSidebarProps) {

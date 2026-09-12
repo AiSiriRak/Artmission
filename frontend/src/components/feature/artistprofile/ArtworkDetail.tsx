@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Artwork, CreateArtworkInput, UpdateArtworkInput } from "@/lib/api/types";
+import type { Artwork, CreateArtworkInput, } from "@/lib/api/types";
 import { Button } from "@/components/ui/Button";
 import ReviewList from "./ReviewList";
 import DeleteArtworkModal from "./DeleteArtworkModal"; 
@@ -19,7 +19,7 @@ interface ArtworkDetailProps {
   artwork?: (Artwork & { id?: string | number }) | null;
   onBack: () => void;
   isCustomerMode: boolean;
-  onSave?: (payload: CreateArtworkInput | UpdateArtworkInput, artworkId?: string) => void | Promise<void>;
+  onSave?: (payload: CreateArtworkInput, artworkId?: string) => void | Promise<void>;
   onDelete?: (artworkId: string) => void | Promise<void>;
 }
 
@@ -41,7 +41,7 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
   // แปลง artwork_samples จาก Object Array -> String Array ไว้ใช้ใน UI
   const initialImages = artwork?.artwork_samples && artwork.artwork_samples.length > 0 
     ? artwork.artwork_samples.map(sample => sample.image_url) 
-    : ["/placeholder.jpg"];
+    : [];
 
   const [savedData, setSavedData] = useState({
     name: artwork?.name || "",
@@ -114,24 +114,23 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
     setIsEditing(false);
 
     if (onSave) {
-      // 2. จัด Payload ส่งกลับให้ตรงกับ Schema
-      const payload = {
+      // 2. จัด Payload ส่งกลับให้ตรงกับ Schema CreateArtworkInput
+      const payload: CreateArtworkInput = {
         name: formData.name,
         description: formData.description,
         price_satang: Math.round(Number(formData.price || 0) * 100),
         minimum_deadline_days: Number(formData.minimum_deadline_days),
         category: formData.category,
         styles: formData.styles.length > 0 ? formData.styles : null,
-        // แปลงกลับจาก String Array -> Object Array
         artwork_samples: images
-          .filter(url => url !== "/placeholder.jpg") // ข้าม placeholder เวลาส่งให้ api
+          .filter(url => url !== "/placeholder.jpg")
           .map(url => ({ image_url: url })),
       };
 
       const artworkId = artwork?.id ? String(artwork.id) : undefined;
       
-      // เรา cast เป็น type ตามที่ API ต้องการ
-      onSave(payload as unknown as CreateArtworkInput | UpdateArtworkInput, artworkId);
+      // ✅ ส่ง Payload ที่ Type ตรงเป๊ะกลับไปให้ Parent จัดการ
+      onSave(payload, artworkId);
     }
   };
 

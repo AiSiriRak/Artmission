@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import ProfileManager from "@/components/feature/artistprofile/ProfileManager";
 import MainLayout from "@/components/feature/main/MainLayout";
-import { getArtistProfile } from "@/lib/api/artists";
+import { getArtistProfile, getArtistArtworks } from "@/lib/api/artists";
 import { getAccount } from "@/lib/api/users";
 import type { ArtistProfile, Artwork } from "@/lib/api/types";
-import { Loading } from "@/components/ui/Loading"; // สมมติว่ามี Loading Component
+import { Loading } from "@/components/ui/Loading";
 
 export default function ArtistProfilePage() {
   const [artistProfile, setArtistProfile] = useState<ArtistProfile | null>(null);
@@ -17,12 +17,33 @@ export default function ArtistProfilePage() {
   useEffect(() => {
     async function loadData() {
       try {
+        setIsLoading(true);
         const account = await getAccount();
-        if (account?.id) {
-          const profile = await getArtistProfile(account.id);
-          setArtistProfile(profile);
-          // อนาคตเพิ่ม: const works = await getArtworks(account.id); setArtworks(works);
+        // ถ้าไม่มี Account ID ให้ถือว่ายังไม่ได้ล็อกอินหรือเกิด Error
+        if (!account?.id) {
+          throw new Error("User account not found or not logged in.");
         }
+
+        // ✅ ใช้ Promise.all เพื่อเรียก API ดึง Profile และ Artworks พร้อมกัน (ช่วยลดเวลาโหลดหน้าเว็บ)
+        const [profile, artworksData] = await Promise.all([
+          getArtistProfile(account.id),
+          getArtistArtworks(account.id)
+        ]);
+        
+        if (!profile) {
+          throw new Error("Profile not found.");
+        }
+
+        setArtistProfile(profile);
+
+        // ✅ จัดการดึง Array ของ Artwork ออกมา
+        // เนื่องจาก type เป็น GetArtistArtworksOutput เราจะเผื่อกรณีที่ Backend ส่งมาเป็น Array ตรงๆ 
+        // หรือส่งมาในรูปแบบ Object เช่น { data: [...] } หรือ { items: [...] } หรือ { artworks: [...] }
+        const artworksList = Array.isArray(artworksData) 
+          ? artworksData 
+          : (artworksData as any).artworks || (artworksData as any).items || (artworksData as any).data || [];
+          
+        setArtworks(artworksList);
       } catch (err) {
         console.warn("Cannot fetch artist profile", err);
         setError(true);
@@ -33,7 +54,7 @@ export default function ArtistProfilePage() {
     loadData();
   }, []);
 
-  if (isLoading) return <Loading />; // รอโหลดข้อมูล
+  if (isLoading) return <Loading />; 
 
   if (error || !artistProfile) {
     return (

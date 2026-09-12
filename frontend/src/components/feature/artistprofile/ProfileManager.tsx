@@ -48,7 +48,12 @@ export default function ProfileManager({
   const [isSaving, setIsSaving] = useState(false); 
 
   const [selectedArtwork, setSelectedArtwork] = useState<Artwork | 'new' | null>(null);
+  
+  const [savedData, setSavedData] = useState<ArtistProfile>(initialProfile);
+  const [artistData, setArtistData] = useState<ArtistProfile>(initialProfile);
   const [artworks, setArtworks] = useState<Artwork[]>(initialArtworks);
+
+  const [newProfileImageFile, setNewProfileImageFile] = useState<File | null>(null);
 
   const [reviews, setReviews] = useState<ReviewData[]>(
     initialReviews.length > 0 ? initialReviews : [
@@ -57,9 +62,6 @@ export default function ProfileManager({
       { id: 3, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
     ]
   );
-  
-  const [savedData, setSavedData] = useState<ArtistProfile>(initialProfile);
-  const [artistData, setArtistData] = useState<ArtistProfile>(initialProfile);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setArtistData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -69,14 +71,20 @@ export default function ProfileManager({
     setIsSaving(true);
     try {
       // ส่งเฉพาะฟิลด์ที่ UpdateArtistInput อนุญาตให้อัปเดต
-      const payload: UpdateArtistInput = {
+      const payload: any = {
         description: artistData.description || "",
       };
 
-      const updatedProfile = await updateArtistProfile(payload);
+      // ถ้ามีการเลือกรูปใหม่ ให้แนบไฟล์ไปใน Payload (ใช้ key ว่า profile_image ตามที่ backend กำหนด)
+      if (newProfileImageFile) {
+        payload.profile_image = newProfileImageFile;
+      }
+
+      const updatedProfile = await updateArtistProfile(payload as UpdateArtistInput);
 
       const updatedData: ArtistProfile = {
         ...artistData,
+        ...updatedProfile,
         description: updatedProfile.description || artistData.description,
         min_price_satang: updatedProfile.min_price_satang,
         max_price_satang: updatedProfile.max_price_satang,
@@ -85,6 +93,7 @@ export default function ProfileManager({
       setSavedData(updatedData);
       setArtistData(updatedData);
       setIsEditing(false);
+      setNewProfileImageFile(null);
       
       router.refresh(); 
       
@@ -127,8 +136,12 @@ export default function ProfileManager({
     setSelectedArtwork(null);
   };
 
-  const handleImageChange = (newImageUrl: string) => {
-    setArtistData((prev) => ({ ...prev, profile_url: newImageUrl } as ArtistProfile));
+  // ✅ รับไฟล์จาก ProfileImage
+  const handleImageChange = (newImageUrl: string, file?: File) => {
+    setArtistData((prev) => ({ ...prev, profile_url: newImageUrl }));
+    if (file) {
+      setNewProfileImageFile(file); // เก็บไฟล์ไว้เตรียมอัปโหลดตอนกด Save
+    }
   };
 
   // --- ลอจิกดึงข้อมูลอัตโนมัติ (อิงตาม ArtworkView schema) ---
@@ -200,7 +213,7 @@ export default function ProfileManager({
                 <EditorField 
                   label="Profile Name" 
                   name="artist_name" 
-                  value={(artistData as any).artist_name || (artistData as any).name || ""} 
+                  value={artistData.artist_name || ""}
                   isEditing={false} 
                   onChange={handleChange} 
                 />
@@ -250,7 +263,7 @@ export default function ProfileManager({
           <div className="max-w-5xl mx-auto px-8 relative">
             <div className="flex justify-between items-end -mt-16 sm:-mt-20 mb-6 relative z-10">
               <ProfileImage 
-                imageUrl={(artistData as any).profile_url || (artistData as any).profileImage || ""}
+                imageUrl={artistData.profile_url || ""}
                 className="w-36 h-36 md:w-44 md:h-44"
               />
 
@@ -271,7 +284,7 @@ export default function ProfileManager({
 
             <div className="mb-6">
               <h1 className="text-h2 font-bold text-gray-900">
-                {(artistData as any).artist_name || (artistData as any).name || "Unknown Artist"}
+                {artistData.artist_name || "Unknown Artist"} 
               </h1>
             </div>
 

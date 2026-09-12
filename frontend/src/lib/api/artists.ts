@@ -1,6 +1,10 @@
 import { apiFetch } from "./client";
 import { getAccount } from "./users";
-import type { ArtistProfile, UpdateArtistInput } from "./types";
+import type { 
+  ArtistProfile, 
+  UpdateArtistInput, 
+  GetArtistArtworksOutput 
+} from "./types";
 
 /**
  * ดึงข้อมูลโปรไฟล์สาธารณะของศิลปินตาม artist_id
@@ -8,8 +12,25 @@ import type { ArtistProfile, UpdateArtistInput } from "./types";
  */
 export async function getArtistProfile(
   artistId: string,
+  limit?: number,
+  offset?: number
 ): Promise<ArtistProfile> {
-  return apiFetch<ArtistProfile>(`/artists/${artistId}`);
+  const params = new URLSearchParams();
+  if (limit !== undefined) params.append("limit", limit.toString());
+  if (offset !== undefined) params.append("offset", offset.toString());
+
+  const queryString = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<ArtistProfile>(`/artists/${artistId}${queryString}`);
+}
+
+/**
+ * ดึงผลงานศิลปะทั้งหมดของศิลปิน
+ * GET /artists/{artist_id}/artworks
+ */
+export async function getArtistArtworks(
+  artistId: string,
+): Promise<GetArtistArtworksOutput> {
+  return apiFetch<GetArtistArtworksOutput>(`/artists/${artistId}/artworks`);
 }
 
 /**
@@ -27,7 +48,16 @@ export async function updateArtistProfile(
     formData = new FormData();
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        formData.append(key, value as string | Blob);
+        // แคสต์ให้เป็น any เพื่อให้ TypeScript ยอมให้เช็ค instanceof ได้โดยไม่แจ้ง error
+        const val = value as any;
+        
+        if (val instanceof Blob) {
+          // กรณีเป็นไฟล์ (File หรือ Blob)
+          formData.append(key, val);
+        } else {
+          // กรณีเป็นข้อความ ตัวเลข หรือ boolean ให้แปลงเป็น String
+          formData.append(key, String(val));
+        }
       }
     });
   }

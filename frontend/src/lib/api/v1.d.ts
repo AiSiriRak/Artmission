@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/artists/{artist_id}/artworks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetArtistArtworks
+         * @description Get every artwork created by an artist, newest first
+         */
+        get: operations["get-artist-artworks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/artworks": {
         parameters: {
             query?: never;
@@ -55,7 +75,7 @@ export interface paths {
         put?: never;
         /**
          * CreateArtwork
-         * @description Return a fixed artwork response for frontend integration
+         * @description Create portfolio artwork owned by the authenticated artist
          */
         post: operations["create-artwork"];
         delete?: never;
@@ -76,7 +96,7 @@ export interface paths {
         post?: never;
         /**
          * DeleteArtwork
-         * @description Return a successful deletion response for frontend integration
+         * @description Delete portfolio artwork owned by the authenticated artist
          */
         delete: operations["delete-artwork"];
         options?: never;
@@ -252,6 +272,18 @@ export interface components {
             role: string;
             username: string;
         };
+        ArtistArtworkView: {
+            artwork_id: string;
+            artwork_samples: components["schemas"]["ArtworkSampleView"][] | null;
+            category: string;
+            description: string;
+            /** Format: int64 */
+            minimum_deadline_days: number;
+            name: string;
+            /** Format: int64 */
+            price_satang: number;
+            styles: string[] | null;
+        };
         ArtistProfileView: {
             /**
              * Format: uri
@@ -296,15 +328,21 @@ export interface components {
              * @example /api/v1/schemas/ArtworkView.json
              */
             readonly $schema?: string;
+            artist_id: string;
             artwork_samples: components["schemas"]["ArtworkSampleView"][] | null;
             category: string;
+            /** Format: date-time */
+            created_at: string;
             description: string;
+            id: string;
             /** Format: int64 */
             minimum_deadline_days: number;
             name: string;
             /** Format: int64 */
             price_satang: number;
             styles: string[] | null;
+            /** Format: date-time */
+            updated_at: string;
         };
         AuthResultBody: {
             /**
@@ -389,6 +427,15 @@ export interface components {
              * @example https://example.com/errors/example
              */
             type: string;
+        };
+        GetArtistArtworksOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/GetArtistArtworksOutputBody.json
+             */
+            readonly $schema?: string;
+            artworks: components["schemas"]["ArtistArtworkView"][] | null;
         };
         LoginInputBody: {
             /**
@@ -547,6 +594,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArtistProfileView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-artist-artworks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetArtistArtworksOutputBody"];
                 };
             };
             /** @description Error */
