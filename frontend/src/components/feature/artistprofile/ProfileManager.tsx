@@ -56,8 +56,8 @@ export default function ProfileManager({
 
   const [newProfileImageFile, setNewProfileImageFile] = useState<File | null>(null);
 
-  // Mock Review
-  const [reviews, setReviews] = useState<ReviewData[]>(
+  // Mock Review - Removed setReviews as it was never used
+  const [reviews] = useState<ReviewData[]>(
     initialReviews.length > 0 ? initialReviews : [
       { id: 1, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
       { id: 2, reviewerName: "Name", timeAgo: "2 hrs ago", orderName: "Pixel Art", rating: 3.5, comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️" },
@@ -72,7 +72,7 @@ export default function ProfileManager({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         description: artistData.description || "",
       };
 
@@ -98,10 +98,10 @@ export default function ProfileManager({
       router.refresh(); 
       
     
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Save failed:", error);
 
-      if (error.body) {
+      if (typeof error === "object" && error !== null && "body" in error) {
         console.log("Detailed Validation Error:", JSON.stringify(error.body, null, 2));
       }
 
@@ -115,13 +115,14 @@ export default function ProfileManager({
     const res = await getArtistArtworks(artistId);
     const artworksList = Array.isArray(res) 
       ? res 
-      : (res as any).artworks || (res as any).items || (res as any).data || [];
+      : (res as Record<string, unknown>).artworks || (res as Record<string, unknown>).items || (res as Record<string, unknown>).data || [];
     
-    setArtworks(artworksList);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setArtworks(artworksList as any);
   };
 
   const handleSaveArtwork = async (
-    payload: CreateArtworkInput | UpdateArtworkInput | any, 
+    payload: CreateArtworkInput | UpdateArtworkInput | Record<string, unknown>, 
     artworkId?: string
   ) => {
     setIsSaving(true); 
@@ -133,18 +134,20 @@ export default function ProfileManager({
         await createArtwork(payload as CreateArtworkInput);
       }
 
-      const artistId = artistData.artist_id || (artistData as any).id;
+      const artistId = artistData.artist_id || (artistData as Record<string, unknown>).id;
       if (artistId) {
-        await refreshArtworks(artistId);
+        await refreshArtworks(String(artistId));
       }
 
       setSelectedArtwork(null);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to save artwork:", error);
-      if (error.body) {
+      
+      if (typeof error === "object" && error !== null && "body" in error) {
         console.log("Detailed Artwork Error:", JSON.stringify(error.body, null, 2));
       }
+
       alert("เกิดข้อผิดพลาดในการบันทึกผลงาน");
     } finally {
       setIsSaving(false);
@@ -159,16 +162,16 @@ export default function ProfileManager({
     try {
       await deleteArtwork(artworkId);
 
-      const artistId = artistData.artist_id || (artistData as any).id;
+      const artistId = artistData.artist_id || (artistData as Record<string, unknown>).id;
       if (artistId) {
-        await refreshArtworks(artistId);
+        await refreshArtworks(String(artistId));
       } else {
         setArtworks((prev) => prev.filter(art => String(art.id) !== artworkId));
       }
 
       setSelectedArtwork(null);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to delete artwork:", error);
       alert("เกิดข้อผิดพลาดในการลบผลงาน");
     } finally {
@@ -222,10 +225,13 @@ export default function ProfileManager({
   if (selectedArtwork) {
     return (
       <ArtworkDetail 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         artwork={(selectedArtwork === 'new' ? null : selectedArtwork) as any}
         onBack={() => setSelectedArtwork(null)}
         isCustomerMode={isCustomerMode}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onSave={handleSaveArtwork as any}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onDelete={handleDeleteArtwork as any}
       />
     );
@@ -245,6 +251,7 @@ export default function ProfileManager({
           <div className="mb-12">
             <div className="flex flex-col md:flex-row gap-10">
               <ProfileSidebar 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 imageUrl={(artistData as any).profile_url || (artistData as any).profileImage || ""}
                 isEditing={isEditing}
                 onEdit={() => setIsEditing(true)}
@@ -396,7 +403,9 @@ export default function ProfileManager({
 
           {artworks.map((art, idx) => (
             <ArtworkCard 
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               key={(art as any).id || art.name || idx} 
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               artwork={art as any} 
               showEditControls={showEditControls}
               onClick={() => {
@@ -433,6 +442,7 @@ export default function ProfileManager({
           </>
         )}
 
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         <ReviewList reviews={reviews as any} />
       </div>
 

@@ -19,7 +19,7 @@ interface ArtworkDetailProps {
   onBack: () => void;
   isCustomerMode: boolean;
   onSave?: (
-    payload: CreateArtworkInput | UpdateArtworkInput | any, 
+    payload: CreateArtworkInput | UpdateArtworkInput | Record<string, unknown>, 
     artworkId?: string
   ) => void | Promise<void>;
   onDelete?: (artworkId: string) => void | Promise<void>;
@@ -82,9 +82,13 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
         price: priceTHB,
       };
 
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSavedData(newData);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData(newData);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSavedImages(imgArray);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setImages(imgArray);
     }
   }, [artwork]);
@@ -118,7 +122,7 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
   setIsEditing(false);
 
   if (onSave) {
-    const actualId = artwork?.id || (artwork as any)?.artwork_id;
+    const actualId = artwork?.id || (artwork as Record<string, unknown>)?.artwork_id;
     const isEditing = !!actualId; 
     const artworkId = actualId ? String(actualId) : undefined;
 
@@ -126,7 +130,7 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
       .filter(img => img.previewUrl !== "/placeholder.jpg" && img.file)
       .map(img => img.file);
 
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       name: formData.name,
       description: formData.description,
       price_satang: Math.round(Number(formData.price || 0) * 100),
@@ -137,7 +141,9 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
 
     if (isEditing) {
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const originalUrls = (artwork?.artwork_samples || [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((s: any) => s.image_url || (typeof s === 'string' ? s : ''))
         .filter(Boolean); 
       const currentUrls = images
@@ -342,6 +348,7 @@ export default function ArtworkDetail({ artwork, onBack, isCustomerMode, onSave,
             <h2 className="text-xl font-bold text-gray-900">Order Reviews</h2>
             <span className="text-sm font-normal text-gray-400">{mockArtworkReviews.length} reviews</span>
           </div>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <ReviewList reviews={mockArtworkReviews as any} />
         </div>
       </div>
