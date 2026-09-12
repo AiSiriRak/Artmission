@@ -119,6 +119,8 @@ func (repo *artworkRepository) Create(ctx context.Context, item *artwork.Artwork
 			Description:         item.Description,
 			PriceSatang:         item.PriceSatang,
 			MinimumDeadlineDays: item.MinimumDeadlineDays,
+			CreatedAt:           item.CreatedAt,
+			UpdatedAt:           item.UpdatedAt,
 		}).Exec(ctx); err != nil {
 			return err
 		}
@@ -155,9 +157,99 @@ func (repo *artworkRepository) Create(ctx context.Context, item *artwork.Artwork
 	return nil
 }
 
-func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, artistID uuid.UUID) error {
+func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) ([]string, error) {
+	replacedURLs := make([]string, 0)
+	timestamps := struct {
+		CreatedAt time.Time `bun:"created_at"`
+		UpdatedAt time.Time `bun:"updated_at"`
+	}{}
+	model := &artworkModel{
+		ID:                  item.ID,
+		ArtistID:            item.ArtistID,
+		CategoryID:          categoryID,
+		Name:                item.Name,
+		Description:         item.Description,
+		PriceSatang:         item.PriceSatang,
+		MinimumDeadlineDays: item.MinimumDeadlineDays,
+		UpdatedAt:           item.UpdatedAt,
+	}
+	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
+		err := idb.NewUpdate().
+			Model(model).
+			Column("category_id", "name", "description", "price_satang", "minimum_deadline_days", "updated_at").
+			Where("id = ? AND artist_id = ?", item.ID, item.ArtistID).
+			Returning("created_at, updated_at").
+			Scan(ctx, &timestamps)
+		if errors.Is(err, sql.ErrNoRows) {
+			return artwork.ErrArtworkNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if err := idb.NewSelect().
+			Model(new(artworkImageModel)).
+			Column("image_url").
+			Where("artwork_id = ?", item.ID).
+			Scan(ctx, &replacedURLs); err != nil {
+			return err
+		}
+
+		if _, err := idb.NewDelete().Model(new(artworkStyleModel)).Where("artwork_id = ?", item.ID).Exec(ctx); err != nil {
+			return err
+		}
+		if _, err := idb.NewDelete().Model(new(artworkImageModel)).Where("artwork_id = ?", item.ID).Exec(ctx); err != nil {
+			return err
+		}
+
+		if len(styleIDs) > 0 {
+			styles := make([]artworkStyleModel, len(styleIDs))
+			for index, styleID := range styleIDs {
+				styles[index] = artworkStyleModel{ArtworkID: item.ID, StyleID: styleID}
+			}
+			if _, err := idb.NewInsert().Model(&styles).Exec(ctx); err != nil {
+				return err
+			}
+		}
+		if len(item.Samples) > 0 {
+			samples := make([]artworkImageModel, len(item.Samples))
+			for index, sample := range item.Samples {
+				samples[index] = artworkImageModel{
+					ID:        uuid.New(),
+					ArtworkID: item.ID,
+					ImageURL:  sample.ImageURL,
+					SortOrder: sample.SortOrder,
+				}
+			}
+			if _, err := idb.NewInsert().Model(&samples).Exec(ctx); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, artwork.ErrArtworkNotFound) {
+			return nil, artwork.ErrArtworkNotFound
+		}
+		return nil, apperror.Internal("failed to update artwork", err)
+	}
+	item.CreatedAt = timestamps.CreatedAt
+	item.UpdatedAt = timestamps.UpdatedAt
+	return replacedURLs, nil
+}
+
+func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, artistID uuid.UUID) ([]string, error) {
+	deletedURLs := make([]string, 0)
 	var result sql.Result
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
+		if err := idb.NewSelect().
+			Model(new(artworkImageModel)).
+			Column("ai.image_url").
+			Join("JOIN artworks AS a ON a.id = ai.artwork_id").
+			Where("ai.artwork_id = ? AND a.artist_id = ?", artworkID, artistID).
+			Scan(ctx, &deletedURLs); err != nil {
+			return err
+		}
 		var err error
 		result, err = idb.NewDelete().
 			Model(new(artworkModel)).
@@ -166,16 +258,16 @@ func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, art
 		return err
 	})
 	if err != nil {
-		return apperror.Internal("failed to delete artwork", err)
+		return nil, apperror.Internal("failed to delete artwork", err)
 	}
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return apperror.Internal("failed to inspect artwork deletion", err)
+		return nil, apperror.Internal("failed to inspect artwork deletion", err)
 	}
 	if rows == 0 {
-		return artwork.ErrArtworkNotFound
+		return nil, artwork.ErrArtworkNotFound
 	}
-	return nil
+	return deletedURLs, nil
 }
 
 func (repo *artworkRepository) ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]artwork.Artwork, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -40,6 +41,28 @@ func (c *Client) DeletePublic(ctx context.Context, key string) error {
 		Key:    aws.String(key),
 	})
 	return err
+}
+
+// DeletePublicURL deletes only URLs produced by this client's public bucket.
+// Existing external URLs are ignored so legacy artwork data remains safe.
+func (c *Client) DeletePublicURL(ctx context.Context, rawURL string) error {
+	base, err := url.Parse(c.publicBaseURL)
+	if err != nil {
+		return nil
+	}
+	candidate, err := url.Parse(rawURL)
+	if err != nil || candidate.Scheme != base.Scheme || candidate.Host != base.Host {
+		return nil
+	}
+	prefix := strings.TrimRight(base.Path, "/") + "/"
+	if !strings.HasPrefix(candidate.Path, prefix) {
+		return nil
+	}
+	key := strings.TrimPrefix(candidate.Path, prefix)
+	if key == "" {
+		return nil
+	}
+	return c.DeletePublic(ctx, key)
 }
 
 func NewS3Client(ctx context.Context, cfg config.S3) (*Client, error) {

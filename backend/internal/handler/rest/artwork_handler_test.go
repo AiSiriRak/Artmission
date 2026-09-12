@@ -1,12 +1,16 @@
 package rest
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"reflect"
 	"strings"
 	"testing"
@@ -36,8 +40,10 @@ type artworkAuthStub struct {
 type artworkUsecaseStub struct {
 	artworks       []artwork.Artwork
 	created        *artwork.Artwork
+	updated        *artwork.Artwork
 	err            error
 	createInput    artwork.CreateInput
+	updateInput    artwork.UpdateInput
 	deleteArtistID uuid.UUID
 	deleteArtwork  uuid.UUID
 }
@@ -49,6 +55,11 @@ func (stub *artworkUsecaseStub) ListByArtistID(context.Context, uuid.UUID) ([]ar
 func (stub *artworkUsecaseStub) Create(_ context.Context, input artwork.CreateInput) (*artwork.Artwork, error) {
 	stub.createInput = input
 	return stub.created, stub.err
+}
+
+func (stub *artworkUsecaseStub) Update(_ context.Context, input artwork.UpdateInput) (*artwork.Artwork, error) {
+	stub.updateInput = input
+	return stub.updated, stub.err
 }
 
 func (stub *artworkUsecaseStub) Delete(_ context.Context, artistID, artworkID uuid.UUID) error {
@@ -93,7 +104,7 @@ func TestArtworkHandlerCreateReturnsCreatedArtwork(t *testing.T) {
 	if want := newArtworkView(usecase.created); !reflect.DeepEqual(got, want) {
 		t.Errorf("response body = %+v, want %+v", got, want)
 	}
-	if usecase.createInput.ArtistID == uuid.Nil || usecase.createInput.Name != "Frontend draft" || usecase.createInput.Category != "Illustration" {
+	if usecase.createInput.ArtistID == uuid.Nil || usecase.createInput.Name != "Frontend draft" || usecase.createInput.Category != "Illustration" || len(usecase.createInput.SampleFiles) != 1 {
 		t.Errorf("create input = %+v", usecase.createInput)
 	}
 }
@@ -112,6 +123,29 @@ func TestArtworkHandlerDeleteReturnsNoContent(t *testing.T) {
 	}
 	if usecase.deleteArtistID == uuid.Nil || usecase.deleteArtwork.String() != artworkID {
 		t.Errorf("delete input = artist=%s artwork=%s", usecase.deleteArtistID, usecase.deleteArtwork)
+	}
+}
+
+func TestArtworkHandlerUpdateReturnsUpdatedArtwork(t *testing.T) {
+	updated := testArtwork()
+	updated.Name = "Updated artwork"
+	usecase := &artworkUsecaseStub{updated: updated}
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleArtist, usecase)
+	artworkID := "00000000-0000-0000-0000-000000000003"
+	rec := serveArtworkRequest(handler, http.MethodPut, "/artworks/"+artworkID, validArtworkBody, true)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got artworkView
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if want := newArtworkView(updated); !reflect.DeepEqual(got, want) {
+		t.Errorf("response body = %+v, want %+v", got, want)
+	}
+	if usecase.updateInput.ArtworkID.String() != artworkID || usecase.updateInput.ArtistID == uuid.Nil || usecase.updateInput.Name != "Frontend draft" || len(usecase.updateInput.SampleFiles) != 1 {
+		t.Errorf("update input = %+v", usecase.updateInput)
 	}
 }
 
@@ -171,6 +205,7 @@ func TestArtworkHandlerRequiresAuthentication(t *testing.T) {
 		body   string
 	}{
 		{name: "create", method: http.MethodPost, path: "/artworks", body: validArtworkBody},
+		{name: "update", method: http.MethodPut, path: "/artworks/00000000-0000-0000-0000-000000000003", body: validArtworkBody},
 		{name: "delete", method: http.MethodDelete, path: "/artworks/00000000-0000-0000-0000-000000000003"},
 	}
 
@@ -193,8 +228,10 @@ func TestArtworkHandlerRequiresArtistRole(t *testing.T) {
 		body   string
 	}{
 		{name: "customer create", role: user.RoleCustomer, method: http.MethodPost, path: "/artworks", body: validArtworkBody},
+		{name: "customer update", role: user.RoleCustomer, method: http.MethodPut, path: "/artworks/00000000-0000-0000-0000-000000000003", body: validArtworkBody},
 		{name: "customer delete", role: user.RoleCustomer, method: http.MethodDelete, path: "/artworks/00000000-0000-0000-0000-000000000003"},
 		{name: "admin create", role: user.RoleAdmin, method: http.MethodPost, path: "/artworks", body: validArtworkBody},
+		{name: "admin update", role: user.RoleAdmin, method: http.MethodPut, path: "/artworks/00000000-0000-0000-0000-000000000003", body: validArtworkBody},
 		{name: "admin delete", role: user.RoleAdmin, method: http.MethodDelete, path: "/artworks/00000000-0000-0000-0000-000000000003"},
 	}
 
@@ -210,7 +247,7 @@ func TestArtworkHandlerRequiresArtistRole(t *testing.T) {
 }
 
 func newArtworkTestHandler(t *testing.T, role user.Role) http.Handler {
-	return newArtworkTestHandlerWithUsecase(t, role, &artworkUsecaseStub{created: testArtwork()})
+	return newArtworkTestHandlerWithUsecase(t, role, &artworkUsecaseStub{created: testArtwork(), updated: testArtwork()})
 }
 
 func testArtwork() *artwork.Artwork {
@@ -239,9 +276,16 @@ func newArtworkTestHandlerWithUsecase(t *testing.T, role user.Role, artworkUseca
 }
 
 func serveArtworkRequest(handler http.Handler, method, path, body string, authenticated bool) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, "/api/v1"+path, strings.NewReader(body))
-	if body != "" {
-		req.Header.Set("Content-Type", "application/json")
+	var reader io.Reader = strings.NewReader(body)
+	contentType := ""
+	if body != "" && (method == http.MethodPost || method == http.MethodPut) {
+		encoded, multipartContentType := validArtworkMultipartBody()
+		reader = bytes.NewReader(encoded)
+		contentType = multipartContentType
+	}
+	req := httptest.NewRequest(method, "/api/v1"+path, reader)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
 	}
 	if authenticated {
 		req.Header.Set("Authorization", "Bearer valid-token")
@@ -249,4 +293,31 @@ func serveArtworkRequest(handler http.Handler, method, path, body string, authen
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	return rec
+}
+
+func validArtworkMultipartBody() ([]byte, string) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for name, value := range map[string]string{
+		"name":                  "Frontend draft",
+		"category":              "Illustration",
+		"description":           "A custom editorial illustration",
+		"minimum_deadline_days": "1",
+		"price_satang":          "0",
+	} {
+		_ = writer.WriteField(name, value)
+	}
+	stylesHeader := make(textproto.MIMEHeader)
+	stylesHeader.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": "styles"}))
+	stylesHeader.Set("Content-Type", "application/json")
+	styles, _ := writer.CreatePart(stylesHeader)
+	_, _ = styles.Write([]byte(`[]`))
+
+	fileHeader := make(textproto.MIMEHeader)
+	fileHeader.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": "artwork_samples", "filename": "sample.png"}))
+	fileHeader.Set("Content-Type", "image/png")
+	file, _ := writer.CreatePart(fileHeader)
+	_, _ = file.Write([]byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00})
+	_ = writer.Close()
+	return body.Bytes(), writer.FormDataContentType()
 }

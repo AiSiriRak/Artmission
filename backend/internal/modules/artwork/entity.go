@@ -2,6 +2,7 @@
 package artwork
 
 import (
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,7 +33,14 @@ type CreateInput struct {
 	Category            string
 	Styles              []string
 	Description         string
-	Samples             []Sample
+	SampleFiles         []io.Reader
 	MinimumDeadlineDays int
 	PriceSatang         int64
+}
+
+const MaxSampleImageSize = 5 * 1024 * 1024
+
+type UpdateInput struct {
+	ArtworkID uuid.UUID
+	CreateInput
 }

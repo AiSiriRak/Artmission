@@ -18,7 +18,8 @@ func TestArtworkFeatures(t *testing.T) {
 	defer cancel()
 
 	pg := apptest.StartPostgres(ctx, t)
-	app = apptest.NewApp(t, pg.DSN)
+	s3Config := apptest.StartObjectStorage(ctx, t)
+	app = apptest.NewAppWithS3(t, pg.DSN, s3Config)
 
 	suite := godog.TestSuite{
 		ScenarioInitializer: InitializeScenario,

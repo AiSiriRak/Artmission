@@ -1,19 +1,19 @@
 info:
-  name: CreateArtwork
+  name: UpdateArtwork
   type: http
-  seq: 1
+  seq: 2
   tags:
     - artworks
 
 http:
-  method: POST
-  url: "{{api_url}}/artworks"
+  method: PUT
+  url: "{{api_url}}/artworks/{{artwork_id}}"
   body:
     type: multipart-form
     data:
       - name: name
         type: text
-        value: Frontend draft
+        value: Updated illustration
         contentType: text/plain
       - name: category
         type: text
@@ -21,11 +21,11 @@ http:
         contentType: text/plain
       - name: styles
         type: text
-        value: '["Watercolor"]'
+        value: '["Watercolor", "Cartoon"]'
         contentType: application/json
       - name: description
         type: text
-        value: A watercolor illustration commission.
+        value: An updated watercolor illustration commission.
         contentType: text/plain
       - name: artwork_samples
         type: file
@@ -34,13 +34,18 @@ http:
         disabled: true
       - name: minimum_deadline_days
         type: text
-        value: "14"
+        value: "10"
         contentType: text/plain
       - name: price_satang
         type: text
-        value: "50000"
+        value: "75000"
         contentType: text/plain
   auth: inherit
+
+runtime:
+  variables:
+    - name: artwork_id
+      value: 00000000-0000-0000-0000-000000000001
 
 settings:
   encodeUrl: true
@@ -50,5 +55,6 @@ settings:
   forwardAuthorizationHeader: true
 
 docs: |-
-  Create artist-owned artwork. Select one or more JPEG, PNG, or WebP files
-  using repeated `artwork_samples` fields. Each image may be up to 5 MiB.
+  Replace portfolio artwork owned by the authenticated artist. Select one or
+  more JPEG, PNG, or WebP files using repeated `artwork_samples` fields. Omitting
+  the field clears every current sample. Each image may be up to 5 MiB.
