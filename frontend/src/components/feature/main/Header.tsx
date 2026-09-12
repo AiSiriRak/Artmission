@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 
 import { PageType } from "@/lib/types";
 import { routes } from "@/lib/routes";
 
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/TextInput";
+import { SettingPopup } from "./SettingPopup";
+import { useState } from "react";
 
 interface HeaderProps {
   page: PageType;
@@ -15,50 +18,51 @@ interface HeaderProps {
 }
 
 export default function Header({
-  page: activeMenu = "Login",
   usertype = "customer",
+  page = "Login",
 }: HeaderProps) {
-  // กำหนดรายการเมนู
+  const [isSettingPopupOpen, setIsSettingPopupOpen] = useState(false);
+  const pathname = usePathname();
   const navItems =
     usertype == "customer"
       ? [
-          { name: "Home", path: routes.order.history, icon: "/icons/home.svg" },
+          {
+            name: "Home",
+            page: "Home",
+            path: routes.home,
+            icon: "/icons/home.svg",
+          },
           {
             name: "Order",
+            page: "Order History",
             path: routes.order.history,
             icon: "/icons/order.svg",
           },
           {
             name: "Notification",
+            page: "Notification",
             path: routes.notification,
             icon: "/icons/notification.svg",
-          },
-          {
-            name: "Setting",
-            path: routes.settings,
-            icon: "/icons/setting.svg",
           },
         ]
       : [
           {
             name: "Order",
-            path: routes.order.history,
+            page: "Home",
+            path: routes.home,
             icon: "/icons/order.svg",
           },
           {
             name: "Artist Profile",
+            page: "Artist Profile",
             path: routes.artist.profile,
             icon: "/icons/artist_profile.svg",
           },
           {
             name: "Notification",
+            page: "Notification",
             path: routes.notification,
             icon: "/icons/notification.svg",
-          },
-          {
-            name: "Setting",
-            path: routes.settings,
-            icon: "/icons/setting.svg",
           },
         ];
 
@@ -116,7 +120,7 @@ export default function Header({
         <div className="flex items-center gap-4">
           <nav className="hidden md:flex items-center gap-2">
             {navItems.map((item) => {
-              const isActive = activeMenu === item.name;
+              const isActive = pathname === item.path;
 
               return (
                 <Link
@@ -145,6 +149,30 @@ export default function Header({
               );
             })}
           </nav>
+          {/* Setting Button */}
+          <div className="relative">
+            <Button
+              onClick={() => {
+                setIsSettingPopupOpen(!isSettingPopupOpen);
+              }}
+              variant={pathname === routes.settings ? "accent-300" : "light"}
+              icon={
+                <img
+                  src="/icons/setting.svg"
+                  alt="Setting"
+                  className="w-5 h-5 object-contain"
+                />
+              }
+              className={`cursor-pointer transition-all flex items-center gap-1 ${
+                pathname != routes.settings
+                  ? "border-none text-gray-700 hover:bg-gray-100"
+                  : ""
+              }`}
+            >
+              Setting
+            </Button>
+            <SettingPopup isActive={isSettingPopupOpen}></SettingPopup>
+          </div>
         </div>
       </div>
     </header>
