@@ -7,6 +7,7 @@ import { OrderHistory, OrderSortField, OrderSortOrder } from "@/lib/api/types";
 import { getOrderHistory } from "@/lib/api/orders";
 import { routes } from "@/lib/routes";
 import { OrderStatus } from "@/lib/api/types";
+import { isApiError } from "@/lib/api/error";
 
 import { OrderCard } from "@/components/feature/orderhistory/OrderCard";
 import { SelectInput } from "@/components/ui/SelectInput";
@@ -71,8 +72,8 @@ export default function HomePage() {
           order: selectedSortOrder?.order,
         });
         setOrder(orderdata);
-      } catch (error: any) {
-        if (error.status === 401) {
+      } catch (error: unknown) {
+        if (isApiError(error) && error.status === 401) {
           router.replace(routes.login);
         }
       }

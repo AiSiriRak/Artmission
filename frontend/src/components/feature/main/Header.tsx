@@ -81,10 +81,12 @@ export default function Header({
         {/* ด้านซ้าย: Logo ARTMISSION */}
         <div className="flex-shrink-0 flex items-center">
           <Link href="/" className="flex items-center gap-2.5">
-            <img
+            <Image
               src="/icons/A_logo.svg"
               alt="Artmission Logo"
-              className="w-[50px] h-[50px] object-contain"
+              width={50}
+              height={50}
+              className="object-contain"
             />
             <div className="flex flex-col leading-none font-extrabold text-accent-500 tracking-wider text-lg">
               {usertype == "artist" ? (
@@ -131,10 +133,12 @@ export default function Header({
                   <Button
                     variant={isActive ? "accent-300" : "light"}
                     icon={
-                      <img
+                      <Image
                         src={item.icon}
                         alt={item.name}
-                        className="w-5 h-5 object-contain"
+                        width={5}
+                        height={5}
+                        className="object-contain"
                       />
                     }
                     className={`cursor-pointer transition-all flex items-center gap-1 ${
@@ -157,10 +161,12 @@ export default function Header({
               }}
               variant={pathname === routes.settings ? "accent-300" : "light"}
               icon={
-                <img
+                <Image
                   src="/icons/setting.svg"
                   alt="Setting"
-                  className="w-5 h-5 object-contain"
+                  width={5}
+                  height={5}
+                  className="object-contain"
                 />
               }
               className={`cursor-pointer transition-all flex items-center gap-1 ${

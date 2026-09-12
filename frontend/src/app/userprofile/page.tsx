@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/users";
 import { BankAccount, UserAccount } from "@/lib/api/types";
 import { routes } from "@/lib/routes";
+import { isApiError } from "@/lib/api/error";
 
 import { PersonalInfoCard } from "@/components/feature/userprofile/PersonalInfoCard";
 import { ProfileHeader } from "@/components/feature/userprofile/ProfileHeader";
@@ -41,8 +42,8 @@ export default function HomePage() {
         const bankdata = await getBankAccount();
         setUser(accountdata);
         setBank(bankdata);
-      } catch (error: any) {
-        if (error.status === 401) {
+      } catch (error: unknown) {
+        if (isApiError(error) && error.status === 401) {
           router.replace(routes.login);
         }
       }

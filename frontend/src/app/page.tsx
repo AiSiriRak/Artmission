@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { UserAccount } from "@/lib/api/types";
 import { getAccount } from "@/lib/api/users";
 import { routes } from "@/lib/routes";
+import { isApiError } from "@/lib/api/error";
 
 import OrderArtistPage from "@/components/feature/homepage/OrderArtistPage";
 import HomePage from "@/components/feature/homepage/HomePage";
@@ -20,8 +21,8 @@ export default function Home() {
       try {
         const accountdata = await getAccount();
         setUser(accountdata);
-      } catch (error: any) {
-        if (error.status === 401) {
+      } catch (error: unknown) {
+        if (isApiError(error) && error.status === 401) {
           router.replace(routes.login);
         }
       }

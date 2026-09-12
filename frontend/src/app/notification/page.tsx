@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import router from "next/router";
+import { useRouter } from "next/navigation";
 
 import { UserAccount } from "@/lib/api/types";
 import { getAccount } from "@/lib/api/users";
 import { routes } from "@/lib/routes";
+import { isApiError } from "@/lib/api/error";
 
 import { Loading } from "@/components/ui/Loading";
 import MainLayout from "@/components/feature/main/MainLayout";
 
 export default function Home() {
+  const router = useRouter();
   const [user, setUser] = useState<UserAccount | null>(null);
 
   useEffect(() => {
@@ -18,8 +20,8 @@ export default function Home() {
       try {
         const accountdata = await getAccount();
         setUser(accountdata);
-      } catch (error: any) {
-        if (error.status === 401) {
+      } catch (error: unknown) {
+        if (isApiError(error) && error.status === 401) {
           router.replace(routes.login);
         }
       }

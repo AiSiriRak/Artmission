@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui/Button";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import { routes } from "@/lib/routes";
 import { logout } from "@/lib/api/auth";
