@@ -62,6 +62,7 @@ export default function HomePage() {
       setDeleteStatus("success");
       setEditingSection(null);
     } catch (error) {
+      setDeleteStatus("fail");
       console.error("Failed to delete bank account:", error);
     }
   };
@@ -127,14 +128,14 @@ export default function HomePage() {
             />
             <DeleteAccountPopup
               isOpen={isDeletePopupOpen}
-              onCancel={
-                deleteStatus == "success"
-                  ? () => router.push(routes.login)
-                  : () => {
-                      setIsDeletePopupOpen(false);
-                      setDeleteStatus("default");
-                    }
-              }
+              onCancel={() => {
+                if (deleteStatus === "success") {
+                  router.push(routes.login);
+                } else {
+                  setIsDeletePopupOpen(false);
+                  setDeleteStatus("default");
+                }
+              }}
               onConfirm={handleConfirmDelete}
               status={deleteStatus}
             />
