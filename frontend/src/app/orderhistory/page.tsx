@@ -1,0 +1,142 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+
+import { OrderHistory, OrderSortField, OrderSortOrder } from "@/lib/api/types";
+import { getOrderHistory } from "@/lib/api/orders";
+import { routes } from "@/lib/routes";
+import { OrderStatus } from "@/lib/api/types";
+import { isApiError } from "@/lib/api/error";
+
+import { OrderCard } from "@/components/feature/orderhistory/OrderCard";
+import { SelectInput } from "@/components/ui/SelectInput";
+import { CheckboxDropdown } from "@/components/ui/CheckboxDropdown";
+import { Loading } from "@/components/ui/Loading";
+import MainLayout from "@/components/feature/main/MainLayout";
+
+export default function HomePage() {
+  const router = useRouter();
+
+  const status_list: { value: OrderStatus; label: string }[] = [
+    { value: "PENDING", label: "PENDING" },
+    { value: "NOT_PAID", label: "NOT PAID" },
+    { value: "IN_PROCESS", label: "IN PROCESS" },
+    { value: "SUCCESS", label: "SUCCESS" },
+    { value: "CANCEL", label: "CANCEL" },
+  ];
+
+  type SortOrderOption = {
+    value: string;
+    sort: OrderSortField;
+    order: OrderSortOrder;
+    label: string;
+  };
+
+  const sortOrder_list: SortOrderOption[] = [
+    {
+      value: "update-asc",
+      sort: "updated_at",
+      order: "desc",
+      label: "None",
+    },
+    {
+      value: "deadline-asc",
+      sort: "deadline",
+      order: "asc",
+      label: "Sooner to Later",
+    },
+    {
+      value: "deadline-desc",
+      sort: "deadline",
+      order: "desc",
+      label: "Later to Sooner",
+    },
+  ];
+
+  const [order, setOrder] = useState<OrderHistory | null>(null);
+  const [sortOrder, setSortOrder] = useState<string | null>("update-asc");
+  const selectedSortOrder = sortOrder_list.find(
+    (option) => option.value === sortOrder,
+  );
+  const [status, setStatus] = useState<OrderStatus[]>(
+    status_list.map((option) => option.value as OrderStatus),
+  );
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const orderdata = await getOrderHistory({
+          status: status,
+          sort: selectedSortOrder?.sort,
+          order: selectedSortOrder?.order,
+        });
+        setOrder(orderdata);
+      } catch (error: unknown) {
+        if (isApiError(error) && error.status === 401) {
+          router.replace(routes.login);
+        }
+      }
+    }
+    loadUser();
+  }, [status, sortOrder, router]);
+
+  if (!order) {
+    return <Loading />;
+  }
+  return (
+    <MainLayout page={"Order History"} usertype={"customer"}>
+      <div className="min-h-screen">
+        <div className="flex items-center justify-between m-10">
+          <p className="truncate text-primary-500 text-h2 ">Recently Orders</p>
+          <div className="flex space-x-8">
+            <div className="w-48">
+              <p className="text-small">Status</p>
+              <CheckboxDropdown
+                options={status_list}
+                onChange={(selected) => {
+                  setStatus(selected as OrderStatus[]);
+                }}
+              />
+            </div>
+            <div className="w-48">
+              <p className="text-small">Deadline</p>
+              <SelectInput
+                value={sortOrder || "deadline-asc"}
+                onChange={(value) => {
+                  setSortOrder(value);
+                }}
+                options={sortOrder_list}
+              />
+            </div>
+          </div>
+        </div>
+        {/* Order List */}
+        <div className="relative">
+          <div className="px-10 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] gap-12 space-y-6 item justify-start mb-20">
+            {order.orders &&
+              order.orders.length > 0 &&
+              order.orders.map((option) => (
+                <OrderCard
+                  key={option.id}
+                  order={option}
+                  status={status_list}
+                />
+              ))}
+          </div>
+        </div>
+        {(!order.orders || order.orders.length == 0) && (
+          <div className="w-full relative flex flex-col items-center justify-center">
+            <Image src="/icons/emptydoc.svg" alt={""} width={96} height={96} />
+            <p className="text-h1 text-neutral">No orders yet</p>
+            <p className="text-body text-neutral">
+              Your commissioned artwork will appear here once you place an
+              order.
+            </p>
+          </div>
+        )}
+      </div>
+    </MainLayout>
+  );
+}

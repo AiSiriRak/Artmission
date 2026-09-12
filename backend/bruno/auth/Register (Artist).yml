@@ -1,0 +1,105 @@
+info:
+  name: Register (Artist)
+  type: http
+  seq: 5
+  tags:
+    - auth
+
+http:
+  method: POST
+  url: "{{api_url}}/auth/register"
+  body:
+    type: json
+    data: |-
+      {
+        "username": "{{artist_username}}",
+        "email": "{{artist_email}}",
+        "password": "{{password}}",
+        "role": "artist",
+        "bank_account": {
+          "account_number": "1234567890",
+          "account_holder_name": "Test Artist",
+          "bank_name": "kasikorn"
+        },
+        "artist": {
+          "description": "Digital illustrator and visual storyteller."
+        }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 204 Response
+    description: No Content
+    request:
+      url: "{{api_url}}/auth/register"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "artist": {
+              "description": ""
+            },
+            "bank_account": {
+              "account_number": "",
+              "bank_name": ""
+            },
+            "email": "",
+            "password": "",
+            "role": "customer",
+            "username": ""
+          }
+    response:
+      status: 204
+      statusText: No Content
+      body:
+        type: text
+        data: ""
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/auth/register"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "artist": {
+              "description": ""
+            },
+            "bank_account": {
+              "account_number": "",
+              "bank_name": ""
+            },
+            "email": "",
+            "password": "",
+            "role": "customer",
+            "username": ""
+          }
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: Register a new artist account

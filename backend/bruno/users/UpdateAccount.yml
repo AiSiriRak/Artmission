@@ -14,7 +14,7 @@ http:
       {
         "username": "updated-name",
         "old_password": "{{password}}",
-        "new_password": "different2"
+        "new_password": "{{password}}"
       }
   auth: inherit
 
