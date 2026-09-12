@@ -93,8 +93,11 @@ export default function HomePage() {
                   setEditingSection(null);
 
                   return null;
-                } catch (error: any) {
-                  if (error.message == "old password is incorrect") {
+                } catch (error: unknown) {
+                  if (
+                    isApiError(error) &&
+                    error.message === "old password is incorrect"
+                  ) {
                     return "Old password is incorrect.";
                   }
                   return "Failed to update account.";
