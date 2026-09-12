@@ -1,13 +1,3 @@
-export type PageType =
-  | "Home"
-  | "Login"
-  | "Register"
-  | "Notification"
-  | "Setting"
-  | "Artist Profile"
-  | "Order History"
-  | "Order Artist";
-
 export const BANK_LABELS = {
   Bangkok: "ธนาคารกรุงเทพ (BBL)",
   kasikorn: "ธนาคารกสิกรไทย (KBANK)",

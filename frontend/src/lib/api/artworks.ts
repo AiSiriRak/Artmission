@@ -1,12 +1,8 @@
 import { apiFetch } from "./client";
-import type { 
-  Artwork, 
-  CreateArtworkInput,
-  UpdateArtworkInput
-} from "./types";
+import type { Artwork, CreateArtworkInput, UpdateArtworkInput } from "./types";
 
 /**
- * Helper function สำหรับแปลง Object เป็น FormData 
+ * Helper function สำหรับแปลง Object เป็น FormData
  * รองรับการจัดการ Array เช่น styles หรือไฟล์รูปภาพหลายรูป
  */
 function buildFormData(data: Record<string, unknown>): FormData {
@@ -14,12 +10,11 @@ function buildFormData(data: Record<string, unknown>): FormData {
   Object.entries(data).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
       if (Array.isArray(value)) {
-        
-        const isFileField = 
-          key === "artwork_samples" || 
-          key === "uploaded_samples" || 
-          value.some(item => item instanceof Blob);
-        
+        const isFileField =
+          key === "artwork_samples" ||
+          key === "uploaded_samples" ||
+          value.some((item) => item instanceof Blob);
+
         if (isFileField) {
           value.forEach((item) => {
             formData.append(key, item as Blob | string);
@@ -27,7 +22,6 @@ function buildFormData(data: Record<string, unknown>): FormData {
         } else {
           formData.append(key, JSON.stringify(value));
         }
-
       } else if (value instanceof Blob) {
         formData.append(key, value);
       } else {
@@ -45,7 +39,10 @@ function buildFormData(data: Record<string, unknown>): FormData {
 export async function createArtwork(
   data: CreateArtworkInput | FormData,
 ): Promise<Artwork> {
-  const body = data instanceof FormData ? data : buildFormData(data as Record<string, unknown>);
+  const body =
+    data instanceof FormData
+      ? data
+      : buildFormData(data as Record<string, unknown>);
   return apiFetch<Artwork>("/artworks", {
     method: "POST",
     body,
@@ -60,7 +57,10 @@ export async function updateArtwork(
   artworkId: string,
   data: UpdateArtworkInput | FormData,
 ): Promise<Artwork> {
-  const body = data instanceof FormData ? data : buildFormData(data as Record<string, unknown>);
+  const body =
+    data instanceof FormData
+      ? data
+      : buildFormData(data as Record<string, unknown>);
   return apiFetch<Artwork>(`/artworks/${artworkId}`, {
     method: "PUT",
     body,

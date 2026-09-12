@@ -68,7 +68,7 @@ export default function HomePage() {
   };
 
   return (
-    <MainLayout page={"Setting"} usertype={user.role} showFooter={false}>
+    <MainLayout usertype={user.role} showFooter={false}>
       <main className="min-h-screen">
         <div className="mx-auto flex max-w-5xl flex-col items-center">
           <>

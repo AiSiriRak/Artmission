@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 
-import { PageType } from "@/lib/types";
 import { routes } from "@/lib/routes";
 
 import { Button } from "@/components/ui/Button";
@@ -13,14 +12,10 @@ import { SettingPopup } from "./SettingPopup";
 import { useEffect, useRef, useState } from "react";
 
 interface HeaderProps {
-  page: PageType;
   usertype: string;
 }
 
-export default function Header({
-  usertype = "customer",
-  page = "Login",
-}: HeaderProps) {
+export default function Header({ usertype = "customer" }: HeaderProps) {
   const [isSettingPopupOpen, setIsSettingPopupOpen] = useState(false);
   const pathname = usePathname();
   const navItems =

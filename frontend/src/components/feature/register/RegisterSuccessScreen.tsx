@@ -47,7 +47,8 @@ export function RegisterSuccessScreen({ onLogIn }: RegisterSuccessScreenProps) {
             Account created!
           </h1>
           <p className="mx-auto mt-8 max-w-[280px] text-small text-primary-500">
-            Your account has been created successfully. Please log in to continue.
+            Your account has been created successfully. Please log in to
+            continue.
           </p>
         </div>
 

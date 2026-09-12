@@ -136,7 +136,10 @@ export function RegisterStepIndicator({ step }: RegisterStepIndicatorProps) {
         const isFuture = stepNumber > step;
 
         return (
-          <div key={stepNumber} className="flex flex-1 items-center last:flex-none">
+          <div
+            key={stepNumber}
+            className="flex flex-1 items-center last:flex-none"
+          >
             <div
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-[3px] ${
                 isComplete
@@ -164,7 +167,9 @@ export function RegisterStepIndicator({ step }: RegisterStepIndicatorProps) {
                   />
                 </svg>
               )}
-              {isActive && <span className="h-3 w-3 rounded-full bg-primary-500" />}
+              {isActive && (
+                <span className="h-3 w-3 rounded-full bg-primary-500" />
+              )}
               {isFuture && <span className="sr-only">Future step</span>}
             </div>
 
@@ -261,7 +266,9 @@ function RegisterRoleStep({
     <section className="flex h-[320px] w-full flex-col items-center gap-10 text-center">
       <div>
         <h2 className="text-body text-primary-500">Choose your role</h2>
-        <FormConstraintMessage>Your role cannot be changed later</FormConstraintMessage>
+        <FormConstraintMessage>
+          Your role cannot be changed later
+        </FormConstraintMessage>
       </div>
 
       <div className="relative w-full">
@@ -448,7 +455,10 @@ function RegisterBankAccountStep({
             className="mt-1"
           />
         </label>
-        <RegisterFieldError field="accountHolderName" fieldErrors={fieldErrors} />
+        <RegisterFieldError
+          field="accountHolderName"
+          fieldErrors={fieldErrors}
+        />
       </div>
 
       <div className="relative">
@@ -472,7 +482,9 @@ function RegisterBankAccountStep({
             onChange={(event) => onAcceptedTermsChange(event.target.checked)}
             aria-invalid={Boolean(fieldErrors.acceptedTerms) || undefined}
             aria-describedby={
-              fieldErrors.acceptedTerms ? fieldErrorIds.acceptedTerms : undefined
+              fieldErrors.acceptedTerms
+                ? fieldErrorIds.acceptedTerms
+                : undefined
             }
             className="peer sr-only"
           />
@@ -485,7 +497,11 @@ function RegisterBankAccountStep({
             }`}
           >
             {values.acceptedTerms && (
-              <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3 text-white">
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                className="h-3 w-3 text-white"
+              >
                 <path
                   d="M3.5 8L6.5 11L12.5 5"
                   stroke="currentColor"

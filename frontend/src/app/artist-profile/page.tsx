@@ -9,7 +9,9 @@ import type { ArtistProfile, Artwork } from "@/lib/api/types";
 import { Loading } from "@/components/ui/Loading";
 
 export default function ArtistProfilePage() {
-  const [artistProfile, setArtistProfile] = useState<ArtistProfile | null>(null);
+  const [artistProfile, setArtistProfile] = useState<ArtistProfile | null>(
+    null,
+  );
   const [artworks, setArtworks] = useState<Artwork[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -25,9 +27,9 @@ export default function ArtistProfilePage() {
 
         const [profile, artworksData] = await Promise.all([
           getArtistProfile(account.id),
-          getArtistArtworks(account.id)
+          getArtistArtworks(account.id),
         ]);
-        
+
         if (!profile) {
           throw new Error("Profile not found.");
         }
@@ -44,24 +46,26 @@ export default function ArtistProfilePage() {
     loadData();
   }, []);
 
-  if (isLoading) return <Loading />; 
+  if (isLoading) return <Loading />;
 
   if (error || !artistProfile) {
     return (
-      <MainLayout page="Artist Profile" usertype="artist">
+      <MainLayout usertype="artist">
         <div className="w-full min-h-screen flex items-center justify-center bg-white text-black">
-          <p className="text-xl">ไม่พบข้อมูลศิลปิน หรือเกิดข้อผิดพลาดในการโหลดข้อมูล</p>
+          <p className="text-xl">
+            ไม่พบข้อมูลศิลปิน หรือเกิดข้อผิดพลาดในการโหลดข้อมูล
+          </p>
         </div>
       </MainLayout>
     );
   }
 
   return (
-    <MainLayout page="Artist Profile" usertype="artist">
+    <MainLayout usertype="artist">
       <div className="w-full bg-white text-black">
-        <ProfileManager 
-          initialProfile={artistProfile} 
-          initialArtworks={artworks} 
+        <ProfileManager
+          initialProfile={artistProfile}
+          initialArtworks={artworks}
         />
       </div>
     </MainLayout>

@@ -33,7 +33,7 @@ export default function Home() {
     return <Loading />;
   }
   return (
-    <MainLayout page={"Notification"} usertype={user.role}>
+    <MainLayout usertype={user.role}>
       <div>(Notification)</div>
     </MainLayout>
   );
