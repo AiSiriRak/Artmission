@@ -102,10 +102,14 @@ export function LoginForm() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center"
-                aria-label={showPassword ? hidePasswordLabel : showPasswordLabel}
+                aria-label={
+                  showPassword ? hidePasswordLabel : showPasswordLabel
+                }
               >
                 <Image
-                  src={showPassword ? "/icons/eye-on.svg" : "/icons/eye-off.svg"}
+                  src={
+                    showPassword ? "/icons/eye-on.svg" : "/icons/eye-off.svg"
+                  }
                   alt=""
                   width={20}
                   height={20}
@@ -141,7 +145,6 @@ export function LoginForm() {
             {isSubmitting ? "Logging in..." : "Log in"}
           </Button>
         </form>
-
       </WhiteCard>
     </main>
   );

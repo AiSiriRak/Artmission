@@ -12,13 +12,13 @@ http:
     type: json
     data: |-
       {
-        "username": "{{username}}",
-        "email": "customer@example.com",
+        "username": "{{customer_username}}",
+        "email": "{{customer_email}}",
         "password": "{{password}}",
         "role": "customer",
         "bank_account": {
           "account_number": "1234567890",
-          "account_holder_name": "Test Artist",
+          "account_holder_name": "Test Customer",
           "bank_name": "kasikorn"
         }
       }
