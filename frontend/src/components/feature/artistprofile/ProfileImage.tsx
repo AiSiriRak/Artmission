@@ -21,11 +21,12 @@ export default function ProfileImage({
   
   // เก็บสถานะว่าโหลดรูปพังหรือไม่
   const [imgError, setImgError] = useState(false);
+  const [prevImageUrl, setPrevImageUrl] = useState(imageUrl);
 
-  // รีเซ็ตสถานะ Error เมื่อ imageUrl มีการเปลี่ยนแปลง
-  useEffect(() => {
+  if (imageUrl !== prevImageUrl) {
+    setPrevImageUrl(imageUrl);
     setImgError(false);
-  }, [imageUrl]);
+  }
 
   const getValidImageUrl = (url?: string | null) => {
     if (!url || url.trim() === "" || url === "null" || url === "undefined") {
