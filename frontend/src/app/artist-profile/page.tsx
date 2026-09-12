@@ -34,12 +34,12 @@ export default function ArtistProfilePage() {
 
         setArtistProfile(profile);
 
-        // each artwork in the array
+        const rawData = artworksData as Record<string, Artwork[]>;
         const artworksList = Array.isArray(artworksData) 
           ? artworksData 
-          : (artworksData as any).artworks || (artworksData as any).items || (artworksData as any).data || [];
+          : rawData?.artworks || rawData?.items || rawData?.data || [];
           
-        setArtworks(artworksList);
+        setArtworks(artworksList as Artwork[]);
       } catch (err) {
         console.warn("Cannot fetch artist profile", err);
         setError(true);

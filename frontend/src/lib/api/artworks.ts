@@ -9,13 +9,12 @@ import type {
  * Helper function สำหรับแปลง Object เป็น FormData 
  * รองรับการจัดการ Array เช่น styles หรือไฟล์รูปภาพหลายรูป
  */
-function buildFormData(data: Record<string, any>): FormData {
+function buildFormData(data: Record<string, unknown>): FormData {
   const formData = new FormData();
   Object.entries(data).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
       if (Array.isArray(value)) {
         
-        // ⭐️ เพิ่ม key === "uploaded_samples" เข้าไปในเงื่อนไข
         const isFileField = 
           key === "artwork_samples" || 
           key === "uploaded_samples" || 
@@ -23,7 +22,7 @@ function buildFormData(data: Record<string, any>): FormData {
         
         if (isFileField) {
           value.forEach((item) => {
-            formData.append(key, item);
+            formData.append(key, item as Blob | string);
           });
         } else {
           formData.append(key, JSON.stringify(value));
@@ -38,6 +37,7 @@ function buildFormData(data: Record<string, any>): FormData {
   });
   return formData;
 }
+
 /**
  * สร้างรายการผลงานศิลปะชิ้นใหม่ พร้อมแนบไฟล์รูป
  * POST /artworks
@@ -45,7 +45,7 @@ function buildFormData(data: Record<string, any>): FormData {
 export async function createArtwork(
   data: CreateArtworkInput | FormData,
 ): Promise<Artwork> {
-  const body = data instanceof FormData ? data : buildFormData(data);
+  const body = data instanceof FormData ? data : buildFormData(data as Record<string, unknown>);
   return apiFetch<Artwork>("/artworks", {
     method: "POST",
     body,
@@ -60,7 +60,7 @@ export async function updateArtwork(
   artworkId: string,
   data: UpdateArtworkInput | FormData,
 ): Promise<Artwork> {
-  const body = data instanceof FormData ? data : buildFormData(data);
+  const body = data instanceof FormData ? data : buildFormData(data as Record<string, unknown>);
   return apiFetch<Artwork>(`/artworks/${artworkId}`, {
     method: "PUT",
     body,

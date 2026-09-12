@@ -18,6 +18,14 @@ export default function ProfileImage({
   defaultAvatar = "/default-avatar.png",
 }: ProfileImageProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // เก็บสถานะว่าโหลดรูปพังหรือไม่
+  const [imgError, setImgError] = useState(false);
+
+  // รีเซ็ตสถานะ Error เมื่อ imageUrl มีการเปลี่ยนแปลง
+  useEffect(() => {
+    setImgError(false);
+  }, [imageUrl]);
 
   const getValidImageUrl = (url?: string | null) => {
     if (!url || url.trim() === "" || url === "null" || url === "undefined") {
@@ -26,17 +34,14 @@ export default function ProfileImage({
     return url;
   };
   
-  const [imgSrc, setImgSrc] = useState(getValidImageUrl(imageUrl));
-
-  useEffect(() => {
-    setImgSrc(getValidImageUrl(imageUrl));
-  }, [imageUrl, defaultAvatar]);
+  // คำนวณรูปที่จะแสดงผลตรงนี้เลย (Derived State)
+  const currentSrc = imgError ? defaultAvatar : getValidImageUrl(imageUrl);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && onImageChange) {
-      if (imgSrc.startsWith("blob:")) {
-        URL.revokeObjectURL(imgSrc);
+      if (currentSrc.startsWith("blob:")) {
+        URL.revokeObjectURL(currentSrc);
       }
       const newUrl = URL.createObjectURL(file);
       onImageChange(newUrl, file); 
@@ -45,13 +50,12 @@ export default function ProfileImage({
 
   return (
     <div className="relative inline-block">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={imgSrc}
+        src={currentSrc}
         alt="Profile"
-        onError={(e) => {
-          e.currentTarget.onerror = null;
-          e.currentTarget.src = defaultAvatar;
-          setImgSrc(defaultAvatar);
+        onError={() => {
+          setImgError(true);
         }}
         className={`rounded-full object-cover shadow-sm bg-white border border-neutral ${className}`}
       />

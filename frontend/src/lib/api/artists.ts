@@ -2,8 +2,7 @@ import { apiFetch } from "./client";
 import { getAccount } from "./users";
 import type { 
   ArtistProfile, 
-  UpdateArtistInput, 
-  GetArtistArtworksOutput 
+  UpdateArtistInput 
 } from "./types";
 
 /**
@@ -30,15 +29,20 @@ export async function getArtistProfile(
 export async function getArtistArtworks(artistId: string) {
   const res = await apiFetch(`/artists/${artistId}/artworks`);
   
-  const rawList = Array.isArray(res) ? res : (res as any).artworks || [];
+  const rawData = res as Record<string, unknown>;
+  const rawList = Array.isArray(res) ? res : (Array.isArray(rawData?.artworks) ? rawData.artworks : []);
 
-  const normalizedList = rawList.map((art: any) => ({
-    ...art,
-    id: art.id || art.artwork_id,
-  }));
+  const normalizedList = rawList.map((art: unknown) => {
+    const artwork = art as Record<string, unknown>;
+    return {
+      ...artwork,
+      id: artwork.id || artwork.artwork_id,
+    };
+  });
 
   return normalizedList;
 }
+
 /**
  * อัปเดตข้อมูลโปรไฟล์ศิลปินของตนเอง (รองรับทั้ง Object และ FormData)
  * PUT /artists/me
@@ -55,7 +59,7 @@ export async function updateArtistProfile(
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
 
-        const val = value as any;
+        const val = value as unknown; 
         if (val instanceof Blob) {
           formData.append(key, val);
         } else {
