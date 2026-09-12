@@ -2,7 +2,9 @@ name: Frontend
 
 on:
   workflow_call:
-
+  push:
+    branches:
+      - feat/frontend/integration
 permissions:
   contents: read
 
