@@ -1,0 +1,3 @@
+{
+  "cucumber.glue": ["backend/tests/**/*_test.go"]
+}

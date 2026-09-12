@@ -1,7 +1,4 @@
-// Package order owns the commission order lifecycle. This slice only reads
-// orders (customer hiring history); creation and the rest of the lifecycle
-// land in a later increment, but the schema is modeled fully now to avoid
-// a breaking migration later.
+// Package order owns the commission order lifecycle.
 package order
 
 import (
@@ -20,30 +17,123 @@ const (
 	StatusCancel    Status = "CANCEL"
 )
 
-type Category struct {
-	ID    uuid.UUID
-	Label string
+func (s Status) IsValid() bool {
+	switch s {
+	case StatusPending, StatusNotPaid, StatusInProcess, StatusSuccess, StatusCancel:
+		return true
+	default:
+		return false
+	}
 }
 
-type Style struct {
-	ID    uuid.UUID
-	Label string
+// Participant is the caller's relationship to an order, used to scope
+// ViewOrders to only the orders where the authenticated caller is that
+// participant. It is always derived from the authenticated role, never
+// accepted as a request field.
+type Participant string
+
+const (
+	ParticipantCustomer Participant = "customer"
+	ParticipantArtist   Participant = "artist"
+)
+
+func (p Participant) IsValid() bool {
+	switch p {
+	case ParticipantCustomer, ParticipantArtist:
+		return true
+	default:
+		return false
+	}
 }
+
+// SortField is a ViewOrders-selectable sort key.
+type SortField string
+
+const (
+	SortFieldDeadline  SortField = "deadline"
+	SortFieldPrice     SortField = "price"
+	SortFieldUpdatedAt SortField = "updated_at"
+)
+
+func (f SortField) IsValid() bool {
+	switch f {
+	case SortFieldDeadline, SortFieldPrice, SortFieldUpdatedAt:
+		return true
+	default:
+		return false
+	}
+}
+
+// SortOrder is ViewOrders' client-visible sort direction.
+type SortOrder string
+
+const (
+	SortOrderAsc  SortOrder = "asc"
+	SortOrderDesc SortOrder = "desc"
+)
+
+func (o SortOrder) IsValid() bool {
+	switch o {
+	case SortOrderAsc, SortOrderDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Default ViewOrders query values, applied by the usecase whenever a field
+// is left unset.
+const (
+	DefaultSort  = SortFieldUpdatedAt
+	DefaultOrder = SortOrderDesc
+	DefaultLimit = 20
+	MaxLimit     = 100
+)
 
 type Order struct {
-	ID          uuid.UUID
-	CustomerID  uuid.UUID
-	ArtistID    uuid.UUID
-	Description string
-	Category    *Category
-	Style       *Style
-	// Price is a nullable pointer: 0 is itself a valid price. float64 for now
-	// since this slice never writes it; revisit as fixed-point/decimal once
-	// order creation and payment (EPIC 6/7) do money arithmetic here.
-	Price       *float64
-	Status      Status
-	Deadline    *time.Time
-	CompletedAt *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID                          uuid.UUID
+	CustomerID                  uuid.UUID
+	ArtistID                    uuid.UUID
+	Name                        string
+	ArtworkID                   *uuid.UUID
+	ArtworkNameSnapshot         string
+	ArtworkDescriptionSnapshot  string
+	PriceSatangSnapshot         int64
+	MinimumDeadlineDaysSnapshot int
+	CustomerDescription         string
+	DeadlineAt                  *time.Time
+	Status                      Status
+	// DeliverablePreviewKey is the private-bucket object key of the most
+	// recently submitted deliverable version, regardless of order status;
+	// nil if the artist hasn't submitted one yet. Populated by
+	// OrderRepository.ListOrders.
+	DeliverablePreviewKey *string
+	// DeliverablePreviewURL is DeliverablePreviewKey resolved to a
+	// short-lived presigned GET URL by ViewOrders.
+	DeliverablePreviewURL *string
+	CompletedAt           *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+}
+
+// ListQuery is ViewOrders input
+//
+// Participant and ParticipantID are always derived from the authenticated
+// caller, never accepted as a request field, so the participant scope
+// predicate can never be broadened by request content.
+type ListQuery struct {
+	Participant   Participant
+	ParticipantID uuid.UUID
+	// Statuses filters by status with OR semantics. Empty means every status.
+	Statuses []Status
+	Sort     SortField
+	Order    SortOrder
+	Limit    int
+	Offset   int
+}
+
+// Page is one ViewOrders page.
+type Page struct {
+	Orders []Order
+	Total  int
 }

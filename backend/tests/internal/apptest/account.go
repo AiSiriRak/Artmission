@@ -65,8 +65,7 @@ func NewCustomerRegisterBody(username, email, password string) RegisterBody {
 }
 
 // NewArtistRegisterBody builds an artist registration body. An empty
-// description omits the artist object entirely (rather than sending an
-// empty description) — the case the domain rejects with 400.
+// description omits the artist object entirely (description is optional).
 func NewArtistRegisterBody(username, email, password, description string) RegisterBody {
 	body := NewCustomerRegisterBody(username, email, password)
 	body.Role = "artist"

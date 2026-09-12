@@ -8,20 +8,21 @@ info:
 http:
   method: PUT
   url: "{{api_url}}/users/me"
-  auth: inherit
   body:
     type: json
     data: |-
       {
         "username": "updated-name",
         "old_password": "{{password}}",
-        "new_password": "different2"
+        "new_password": "{{password}}"
       }
+  auth: inherit
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
 
 docs: Update the authenticated user's username and optionally change their password. Omit both password fields for a username-only update.
