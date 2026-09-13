@@ -131,7 +131,7 @@ func NewArtistRepository(db *bun.DB) artist.ProfileRepository {
 // Create / GetByUserID / UpdateByUserID — table-specific queries via b.exec.Run(...).
 ```
 
-Add the table's migration alongside it: `task migrate-create -- create_artist_profiles`, then fill in the generated file under `internal/pkg/migrations/`.
+Add the table's migration alongside it: `task migrate-create -- create_artist_profiles`, then fill in the generated file under `internal/pkg/migrations/`. Never edit a shipped SQL file and never insert a timestamp older than the latest existing one — `task check-migrations` (and backend CI) reject both.
 
 ## 6. REST handler — `internal/handler/rest/artist_handler.go`
 
