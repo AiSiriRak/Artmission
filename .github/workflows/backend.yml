@@ -2,6 +2,12 @@ name: Backend
 
 on:
   workflow_call:
+    inputs:
+      base-sha:
+        description: PR base commit used to lint migration history
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -11,6 +17,26 @@ defaults:
     working-directory: backend
 
 jobs:
+  migrations:
+    name: Migration history
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check new migrations sort last and existing files are unchanged
+        env:
+          BASE_SHA: ${{ inputs.base-sha }}
+        run: |
+          if [ -n "$BASE_SHA" ]; then
+            ./scripts/check-migrations.sh "$BASE_SHA"
+          else
+            git fetch origin main --depth=1
+            ./scripts/check-migrations.sh origin/main
+          fi
+
   check:
     name: Format, vet & build
     runs-on: ubuntu-latest

@@ -45,6 +45,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     uses: ./.github/workflows/backend.yml
+    with:
+      base-sha: ${{ github.event.pull_request.base.sha }}
     permissions:
       contents: read
 

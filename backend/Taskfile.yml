@@ -38,6 +38,12 @@ tasks:
     cmds:
       - go run . --env-file {{.ENV_FILE}} migrate create {{.CLI_ARGS}}
 
+  check-migrations:
+    desc: fails if SQL migrations edit an existing file or insert one out of version order
+    platforms: [linux, darwin]
+    cmds:
+      - ./scripts/check-migrations.sh {{.CLI_ARGS}}
+
   test-all:
     desc: runs the unit test and BDD test
     cmds:
