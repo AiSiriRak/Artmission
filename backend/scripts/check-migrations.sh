@@ -6,6 +6,7 @@ set -euo pipefail
 export LC_ALL=C
 
 ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
 MIG_PREFIX="backend/internal/pkg/migrations"
 MIG_ABS="$ROOT/$MIG_PREFIX"
 
@@ -28,9 +29,8 @@ fi
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-git ls-tree -r --name-only "$BASE_REF" -- "$MIG_PREFIX" \
-	| grep '\.sql$' \
-	| sed 's|.*/||' \
+git ls-tree -r --name-only --full-tree "$BASE_REF" -- "$MIG_PREFIX" \
+	| awk -F/ '/\.sql$/ { print $NF }' \
 	| sort >"$tmp/base"
 
 if [[ -d "$MIG_ABS" ]]; then
