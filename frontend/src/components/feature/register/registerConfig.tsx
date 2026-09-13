@@ -17,7 +17,9 @@ export interface RegisterFormValues {
 }
 
 export type RegisterValidationField = keyof RegisterFormValues;
-export type RegisterValidationErrors = Partial<Record<RegisterValidationField, string>>;
+export type RegisterValidationErrors = Partial<
+  Record<RegisterValidationField, string>
+>;
 
 export const registerSteps: RegisterStep[] = [1, 2, 3];
 
@@ -77,7 +79,6 @@ export const registerValidationMessages = {
       "Please agree to the Terms of Service and Privacy Policy to continue.",
   },
 } as const;
-
 
 export function validateRegisterStepFields(
   step: RegisterStep,

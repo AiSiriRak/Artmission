@@ -35,10 +35,20 @@ export function PersonalInfoCard({
 
   const [isEditingPassword, setIsEditingPassword] = useState(false);
 
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [usernameError, setUsernameError] = useState("");
   const [oldpasswordError, setOldpasswordError] = useState("");
   const [newpasswordError, setNewpasswordError] = useState("");
   const [confirmpasswordError, setConfirmpasswordError] = useState("");
+
+  const closePassErrorMsg = () => {
+    setOldpasswordError("");
+    setNewpasswordError("");
+    setConfirmpasswordError("");
+  };
 
   const handleSave = async () => {
     let hasError = false;
@@ -58,18 +68,16 @@ export function PersonalInfoCard({
     }
 
     // Validate password
-    // Old password
     if (isEditingPassword) {
-      setOldpasswordError("");
-      setNewpasswordError("");
-      setConfirmpasswordError("");
+      closePassErrorMsg();
       // Old password
       if (!oldpassword.trim()) {
         setOldpasswordError("Please enter your old password.");
         hasError = true;
       }
+
       // New password
-      else if (!newpassword.trim()) {
+      if (!newpassword.trim()) {
         setNewpasswordError("Please enter a password.");
         hasError = true;
       } else if (newpassword.length < 8) {
@@ -80,16 +88,16 @@ export function PersonalInfoCard({
         hasError = true;
       }
       // Confirm password
-      else if (confirmpassword != newpassword) {
-        setNewpasswordError("Passwords do not match.");
+      if (!confirmpassword.trim()) {
+        setConfirmpasswordError("Please enter a password.");
         hasError = true;
-      } else {
-        setOldpasswordError("");
-        setNewpasswordError("");
-        setConfirmpasswordError("");
+      } else if (confirmpassword != newpassword) {
+        setConfirmpasswordError("Passwords do not match.");
+        hasError = true;
       }
     }
     if (hasError) return;
+
     const updatedAccount: UpdateAccountInput = isEditingPassword
       ? {
           username: username.trim(),
@@ -99,24 +107,22 @@ export function PersonalInfoCard({
       : {
           username: username.trim(),
         };
-
     const error = await onSave(updatedAccount);
 
     if (error == "Old password is incorrect.") {
       setOldpasswordError(error);
       return;
     }
-    setUserame(user.username);
+
+    setUserame(username);
     setIsEditingPassword(false);
-    setEmail(user.email);
+    setEmail(email);
     setOldPassword("");
     setNewPassword("");
     setConfimPassword("");
 
     setUsernameError("");
-    setOldpasswordError("");
-    setNewpasswordError("");
-    setConfirmpasswordError("");
+    closePassErrorMsg();
   };
 
   const handleCancel = () => {
@@ -149,7 +155,10 @@ export function PersonalInfoCard({
             <label className="text-small text-primary-500">Username</label>
             <TextInput
               value={username}
-              onChange={setUserame}
+              onChange={(value) => {
+                setUserame(value);
+                setUsernameError("");
+              }}
               placeholder="Enter username"
             />
             <span className="flex mt-1 text-small text-error justify-center">
@@ -198,7 +207,33 @@ export function PersonalInfoCard({
                 <label className="text-small text-primary-500">
                   Old password
                 </label>
-                <TextInput value={oldpassword} onChange={setOldPassword} />
+                <div className="relative">
+                  <TextInput
+                    value={oldpassword}
+                    onChange={(value) => {
+                      setOldPassword(value);
+                      closePassErrorMsg();
+                    }}
+                    type={showOldPassword ? "text" : "password"}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowOldPassword(!showOldPassword)}
+                    className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white hover:brightness-90"
+                  >
+                    <Image
+                      src={
+                        showOldPassword
+                          ? "/icons/eye-on.svg"
+                          : "/icons/eye-off.svg"
+                      }
+                      alt={showOldPassword ? "Hide password" : "Show password"}
+                      width={20}
+                      height={20}
+                    />
+                  </button>
+                </div>
                 <span className="flex mt-1 text-small text-error justify-center">
                   {oldpasswordError}
                 </span>
@@ -208,7 +243,33 @@ export function PersonalInfoCard({
                 <label className="text-small text-primary-500">
                   New password
                 </label>
-                <TextInput value={newpassword} onChange={setNewPassword} />
+                <div className="relative">
+                  <TextInput
+                    value={newpassword}
+                    onChange={(value) => {
+                      setNewPassword(value);
+                      closePassErrorMsg();
+                    }}
+                    type={showNewPassword ? "text" : "password"}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white hover:brightness-90"
+                  >
+                    <Image
+                      src={
+                        showNewPassword
+                          ? "/icons/eye-on.svg"
+                          : "/icons/eye-off.svg"
+                      }
+                      alt={showNewPassword ? "Hide password" : "Show password"}
+                      width={20}
+                      height={20}
+                    />
+                  </button>
+                </div>
                 <span className="flex mt-1 text-small text-error justify-center">
                   {newpasswordError}
                 </span>
@@ -218,10 +279,35 @@ export function PersonalInfoCard({
                 <label className="text-small text-primary-500">
                   Confirm new password
                 </label>
-                <TextInput
-                  value={confirmpassword}
-                  onChange={setConfimPassword}
-                />
+                <div className="relative">
+                  <TextInput
+                    value={confirmpassword}
+                    onChange={(value) => {
+                      setConfimPassword(value);
+                      closePassErrorMsg();
+                    }}
+                    type={showConfirmPassword ? "text" : "password"}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white hover:brightness-90"
+                  >
+                    <Image
+                      src={
+                        showConfirmPassword
+                          ? "/icons/eye-on.svg"
+                          : "/icons/eye-off.svg"
+                      }
+                      alt={
+                        showConfirmPassword ? "Hide password" : "Show password"
+                      }
+                      width={20}
+                      height={20}
+                    />
+                  </button>
+                </div>
                 <span className="flex mt-1 text-small text-error justify-center">
                   {confirmpasswordError}
                 </span>
@@ -252,7 +338,7 @@ export function PersonalInfoCard({
               }
               onClick={handleSave}
             >
-              Done
+              Save
             </Button>
           </div>
         </div>

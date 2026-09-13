@@ -62,12 +62,13 @@ export default function HomePage() {
       setDeleteStatus("success");
       setEditingSection(null);
     } catch (error) {
+      setDeleteStatus("fail");
       console.error("Failed to delete bank account:", error);
     }
   };
 
   return (
-    <MainLayout page={"Setting"} usertype={user.role} showFooter={false}>
+    <MainLayout usertype={user.role} showFooter={false}>
       <main className="min-h-screen">
         <div className="mx-auto flex max-w-5xl flex-col items-center">
           <>
@@ -127,14 +128,14 @@ export default function HomePage() {
             />
             <DeleteAccountPopup
               isOpen={isDeletePopupOpen}
-              onCancel={
-                deleteStatus == "success"
-                  ? () => router.push(routes.login)
-                  : () => {
-                      setIsDeletePopupOpen(false);
-                      setDeleteStatus("default");
-                    }
-              }
+              onCancel={() => {
+                if (deleteStatus === "success") {
+                  router.push(routes.login);
+                } else {
+                  setIsDeletePopupOpen(false);
+                  setDeleteStatus("default");
+                }
+              }}
               onConfirm={handleConfirmDelete}
               status={deleteStatus}
             />

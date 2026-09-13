@@ -80,13 +80,19 @@ export default function HomePage() {
       }
     }
     loadUser();
-  }, [status, sortOrder, router]);
+  }, [
+    status,
+    sortOrder,
+    router,
+    selectedSortOrder?.sort,
+    selectedSortOrder?.order,
+  ]);
 
   if (!order) {
     return <Loading />;
   }
   return (
-    <MainLayout page={"Order History"} usertype={"customer"}>
+    <MainLayout usertype={"customer"}>
       <div className="min-h-screen">
         <div className="flex items-center justify-between m-10">
           <p className="truncate text-primary-500 text-h2 ">Recently Orders</p>

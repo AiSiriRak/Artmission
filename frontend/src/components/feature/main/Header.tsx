@@ -4,23 +4,18 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 
-import { PageType } from "@/lib/types";
 import { routes } from "@/lib/routes";
 
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/TextInput";
 import { SettingPopup } from "./SettingPopup";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface HeaderProps {
-  page: PageType;
   usertype: string;
 }
 
-export default function Header({
-  usertype = "customer",
-  page = "Login",
-}: HeaderProps) {
+export default function Header({ usertype = "customer" }: HeaderProps) {
   const [isSettingPopupOpen, setIsSettingPopupOpen] = useState(false);
   const pathname = usePathname();
   const navItems =
@@ -65,6 +60,23 @@ export default function Header({
             icon: "/icons/notification.svg",
           },
         ];
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsSettingPopupOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // ฟังก์ชันจัดการการคลิกปุ่ม
   const handleNavClick = (e: React.MouseEvent, isActive: boolean) => {
@@ -119,7 +131,7 @@ export default function Header({
           </div>
         )}
         {/* ด้านขวา: เมนู และ รูปโปรไฟล์ User */}
-        <div className="flex items-center gap-4">
+        <div className="relative flex items-center gap-4">
           <nav className="hidden md:flex items-center gap-2">
             {navItems.map((item) => {
               const isActive = pathname === item.path;
@@ -154,7 +166,7 @@ export default function Header({
             })}
           </nav>
           {/* Setting Button */}
-          <div className="relative">
+          <div>
             <Button
               onClick={() => {
                 setIsSettingPopupOpen(!isSettingPopupOpen);
@@ -177,7 +189,9 @@ export default function Header({
             >
               Setting
             </Button>
-            <SettingPopup isActive={isSettingPopupOpen}></SettingPopup>
+            <div ref={dropdownRef}>
+              <SettingPopup isActive={isSettingPopupOpen} />
+            </div>
           </div>
         </div>
       </div>
