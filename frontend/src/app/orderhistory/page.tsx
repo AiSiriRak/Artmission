@@ -119,20 +119,22 @@ export default function HomePage() {
           </div>
         </div>
         {/* Order List */}
-        <div className="relative">
-          <div className="px-10 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] gap-12 space-y-6 item justify-start mb-20">
-            {order.orders &&
-              order.orders.length > 0 &&
-              order.orders.map((option) => (
-                <OrderCard
-                  key={option.id}
-                  order={option}
-                  status={status_list}
-                />
-              ))}
+        {status.length != 0 && (
+          <div className="relative">
+            <div className="px-10 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] gap-12 space-y-6 item justify-start mb-20">
+              {order.orders &&
+                order.orders.length > 0 &&
+                order.orders.map((option) => (
+                  <OrderCard
+                    key={option.id}
+                    order={option}
+                    status={status_list}
+                  />
+                ))}
+            </div>
           </div>
-        </div>
-        {(!order.orders || order.orders.length == 0) && (
+        )}
+        {(!order.orders || order.orders.length == 0 || status.length == 0) && (
           <div className="w-full relative flex flex-col items-center justify-center">
             <Image src="/icons/emptydoc.svg" alt={""} width={96} height={96} />
             <p className="text-h1 text-neutral">No orders yet</p>
