@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 
 import { UserAccount, UpdateAccountInput } from "@/lib/api/types";
+import { accountConstraints } from "@/lib/constraint";
 
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import { TextInput } from "@/components/ui/TextInput";
@@ -57,11 +58,15 @@ export function PersonalInfoCard({
     if (!username.trim()) {
       setUsernameError("Please enter your name.");
       hasError = true;
-    } else if (username.length < 3) {
-      setUsernameError("Name must be at least 3 characters.");
+    } else if (username.length < accountConstraints.username.minLength) {
+      setUsernameError(
+        `Name must be at least ${accountConstraints.username.minLength} characters.`,
+      );
       hasError = true;
-    } else if (username.length > 20) {
-      setUsernameError("Name must be 20 characters or less.");
+    } else if (username.length > accountConstraints.username.maxLength) {
+      setUsernameError(
+        `Name must be ${accountConstraints.username.maxLength} characters or less.`,
+      );
       hasError = true;
     } else {
       setUsernameError("");
@@ -80,11 +85,15 @@ export function PersonalInfoCard({
       if (!newpassword.trim()) {
         setNewpasswordError("Please enter a password.");
         hasError = true;
-      } else if (newpassword.length < 8) {
-        setNewpasswordError("Password must be at least 8 characters.");
+      } else if (newpassword.length < accountConstraints.password.minLength) {
+        setNewpasswordError(
+          `Password must be at least ${accountConstraints.password.minLength} characters.`,
+        );
         hasError = true;
-      } else if (newpassword.length > 16) {
-        setNewpasswordError("Password must be 16 characters or less.");
+      } else if (newpassword.length > accountConstraints.password.maxLength) {
+        setNewpasswordError(
+          `Password must be ${accountConstraints.password.maxLength} characters or less.`,
+        );
         hasError = true;
       }
       // Confirm password

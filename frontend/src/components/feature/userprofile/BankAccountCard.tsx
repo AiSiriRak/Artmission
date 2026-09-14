@@ -5,6 +5,7 @@ import Image from "next/image";
 
 import { BankAccount, UpdateBankAccountInput } from "@/lib/api/types";
 import { BANK_LABELS } from "@/lib/types";
+import { accountConstraints } from "@/lib/constraint";
 
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import { TextInput } from "@/components/ui/TextInput";
@@ -58,7 +59,9 @@ export function BankAccountCard({
     if (!accountNumber.trim()) {
       setAccountNumberError("Please enter your bank account number.");
       hasError = true;
-    } else if (!/^\d{8,16}$/.test(accountNumber.trim())) {
+    } else if (
+      !accountConstraints.bankAccount.accountNumber.pattern.test(accountNumber)
+    ) {
       setAccountNumberError("Please enter a valid bank account number.");
       hasError = true;
     } else {
