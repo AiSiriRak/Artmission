@@ -18,9 +18,9 @@ export const accountConstraints = {
       minLength: 1,
     },
     accountNumber: {
-      minLength: 6,
-      maxLength: 20,
-      pattern: /^\d{6,20}$/,
+      minLength: 8,
+      maxLength: 16,
+      pattern: /^\d{8,16}$/,
     },
   },
   artistProfile: {
