@@ -1,14 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ProfileManager from "@/components/feature/artistprofile/ProfileManager";
-import MainLayout from "@/components/feature/main/MainLayout";
-import { getArtistProfile, getArtistArtworks } from "@/lib/api/artists";
+import { useRouter } from "next/navigation";
+
+import { isApiError } from "@/lib/api/error";
 import { getAccount } from "@/lib/api/users";
 import type { ArtistProfile, Artwork } from "@/lib/api/types";
+import { getArtistProfile, getArtistArtworks } from "@/lib/api/artists";
+import { routes } from "@/lib/routes";
+
+import ProfileManager from "@/components/feature/artistprofile/ProfileManager";
+import MainLayout from "@/components/feature/main/MainLayout";
 import { Loading } from "@/components/ui/Loading";
 
 export default function ArtistProfilePage() {
+  const router = useRouter();
+
   const [artistProfile, setArtistProfile] = useState<ArtistProfile | null>(
     null,
   );
@@ -36,15 +43,17 @@ export default function ArtistProfilePage() {
 
         setArtistProfile(profile);
         setArtworks(artworksData || []); //error
-      } catch (err) {
-        console.warn("Cannot fetch artist profile", err);
-        setError(true);
+      } catch (error: unknown) {
+        if (isApiError(error) && error.status === 401) {
+          router.replace(routes.login);
+          setError(true);
+        }
       } finally {
         setIsLoading(false);
       }
     }
     loadData();
-  }, []);
+  }, [router]);
 
   if (isLoading) return <Loading />;
 
