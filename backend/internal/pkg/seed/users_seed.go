@@ -83,17 +83,15 @@ func seedUsersDown(ctx context.Context, d deps) error {
 	return deleteByIDs[pgmodel.User](ctx, d, "id", ids)
 }
 
-// TODO: isn't customer & artist have bank account?
 func seedBankAccountsUp(ctx context.Context, d deps) error {
 	now := time.Now()
-	artists := artistUsers()
-	rows := make([]pgmodel.BankAccount, len(artists))
-	for i, a := range artists {
+	rows := make([]pgmodel.BankAccount, len(users))
+	for i, u := range users {
 		rows[i] = pgmodel.BankAccount{
-			UserID:            userID(a.Key),
+			UserID:            userID(u.Key),
 			BankName:          "Seed Bank",
-			AccountHolderName: a.Username,
-			AccountNumber:     fmt.Sprintf("SEED-%s", a.Key),
+			AccountHolderName: u.Username,
+			AccountNumber:     fmt.Sprintf("SEED-%s", u.Key),
 			CreatedAt:         now,
 			UpdatedAt:         now,
 		}
