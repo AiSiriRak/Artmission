@@ -44,7 +44,6 @@ export default function Footer() {
             <li>Thirada Thomnam 6732015621</li>
             <li>Peeravas Piboolvorakul 6732033921</li>
             <li>Ashira Aungsumal 6732041921</li>
-            <li>Akkharaphon Chotwatthakawanit 6631361421</li>
           </ul>
         </div>
 
