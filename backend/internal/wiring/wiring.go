@@ -50,11 +50,11 @@ func Wire(cfg Config) *httpserver.Server {
 	tokenIssuer := token.NewJWTIssuer(cfg.Auth.JWTSecret)
 	tx := baserepo.NewTransactioner(cfg.DB)
 
-	artistUsecase := artist.NewProfileUsecase(artistRepo, cfg.ObjectStorage)
-	artworkUsecase := artwork.NewUsecase(artworkRepo, tx, cfg.ObjectStorage)
+	artistUsecase := artist.NewProfileUsecase(artistRepo, cfg.ObjectStorage.Public)
+	artworkUsecase := artwork.NewUsecase(artworkRepo, tx, cfg.ObjectStorage.Public)
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
-	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage)
+	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private)
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)

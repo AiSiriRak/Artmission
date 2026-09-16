@@ -1,15 +1,15 @@
 // Package postgres implements every module's repository port against
-// Postgres via bun. Each file owns a bun-tagged row model plus the
-// conversions to/from its module's plain domain type — the domain layer
-// never imports bun.
+// Postgres via bun. Each file owns the conversions to/from its module's
+// plain domain type — the domain layer never imports bun. Row shapes
+// themselves live in the model subpackage, shared with the seed package.
 package postgres
 
 import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
+	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
@@ -19,21 +19,8 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type userModel struct {
-	bun.BaseModel `bun:"table:users,alias:u"`
-
-	ID           uuid.UUID  `bun:"id,pk"`
-	Username     string     `bun:"username"`
-	Email        string     `bun:"email"`
-	PasswordHash string     `bun:"password_hash"`
-	Role         string     `bun:"role"`
-	CreatedAt    time.Time  `bun:"created_at,nullzero"`
-	UpdatedAt    time.Time  `bun:"updated_at,nullzero"`
-	DeletedAt    *time.Time `bun:"deleted_at,soft_delete,nullzero"`
-}
-
-func newUserModel(u *user.User) *userModel {
-	return &userModel{
+func newUserModel(u *user.User) *pgmodel.User {
+	return &pgmodel.User{
 		ID:           u.ID,
 		Username:     u.Username,
 		Email:        u.Email,
@@ -44,7 +31,7 @@ func newUserModel(u *user.User) *userModel {
 	}
 }
 
-func (m *userModel) toDomain() *user.User {
+func userModelToDomain(m *pgmodel.User) *user.User {
 	return &user.User{
 		ID:           m.ID,
 		Username:     m.Username,
@@ -57,7 +44,7 @@ func (m *userModel) toDomain() *user.User {
 }
 
 type userRepository struct {
-	base baserepo.BaseRepo[userModel]
+	base baserepo.BaseRepo[pgmodel.User]
 	exec baserepo.Executor
 }
 
@@ -65,7 +52,7 @@ var _ user.UserRepository = (*userRepository)(nil)
 
 func NewUserRepository(db *bun.DB) user.UserRepository {
 	return &userRepository{
-		base: baserepo.NewBaseRepo[userModel](db, "user"),
+		base: baserepo.NewBaseRepo[pgmodel.User](db, "user"),
 		exec: baserepo.NewExecutor(db),
 	}
 }
@@ -87,7 +74,7 @@ func (r *userRepository) Create(ctx context.Context, u *user.User) error {
 }
 
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*user.User, error) {
-	model := new(userModel)
+	model := new(pgmodel.User)
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		return idb.NewSelect().Model(model).Where("email = ?", email).Scan(ctx)
 	})
@@ -97,7 +84,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*user.Us
 		}
 		return nil, apperror.Internal("failed to look up user by email", err)
 	}
-	return model.toDomain(), nil
+	return userModelToDomain(model), nil
 }
 
 func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
@@ -108,11 +95,11 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User,
 		}
 		return nil, apperror.Internal("failed to look up user by id", err)
 	}
-	return model.toDomain(), nil
+	return userModelToDomain(model), nil
 }
 
 func (r *userRepository) UpdateAccountByID(ctx context.Context, id uuid.UUID, in user.AccountUpdate) (*user.User, error) {
-	model := &userModel{
+	model := &pgmodel.User{
 		ID:        id,
 		Username:  in.Username,
 		UpdatedAt: in.UpdatedAt,
@@ -135,5 +122,5 @@ func (r *userRepository) UpdateAccountByID(ctx context.Context, id uuid.UUID, in
 		}
 		return nil, apperror.Internal("failed to update account", err)
 	}
-	return model.toDomain(), nil
+	return userModelToDomain(model), nil
 }

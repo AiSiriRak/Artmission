@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
@@ -24,7 +25,7 @@ func NewAccountDeletionRepository(db *bun.DB) user.AccountDeletionRepository {
 }
 
 func (r *accountDeletionRepository) LockUserByIDForDeletion(ctx context.Context, userID uuid.UUID) error {
-	model := &userModel{ID: userID}
+	model := &pgmodel.User{ID: userID}
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		// FOR UPDATE conflicts with session and order key-share locks; a plain soft-delete UPDATE does not.
 		return idb.NewSelect().Model(model).Column("id").WherePK().For("UPDATE").Scan(ctx)
@@ -43,7 +44,7 @@ func (r *accountDeletionRepository) HasOrdersInStatuses(ctx context.Context, use
 		exists, err = idb.NewSelect().
 			TableExpr("orders AS o").
 			Where("(o.customer_id = ? OR o.artist_id = ?)", userID, userID).
-			Where("o.status IN (?)", bun.In(statuses)).
+			Where("o.status IN (?)", bun.List(statuses)).
 			Exists(ctx)
 		return err
 	})
@@ -62,7 +63,7 @@ func (r *accountDeletionRepository) DeleteSessionsByUserID(ctx context.Context, 
 }
 
 func (r *accountDeletionRepository) SoftDeleteUserByID(ctx context.Context, userID uuid.UUID) error {
-	model := &userModel{ID: userID}
+	model := &pgmodel.User{ID: userID}
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		return idb.NewDelete().Model(model).WherePK().Returning("id").Scan(ctx)
 	})

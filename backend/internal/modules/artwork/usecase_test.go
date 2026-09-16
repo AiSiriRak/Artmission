@@ -86,7 +86,7 @@ type fakeStorage struct {
 	err     error
 }
 
-func (storage *fakeStorage) UploadPublic(_ context.Context, key string, body io.Reader, _ int64, _ string) error {
+func (storage *fakeStorage) Upload(_ context.Context, key string, body io.Reader, _ string) error {
 	if storage.err != nil {
 		return storage.err
 	}
@@ -97,12 +97,24 @@ func (storage *fakeStorage) UploadPublic(_ context.Context, key string, body io.
 	return nil
 }
 
-func (storage *fakeStorage) DeletePublicURL(_ context.Context, imageURL string) error {
-	storage.deletes = append(storage.deletes, imageURL)
+func (storage *fakeStorage) Delete(_ context.Context, key string) error {
+	storage.deletes = append(storage.deletes, key)
 	return nil
 }
 
 func (*fakeStorage) PublicURL(key string) string { return "https://public.test/" + key }
+
+func (*fakeStorage) KeyFromURL(rawURL string) (string, bool) {
+	const prefix = "https://public.test/"
+	if !strings.HasPrefix(rawURL, prefix) {
+		return "", false
+	}
+	key := strings.TrimPrefix(rawURL, prefix)
+	if key == "" {
+		return "", false
+	}
+	return key, true
+}
 
 type fakeTransaction struct {
 	calls int
@@ -257,8 +269,8 @@ func TestDeleteScopesDeletionToArtist(t *testing.T) {
 	if repo.deleted.artistID != artistID || repo.deleted.artworkID != artworkID {
 		t.Errorf("delete scope = artist=%s artwork=%s", repo.deleted.artistID, repo.deleted.artworkID)
 	}
-	if !reflect.DeepEqual(storage.deletes, repo.deletedURLs) {
-		t.Errorf("storage deletes = %v, want %v", storage.deletes, repo.deletedURLs)
+	if !reflect.DeepEqual(storage.deletes, []string{"artworks/deleted.png"}) {
+		t.Errorf("storage deletes = %v", storage.deletes)
 	}
 }
 
@@ -295,7 +307,7 @@ func TestUpdateNormalizesAndPersistsArtistOwnedArtwork(t *testing.T) {
 	if !reflect.DeepEqual(updated.Styles, []string{"Cartoon"}) || len(updated.Samples) != 2 || updated.Samples[0].ImageURL != retainedURL || !strings.HasPrefix(updated.Samples[1].ImageURL, "https://public.test/artists/") || updated.Samples[1].SortOrder != 1 {
 		t.Errorf("styles=%#v samples=%+v", updated.Styles, updated.Samples)
 	}
-	if !reflect.DeepEqual(repo.updateDeletes, []string{deletedURL}) || !reflect.DeepEqual(storage.deletes, []string{deletedURL}) {
+	if !reflect.DeepEqual(repo.updateDeletes, []string{deletedURL}) || !reflect.DeepEqual(storage.deletes, []string{"artists/artist/artworks/artwork/deleted.png"}) {
 		t.Errorf("repository deletes=%v storage deletes=%v", repo.updateDeletes, storage.deletes)
 	}
 }
