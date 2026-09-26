@@ -101,7 +101,7 @@ type Order struct {
 	PriceSatangSnapshot         int64
 	MinimumDeadlineDaysSnapshot int
 	CustomerDescription         string
-	DeadlineAt                  *time.Time
+	DeadlineAt                  time.Time
 	Status                      Status
 	// DeliverablePreviewKey is the private-bucket object key of the most
 	// recently submitted deliverable version, regardless of order status;

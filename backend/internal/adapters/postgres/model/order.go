@@ -20,7 +20,7 @@ type Order struct {
 	PriceSatangSnapshot         int64      `bun:"price_satang_snapshot"`
 	MinimumDeadlineDaysSnapshot int        `bun:"minimum_deadline_days_snapshot"`
 	CustomerDescription         string     `bun:"customer_description"`
-	DeadlineAt                  *time.Time `bun:"deadline_at"`
+	DeadlineAt                  time.Time  `bun:"deadline_at"`
 	Status                      string     `bun:"status"`
 	CompletedAt                 *time.Time `bun:"completed_at"`
 	CreatedAt                   time.Time  `bun:"created_at,nullzero"`
