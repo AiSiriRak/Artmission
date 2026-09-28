@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"io"
 	"net/http"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
@@ -18,7 +19,13 @@ type UserHandler struct {
 	cookieDomain string
 }
 
-func NewUserHandler(userUsecase user.UserUsecase, authUsecase auth.AuthUsecase, basePath string, isProduction bool, cookieDomain string) *UserHandler {
+func NewUserHandler(
+	userUsecase user.UserUsecase,
+	authUsecase auth.AuthUsecase,
+	basePath string,
+	isProduction bool,
+	cookieDomain string,
+) *UserHandler {
 	return &UserHandler{
 		userUsecase:  userUsecase,
 		authUsecase:  authUsecase,
@@ -79,6 +86,16 @@ func (h *UserHandler) Register(api huma.API) {
 			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase))
 		},
 	)
+
+	huma.Put(api, "/users/me/profile-image", h.updateProfileImage,
+		huma.OperationTags("users"),
+		func(o *huma.Operation) {
+			o.OperationID = "update-profile-image"
+			o.Summary = "UpdateProfileImage"
+			o.Description = "Update or remove the authenticated user's profile image"
+			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase))
+		},
+	)
 }
 
 type DeleteAccountInput struct{}
@@ -87,7 +104,10 @@ type DeleteAccountOutput struct {
 	SetCookie string `header:"Set-Cookie"`
 }
 
-func (h *UserHandler) deleteAccount(ctx context.Context, _ *DeleteAccountInput) (*DeleteAccountOutput, error) {
+func (h *UserHandler) deleteAccount(
+	ctx context.Context,
+	_ *DeleteAccountInput,
+) (*DeleteAccountOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
 		return nil, huma.Error401Unauthorized("missing authentication")
@@ -103,10 +123,11 @@ func (h *UserHandler) deleteAccount(ctx context.Context, _ *DeleteAccountInput) 
 }
 
 type accountView struct {
-	ID       uuid.UUID `json:"id"`
-	Username string    `json:"username"`
-	Email    string    `json:"email"`
-	Role     user.Role `json:"role"`
+	ID              uuid.UUID `json:"id"`
+	Username        string    `json:"username"`
+	Email           string    `json:"email"`
+	Role            user.Role `json:"role"`
+	ProfileImageURL *string   `json:"profile_image_url"`
 }
 
 type GetAccountInput struct{}
@@ -159,10 +180,11 @@ func (h *UserHandler) updateAccount(ctx context.Context, in *updateAccountInput)
 
 func newAccountView(account *user.User) accountView {
 	return accountView{
-		ID:       account.ID,
-		Username: account.Username,
-		Email:    account.Email,
-		Role:     account.Role,
+		ID:              account.ID,
+		Username:        account.Username,
+		Email:           account.Email,
+		Role:            account.Role,
+		ProfileImageURL: account.ProfileImageURL,
 	}
 }
 
@@ -242,4 +264,51 @@ func maskAccountNumber(accountNumber string) string {
 	}
 
 	return "••••" + string(characters[len(characters)-visibleCharacters:])
+}
+
+type updateProfileImageForm struct {
+	ProfileImage       huma.FormFile `form:"profile_image" contentType:"image/jpeg,image/png,image/webp" required:"false"`
+	RemoveProfileImage bool          `form:"remove_profile_image" required:"false"`
+}
+
+type updateProfileImageInput struct {
+	RawBody huma.MultipartFormFiles[updateProfileImageForm]
+}
+
+type UpdateProfileImageOutput struct {
+	Body accountView
+}
+
+func (h *UserHandler) updateProfileImage(ctx context.Context, in *updateProfileImageInput) (*UpdateProfileImageOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	form := in.RawBody.Data()
+	for field := range in.RawBody.Form.Value {
+		if field != "remove_profile_image" {
+			return nil, huma.Error422UnprocessableEntity("unexpected multipart field: " + field)
+		}
+	}
+	for field := range in.RawBody.Form.File {
+		if field != "profile_image" {
+			return nil, huma.Error422UnprocessableEntity("unexpected multipart field: " + field)
+		}
+	}
+
+	var profileImage io.Reader
+	if form.ProfileImage.IsSet {
+		profileImage = form.ProfileImage.File
+	}
+
+	account, err := h.userUsecase.UpdateProfileImage(ctx, info.UserID, user.UpdateProfileImageInput{
+		ProfileImage:       profileImage,
+		RemoveProfileImage: form.RemoveProfileImage,
+	})
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	return &UpdateProfileImageOutput{Body: newAccountView(account)}, nil
 }

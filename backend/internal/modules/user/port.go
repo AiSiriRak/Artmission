@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
@@ -23,6 +24,7 @@ type UserUsecase interface {
 	UpdateBankAccount(ctx context.Context, userID uuid.UUID, role Role, in BankAccountInput) (*BankAccount, error)
 	DeleteAccount(ctx context.Context, userID uuid.UUID) error
 	GetBankAccount(ctx context.Context, userID uuid.UUID, role Role) (*BankAccount, error)
+	UpdateProfileImage(ctx context.Context, id uuid.UUID, in UpdateProfileImageInput) (*User, error)
 }
 
 type UserRepository interface {
@@ -30,6 +32,17 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	UpdateAccountByID(ctx context.Context, id uuid.UUID, in AccountUpdate) (*User, error)
+	UpdateProfileImageByID(ctx context.Context, id uuid.UUID, profileImageKey *string) (*User, error)
+}
+
+type ProfileImageURLResolver interface {
+	PublicURL(key string) string
+}
+
+type ObjectStorage interface {
+	ProfileImageURLResolver
+	Upload(ctx context.Context, key string, body io.Reader, contentType string) error
+	Delete(ctx context.Context, key string) error
 }
 
 type BankAccountRepository interface {
@@ -86,4 +99,9 @@ type AccountUpdate struct {
 
 type ArtistProfileInput struct {
 	Description *string
+}
+
+type UpdateProfileImageInput struct {
+	ProfileImage       io.Reader
+	RemoveProfileImage bool
 }

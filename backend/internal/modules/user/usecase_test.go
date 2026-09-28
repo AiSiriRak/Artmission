@@ -3,6 +3,7 @@ package user_test
 import (
 	"context"
 	"errors"
+	"io"
 	"slices"
 	"testing"
 	"time"
@@ -67,6 +68,17 @@ func (f *fakeRepo) UpdateAccountByID(_ context.Context, id uuid.UUID, in user.Ac
 	}
 	f.byID[id] = &cp
 	f.byEmail[cp.Email] = &cp
+	return &cp, nil
+}
+
+func (f *fakeRepo) UpdateProfileImageByID(_ context.Context, id uuid.UUID, key *string) (*user.User, error) {
+	stored, ok := f.byID[id]
+	if !ok {
+		return nil, user.ErrUserNotFound
+	}
+	cp := *stored
+	cp.ProfileImageKey = key
+	f.byID[id] = &cp
 	return &cp, nil
 }
 
@@ -146,6 +158,20 @@ func (f *fakeTx) Transaction(ctx context.Context, fn func(ctx context.Context) e
 
 var _ user.Transactioner = (*fakeTx)(nil)
 
+type fakeProfileImageURLResolver struct{}
+
+func (fakeProfileImageURLResolver) PublicURL(key string) string {
+	return "https://public.test/" + key
+}
+
+func (fakeProfileImageURLResolver) Upload(_ context.Context, _ string, _ io.Reader, _ string) error {
+	return nil
+}
+
+func (fakeProfileImageURLResolver) Delete(_ context.Context, _ string) error {
+	return nil
+}
+
 type fakeAccountDeletionRepo struct {
 	hasActiveOrders bool
 	statuses        []order.Status
@@ -186,7 +212,22 @@ func (f *fakeAccountDeletionRepo) SoftDeleteUserByID(_ context.Context, _ uuid.U
 var _ user.AccountDeletionRepository = (*fakeAccountDeletionRepo)(nil)
 
 func newUsecase(repo *fakeRepo, bank *fakeBankRepo, artist *fakeArtistRegistrar) user.UserUsecase {
-	return user.NewUserUsecase(repo, bank, artist, &fakeAccountDeletionRepo{}, &fakeTx{})
+	return user.NewUserUsecase(repo, bank, artist, &fakeAccountDeletionRepo{}, &fakeTx{}, fakeProfileImageURLResolver{})
+}
+
+func TestGetByID_ResolvesProfileImageURL(t *testing.T) {
+	repo := newFakeRepo()
+	userID := uuid.New()
+	key := "user-profiles/avatar.png"
+	repo.byID[userID] = &user.User{ID: userID, ProfileImageKey: &key}
+
+	got, err := newUsecase(repo, newFakeBankRepo(), newFakeArtistRegistrar()).GetByID(context.Background(), userID)
+	if err != nil {
+		t.Fatalf("GetByID() error = %v, want nil", err)
+	}
+	if got.ProfileImageURL == nil || *got.ProfileImageURL != "https://public.test/"+key {
+		t.Fatalf("GetByID() profile image URL = %#v", got.ProfileImageURL)
+	}
 }
 
 func customerInput() user.RegisterInput {
@@ -205,7 +246,7 @@ func customerInput() user.RegisterInput {
 
 func TestDeleteAccount_DeletesPrivateDataAndSessions(t *testing.T) {
 	deletion := &fakeAccountDeletionRepo{}
-	usecase := user.NewUserUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar(), deletion, &fakeTx{})
+	usecase := user.NewUserUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar(), deletion, &fakeTx{}, fakeProfileImageURLResolver{})
 
 	if err := usecase.DeleteAccount(context.Background(), uuid.New()); err != nil {
 		t.Fatalf("DeleteAccount() error = %v, want nil", err)
@@ -223,7 +264,7 @@ func TestDeleteAccount_DeletesPrivateDataAndSessions(t *testing.T) {
 
 func TestDeleteAccount_RejectsActiveOrdersWithoutDeletingAnything(t *testing.T) {
 	deletion := &fakeAccountDeletionRepo{hasActiveOrders: true}
-	usecase := user.NewUserUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar(), deletion, &fakeTx{})
+	usecase := user.NewUserUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar(), deletion, &fakeTx{}, fakeProfileImageURLResolver{})
 
 	err := usecase.DeleteAccount(context.Background(), uuid.New())
 	if !errors.Is(err, user.ErrActiveOrders) {
@@ -236,7 +277,7 @@ func TestDeleteAccount_RejectsActiveOrdersWithoutDeletingAnything(t *testing.T) 
 
 func TestDeleteAccount_StopsWhenAccountCannotBeLocked(t *testing.T) {
 	deletion := &fakeAccountDeletionRepo{lockErr: user.ErrUserNotFound}
-	usecase := user.NewUserUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar(), deletion, &fakeTx{})
+	usecase := user.NewUserUsecase(newFakeRepo(), newFakeBankRepo(), newFakeArtistRegistrar(), deletion, &fakeTx{}, fakeProfileImageURLResolver{})
 
 	err := usecase.DeleteAccount(context.Background(), uuid.New())
 	if !errors.Is(err, user.ErrUserNotFound) {
