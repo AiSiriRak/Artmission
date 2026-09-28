@@ -88,7 +88,7 @@ export default function Header({ usertype = "customer" }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white border-b border-primary-500">
+    <header className="sticky top-0 z-50 w-full bg-white border-b border-neutral">
       <div className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
         {/* ด้านซ้าย: Logo ARTMISSION */}
         <div className="flex-shrink-0 flex items-center">
