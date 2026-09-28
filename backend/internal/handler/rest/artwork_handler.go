@@ -59,7 +59,7 @@ func (h *ArtworkHandler) Register(api huma.API) {
 			operation.OperationID = "search-artworks"
 			operation.Summary = "SearchArtworks"
 			operation.Description = "Search artworks for the authenticated user's home page by artist name, optional category/style/price/review filters, sort, and page"
-			operation.Middlewares = append(operation.Middlewares, requireAuth(api, h.authUsecase))
+			operation.Middlewares = append(operation.Middlewares, requireAuth(api, h.authUsecase), requireRole(api, user.RoleCustomer))
 		},
 	)
 

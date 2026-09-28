@@ -41,6 +41,7 @@ type artworkUsecaseStub struct {
 	artworks       []artwork.Artwork
 	created        *artwork.Artwork
 	updated        *artwork.Artwork
+	searchCalls    int
 	searchQuery    artwork.SearchQuery
 	searchPage     artwork.SearchPage
 	err            error
@@ -51,6 +52,7 @@ type artworkUsecaseStub struct {
 }
 
 func (stub *artworkUsecaseStub) Search(_ context.Context, query artwork.SearchQuery) (artwork.SearchPage, error) {
+	stub.searchCalls++
 	stub.searchQuery = query
 	return stub.searchPage, stub.err
 }
@@ -221,6 +223,33 @@ func TestArtworkHandlerSearchReturnsEmptyArray(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"artworks":[]`) {
 		t.Errorf("response body = %s, want empty artworks array", rec.Body.String())
+	}
+}
+
+func TestArtworkHandlerSearchRequiresCustomerRole(t *testing.T) {
+	for _, role := range []user.Role{user.RoleArtist, user.RoleAdmin} {
+		t.Run(string(role), func(t *testing.T) {
+			usecase := &artworkUsecaseStub{}
+			handler := newArtworkTestHandlerWithUsecase(t, role, usecase)
+			rec := serveArtworkRequest(handler, http.MethodGet, "/artworks", "", true)
+
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusForbidden, rec.Body.String())
+			}
+			var got struct {
+				Status int    `json:"status"`
+				Detail string `json:"detail"`
+			}
+			if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+				t.Fatalf("decode error response: %v", err)
+			}
+			if got.Status != http.StatusForbidden || got.Detail != "insufficient permissions" {
+				t.Errorf("error response = %+v, want forbidden insufficient permissions", got)
+			}
+			if usecase.searchCalls != 0 {
+				t.Errorf("Search called %d times, want 0", usecase.searchCalls)
+			}
+		})
 	}
 }
 
