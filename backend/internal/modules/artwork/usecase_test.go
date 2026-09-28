@@ -14,7 +14,9 @@ import (
 
 type fakeRepository struct {
 	artworks        []Artwork
+	searchPage      SearchPage
 	err             error
+	searchQuery     SearchQuery
 	categoryLabels  []string
 	styleLabels     [][]string
 	created         *Artwork
@@ -26,6 +28,11 @@ type fakeRepository struct {
 		artworkID uuid.UUID
 		artistID  uuid.UUID
 	}
+}
+
+func (repo *fakeRepository) Search(_ context.Context, query SearchQuery) (SearchPage, error) {
+	repo.searchQuery = query
+	return repo.searchPage, repo.err
 }
 
 func (repo *fakeRepository) ListByArtistID(context.Context, uuid.UUID) ([]Artwork, error) {
@@ -127,6 +134,81 @@ func (tx *fakeTransaction) Transaction(ctx context.Context, fn func(context.Cont
 		return tx.err
 	}
 	return fn(ctx)
+}
+
+func TestSearchDefaultsPageSizeAndEmptySlice(t *testing.T) {
+	repo := &fakeRepository{}
+	got, err := NewUsecase(repo, &fakeTransaction{}, &fakeStorage{}).Search(context.Background(), SearchQuery{})
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if got.Items == nil || len(got.Items) != 0 || got.Page != 1 {
+		t.Errorf("Search() = %#v, want empty page 1", got)
+	}
+	if repo.searchQuery.Sort != DefaultSearchSort || repo.searchQuery.Limit != SearchPageSize || repo.searchQuery.Offset != 0 || repo.searchQuery.Page != 1 {
+		t.Errorf("normalized query = %+v", repo.searchQuery)
+	}
+}
+
+func TestSearchComputesOffsetAndResolvesProfileURL(t *testing.T) {
+	key := "artist-profiles/one.webp"
+	score := 4.5
+	repo := &fakeRepository{searchPage: SearchPage{Items: []SearchItem{{
+		Artwork: Artwork{Name: "Cover"},
+		Artist:  ArtistSummary{Name: "Ada", ProfileImageKey: &key, ReviewScore: &score},
+	}}, Total: 21}}
+	got, err := NewUsecase(repo, &fakeTransaction{}, &fakeStorage{}).Search(context.Background(), SearchQuery{
+		ArtistName: "  Ada  ",
+		Category:   " Book ",
+		Styles:     []string{" Pixel Art "},
+		Sort:       SearchSortPriceAsc,
+		Page:       2,
+	})
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if repo.searchQuery.ArtistName != "Ada" || repo.searchQuery.Offset != SearchPageSize || repo.searchQuery.Limit != SearchPageSize || repo.searchQuery.Sort != SearchSortPriceAsc {
+		t.Errorf("normalized query = %+v", repo.searchQuery)
+	}
+	if repo.searchQuery.Category != "Book" || !reflect.DeepEqual(repo.searchQuery.Styles, []string{"Pixel Art"}) {
+		t.Errorf("filters = category=%v styles=%v", repo.searchQuery.Category, repo.searchQuery.Styles)
+	}
+	if got.Page != 2 || got.Total != 21 || got.Items[0].Artist.ProfileURL == nil || *got.Items[0].Artist.ProfileURL != "https://public.test/"+key {
+		t.Errorf("Search() = %#v", got)
+	}
+}
+
+func TestSearchRejectsInvalidInput(t *testing.T) {
+	negative := int64(-1)
+	invertedMin, invertedMax := int64(200), int64(100)
+	badScore := 6.0
+	tests := []SearchQuery{
+		{Category: "  "},
+		{Styles: []string{"  "}},
+		{MinPriceSatang: &negative},
+		{MaxPriceSatang: &negative},
+		{MinPriceSatang: &invertedMin, MaxPriceSatang: &invertedMax},
+		{MinReviewScore: &badScore},
+		{Sort: SearchSort("popularity")},
+		{Page: -1},
+	}
+	for index, query := range tests {
+		repo := &fakeRepository{}
+		if _, err := NewUsecase(repo, &fakeTransaction{}, &fakeStorage{}).Search(context.Background(), query); err == nil {
+			t.Errorf("case %d: Search() error = nil", index)
+		}
+		if repo.searchQuery.Limit != 0 {
+			t.Errorf("case %d called repository: %+v", index, repo.searchQuery)
+		}
+	}
+}
+
+func TestSearchReturnsRepositoryError(t *testing.T) {
+	want := errors.New("repository failed")
+	got, err := NewUsecase(&fakeRepository{err: want}, &fakeTransaction{}, &fakeStorage{}).Search(context.Background(), SearchQuery{})
+	if !errors.Is(err, want) || !reflect.DeepEqual(got, SearchPage{}) {
+		t.Errorf("Search() = (%#v, %v), want (zero, %v)", got, err, want)
+	}
 }
 
 func TestListByArtistIDPreservesSampleURLsAndNormalizesSlices(t *testing.T) {

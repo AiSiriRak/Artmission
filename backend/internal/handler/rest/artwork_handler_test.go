@@ -41,11 +41,18 @@ type artworkUsecaseStub struct {
 	artworks       []artwork.Artwork
 	created        *artwork.Artwork
 	updated        *artwork.Artwork
+	searchQuery    artwork.SearchQuery
+	searchPage     artwork.SearchPage
 	err            error
 	createInput    artwork.CreateInput
 	updateInput    artwork.UpdateInput
 	deleteArtistID uuid.UUID
 	deleteArtwork  uuid.UUID
+}
+
+func (stub *artworkUsecaseStub) Search(_ context.Context, query artwork.SearchQuery) (artwork.SearchPage, error) {
+	stub.searchQuery = query
+	return stub.searchPage, stub.err
 }
 
 func (stub *artworkUsecaseStub) ListByArtistID(context.Context, uuid.UUID) ([]artwork.Artwork, error) {
@@ -149,6 +156,74 @@ func TestArtworkHandlerUpdateReturnsUpdatedArtwork(t *testing.T) {
 	}
 }
 
+func TestArtworkHandlerSearchReturnsArtworksForAuthenticatedUser(t *testing.T) {
+	artworkID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+	artistID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	score := 4.5
+	profileURL := "https://public.test/artist.webp"
+	usecase := &artworkUsecaseStub{searchPage: artwork.SearchPage{
+		Items: []artwork.SearchItem{{
+			Artwork: artwork.Artwork{
+				ID:                  artworkID,
+				ArtistID:            artistID,
+				Name:                "Watercolor portrait",
+				Category:            "Portrait",
+				Styles:              []string{"Realism"},
+				Description:         "Painted portrait",
+				Samples:             []artwork.Sample{{ImageURL: "https://storage.example.com/sample.webp"}},
+				MinimumDeadlineDays: 7,
+				PriceSatang:         50000,
+			},
+			Artist: artwork.ArtistSummary{
+				ID:          artistID,
+				Name:        "Ada",
+				ProfileURL:  &profileURL,
+				ReviewScore: &score,
+			},
+		}},
+		Total: 1,
+		Page:  1,
+	}}
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleCustomer, usecase)
+	rec := serveArtworkRequest(handler, http.MethodGet, "/artworks?q=Ada&category=Portrait&style=Realism&min_price_satang=1000&max_price_satang=90000&min_review_score=4&sort=price_asc&page=2", "", true)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got struct {
+		Artworks []searchArtworkView `json:"artworks"`
+		Total    int                 `json:"total"`
+		Page     int                 `json:"page"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got.Total != 1 || got.Page != 1 || len(got.Artworks) != 1 {
+		t.Fatalf("response = %+v", got)
+	}
+	if got.Artworks[0].ID != artworkID || got.Artworks[0].Artist.ArtistName != "Ada" || got.Artworks[0].Artist.ReviewScore == nil {
+		t.Errorf("artwork = %+v", got.Artworks[0])
+	}
+	if usecase.searchQuery.ArtistName != "Ada" || usecase.searchQuery.Sort != artwork.SearchSortPriceAsc || usecase.searchQuery.Page != 2 {
+		t.Errorf("search query = %+v", usecase.searchQuery)
+	}
+	if usecase.searchQuery.MinPriceSatang == nil || *usecase.searchQuery.MinPriceSatang != 1000 || usecase.searchQuery.MaxPriceSatang == nil || *usecase.searchQuery.MaxPriceSatang != 90000 || usecase.searchQuery.MinReviewScore == nil || *usecase.searchQuery.MinReviewScore != 4 {
+		t.Errorf("numeric filters = %+v", usecase.searchQuery)
+	}
+}
+
+func TestArtworkHandlerSearchReturnsEmptyArray(t *testing.T) {
+	usecase := &artworkUsecaseStub{searchPage: artwork.SearchPage{Items: []artwork.SearchItem{}, Total: 0, Page: 1}}
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleCustomer, usecase)
+	rec := serveArtworkRequest(handler, http.MethodGet, "/artworks", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"artworks":[]`) {
+		t.Errorf("response body = %s, want empty artworks array", rec.Body.String())
+	}
+}
+
 func TestArtworkHandlerListsArtistArtworksWithoutAuthentication(t *testing.T) {
 	artworkID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
 	handler := newArtworkTestHandlerWithUsecase(t, user.RoleArtist, &artworkUsecaseStub{artworks: []artwork.Artwork{{
@@ -205,6 +280,7 @@ func TestArtworkHandlerRequiresAuthentication(t *testing.T) {
 		body   string
 	}{
 		{name: "create", method: http.MethodPost, path: "/artworks", body: validArtworkBody},
+		{name: "search", method: http.MethodGet, path: "/artworks"},
 		{name: "update", method: http.MethodPut, path: "/artworks/00000000-0000-0000-0000-000000000003", body: validArtworkBody},
 		{name: "delete", method: http.MethodDelete, path: "/artworks/00000000-0000-0000-0000-000000000003"},
 	}

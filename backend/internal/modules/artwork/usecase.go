@@ -23,6 +23,32 @@ func NewUsecase(repo Repository, tx Transactioner, storage ObjectStorage) Usecas
 	return &usecase{repo: repo, tx: tx, storage: storage}
 }
 
+func (u *usecase) Search(ctx context.Context, query SearchQuery) (SearchPage, error) {
+	normalized, err := normalizeSearchQuery(query)
+	if err != nil {
+		return SearchPage{}, err
+	}
+
+	page, err := u.repo.Search(ctx, normalized)
+	if err != nil {
+		return SearchPage{}, err
+	}
+	if page.Items == nil {
+		page.Items = make([]SearchItem, 0)
+	}
+	for i := range page.Items {
+		if page.Items[i].Artwork.Styles == nil {
+			page.Items[i].Artwork.Styles = make([]string, 0)
+		}
+		if page.Items[i].Artwork.Samples == nil {
+			page.Items[i].Artwork.Samples = make([]Sample, 0)
+		}
+		u.attachSearchArtistURL(&page.Items[i].Artist)
+	}
+	page.Page = normalized.Page
+	return page, nil
+}
+
 func (u *usecase) Create(ctx context.Context, input CreateInput) (*Artwork, error) {
 	created, err := normalizeArtwork(uuid.New(), input)
 	if err != nil {
@@ -240,6 +266,92 @@ func readSampleImage(reader io.Reader) ([]byte, string, string, error) {
 	default:
 		return nil, "", "", ErrInvalidSampleImage
 	}
+}
+
+func (u *usecase) attachSearchArtistURL(artist *ArtistSummary) {
+	if artist.ProfileImageKey == nil {
+		artist.ProfileURL = nil
+		return
+	}
+	url := u.storage.PublicURL(*artist.ProfileImageKey)
+	artist.ProfileURL = &url
+}
+
+func normalizeSearchQuery(query SearchQuery) (SearchQuery, error) {
+	query.ArtistName = strings.TrimSpace(query.ArtistName)
+
+	if query.Category != "" {
+		category, err := normalizeFilterLabel("category", query.Category)
+		if err != nil {
+			return SearchQuery{}, err
+		}
+		query.Category = category
+	}
+
+	styles, err := normalizeFilterLabels("style", query.Styles)
+	if err != nil {
+		return SearchQuery{}, err
+	}
+	query.Styles = styles
+
+	if query.MinPriceSatang != nil && *query.MinPriceSatang < 0 {
+		return SearchQuery{}, apperror.InvalidInput("min price satang must not be negative", nil)
+	}
+	if query.MaxPriceSatang != nil && *query.MaxPriceSatang < 0 {
+		return SearchQuery{}, apperror.InvalidInput("max price satang must not be negative", nil)
+	}
+	if query.MinPriceSatang != nil && query.MaxPriceSatang != nil && *query.MinPriceSatang > *query.MaxPriceSatang {
+		return SearchQuery{}, apperror.InvalidInput("min price satang must not be greater than max price satang", nil)
+	}
+
+	if query.MinReviewScore != nil {
+		if *query.MinReviewScore < 1 || *query.MinReviewScore > 5 {
+			return SearchQuery{}, apperror.InvalidInput("min review score must be between 1 and 5", nil)
+		}
+	}
+
+	if query.Sort == "" {
+		query.Sort = DefaultSearchSort
+	}
+	if !query.Sort.IsValid() {
+		return SearchQuery{}, apperror.InvalidInput(fmt.Sprintf("invalid sort %q", query.Sort), nil)
+	}
+
+	if query.Page == 0 {
+		query.Page = 1
+	}
+	if query.Page < 1 {
+		return SearchQuery{}, apperror.InvalidInput("page must be greater than zero", nil)
+	}
+
+	query.Limit = SearchPageSize
+	query.Offset = (query.Page - 1) * SearchPageSize
+	return query, nil
+}
+
+func normalizeFilterLabels(field string, labels []string) ([]string, error) {
+	seen := make(map[string]struct{}, len(labels))
+	normalized := make([]string, 0, len(labels))
+	for _, label := range labels {
+		value, err := requiredText(field, label)
+		if err != nil {
+			return nil, err
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
+	}
+	return normalized, nil
+}
+
+func normalizeFilterLabel(field string, label string) (string, error) {
+	value, err := requiredText(field, label)
+	if err != nil {
+		return "", err
+	}
+	return value, nil
 }
 
 func (u *usecase) ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]Artwork, error) {

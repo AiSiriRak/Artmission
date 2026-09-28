@@ -8,6 +8,7 @@ import (
 )
 
 type Usecase interface {
+	Search(ctx context.Context, query SearchQuery) (SearchPage, error)
 	ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]Artwork, error)
 	Create(ctx context.Context, input CreateInput) (*Artwork, error)
 	Update(ctx context.Context, input UpdateInput) (*Artwork, error)
@@ -15,6 +16,7 @@ type Usecase interface {
 }
 
 type Repository interface {
+	Search(ctx context.Context, query SearchQuery) (SearchPage, error)
 	ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]Artwork, error)
 	FindOrCreateCategory(ctx context.Context, label string) (uuid.UUID, error)
 	FindOrCreateStyles(ctx context.Context, labels []string) ([]uuid.UUID, error)
