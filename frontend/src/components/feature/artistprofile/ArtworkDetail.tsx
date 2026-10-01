@@ -123,11 +123,6 @@ export default function ArtworkDetail({
     price: "",
   });
   const [hasSubmitted, setHasSubmitted] = useState(false);
-  useEffect(() => {
-    if (hasSubmitted) {
-      setErrors(ValidateArtworkForm(formData));
-    }
-  }, [hasSubmitted, formData]);
 
   useEffect(() => {
     if (artwork) {
@@ -150,11 +145,11 @@ export default function ArtworkDetail({
 
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSavedData(newData);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setFormData(newData);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setSavedImages(imgArray);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setImages(imgArray);
     }
   }, [artwork]);
@@ -166,7 +161,15 @@ export default function ArtworkDetail({
     const newFormData = { ...formData, [name]: value };
     
     setFormData(newFormData);
+    handleErrorChange(newFormData);
   };
+
+  const handleErrorChange = (newFormData: typeof formData) => {
+    if (hasSubmitted) {
+      const newErrors = ValidateArtworkForm(newFormData);
+      setErrors(newErrors);
+    }
+  }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -229,7 +232,7 @@ export default function ArtworkDetail({
       };
 
       if (isEditing) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const originalUrls = (artwork?.artwork_samples || [])
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((s: any) => s.image_url || (typeof s === "string" ? s : ""))
@@ -286,7 +289,7 @@ export default function ArtworkDetail({
       styles: prev.styles.filter((s) => s !== styleToRemove),
     }));
     
-    // setErrors(ValidateArtworkForm({ ...formData, styles: formData.styles.filter((s) => s !== styleToRemove) }));
+    handleErrorChange({ ...formData, styles: formData.styles.filter((s) => s !== styleToRemove) });
   };
 
   const selectCategory = (cat: string) => {
@@ -436,9 +439,10 @@ export default function ArtworkDetail({
                     <span className="px-4 py-1.5 bg-accent-200 text-primary-500 rounded-full text-sm font-semibold flex items-center gap-2 shadow-sm">
                       {formData.category}
                       <button
-                        onClick={() =>
-                          setFormData((prev) => ({ ...prev, category: "" }))
-                        }
+                        onClick={() => {
+                          setFormData((prev) => ({ ...prev, category: "" }));
+                          handleErrorChange({ ...formData, category: "" });
+                        }}
                         className="text-gray-600 hover:text-black cursor-pointer leading-none"
                       >
                         ✕
