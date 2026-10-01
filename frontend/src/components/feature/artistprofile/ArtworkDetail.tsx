@@ -547,6 +547,7 @@ export default function ArtworkDetail({
           <ArtworkSampleGallery
             isEditing={isEditing}
             images={displayImages}
+            hasSubmitted={hasSubmitted}
             onUpload={handleImageUpload}
             onRemove={handleRemoveImage}
           />

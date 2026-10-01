@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 interface ArtworkSampleGalleryProps {
   isEditing: boolean;
   images: string[];
+  hasSubmitted: boolean;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemove: (index: number) => void;
 }
@@ -11,6 +12,7 @@ interface ArtworkSampleGalleryProps {
 export default function ArtworkSampleGallery({
   isEditing,
   images,
+  hasSubmitted,
   onUpload,
   onRemove,
 }: ArtworkSampleGalleryProps) {
@@ -23,9 +25,19 @@ export default function ArtworkSampleGallery({
   return (
     <div className="mb-10">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-body font-bold text-primary-500">
-          Artwork Samples
-        </h3>
+        <div className="flex flex-col">
+          <h3 className="text-body font-bold text-primary-500">
+            Artwork Samples
+          </h3>
+          <h4 className="text-sm text-gray-600">
+            The first image will be used as the cover.
+          </h4>
+          {hasSubmitted && images.length === 0 && (
+            <p className="text-red-500 text-sm mt-1">
+              Please upload at least one artwork sample image
+            </p>
+          )}
+        </div>
 
         {isEditing && (
           <>

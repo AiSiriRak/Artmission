@@ -57,4 +57,11 @@ export const ValidateArtworkForm = (formData: ArtworkFormData): ArtworkFormError
   }
 
   return errors;
-};;
+};
+
+export const ValidateArtworkSamples = (images: string[]): string => {
+  if (images.length === 0) {
+    return "Please upload at least one artwork sample image";
+  } else 
+    return "";
+};
