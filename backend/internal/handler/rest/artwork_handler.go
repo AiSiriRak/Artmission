@@ -133,7 +133,7 @@ type SearchArtworksInput struct {
 	MinPriceSatang string   `query:"min_price_satang" doc:"Inclusive minimum artwork price in satang."`
 	MaxPriceSatang string   `query:"max_price_satang" doc:"Inclusive maximum artwork price in satang."`
 	MinReviewScore string   `query:"min_review_score" doc:"Inclusive minimum artist average review score (1-5)."`
-	Sort           string   `query:"sort" enum:"price_asc,price_desc,review_score" default:"review_score" doc:"Sort by price (low to high or high to low) or artist review score (highest first). Equal values fall back to artist name ascending."`
+	Sort           string   `query:"sort" enum:"price_asc,price_desc,review_score_asc,review_score_desc" default:"review_score_desc" doc:"Sort by price (low to high or high to low) or artist review score (highest first). Equal values fall back to artist name ascending."`
 	Page           int      `query:"page" minimum:"1" default:"1" doc:"1-based page of 20 artworks."`
 }
 

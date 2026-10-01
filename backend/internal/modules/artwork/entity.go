@@ -49,16 +49,17 @@ type UpdateInput struct {
 type SearchSort string
 
 const (
-	SearchSortPriceAsc    SearchSort = "price_asc"
-	SearchSortPriceDesc   SearchSort = "price_desc"
-	SearchSortReviewScore SearchSort = "review_score"
-	DefaultSearchSort     SearchSort = SearchSortReviewScore
-	SearchPageSize                   = 20
+	SearchSortPriceAsc        SearchSort = "price_asc"
+	SearchSortPriceDesc       SearchSort = "price_desc"
+	SearchSortReviewScoreAsc  SearchSort = "review_score_asc"
+	SearchSortReviewScoreDesc SearchSort = "review_score_desc"
+	DefaultSearchSort         SearchSort = SearchSortReviewScoreDesc
+	SearchPageSize                       = 20
 )
 
 func (s SearchSort) IsValid() bool {
 	switch s {
-	case SearchSortPriceAsc, SearchSortPriceDesc, SearchSortReviewScore:
+	case SearchSortPriceAsc, SearchSortPriceDesc, SearchSortReviewScoreAsc, SearchSortReviewScoreDesc:
 		return true
 	default:
 		return false

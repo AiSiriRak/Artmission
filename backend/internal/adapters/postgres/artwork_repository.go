@@ -422,8 +422,8 @@ func (repo *artworkRepository) Search(ctx context.Context, query artwork.SearchQ
 		return artwork.SearchPage{Items: items, Total: page.Total}, nil
 	}
 
-	var styleModels []artworkStyleModel //error
-	var imageModels []artworkImageModel //error
+	var styleModels []artworkStyleModel
+	var imageModels []artworkImageModel
 	err = repo.exec.Run(ctx, func(idb bun.IDB) error {
 		var err error
 		styleModels, imageModels, err = loadArtworkStylesAndImages(ctx, idb, artworkIDs)
@@ -471,8 +471,8 @@ func likeContains(value string) string {
 }
 
 func loadArtworkStylesAndImages(ctx context.Context, idb bun.IDB, artworkIDs []uuid.UUID) ([]artworkStyleModel, []artworkImageModel, error) { //error
-	styleModels := make([]artworkStyleModel, 0) //error
-	imageModels := make([]artworkImageModel, 0) //error
+	styleModels := make([]artworkStyleModel, 0)
+	imageModels := make([]artworkImageModel, 0)
 	if len(artworkIDs) == 0 {
 		return styleModels, imageModels, nil
 	}
