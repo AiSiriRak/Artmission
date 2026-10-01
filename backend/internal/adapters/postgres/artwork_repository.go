@@ -360,7 +360,8 @@ type artworkSearchModel struct {
 var artworkSearchOrderExpr = map[artwork.SearchSort]string{
 	artwork.SearchSortPriceAsc:    "a.price_satang ASC, u.username ASC, a.id ASC",
 	artwork.SearchSortPriceDesc:   "a.price_satang DESC, u.username ASC, a.id ASC",
-	artwork.SearchSortReviewScore: "rs.review_score DESC NULLS LAST, u.username ASC, a.id ASC",
+	artwork.SearchSortReviewScoreAsc:  "rs.review_score ASC NULLS FIRST, u.username ASC, a.id ASC",
+	artwork.SearchSortReviewScoreDesc: "rs.review_score DESC NULLS LAST, u.username ASC, a.id ASC",
 }
 
 func (repo *artworkRepository) Search(ctx context.Context, query artwork.SearchQuery) (artwork.SearchPage, error) {
