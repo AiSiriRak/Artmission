@@ -123,6 +123,11 @@ export default function ArtworkDetail({
     price: "",
   });
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  useEffect(() => {
+    if (hasSubmitted) {
+      setErrors(ValidateArtworkForm(formData));
+    }
+  }, [hasSubmitted, formData]);
 
   useEffect(() => {
     if (artwork) {
@@ -161,11 +166,6 @@ export default function ArtworkDetail({
     const newFormData = { ...formData, [name]: value };
     
     setFormData(newFormData);
-
-    // Validate the specific field on change
-    if(hasSubmitted) {
-      setErrors(ValidateArtworkForm(newFormData));
-    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -285,6 +285,8 @@ export default function ArtworkDetail({
       ...prev,
       styles: prev.styles.filter((s) => s !== styleToRemove),
     }));
+    
+    // setErrors(ValidateArtworkForm({ ...formData, styles: formData.styles.filter((s) => s !== styleToRemove) }));
   };
 
   const selectCategory = (cat: string) => {
