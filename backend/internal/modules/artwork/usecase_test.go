@@ -21,7 +21,6 @@ type fakeRepository struct {
 	updated         *Artwork
 	retainedSamples []Sample
 	updateDeletes   []string
-	deletedURLs     []string
 	deleted         struct {
 		artworkID uuid.UUID
 		artistID  uuid.UUID
@@ -74,10 +73,10 @@ func (repo *fakeRepository) UpdateOwnedBy(_ context.Context, item *Artwork, _ uu
 	return repo.updateDeletes, nil
 }
 
-func (repo *fakeRepository) DeleteOwnedBy(_ context.Context, artworkID, artistID uuid.UUID) ([]string, error) {
+func (repo *fakeRepository) DeleteOwnedBy(_ context.Context, artworkID, artistID uuid.UUID) error {
 	repo.deleted.artworkID = artworkID
 	repo.deleted.artistID = artistID
-	return repo.deletedURLs, repo.err
+	return repo.err
 }
 
 type fakeStorage struct {
@@ -259,8 +258,8 @@ func TestReadSampleImageDerivesSizeLimitErrorFromMaximum(t *testing.T) {
 	}
 }
 
-func TestDeleteScopesDeletionToArtist(t *testing.T) {
-	repo := &fakeRepository{deletedURLs: []string{"https://public.test/artworks/deleted.png"}}
+func TestDeleteScopesSoftDeletionToArtistAndKeepsSamples(t *testing.T) {
+	repo := &fakeRepository{}
 	storage := &fakeStorage{}
 	artistID, artworkID := uuid.New(), uuid.New()
 	if err := NewUsecase(repo, &fakeTransaction{}, storage).Delete(context.Background(), artistID, artworkID); err != nil {
@@ -269,7 +268,7 @@ func TestDeleteScopesDeletionToArtist(t *testing.T) {
 	if repo.deleted.artistID != artistID || repo.deleted.artworkID != artworkID {
 		t.Errorf("delete scope = artist=%s artwork=%s", repo.deleted.artistID, repo.deleted.artworkID)
 	}
-	if !reflect.DeepEqual(storage.deletes, []string{"artworks/deleted.png"}) {
+	if len(storage.deletes) != 0 {
 		t.Errorf("storage deletes = %v", storage.deletes)
 	}
 }
