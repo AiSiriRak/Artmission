@@ -32,9 +32,9 @@ import ProfileSidebar from "./ProfileSidebar";
 import EditorField from "./EditorField";
 import ArtworkCard from "./ArtworkCard";
 import TagList from "./TagList";
-import ProfileImage from "./ProfileImage";
 import ArtworkDetail from "./ArtworkDetail";
 import ReviewList from "./ReviewList";
+import ArtistProfileView from "./ArtistProfileView";
 
 // Shared UI Components
 import { Button } from "@/components/ui/Button";
@@ -276,6 +276,7 @@ export default function ProfileManager({
     return <Loading />;
   }
 
+  // Show artwork details
   if (selectedArtwork) {
     return (
       <ArtworkDetail
@@ -288,176 +289,125 @@ export default function ProfileManager({
     );
   }
 
+  if (isCustomerMode) {
+    return (
+      <ArtistProfileView
+        profile={artistData}
+        artworks={artworks}
+        reviews={reviews}
+        reviewScore={Number(avgRating)}
+        onArtworkClick={(artwork) => {
+          setSelectedArtwork(artwork);
+        }}
+        actions={
+          <Button
+            onClick={handleToggleMode}
+            variant="dark"
+            icon={
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src="/icons/exit.svg"
+                alt="Exit"
+                className="w-4 h-4 object-contain"
+              />
+            }
+          >
+            Exit Preview
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <div className="w-full">
       {/* -- Profile -- */}
+      <div className="max-w-5xl mx-auto px-8 pt-10">
+        <h1 className="text-h3 font-bold mb-10">Your Information</h1>
 
-      {!isCustomerMode ? (
-        // Editor mode
-        <div className="max-w-5xl mx-auto px-8 pt-10">
-          <h1 className="text-h3 font-bold mb-10">Your Information</h1>
+        <div className="mb-12">
+          <div className="flex flex-col md:flex-row gap-10">
+            <ProfileSidebar
+              imageUrl={artistData.profile_url || ""}
+              isEditing={isEditing}
+              onEdit={() => setIsEditing(true)}
+              onSave={handleSave}
+              onCancel={() => {
+                setIsEditing(false);
+                setArtistData(savedData);
+              }}
+              onToggleView={handleToggleMode}
+              onImageChange={handleImageChange}
+            />
 
-          <div className="mb-12">
-            <div className="flex flex-col md:flex-row gap-10">
-              <ProfileSidebar
-                imageUrl={artistData.profile_url || ""}
+            <div className="flex-1">
+              <EditorField
+                label="Profile Name"
+                name="artist_name"
+                value={artistData.artist_name || ""}
+                isEditing={false}
+                onChange={handleChange}
+              />
+              <EditorField
+                label="Description"
+                name="description"
+                value={artistData.description || ""}
                 isEditing={isEditing}
-                onEdit={() => setIsEditing(true)}
-                onSave={handleSave}
-                onCancel={() => {
-                  setIsEditing(false);
-                  setArtistData(savedData);
-                }}
-                onToggleView={handleToggleMode}
-                onImageChange={handleImageChange}
+                onChange={handleChange}
+                isTextArea
               />
 
-              <div className="flex-1">
-                <EditorField
-                  label="Profile Name"
-                  name="artist_name"
-                  value={artistData.artist_name || ""}
-                  isEditing={false}
-                  onChange={handleChange}
-                />
-                <EditorField
-                  label="Description"
-                  name="description"
-                  value={artistData.description || ""}
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                  isTextArea
-                />
-
-                <div className="grid grid-cols-2 gap-6 mt-8">
-                  <div>
-                    <span className="block text-body font-bold text-gray-900 mb-3">
-                      Category:
-                    </span>
-                    {derivedCategories.length > 0 ? (
-                      <TagList items={derivedCategories} variant="category" />
-                    ) : (
-                      <span className="text-gray-400 text-sm">
-                        No categories
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="block text-body font-bold text-gray-900 mb-3">
-                      Style:
-                    </span>
-                    {derivedStyles.length > 0 ? (
-                      <TagList items={derivedStyles} variant="style" />
-                    ) : (
-                      <span className="text-gray-400 text-sm">No styles</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-8">
+              <div className="grid grid-cols-2 gap-6 mt-8">
+                <div>
                   <span className="block text-body font-bold text-gray-900 mb-3">
-                    Price Range:
+                    Category:
                   </span>
-                  <span className="text-gray-700 text-base">
-                    {priceRangeText}
+                  {derivedCategories.length > 0 ? (
+                    <TagList items={derivedCategories} variant="category" />
+                  ) : (
+                    <span className="text-gray-400 text-sm">
+                      No categories
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <span className="block text-body font-bold text-gray-900 mb-3">
+                    Style:
                   </span>
+                  {derivedStyles.length > 0 ? (
+                    <TagList items={derivedStyles} variant="style" />
+                  ) : (
+                    <span className="text-gray-400 text-sm">No styles</span>
+                  )}
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        // Preview mode
-        <div className="w-full">
-          <div className="w-full h-48 bg-secondary-300 border border-neutral"></div>
 
-          <div className="max-w-5xl mx-auto px-8 relative">
-            <div className="flex justify-between items-end -mt-16 sm:-mt-20 mb-6 relative z-10">
-              <ProfileImage
-                imageUrl={artistData.profile_url || ""}
-                className="w-36 h-36 md:w-44 md:h-44"
-              />
-
-              <Button
-                onClick={handleToggleMode}
-                variant="dark"
-                icon={
-                  <img
-                    src="/icons/exit.svg"
-                    alt="Exit"
-                    className="w-4 h-4 object-contain"
-                  />
-                }
-              >
-                Exit Preview
-              </Button>
-            </div>
-
-            <div className="mb-6">
-              <h1 className="text-h2 font-bold text-gray-900">
-                {artistData.artist_name || "Unknown Artist"}
-              </h1>
-            </div>
-
-            <p className="text-gray-700 text-sm md:text-base leading-relaxed mb-8 whitespace-pre-wrap">
-              {artistData.description}
-            </p>
-
-            <div className="flex flex-wrap gap-x-16 gap-y-6 mb-12">
-              <div>
-                <span className="block text-body font-bold text-gray-800 mb-3">
-                  Category:
-                </span>
-                {derivedCategories.length > 0 ? (
-                  <TagList items={derivedCategories} variant="category" />
-                ) : (
-                  <span className="text-gray-400 text-sm">None</span>
-                )}
-              </div>
-              <div>
-                <span className="block text-body font-bold text-gray-800 mb-3">
-                  Style:
-                </span>
-                {derivedStyles.length > 0 ? (
-                  <TagList items={derivedStyles} variant="style" />
-                ) : (
-                  <span className="text-gray-400 text-sm">None</span>
-                )}
-              </div>
-              <div>
-                <span className="block text-body font-bold text-gray-800 mb-3">
+              <div className="mt-8">
+                <span className="block text-body font-bold text-gray-900 mb-3">
                   Price Range:
                 </span>
-                <span className="font-bold text-lg text-gray-800">
+                <span className="text-gray-700 text-base">
                   {priceRangeText}
                 </span>
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* -- Artwork -- */}
       <div className="max-w-5xl mx-auto px-8 pb-10">
-        {isCustomerMode ? (
-          <div className="flex items-center gap-2 bg-secondary-300 border-l-4 border-accent-500 px-4 py-2.5 mb-6 rounded-r-md text-h3 font-bold text-gray-900">
-            <span>Artworks</span>
+        <hr className="border-gray-200 mb-10" />
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <h2 className="text-h3 font-bold text-gray-900">
+              Your Artwork
+            </h2>
+            <span className="text-sm font-normal text-gray-400">
+              {artworks.length} samples
+            </span>
           </div>
-        ) : (
-          <>
-            <hr className="border-gray-200 mb-10" />
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <h2 className="text-h3 font-bold text-gray-900">
-                  Your Artwork
-                </h2>
-                <span className="text-sm font-normal text-gray-400">
-                  {artworks.length} samples
-                </span>
-              </div>
-            </div>
-          </>
-        )}
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {showEditControls && (
@@ -489,31 +439,21 @@ export default function ProfileManager({
 
       {/* -- Review -- */}
       <div className="max-w-5xl mx-auto px-8 pb-20">
-        {isCustomerMode ? (
-          <div className="flex items-center gap-2 bg-secondary-300 border-l-4 border-accent-500 px-4 py-2.5 mb-6 rounded-r-md text-h3 font-bold text-gray-900">
-            <span>Reviews</span>
-            <span className="text-red-400 text-base ml-1">☆</span>
+        <hr className="border-gray-200 mb-6" />
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <h2 className="text-h3 font-bold text-gray-900">
+              Your Reviews
+            </h2>
+            <span className="text-sm font-normal text-gray-400">
+              {reviews.length} reviews
+            </span>
+          </div>
+          <div className="flex items-center gap-1 font-bold text-gray-900 text-base">
+            <span className="text-red-400 text-lg">☆</span>
             <span>{avgRating}/5</span>
           </div>
-        ) : (
-          <>
-            <hr className="border-gray-200 mb-6" />
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <h2 className="text-h3 font-bold text-gray-900">
-                  Your Reviews
-                </h2>
-                <span className="text-sm font-normal text-gray-400">
-                  {reviews.length} reviews
-                </span>
-              </div>
-              <div className="flex items-center gap-1 font-bold text-gray-900 text-base">
-                <span className="text-red-400 text-lg">☆</span>
-                <span>{avgRating}/5</span>
-              </div>
-            </div>
-          </>
-        )}
+        </div>
 
         <ReviewList reviews={reviews} />
       </div>
