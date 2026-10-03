@@ -27,11 +27,21 @@ type Sample struct {
 	SortOrder int
 }
 
+type Category struct {
+	ID    uuid.UUID
+	Label string
+}
+
+type Style struct {
+	ID    uuid.UUID
+	Label string
+}
+
 type CreateInput struct {
 	ArtistID            uuid.UUID
 	Name                string
-	Category            string
-	Styles              []string
+	CategoryID          uuid.UUID
+	StyleIDs            []uuid.UUID
 	Description         string
 	SampleFiles         []io.Reader
 	MinimumDeadlineDays int

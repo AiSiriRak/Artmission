@@ -49,6 +49,49 @@ type artworkStyleLabel struct {
 	Label     string    `bun:"label"`
 }
 
+type catalogIDLabel struct {
+	ID    uuid.UUID `bun:"id"`
+	Label string    `bun:"label"`
+}
+
+func assignCatalogLabels(ctx context.Context, idb bun.IDB, item *artwork.Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) error {
+	var categoryLabel string
+	if err := idb.NewSelect().
+		Table("categories").
+		Column("label").
+		Where("id = ?", categoryID).
+		Scan(ctx, &categoryLabel); err != nil {
+		return err
+	}
+	item.Category = categoryLabel
+
+	item.Styles = make([]string, 0, len(styleIDs))
+	if len(styleIDs) == 0 {
+		return nil
+	}
+
+	rows := make([]catalogIDLabel, 0, len(styleIDs))
+	if err := idb.NewSelect().
+		Table("styles").
+		Column("id", "label").
+		Where("id IN (?)", bun.List(styleIDs)).
+		Scan(ctx, &rows); err != nil {
+		return err
+	}
+	labelByID := make(map[uuid.UUID]string, len(rows))
+	for _, row := range rows {
+		labelByID[row.ID] = row.Label
+	}
+	for _, styleID := range styleIDs {
+		label, ok := labelByID[styleID]
+		if !ok {
+			return sql.ErrNoRows
+		}
+		item.Styles = append(item.Styles, label)
+	}
+	return nil
+}
+
 type artworkRepository struct {
 	exec baserepo.Executor
 }
@@ -57,46 +100,6 @@ var _ artwork.Repository = (*artworkRepository)(nil)
 
 func NewArtworkRepository(db *bun.DB) artwork.Repository {
 	return &artworkRepository{exec: baserepo.NewExecutor(db)}
-}
-
-func (repo *artworkRepository) FindOrCreateCategory(ctx context.Context, label string) (uuid.UUID, error) {
-	model := &pgmodel.Category{ID: uuid.New(), Label: label}
-	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
-		// A no-op update lets RETURNING return the existing category ID.
-		_, err := idb.NewInsert().
-			Model(model).
-			On("CONFLICT (label) DO UPDATE").
-			Set("label = EXCLUDED.label").
-			Returning("id, label").
-			Exec(ctx)
-		return err
-	})
-	if err != nil {
-		return uuid.Nil, apperror.Internal("failed to create artwork category", err)
-	}
-	return model.ID, nil
-}
-
-func (repo *artworkRepository) FindOrCreateStyles(ctx context.Context, labels []string) ([]uuid.UUID, error) {
-	styleIDs := make([]uuid.UUID, len(labels))
-	for index, label := range labels {
-		model := &pgmodel.Style{ID: uuid.New(), Label: label}
-		err := repo.exec.Run(ctx, func(idb bun.IDB) error {
-			// A no-op update lets RETURNING return the existing style ID.
-			_, err := idb.NewInsert().
-				Model(model).
-				On("CONFLICT (label) DO UPDATE").
-				Set("label = EXCLUDED.label").
-				Returning("id, label").
-				Exec(ctx)
-			return err
-		})
-		if err != nil {
-			return nil, apperror.Internal("failed to create artwork style", err)
-		}
-		styleIDs[index] = model.ID
-	}
-	return styleIDs, nil
 }
 
 func (repo *artworkRepository) Create(ctx context.Context, item *artwork.Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) error {
@@ -129,7 +132,7 @@ func (repo *artworkRepository) Create(ctx context.Context, item *artwork.Artwork
 				return err
 			}
 		}
-		return nil
+		return assignCatalogLabels(ctx, idb, item, categoryID, styleIDs)
 	})
 	if err != nil {
 		return apperror.Internal("failed to create artwork", err)
@@ -221,7 +224,7 @@ func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.
 			}
 		}
 
-		return nil
+		return assignCatalogLabels(ctx, idb, item, categoryID, styleIDs)
 	})
 	if err != nil {
 		if errors.Is(err, artwork.ErrArtworkNotFound) {
@@ -267,6 +270,44 @@ func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, art
 		return nil, artwork.ErrArtworkNotFound
 	}
 	return deletedURLs, nil
+}
+
+func (repo *artworkRepository) ListAllCategories(ctx context.Context) ([]artwork.Category, error) {
+	models := make([]pgmodel.Category, 0)
+	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
+		return idb.NewSelect().
+			Model(&models).
+			OrderExpr("cat.label ASC, cat.id ASC").
+			Scan(ctx)
+	})
+	if err != nil {
+		return nil, apperror.Internal("failed to list categories", err)
+	}
+
+	categories := make([]artwork.Category, len(models))
+	for index, model := range models {
+		categories[index] = artwork.Category{ID: model.ID, Label: model.Label}
+	}
+	return categories, nil
+}
+
+func (repo *artworkRepository) ListAllStyles(ctx context.Context) ([]artwork.Style, error) {
+	models := make([]pgmodel.Style, 0)
+	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
+		return idb.NewSelect().
+			Model(&models).
+			OrderExpr("sty.label ASC, sty.id ASC").
+			Scan(ctx)
+	})
+	if err != nil {
+		return nil, apperror.Internal("failed to list styles", err)
+	}
+
+	styles := make([]artwork.Style, len(models))
+	for index, model := range models {
+		styles[index] = artwork.Style{ID: model.ID, Label: model.Label}
+	}
+	return styles, nil
 }
 
 func (repo *artworkRepository) ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]artwork.Artwork, error) {

@@ -636,14 +636,16 @@ export interface operations {
       content: {
         "multipart/form-data": {
           artwork_samples?: string[];
-          category: string;
+          /** Format: uuid */
+          category_id: string;
           description: string;
           /** Format: int64 */
           minimum_deadline_days: number;
           name: string;
           /** Format: int64 */
           price_satang: number;
-          styles: string[] | null;
+          /** Format: uuid */
+          style_ids: string[] | null;
         };
       };
     };
@@ -680,7 +682,8 @@ export interface operations {
     requestBody?: {
       content: {
         "multipart/form-data": {
-          category: string;
+          /** Format: uuid */
+          category_id: string;
           deleted_sample_urls?: string[] | null;
           description: string;
           /** Format: int64 */
@@ -688,7 +691,8 @@ export interface operations {
           name: string;
           /** Format: int64 */
           price_satang: number;
-          styles: string[] | null;
+          /** Format: uuid */
+          style_ids: string[] | null;
           uploaded_samples?: string[];
         };
       };
