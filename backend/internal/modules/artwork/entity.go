@@ -40,8 +40,8 @@ type Sample struct {
 type CreateInput struct {
 	ArtistID            uuid.UUID
 	Name                string
-	Category            string
-	Styles              []string
+	CategoryID          uuid.UUID
+	StyleIDs            []uuid.UUID
 	Description         string
 	SampleFiles         []io.Reader
 	MinimumDeadlineDays int

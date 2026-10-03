@@ -50,7 +50,7 @@ func (u *usecase) Search(ctx context.Context, query SearchQuery) (SearchPage, er
 }
 
 func (u *usecase) Create(ctx context.Context, input CreateInput) (*Artwork, error) {
-	created, err := normalizeArtwork(uuid.New(), input)
+	created, styleIDs, err := normalizeArtwork(uuid.New(), input)
 	if err != nil {
 		return nil, err
 	}
@@ -60,15 +60,7 @@ func (u *usecase) Create(ctx context.Context, input CreateInput) (*Artwork, erro
 	}
 
 	err = u.tx.Transaction(ctx, func(ctx context.Context) error {
-		categoryID, err := u.repo.FindOrCreateCategory(ctx, created.Category)
-		if err != nil {
-			return err
-		}
-		styleIDs, err := u.repo.FindOrCreateStyles(ctx, created.Styles)
-		if err != nil {
-			return err
-		}
-		return u.repo.Create(ctx, created, categoryID, styleIDs)
+		return u.repo.Create(ctx, created, input.CategoryID, styleIDs)
 	})
 	if err != nil {
 		u.deleteSampleURLs(ctx, uploadedURLs)
@@ -82,7 +74,7 @@ func (u *usecase) Update(ctx context.Context, input UpdateInput) (*Artwork, erro
 		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
 	}
 
-	updated, err := normalizeArtwork(input.ArtworkID, input.CreateInput)
+	updated, styleIDs, err := normalizeArtwork(input.ArtworkID, input.CreateInput)
 	if err != nil {
 		return nil, err
 	}
@@ -96,15 +88,8 @@ func (u *usecase) Update(ctx context.Context, input UpdateInput) (*Artwork, erro
 	}
 	var deletedURLs []string
 	err = u.tx.Transaction(ctx, func(ctx context.Context) error {
-		categoryID, err := u.repo.FindOrCreateCategory(ctx, updated.Category)
-		if err != nil {
-			return err
-		}
-		styleIDs, err := u.repo.FindOrCreateStyles(ctx, updated.Styles)
-		if err != nil {
-			return err
-		}
-		deletedURLs, err = u.repo.UpdateOwnedBy(ctx, updated, categoryID, styleIDs, deletedSampleURLs)
+		var err error
+		deletedURLs, err = u.repo.UpdateOwnedBy(ctx, updated, input.CategoryID, styleIDs, deletedSampleURLs)
 		return err
 	})
 	if err != nil {
@@ -132,32 +117,31 @@ func (u *usecase) Delete(ctx context.Context, artistID, artworkID uuid.UUID) err
 	return nil
 }
 
-func normalizeArtwork(id uuid.UUID, input CreateInput) (*Artwork, error) {
+func normalizeArtwork(id uuid.UUID, input CreateInput) (*Artwork, []uuid.UUID, error) {
 	if input.ArtistID == uuid.Nil {
-		return nil, apperror.InvalidInput("artist id must not be empty", nil)
+		return nil, nil, apperror.InvalidInput("artist id must not be empty", nil)
 	}
 
 	name, err := requiredText("name", input.Name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	category, err := requiredText("category", input.Category)
-	if err != nil {
-		return nil, err
+	if input.CategoryID == uuid.Nil {
+		return nil, nil, apperror.InvalidInput("category id must not be empty", nil)
 	}
 	description, err := requiredText("description", input.Description)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	styles, err := normalizeStyles(input.Styles)
+	styleIDs, err := normalizeStyleIDs(input.StyleIDs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if input.MinimumDeadlineDays <= 0 {
-		return nil, apperror.InvalidInput("minimum deadline days must be greater than zero", nil)
+		return nil, nil, apperror.InvalidInput("minimum deadline days must be greater than zero", nil)
 	}
 	if input.PriceSatang < 0 {
-		return nil, apperror.InvalidInput("price satang must not be negative", nil)
+		return nil, nil, apperror.InvalidInput("price satang must not be negative", nil)
 	}
 
 	now := time.Now()
@@ -165,15 +149,14 @@ func normalizeArtwork(id uuid.UUID, input CreateInput) (*Artwork, error) {
 		ID:                  id,
 		ArtistID:            input.ArtistID,
 		Name:                name,
-		Category:            category,
-		Styles:              styles,
+		Styles:              make([]string, 0, len(styleIDs)),
 		Description:         description,
 		Samples:             make([]Sample, 0, len(input.SampleFiles)),
 		MinimumDeadlineDays: input.MinimumDeadlineDays,
 		PriceSatang:         input.PriceSatang,
 		CreatedAt:           now,
 		UpdatedAt:           now,
-	}, nil
+	}, styleIDs, nil
 }
 
 func requiredText(field, value string) (string, error) {
@@ -184,19 +167,18 @@ func requiredText(field, value string) (string, error) {
 	return normalized, nil
 }
 
-func normalizeStyles(labels []string) ([]string, error) {
-	seen := make(map[string]struct{}, len(labels))
-	normalized := make([]string, 0, len(labels))
-	for _, label := range labels {
-		value, err := requiredText("style", label)
-		if err != nil {
-			return nil, err
+func normalizeStyleIDs(ids []uuid.UUID) ([]uuid.UUID, error) {
+	seen := make(map[uuid.UUID]struct{}, len(ids))
+	normalized := make([]uuid.UUID, 0, len(ids))
+	for _, id := range ids {
+		if id == uuid.Nil {
+			return nil, apperror.InvalidInput("style id must not be empty", nil)
 		}
-		if _, exists := seen[value]; exists {
+		if _, exists := seen[id]; exists {
 			continue
 		}
-		seen[value] = struct{}{}
-		normalized = append(normalized, value)
+		seen[id] = struct{}{}
+		normalized = append(normalized, id)
 	}
 	return normalized, nil
 }
@@ -352,6 +334,28 @@ func normalizeFilterLabel(field string, label string) (string, error) {
 		return "", err
 	}
 	return value, nil
+}
+
+func (u *usecase) ListAllCategories(ctx context.Context) ([]Category, error) {
+	categories, err := u.repo.ListAllCategories(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if categories == nil {
+		return []Category{}, nil
+	}
+	return categories, nil
+}
+
+func (u *usecase) ListAllStyles(ctx context.Context) ([]Style, error) {
+	styles, err := u.repo.ListAllStyles(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if styles == nil {
+		return []Style{}, nil
+	}
+	return styles, nil
 }
 
 func (u *usecase) ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]Artwork, error) {

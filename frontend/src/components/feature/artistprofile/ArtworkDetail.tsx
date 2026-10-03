@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type {
   Artwork,
   CreateArtworkInput,
@@ -8,6 +8,19 @@ import { Button } from "@/components/ui/Button";
 import ReviewList from "./ReviewList";
 import DeleteArtworkModal from "./DeleteArtworkModal";
 import ArtworkSampleGallery from "./ArtworkSampleGallery";
+import CatalogPicker from "./CatalogPicker";
+import { ValidateArtworkForm } from "./ArtworkValidation";
+import {
+  ALLOWED_CATEGORIES,
+  ALLOWED_STYLES,
+  displayLabel,
+  isUuid,
+  loadArtworkCatalog,
+  placeholderCatalog,
+  resolveCatalogId,
+  resolveCatalogIds,
+  type CatalogOption,
+} from "./artworkCatalog";
 
 interface ReviewData {
   id: number;
@@ -28,28 +41,6 @@ interface ArtworkDetailProps {
   ) => void | Promise<void>;
   onDelete?: (artworkId: string) => void | Promise<void>;
 }
-
-const AVAILABLE_CATEGORIES = [
-  "Book",
-  "Comic",
-  "Game",
-  "Animation",
-  "Portrait",
-  "Illustration",
-  "Other",
-];
-const AVAILABLE_STYLES = [
-  "Pixel Art",
-  "Pixel",
-  "Pixel 8 bit",
-  "Pixel 16 bit",
-  "Pixel 32 bit",
-  "Water Color",
-  "Cartoon",
-  "Graphic",
-  "Anime",
-  "Realism",
-];
 
 const mockArtworkReviews: ReviewData[] = [
   {
@@ -75,6 +66,15 @@ interface ImageItem {
   file?: File;
 }
 
+interface ArtworkDraft {
+  name: string;
+  category: string;
+  styles: string[];
+  description: string;
+  minimum_deadline_days: number;
+  price: number;
+}
+
 export default function ArtworkDetail({
   artwork,
   onBack,
@@ -96,7 +96,7 @@ export default function ArtworkDetail({
         }))
       : [];
 
-  const [savedData, setSavedData] = useState({
+  const [savedData, setSavedData] = useState<ArtworkDraft>({
     name: artwork?.name || "",
     category: artwork?.category || "",
     styles: artwork?.styles || [],
@@ -109,10 +109,56 @@ export default function ArtworkDetail({
   const [formData, setFormData] = useState({ ...savedData });
   const [images, setImages] = useState<ImageItem[]>([...savedImages]);
 
-  const [catSearch, setCatSearch] = useState("");
-  const [styleSearch, setStyleSearch] = useState("");
-  const [showCatDropdown, setShowCatDropdown] = useState(false);
-  const [showStyleDropdown, setShowStyleDropdown] = useState(false);
+  const [availableCategories, setAvailableCategories] = useState<
+    CatalogOption[]
+  >(() => placeholderCatalog(ALLOWED_CATEGORIES));
+  const [availableStyles, setAvailableStyles] = useState<CatalogOption[]>(() =>
+    placeholderCatalog(ALLOWED_STYLES),
+  );
+  const catalogRef = useRef({
+    categories: placeholderCatalog(ALLOWED_CATEGORIES),
+    styles: placeholderCatalog(ALLOWED_STYLES),
+  });
+  const [errors, setErrors] = useState({
+    name: "",
+    description: "",
+    category: "",
+    styles: "",
+    minimum_deadline_days: "",
+    price: "",
+  });
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+
+  useEffect(() => {
+    catalogRef.current = {
+      categories: availableCategories,
+      styles: availableStyles,
+    };
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFormData((prev) => {
+      const category = resolveCatalogId(prev.category, availableCategories);
+      const styles = resolveCatalogIds(prev.styles, availableStyles);
+      if (
+        category === prev.category &&
+        styles.join("\0") === prev.styles.join("\0")
+      ) {
+        return prev;
+      }
+      return { ...prev, category, styles };
+    });
+    setSavedData((prev) => {
+      const category = resolveCatalogId(prev.category, availableCategories);
+      const styles = resolveCatalogIds(prev.styles, availableStyles);
+      if (
+        category === prev.category &&
+        styles.join("\0") === prev.styles.join("\0")
+      ) {
+        return prev;
+      }
+      return { ...prev, category, styles };
+    });
+  }, [availableCategories, availableStyles]);
 
   useEffect(() => {
     if (artwork) {
@@ -126,29 +172,54 @@ export default function ArtworkDetail({
 
       const newData = {
         name: artwork.name || "",
-        category: artwork.category || "",
-        styles: artwork.styles || [],
+        category: resolveCatalogId(
+          artwork.category || "",
+          catalogRef.current.categories,
+        ),
+        styles: resolveCatalogIds(
+          artwork.styles || [],
+          catalogRef.current.styles,
+        ),
         description: artwork.description || "",
         minimum_deadline_days: artwork.minimum_deadline_days || 1,
         price: priceTHB,
       };
 
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSavedData(newData);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData(newData);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSavedImages(imgArray);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setImages(imgArray);
     }
   }, [artwork]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadArtworkCatalog().then((catalog) => {
+      if (cancelled) return;
+      setAvailableCategories(catalog.categories);
+      setAvailableStyles(catalog.styles);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const newFormData = { ...formData, [name]: value };
+    setFormData(newFormData);
+    handleErrorChange(newFormData);
+  };
+
+  const handleErrorChange = (newFormData: typeof formData) => {
+    if (hasSubmitted) {
+      const newErrors = ValidateArtworkForm(newFormData);
+      setErrors(newErrors);
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,15 +240,41 @@ export default function ArtworkDetail({
     setIsEditing(true);
   };
 
+  const handleNumberKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (["e", "E", "+", "-"].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
+
   const handleSave = () => {
-    setSavedData({ ...formData });
+    const categoryId = resolveCatalogId(formData.category, availableCategories);
+    const styleIds = resolveCatalogIds(formData.styles, availableStyles).filter(
+      isUuid,
+    );
+    const categoryToSend = isUuid(categoryId) ? categoryId : "";
+    const resolvedForm = {
+      ...formData,
+      category: categoryToSend,
+      styles: styleIds,
+    };
+
+    setHasSubmitted(true);
+
+    const newErrors = ValidateArtworkForm(resolvedForm);
+    setErrors(newErrors);
+
+    const hasErrors = Object.values(newErrors).some(Boolean);
+    if (hasErrors) return;
+
+    setFormData(resolvedForm);
+    setSavedData({ ...resolvedForm });
     setSavedImages([...images]);
     setIsEditing(false);
 
     if (onSave) {
       const actualId =
         artwork?.id || (artwork as Record<string, unknown>)?.artwork_id;
-      const isEditing = !!actualId;
+      const updating = !!actualId;
       const artworkId = actualId ? String(actualId) : undefined;
 
       const newImages = images
@@ -185,16 +282,15 @@ export default function ArtworkDetail({
         .map((img) => img.file);
 
       const payload: Record<string, unknown> = {
-        name: formData.name,
-        description: formData.description,
-        price_satang: Math.round(Number(formData.price || 0) * 100),
-        minimum_deadline_days: Number(formData.minimum_deadline_days),
-        category: formData.category,
-        styles: formData.styles.length > 0 ? formData.styles : null,
+        name: resolvedForm.name,
+        description: resolvedForm.description,
+        price_satang: Math.round(Number(resolvedForm.price || 0) * 100),
+        minimum_deadline_days: Number(resolvedForm.minimum_deadline_days),
+        category_id: categoryToSend,
+        style_ids: styleIds,
       };
 
-      if (isEditing) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (updating) {
         const originalUrls = (artwork?.artwork_samples || [])
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((s: any) => s.image_url || (typeof s === "string" ? s : ""))
@@ -224,38 +320,35 @@ export default function ArtworkDetail({
     }
   };
 
-  const displayImages = (isEditing ? images : savedImages).map(
-    (img) => img.previewUrl,
-  );
+  const selectCategory = (categoryId: string) => {
+    if (!categoryId) return;
+    setFormData((prev) => ({ ...prev, category: categoryId }));
+    setErrors((prev) => ({ ...prev, category: "" }));
+    handleErrorChange({ ...formData, category: categoryId });
+  };
 
-  // filter Style / Category
-  const filteredCategories = AVAILABLE_CATEGORIES.filter((c) =>
-    c.toLowerCase().includes(catSearch.toLowerCase()),
-  );
-  const filteredStyles = AVAILABLE_STYLES.filter((s) =>
-    s.toLowerCase().includes(styleSearch.toLowerCase()),
-  );
-
-  const addStyle = (style: string) => {
-    if (!formData.styles.includes(style)) {
-      setFormData((prev) => ({ ...prev, styles: [...prev.styles, style] }));
-    }
-    setStyleSearch("");
-    setShowStyleDropdown(false);
+  const addStyle = (styleId: string) => {
+    if (!styleId || formData.styles.includes(styleId)) return;
+    const nextStyles = [...formData.styles, styleId];
+    setFormData((prev) => ({ ...prev, styles: nextStyles }));
+    setErrors((prev) => ({ ...prev, styles: "" }));
+    handleErrorChange({ ...formData, styles: nextStyles });
   };
 
   const removeStyle = (styleToRemove: string) => {
     setFormData((prev) => ({
       ...prev,
-      styles: prev.styles.filter((s) => s !== styleToRemove),
+      styles: prev.styles.filter((style) => style !== styleToRemove),
     }));
+    handleErrorChange({
+      ...formData,
+      styles: formData.styles.filter((style) => style !== styleToRemove),
+    });
   };
 
-  const selectCategory = (cat: string) => {
-    setFormData((prev) => ({ ...prev, category: cat }));
-    setCatSearch("");
-    setShowCatDropdown(false);
-  };
+  const displayImages = (isEditing ? images : savedImages).map(
+    (img) => img.previewUrl,
+  );
 
   return (
     <>
@@ -269,7 +362,6 @@ export default function ArtworkDetail({
         </Button>
 
         <div className="border border-primary-500 rounded-3xl p-10 bg-secondary-200 shadow-sm">
-          {/* Header Section */}
           <div className="flex justify-between items-start mb-8">
             <div className="w-full max-w-xl">
               {isEditing ? (
@@ -285,6 +377,9 @@ export default function ArtworkDetail({
                     placeholder="e.g., Pet Portrait"
                     className="border border-primary-500 p-2.5 w-full rounded-lg bg-white"
                   />
+                  {errors.name && (
+                    <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+                  )}
                 </div>
               ) : (
                 <div className="mb-4">
@@ -294,7 +389,7 @@ export default function ArtworkDetail({
                   <div className="flex flex-wrap gap-2">
                     {savedData.category && (
                       <span className="px-4 py-1.5 bg-accent-200 text-primary-400 rounded-full text-sm font-semibold shadow-sm">
-                        {savedData.category}
+                        {displayLabel(availableCategories, savedData.category)}
                       </span>
                     )}
                     {savedData.styles &&
@@ -303,7 +398,7 @@ export default function ArtworkDetail({
                           key={style}
                           className="px-4 py-1.5 bg-secondary-600 text-gray-900 rounded-full text-sm font-semibold shadow-sm"
                         >
-                          {style}
+                          {displayLabel(availableStyles, style)}
                         </span>
                       ))}
                   </div>
@@ -347,140 +442,50 @@ export default function ArtworkDetail({
               ))}
           </div>
 
-          {/* Tags Dropdown Section */}
           {isEditing && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-              <div className="relative">
-                <label className="text-body font-bold text-primary-500 block mb-3">
-                  Category:
-                </label>
-                <input
-                  type="text"
-                  value={catSearch}
-                  onChange={(e) => {
-                    setCatSearch(e.target.value);
-                    setShowCatDropdown(true);
-                  }}
-                  onFocus={() => setShowCatDropdown(true)}
-                  onBlur={() =>
-                    setTimeout(() => setShowCatDropdown(false), 200)
-                  }
-                  placeholder="Search category..."
-                  className="border border-primary-500 p-2.5 w-full max-w-xs rounded-lg bg-white outline-none focus:border-black"
-                />
-
-                {showCatDropdown && (
-                  <div className="absolute z-10 w-full max-w-xs mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    {filteredCategories.length > 0 ? (
-                      filteredCategories.map((cat) => (
-                        <div
-                          key={cat}
-                          onMouseDown={() => selectCategory(cat)}
-                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-800"
-                        >
-                          {cat}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="px-4 py-2 text-sm text-gray-400">
-                        No results found
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {formData.category && (
-                  <div className="flex mt-3">
-                    <span className="px-4 py-1.5 bg-accent-200 text-primary-500 rounded-full text-sm font-semibold flex items-center gap-2 shadow-sm">
-                      {formData.category}
-                      <button
-                        onClick={() =>
-                          setFormData((prev) => ({ ...prev, category: "" }))
-                        }
-                        className="text-gray-600 hover:text-black cursor-pointer leading-none"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="relative">
-                <label className="text-body font-bold text-gray-900 block mb-3">
-                  Style:
-                </label>
-                <input
-                  type="text"
-                  value={styleSearch}
-                  onChange={(e) => {
-                    setStyleSearch(e.target.value);
-                    setShowStyleDropdown(true);
-                  }}
-                  onFocus={() => setShowStyleDropdown(true)}
-                  onBlur={() =>
-                    setTimeout(() => setShowStyleDropdown(false), 200)
-                  }
-                  placeholder="Search style..."
-                  className="border border-primary-500 p-2.5 w-full max-w-xs rounded-lg bg-white outline-none focus:border-black"
-                />
-
-                {showStyleDropdown && (
-                  <div className="absolute z-10 w-full max-w-xs mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    {filteredStyles.length > 0 ? (
-                      filteredStyles.map((style) => (
-                        <div
-                          key={style}
-                          onMouseDown={() => addStyle(style)}
-                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-primary-400"
-                        >
-                          {style}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="px-4 py-2 text-sm text-gray-400">
-                        No results found
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {formData.styles.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {formData.styles.map((style) => (
-                      <span
-                        key={style}
-                        className="px-4 py-1.5 bg-secondary-600 text-gray-900 rounded-full text-sm font-semibold flex items-center gap-2 shadow-sm"
-                      >
-                        {style}
-                        <button
-                          onClick={() => removeStyle(style)}
-                          className="text-gray-700 hover:text-black cursor-pointer leading-none"
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <CatalogPicker
+                variant="category"
+                options={availableCategories}
+                selectedIds={formData.category ? [formData.category] : []}
+                error={errors.category}
+                onSelect={selectCategory}
+                onRemove={() => {
+                  setFormData((prev) => ({ ...prev, category: "" }));
+                  handleErrorChange({ ...formData, category: "" });
+                }}
+              />
+              <CatalogPicker
+                variant="style"
+                options={availableStyles}
+                selectedIds={formData.styles}
+                error={errors.styles}
+                onSelect={addStyle}
+                onRemove={removeStyle}
+              />
             </div>
           )}
 
-          {/* Description Section */}
           <div className="mb-10">
             <label className="text-body font-bold text-primary-500 block mb-2">
               Description
             </label>
             {isEditing ? (
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                rows={4}
-                className="border border-primary-500 p-3 w-full rounded-lg bg-white resize-none"
-                placeholder="Describe your artwork..."
-              />
+              <div className="flex flex-col gap-1">
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows={4}
+                  className="border border-primary-500 p-3 w-full rounded-lg bg-white resize-none"
+                  placeholder="Describe your artwork..."
+                />
+                {errors.description && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.description}
+                  </p>
+                )}
+              </div>
             ) : (
               <div className="text-gray-700 text-caption leading-relaxed">
                 {savedData.description}
@@ -491,30 +496,44 @@ export default function ArtworkDetail({
           <ArtworkSampleGallery
             isEditing={isEditing}
             images={displayImages}
+            hasSubmitted={hasSubmitted}
             onUpload={handleImageUpload}
             onRemove={handleRemoveImage}
           />
 
-          {/* Pricing & Deadline Section */}
-          <div className="flex flex-wrap items-end gap-6 mb-4 mt-6">
+          <div className="flex flex-wrap items-start gap-6 mb-4 mt-6">
             <div>
               <label className="text-body font-bold text-primary-500 block mb-2">
                 Minimum deadline:
               </label>
               {isEditing ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    name="minimum_deadline_days"
-                    value={formData.minimum_deadline_days}
-                    onChange={handleInputChange}
-                    className="border border-primary-500 p-2.5 w-24 rounded-lg bg-white"
-                  />
-                  <span className="text-sm text-gray-600">days</span>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      name="minimum_deadline_days"
+                      value={formData.minimum_deadline_days}
+                      onChange={handleInputChange}
+                      onKeyDown={handleNumberKeyDown}
+                      min={1}
+                      className="border border-primary-500 p-2.5 w-24 rounded-lg bg-white"
+                    />
+                    <span className="text-sm text-gray-600">days</span>
+                  </div>
+                  {errors.minimum_deadline_days && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.minimum_deadline_days}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="bg-primary-400 text-secondary-200 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2">
-                  ⏳ {savedData.minimum_deadline_days} days
+                  <img
+                    src="/icons/alarm-clock.svg"
+                    alt="Deadline"
+                    className="w-4 h-4 object-contain brightness-0 invert"
+                  />
+                  {savedData.minimum_deadline_days} days
                 </div>
               )}
             </div>
@@ -524,19 +543,31 @@ export default function ArtworkDetail({
                 Price:
               </label>
               {isEditing ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    className="border border-primary-500 p-2.5 w-32 rounded-lg bg-white"
-                  />
-                  <span className="text-sm text-gray-600">THB</span>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      name="price"
+                      value={formData.price}
+                      onChange={handleInputChange}
+                      onKeyDown={handleNumberKeyDown}
+                      min={0}
+                      className="border border-primary-500 p-2.5 w-32 rounded-lg bg-white"
+                    />
+                    <span className="text-sm text-gray-600">THB</span>
+                  </div>
+                  {errors.price && (
+                    <p className="text-red-500 text-sm mt-1">{errors.price}</p>
+                  )}
                 </div>
               ) : (
                 <div className="bg-secondary-600 text-primary-400 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2">
-                  💵 {savedData.price.toLocaleString()} THB
+                  <img
+                    src="/icons/banknote.svg"
+                    alt="Price"
+                    className="w-4 h-4 object-contain"
+                  />
+                  {savedData.price.toLocaleString()} THB
                 </div>
               )}
             </div>
@@ -561,7 +592,6 @@ export default function ArtworkDetail({
           </div>
         </div>
 
-        {/* Reviews Section */}
         <div className="mt-12">
           <div className="flex items-center gap-3 mb-6">
             <h2 className="text-xl font-bold text-gray-900">Order Reviews</h2>

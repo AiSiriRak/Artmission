@@ -16,7 +16,6 @@ import type {
   UpdateArtworkInput,
 } from "@/lib/api/types";
 
-// Temporary Type of Review
 export interface ReviewData {
   id: string | number;
   reviewerName: string;
@@ -30,7 +29,7 @@ export interface ReviewData {
 // Custom / Local Components
 import ProfileSidebar from "./ProfileSidebar";
 import EditorField from "./EditorField";
-import ArtworkCard from "./ArtworkCard";
+import ArtworkCollection from "./ArtworkCollection";
 import TagList from "./TagList";
 import ProfileImage from "./ProfileImage";
 import ArtworkDetail from "./ArtworkDetail";
@@ -39,6 +38,7 @@ import ReviewList from "./ReviewList";
 // Shared UI Components
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
+import { deriveArtworkSummary } from "./artworkSummary";
 
 interface ProfileManagerProps {
   initialProfile: ArtistProfile;
@@ -69,7 +69,6 @@ export default function ProfileManager({
     null,
   );
 
-  // Mock Review - Removed setReviews as it was never used
   const [reviews] = useState<ReviewData[]>(
     initialReviews.length > 0
       ? initialReviews
@@ -171,7 +170,6 @@ export default function ProfileManager({
     setIsSaving(true);
     try {
       if (artworkId) {
-        // ถ้าเป็นการแก้ไข (มี ID ส่งมา) -> ใช้ Update API แทนการลบแล้วสร้างใหม่
         await updateArtwork(artworkId, payload as UpdateArtworkInput);
       } else {
         await createArtwork(payload as CreateArtworkInput);
@@ -240,29 +238,11 @@ export default function ProfileManager({
     }
   };
 
-  // --- ลอจิกดึงข้อมูลอัตโนมัติ (อิงตาม ArtworkView schema) ---
-  const derivedCategories = [
-    ...new Set(artworks.map((art) => art.category).filter(Boolean)),
-  ];
-
-  const derivedStyles = [
-    ...new Set(artworks.flatMap((art) => art.styles || [])),
-  ].filter(Boolean);
-
-  // Price from Satang to Bath
-  const prices = artworks
-    .map((art) => Number(art.price_satang ? art.price_satang / 100 : 0))
-    .filter((p) => !isNaN(p) && p > 0);
-
-  const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
-  const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
-
-  const priceRangeText =
-    prices.length === 0
-      ? "N/A"
-      : minPrice === maxPrice
-        ? `${minPrice.toLocaleString()} THB`
-        : `${minPrice.toLocaleString()} - ${maxPrice.toLocaleString()} THB`;
+  const {
+    categories: derivedCategories,
+    styles: derivedStyles,
+    priceRangeText,
+  } = deriveArtworkSummary(artworks);
 
   const showEditControls = !isCustomerMode && !isEditing;
   const avgRating =
@@ -437,55 +417,14 @@ export default function ProfileManager({
         </div>
       )}
 
-      {/* -- Artwork -- */}
-      <div className="max-w-5xl mx-auto px-8 pb-10">
-        {isCustomerMode ? (
-          <div className="flex items-center gap-2 bg-secondary-300 border-l-4 border-accent-500 px-4 py-2.5 mb-6 rounded-r-md text-h3 font-bold text-gray-900">
-            <span>Artworks</span>
-          </div>
-        ) : (
-          <>
-            <hr className="border-gray-200 mb-10" />
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <h2 className="text-h3 font-bold text-gray-900">
-                  Your Artwork
-                </h2>
-                <span className="text-sm font-normal text-gray-400">
-                  {artworks.length} samples
-                </span>
-              </div>
-            </div>
-          </>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {showEditControls && (
-            <div
-              onClick={() => setSelectedArtwork("new")}
-              className="border-2 border-dashed border-accent-300 rounded-2xl flex flex-col items-center justify-center text-accent-500 cursor-pointer hover:bg-accent-50 transition-colors h-full min-h-[250px]"
-            >
-              <span className="font-bold mb-3">Add your artwork</span>
-              <div className="w-12 h-12 border border-accent-300 rounded-md flex items-center justify-center text-2xl">
-                +
-              </div>
-            </div>
-          )}
-
-          {artworks.map((art, idx) => (
-            <ArtworkCard
-              key={art.id || art.name || idx}
-              artwork={art}
-              showEditControls={showEditControls}
-              onClick={() => {
-                if (!isEditing) {
-                  setSelectedArtwork(art);
-                }
-              }}
-            />
-          ))}
-        </div>
-      </div>
+      <ArtworkCollection
+        artworks={artworks}
+        isCustomerMode={isCustomerMode}
+        showEditControls={showEditControls}
+        isEditing={isEditing}
+        onAdd={() => setSelectedArtwork("new")}
+        onOpen={setSelectedArtwork}
+      />
 
       {/* -- Review -- */}
       <div className="max-w-5xl mx-auto px-8 pb-20">

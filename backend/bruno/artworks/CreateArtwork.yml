@@ -15,13 +15,13 @@ http:
         type: text
         value: Frontend draft
         contentType: text/plain
-      - name: category
+      - name: category_id
         type: text
-        value: Illustration
+        value: 00000000-0000-0000-0000-0000000000c1
         contentType: text/plain
-      - name: styles
+      - name: style_ids
         type: text
-        value: '["Watercolor"]'
+        value: '["00000000-0000-0000-0000-0000000000c2"]'
         contentType: application/json
       - name: description
         type: text

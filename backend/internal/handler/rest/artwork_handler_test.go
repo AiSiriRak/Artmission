@@ -23,6 +23,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	testFormCategoryID = "00000000-0000-0000-0000-0000000000c1"
+	testFormStyleID    = "00000000-0000-0000-0000-0000000000c2"
+)
+
 const validArtworkBody = `{
 	"name":"Frontend draft",
 	"category":"Illustration",
@@ -49,6 +54,8 @@ type artworkUsecaseStub struct {
 	updateInput    artwork.UpdateInput
 	deleteArtistID uuid.UUID
 	deleteArtwork  uuid.UUID
+	categories     []artwork.Category
+	styles         []artwork.Style
 }
 
 func (stub *artworkUsecaseStub) Search(_ context.Context, query artwork.SearchQuery) (artwork.SearchPage, error) {
@@ -59,6 +66,14 @@ func (stub *artworkUsecaseStub) Search(_ context.Context, query artwork.SearchQu
 
 func (stub *artworkUsecaseStub) ListByArtistID(context.Context, uuid.UUID) ([]artwork.Artwork, error) {
 	return stub.artworks, stub.err
+}
+
+func (stub *artworkUsecaseStub) ListAllCategories(context.Context) ([]artwork.Category, error) {
+	return stub.categories, stub.err
+}
+
+func (stub *artworkUsecaseStub) ListAllStyles(context.Context) ([]artwork.Style, error) {
+	return stub.styles, stub.err
 }
 
 func (stub *artworkUsecaseStub) Create(_ context.Context, input artwork.CreateInput) (*artwork.Artwork, error) {
@@ -113,7 +128,7 @@ func TestArtworkHandlerCreateReturnsCreatedArtwork(t *testing.T) {
 	if want := newArtworkView(usecase.created); !reflect.DeepEqual(got, want) {
 		t.Errorf("response body = %+v, want %+v", got, want)
 	}
-	if usecase.createInput.ArtistID == uuid.Nil || usecase.createInput.Name != "Frontend draft" || usecase.createInput.Category != "Illustration" || len(usecase.createInput.SampleFiles) != 1 {
+	if usecase.createInput.ArtistID == uuid.Nil || usecase.createInput.Name != "Frontend draft" || usecase.createInput.CategoryID.String() != testFormCategoryID || !reflect.DeepEqual(usecase.createInput.StyleIDs, []uuid.UUID{uuid.MustParse(testFormStyleID)}) || len(usecase.createInput.SampleFiles) != 1 {
 		t.Errorf("create input = %+v", usecase.createInput)
 	}
 }
@@ -357,6 +372,41 @@ func TestArtworkHandlerRequiresArtistRole(t *testing.T) {
 	}
 }
 
+func TestListCatalog(t *testing.T) {
+	categoryID := uuid.MustParse("00000000-0000-0000-0000-0000000000c1")
+	styleID := uuid.MustParse("00000000-0000-0000-0000-0000000000c2")
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleArtist, &artworkUsecaseStub{
+		categories: []artwork.Category{{ID: categoryID, Label: "ILLUSTRATION"}},
+		styles:     []artwork.Style{{ID: styleID, Label: "CARTOON"}},
+	})
+
+	tests := []struct {
+		path  string
+		id    uuid.UUID
+		label string
+	}{
+		{path: "/categories", id: categoryID, label: "ILLUSTRATION"},
+		{path: "/styles", id: styleID, label: "CARTOON"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			rec := serveArtworkRequest(handler, http.MethodGet, tt.path, "", false)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+			}
+
+			var items []artistReferenceView
+			if err := json.Unmarshal(rec.Body.Bytes(), &items); err != nil {
+				t.Fatalf("unmarshal response: %v body=%s", err, rec.Body.String())
+			}
+			if len(items) != 1 || items[0].ID != tt.id || items[0].Label != tt.label {
+				t.Fatalf("catalog = %+v, want id %s label %s", items, tt.id, tt.label)
+			}
+		})
+	}
+}
+
 func newArtworkTestHandler(t *testing.T, role user.Role) http.Handler {
 	return newArtworkTestHandlerWithUsecase(t, role, &artworkUsecaseStub{created: testArtwork(), updated: testArtwork()})
 }
@@ -411,14 +461,14 @@ func validArtworkMultipartBody(update bool) ([]byte, string) {
 	writer := multipart.NewWriter(&body)
 	for name, value := range map[string]string{
 		"name":                  "Frontend draft",
-		"category":              "Illustration",
+		"category_id":           testFormCategoryID,
 		"description":           "A custom editorial illustration",
 		"minimum_deadline_days": "1",
 		"price_satang":          "0",
 	} {
 		_ = writer.WriteField(name, value)
 	}
-	writeJSONPart(writer, "styles", `[]`)
+	writeJSONPart(writer, "style_ids", `["`+testFormStyleID+`"]`)
 	if update {
 		writeJSONPart(writer, "deleted_sample_urls", `["https://storage.example.com/old.png"]`)
 	}

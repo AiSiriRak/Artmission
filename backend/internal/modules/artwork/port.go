@@ -10,6 +10,8 @@ import (
 type Usecase interface {
 	Search(ctx context.Context, query SearchQuery) (SearchPage, error)
 	ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]Artwork, error)
+	ListAllCategories(ctx context.Context) ([]Category, error)
+	ListAllStyles(ctx context.Context) ([]Style, error)
 	Create(ctx context.Context, input CreateInput) (*Artwork, error)
 	Update(ctx context.Context, input UpdateInput) (*Artwork, error)
 	Delete(ctx context.Context, artistID, artworkID uuid.UUID) error
@@ -18,8 +20,8 @@ type Usecase interface {
 type Repository interface {
 	Search(ctx context.Context, query SearchQuery) (SearchPage, error)
 	ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]Artwork, error)
-	FindOrCreateCategory(ctx context.Context, label string) (uuid.UUID, error)
-	FindOrCreateStyles(ctx context.Context, labels []string) ([]uuid.UUID, error)
+	ListAllCategories(ctx context.Context) ([]Category, error)
+	ListAllStyles(ctx context.Context) ([]Style, error)
 	Create(ctx context.Context, artwork *Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) error
 	UpdateOwnedBy(ctx context.Context, artwork *Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID, deletedSampleURLs []string) ([]string, error)
 	DeleteOwnedBy(ctx context.Context, artworkID, artistID uuid.UUID) ([]string, error)

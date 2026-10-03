@@ -103,6 +103,24 @@ func (h *ArtworkHandler) Register(api huma.API) {
 			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireRole(api, user.RoleArtist))
 		},
 	)
+
+	huma.Get(api, "/categories", h.listCategories,
+		huma.OperationTags("artworks"),
+		func(o *huma.Operation) {
+			o.OperationID = "list-categories"
+			o.Summary = "ListCategories"
+			o.Description = "List artwork categories"
+		},
+	)
+
+	huma.Get(api, "/styles", h.listStyles,
+		huma.OperationTags("artworks"),
+		func(o *huma.Operation) {
+			o.OperationID = "list-styles"
+			o.Summary = "ListStyles"
+			o.Description = "List artwork styles"
+		},
+	)
 }
 
 type searchArtistView struct {
@@ -270,8 +288,8 @@ func (h *ArtworkHandler) getArtistArtworks(ctx context.Context, input *GetArtist
 
 type artworkForm struct {
 	Name                string          `form:"name" minLength:"1" required:"true"`
-	Category            string          `form:"category" minLength:"1" required:"true"`
-	Styles              []string        `form:"styles" contentType:"application/json" required:"true"`
+	CategoryID          uuid.UUID       `form:"category_id" required:"true"`
+	StyleIDs            []uuid.UUID     `form:"style_ids" contentType:"application/json" required:"true"`
 	Description         string          `form:"description" minLength:"1" required:"true"`
 	ArtworkSamples      []huma.FormFile `form:"artwork_samples" contentType:"image/jpeg,image/png,image/webp" required:"false"`
 	MinimumDeadlineDays int             `form:"minimum_deadline_days" minimum:"1" required:"true"`
@@ -280,8 +298,8 @@ type artworkForm struct {
 
 type updateArtworkForm struct {
 	Name                string          `form:"name" minLength:"1" required:"true"`
-	Category            string          `form:"category" minLength:"1" required:"true"`
-	Styles              []string        `form:"styles" contentType:"application/json" required:"true"`
+	CategoryID          uuid.UUID       `form:"category_id" required:"true"`
+	StyleIDs            []uuid.UUID     `form:"style_ids" contentType:"application/json" required:"true"`
 	Description         string          `form:"description" minLength:"1" required:"true"`
 	UploadedSamples     []huma.FormFile `form:"uploaded_samples" contentType:"image/jpeg,image/png,image/webp" required:"false"`
 	DeletedSampleURLs   []string        `form:"deleted_sample_urls" contentType:"application/json" required:"false"`
@@ -337,8 +355,8 @@ func newArtworkCreateInput(form *artworkForm, artistID uuid.UUID) artwork.Create
 	return artwork.CreateInput{
 		ArtistID:            artistID,
 		Name:                form.Name,
-		Category:            form.Category,
-		Styles:              form.Styles,
+		CategoryID:          form.CategoryID,
+		StyleIDs:            form.StyleIDs,
 		Description:         form.Description,
 		SampleFiles:         artworkFileReaders(form.ArtworkSamples),
 		MinimumDeadlineDays: form.MinimumDeadlineDays,
@@ -353,8 +371,8 @@ func newArtworkUpdateInput(form *updateArtworkForm, artworkID, artistID uuid.UUI
 		CreateInput: artwork.CreateInput{
 			ArtistID:            artistID,
 			Name:                form.Name,
-			Category:            form.Category,
-			Styles:              form.Styles,
+			CategoryID:          form.CategoryID,
+			StyleIDs:            form.StyleIDs,
 			Description:         form.Description,
 			SampleFiles:         artworkFileReaders(form.UploadedSamples),
 			MinimumDeadlineDays: form.MinimumDeadlineDays,
@@ -386,6 +404,44 @@ func (h *ArtworkHandler) deleteArtwork(ctx context.Context, input *DeleteArtwork
 		return nil, mapAppError(err)
 	}
 	return &DeleteArtworkOutput{}, nil
+}
+
+type ListCategoriesInput struct{}
+
+type ListCategoriesOutput struct {
+	Body []artistReferenceView
+}
+
+type ListStylesInput struct{}
+
+type ListStylesOutput struct {
+	Body []artistReferenceView
+}
+
+func (h *ArtworkHandler) listCategories(ctx context.Context, _ *ListCategoriesInput) (*ListCategoriesOutput, error) {
+	categories, err := h.artworkUsecase.ListAllCategories(ctx)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	body := make([]artistReferenceView, len(categories))
+	for index, category := range categories {
+		body[index] = artistReferenceView{ID: category.ID, Label: category.Label}
+	}
+	return &ListCategoriesOutput{Body: body}, nil
+}
+
+func (h *ArtworkHandler) listStyles(ctx context.Context, _ *ListStylesInput) (*ListStylesOutput, error) {
+	styles, err := h.artworkUsecase.ListAllStyles(ctx)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	body := make([]artistReferenceView, len(styles))
+	for index, style := range styles {
+		body[index] = artistReferenceView{ID: style.ID, Label: style.Label}
+	}
+	return &ListStylesOutput{Body: body}, nil
 }
 
 func newArtworkView(item *artwork.Artwork) artworkView {
