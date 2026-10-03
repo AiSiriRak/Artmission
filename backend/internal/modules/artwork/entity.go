@@ -22,6 +22,16 @@ type Artwork struct {
 	UpdatedAt           time.Time
 }
 
+type Category struct {
+	ID    uuid.UUID
+	Label string
+}
+
+type Style struct {
+	ID    uuid.UUID
+	Label string
+}
+
 type Sample struct {
 	ImageURL  string
 	SortOrder int
@@ -49,17 +59,18 @@ type UpdateInput struct {
 type SearchSort string
 
 const (
+	SearchSortNameAsc         SearchSort = "name_asc"
 	SearchSortPriceAsc        SearchSort = "price_asc"
 	SearchSortPriceDesc       SearchSort = "price_desc"
 	SearchSortReviewScoreAsc  SearchSort = "review_score_asc"
 	SearchSortReviewScoreDesc SearchSort = "review_score_desc"
-	DefaultSearchSort         SearchSort = SearchSortReviewScoreDesc
+	DefaultSearchSort         SearchSort = SearchSortNameAsc
 	SearchPageSize                       = 20
 )
 
 func (s SearchSort) IsValid() bool {
 	switch s {
-	case SearchSortPriceAsc, SearchSortPriceDesc, SearchSortReviewScoreAsc, SearchSortReviewScoreDesc:
+	case SearchSortNameAsc, SearchSortPriceAsc, SearchSortPriceDesc, SearchSortReviewScoreAsc, SearchSortReviewScoreDesc:
 		return true
 	default:
 		return false

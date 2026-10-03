@@ -187,7 +187,7 @@ func TestArtworkHandlerSearchReturnsArtworksForAuthenticatedUser(t *testing.T) {
 		Page:  1,
 	}}
 	handler := newArtworkTestHandlerWithUsecase(t, user.RoleCustomer, usecase)
-	rec := serveArtworkRequest(handler, http.MethodGet, "/artworks?q=Ada&category=Portrait&style=Realism&min_price_satang=1000&max_price_satang=90000&min_review_score=4&sort=price_asc&page=2", "", true)
+	rec := serveArtworkRequest(handler, http.MethodGet, "/artworks?q=Ada&category=Portrait&style=Realism&style=Cartoon&min_price_satang=1000&max_price_satang=90000&min_review_score=4&sort=price_asc&page=2", "", true)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
@@ -206,8 +206,11 @@ func TestArtworkHandlerSearchReturnsArtworksForAuthenticatedUser(t *testing.T) {
 	if got.Artworks[0].ID != artworkID || got.Artworks[0].Artist.ArtistName != "Ada" || got.Artworks[0].Artist.ReviewScore == nil {
 		t.Errorf("artwork = %+v", got.Artworks[0])
 	}
-	if usecase.searchQuery.ArtistName != "Ada" || usecase.searchQuery.Sort != artwork.SearchSortPriceAsc || usecase.searchQuery.Page != 2 {
+	if usecase.searchQuery.ArtistName != "Ada" || usecase.searchQuery.Category != "Portrait" || usecase.searchQuery.Sort != artwork.SearchSortPriceAsc || usecase.searchQuery.Page != 2 {
 		t.Errorf("search query = %+v", usecase.searchQuery)
+	}
+	if !reflect.DeepEqual(usecase.searchQuery.Styles, []string{"Realism", "Cartoon"}) {
+		t.Errorf("styles = %#v", usecase.searchQuery.Styles)
 	}
 	if usecase.searchQuery.MinPriceSatang == nil || *usecase.searchQuery.MinPriceSatang != 1000 || usecase.searchQuery.MaxPriceSatang == nil || *usecase.searchQuery.MaxPriceSatang != 90000 || usecase.searchQuery.MinReviewScore == nil || *usecase.searchQuery.MinReviewScore != 4 {
 		t.Errorf("numeric filters = %+v", usecase.searchQuery)
@@ -223,6 +226,9 @@ func TestArtworkHandlerSearchReturnsEmptyArray(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"artworks":[]`) {
 		t.Errorf("response body = %s, want empty artworks array", rec.Body.String())
+	}
+	if usecase.searchQuery.Sort != artwork.SearchSortNameAsc {
+		t.Errorf("default sort = %q, want %q", usecase.searchQuery.Sort, artwork.SearchSortNameAsc)
 	}
 }
 

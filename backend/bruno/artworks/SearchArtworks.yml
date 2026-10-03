@@ -34,7 +34,7 @@ http:
       type: query
       disabled: true
     - name: sort
-      value: review_score
+      value: name_asc
       type: query
     - name: page
       value: "1"

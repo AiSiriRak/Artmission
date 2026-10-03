@@ -178,10 +178,22 @@ func TestSearchComputesOffsetAndResolvesProfileURL(t *testing.T) {
 	}
 }
 
+func TestSearchAcceptsZeroMinReviewScore(t *testing.T) {
+	zero := 0.0
+	repo := &fakeRepository{}
+	if _, err := NewUsecase(repo, &fakeTransaction{}, &fakeStorage{}).Search(context.Background(), SearchQuery{MinReviewScore: &zero}); err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if repo.searchQuery.MinReviewScore == nil || *repo.searchQuery.MinReviewScore != 0 {
+		t.Errorf("min review score = %v", repo.searchQuery.MinReviewScore)
+	}
+}
+
 func TestSearchRejectsInvalidInput(t *testing.T) {
 	negative := int64(-1)
 	invertedMin, invertedMax := int64(200), int64(100)
 	badScore := 6.0
+	negativeScore := -0.1
 	tests := []SearchQuery{
 		{Category: "  "},
 		{Styles: []string{"  "}},
@@ -189,6 +201,7 @@ func TestSearchRejectsInvalidInput(t *testing.T) {
 		{MaxPriceSatang: &negative},
 		{MinPriceSatang: &invertedMin, MaxPriceSatang: &invertedMax},
 		{MinReviewScore: &badScore},
+		{MinReviewScore: &negativeScore},
 		{Sort: SearchSort("popularity")},
 		{Page: -1},
 	}

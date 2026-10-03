@@ -128,12 +128,12 @@ type searchArtworkView struct {
 
 type SearchArtworksInput struct {
 	Q              string   `query:"q" doc:"Partial match on artist name."`
-	Category       string   `query:"category,explode" doc:"Filter by one or more artwork categories. Repeated values are OR'd."`
+	Category       string   `query:"category" doc:"Filter by at most one artwork category."`
 	Style          []string `query:"style,explode" doc:"Filter by one or more artwork styles. Repeated values are OR'd."`
 	MinPriceSatang string   `query:"min_price_satang" doc:"Inclusive minimum artwork price in satang."`
 	MaxPriceSatang string   `query:"max_price_satang" doc:"Inclusive maximum artwork price in satang."`
-	MinReviewScore string   `query:"min_review_score" doc:"Inclusive minimum artist average review score (1-5)."`
-	Sort           string   `query:"sort" enum:"price_asc,price_desc,review_score_asc,review_score_desc" default:"review_score_desc" doc:"Sort by price (low to high or high to low) or artist review score (highest first). Equal values fall back to artist name ascending."`
+	MinReviewScore string   `query:"min_review_score" doc:"Inclusive minimum artist average review score (0-5)."`
+	Sort           string   `query:"sort" enum:"name_asc,price_asc,price_desc,review_score_asc,review_score_desc" default:"name_asc" doc:"Default artwork name ascending. Price or review score, when set, is the primary sort; equal values fall back to artwork name ascending."`
 	Page           int      `query:"page" minimum:"1" default:"1" doc:"1-based page of 20 artworks."`
 }
 

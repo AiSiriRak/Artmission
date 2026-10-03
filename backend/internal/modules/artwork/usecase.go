@@ -305,8 +305,8 @@ func normalizeSearchQuery(query SearchQuery) (SearchQuery, error) {
 	}
 
 	if query.MinReviewScore != nil {
-		if *query.MinReviewScore < 1 || *query.MinReviewScore > 5 {
-			return SearchQuery{}, apperror.InvalidInput("min review score must be between 1 and 5", nil)
+		if *query.MinReviewScore < 0 || *query.MinReviewScore > 5 {
+			return SearchQuery{}, apperror.InvalidInput("min review score must be between 0 and 5", nil)
 		}
 	}
 
