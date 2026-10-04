@@ -21,22 +21,15 @@ const imageHostname = getHostname(publicBaseUrl);
 const nextConfig: NextConfig = {
   images: {
     // *** Uncomment below section for LOCAL TEST ONLY. ***
-    dangerouslyAllowLocalIP: true,
+    // dangerouslyAllowLocalIP: true,
 
-    // *** For Deployment (For local test, comment this section). ***
     remotePatterns: imageHostname
       ? [
-          {
-            protocol: "http",
-            hostname: "localhost",
-            port: "9000",
-            pathname: "/**",
-          },
           {
             protocol: "https",
             hostname: imageHostname,
             port: "",
-            pathname: "/storage/v1/object/public/**",
+            pathname: "/**",
           },
         ]
       : [
