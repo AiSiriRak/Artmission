@@ -3,13 +3,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 import { routes } from "@/lib/routes";
 
 import { Button } from "@/components/ui/Button";
-import { TextInput } from "@/components/ui/TextInput";
+import { CustomerSearchBar } from "./CustomerSearchBar";
 import { SettingPopup } from "./SettingPopup";
-import { useEffect, useRef, useState } from "react";
 
 interface HeaderProps {
   usertype: string;
@@ -18,6 +18,7 @@ interface HeaderProps {
 export default function Header({ usertype = "customer" }: HeaderProps) {
   const [isSettingPopupOpen, setIsSettingPopupOpen] = useState(false);
   const pathname = usePathname();
+
   const navItems =
     usertype == "customer"
       ? [
@@ -61,6 +62,7 @@ export default function Header({ usertype = "customer" }: HeaderProps) {
           },
         ];
   const dropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -112,24 +114,14 @@ export default function Header({ usertype = "customer" }: HeaderProps) {
               )}
             </div>
           </Link>
-        </div>{" "}
-        {/* Seach Bar (No Search Implemented) */}
+        </div>
+
         {usertype == "customer" && (
-          <div className="relative w-80 h-10 items-center">
-            <TextInput onChange={() => {}} className="absolute inset-0 pr-12" />
-            <button
-              type="button"
-              className="absolute flex rounded-full right-2 top-1/2 h-6 w-6 justify-center items-center bg-white -translate-y-1/2 hover:brightness-90"
-            >
-              <Image
-                src="/icons/search.svg"
-                alt="Search"
-                width={10}
-                height={10}
-              />
-            </button>
-          </div>
+          <Suspense fallback={<div className="w-80 h-10" />}>
+            <CustomerSearchBar />
+          </Suspense>
         )}
+
         {/* ด้านขวา: เมนู และ รูปโปรไฟล์ User */}
         <div className="relative flex items-center gap-4">
           <nav className="hidden md:flex items-center gap-2">

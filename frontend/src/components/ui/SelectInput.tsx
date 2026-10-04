@@ -1,22 +1,34 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 
-interface SelectInput {
+interface SelectInputProps {
   options: {
     value: string;
     label: string;
   }[];
   value?: string;
   onChange?: (value: string) => void;
+  /** Customize the closed-trigger label. Defaults to the selected option label. */
+  formatSelectedLabel?: (label: string) => ReactNode;
+  className?: string;
+  buttonClassName?: string;
 }
 
-export function SelectInput({ options, value, onChange }: SelectInput) {
+export function SelectInput({
+  options,
+  value,
+  onChange,
+  formatSelectedLabel,
+  className = "",
+  buttonClassName = "",
+}: SelectInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((option) => option.value === value);
+  const selectedLabel = selectedOption?.label ?? "Select";
 
   function selectOption(option: string) {
     onChange?.(option);
@@ -41,15 +53,19 @@ export function SelectInput({ options, value, onChange }: SelectInput) {
   }, []);
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className={`relative ${className}`} ref={dropdownRef}>
       {/* Dropdown button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="mt-1 w-full rounded border-2 px-3 py-2 text-small text-primary-500 text-left bg-white hover:brightness-90"
+        className={`w-full rounded border-2 px-3 py-2 text-small text-primary-500 text-left bg-white hover:brightness-90 ${buttonClassName}`}
       >
-        <div className="flex justify-between items-center">
-          <span>{selectedOption?.label ?? "Select"}</span>
+        <div className="flex justify-between items-center gap-2">
+          <span className="truncate">
+            {formatSelectedLabel
+              ? formatSelectedLabel(selectedLabel)
+              : selectedLabel}
+          </span>
 
           <Image src="/icons/downarrow.svg" width={12} height={12} alt="" />
         </div>
