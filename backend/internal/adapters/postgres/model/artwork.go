@@ -26,16 +26,17 @@ type Style struct {
 type Artwork struct {
 	bun.BaseModel `bun:"table:artworks,alias:art"`
 
-	ID                  uuid.UUID `bun:"id,pk"`
-	ArtistID            uuid.UUID `bun:"artist_id"`
-	CategoryID          uuid.UUID `bun:"category_id"`
-	Name                string    `bun:"name"`
-	Category            string    `bun:"category,scanonly"`
-	Description         string    `bun:"description"`
-	PriceSatang         int64     `bun:"price_satang"`
-	MinimumDeadlineDays int       `bun:"minimum_deadline_days"`
-	CreatedAt           time.Time `bun:"created_at,nullzero"`
-	UpdatedAt           time.Time `bun:"updated_at,nullzero"`
+	ID                  uuid.UUID  `bun:"id,pk"`
+	ArtistID            uuid.UUID  `bun:"artist_id"`
+	CategoryID          uuid.UUID  `bun:"category_id"`
+	Name                string     `bun:"name"`
+	Category            string     `bun:"category,scanonly"`
+	Description         string     `bun:"description"`
+	PriceSatang         int64      `bun:"price_satang"`
+	MinimumDeadlineDays int        `bun:"minimum_deadline_days"`
+	CreatedAt           time.Time  `bun:"created_at,nullzero"`
+	UpdatedAt           time.Time  `bun:"updated_at,nullzero"`
+	DeletedAt           *time.Time `bun:"deleted_at,soft_delete,nullzero"`
 }
 
 type ArtworkImage struct {

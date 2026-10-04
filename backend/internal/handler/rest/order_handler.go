@@ -113,7 +113,7 @@ func toOrderSummaryView(o *order.Order) orderSummaryView {
 		CustomerID:            o.CustomerID.String(),
 		ArtistID:              o.ArtistID.String(),
 		Name:                  o.Name,
-		PriceSatang:           o.PriceSatangSnapshot,
+		PriceSatang:           o.PriceSatangOrder,
 		DeadlineAt:            o.DeadlineAt,
 		Status:                string(o.Status),
 		DeliverablePreviewURL: o.DeliverablePreviewURL,
