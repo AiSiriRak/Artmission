@@ -44,13 +44,13 @@ jobs:
 
       - name: Pull Vercel project settings
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-        env: |
-          S3_PUBLIC_BASE_URL=${{ vars.S3_PUBLIC_BASE_URL }}
+        env:
+          S3_PUBLIC_BASE_URL: ${{ vars.S3_PUBLIC_BASE_URL }}
 
       - name: Build
         run: vercel build --prod --token="$VERCEL_TOKEN"
-        env: |
-          S3_PUBLIC_BASE_URL=${{ vars.S3_PUBLIC_BASE_URL }}
+        env:
+          S3_PUBLIC_BASE_URL: ${{ vars.S3_PUBLIC_BASE_URL }}
 
       - name: Deploy
         run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
