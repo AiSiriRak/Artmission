@@ -1,33 +1,36 @@
 import type { NextConfig } from "next";
 
-const publicBaseUrl =
-  process.env.S3_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_SUPABASE_HOSTNAME;
-
-function getHostname(input: string | undefined): string | null {
-  if (!input) return null;
+const getHostname = (url?: string) => {
+  if (!url) return null;
   try {
-    const urlString = String(input);
-    const formattedUrl = urlString.startsWith("http")
-      ? urlString
-      : `https://${urlString}`;
-    return new URL(formattedUrl).hostname;
+    return new URL(url).hostname;
   } catch {
     return null;
   }
-}
+};
 
-const imageHostname = getHostname(publicBaseUrl);
+const targetHost = getHostname(process.env.S3_PUBLIC_BASE_URL);
 
 const nextConfig: NextConfig = {
   images: {
-    // *** Uncomment below section for LOCAL TEST ONLY. ***
+    // *** Uncomment below line for LOCAL TEST ONLY. ***
     // dangerouslyAllowLocalIP: true,
 
-    remotePatterns: imageHostname
+    remotePatterns: targetHost
       ? [
+          ...(targetHost
+            ? [
+                {
+                  protocol: "https" as const,
+                  hostname: targetHost,
+                  port: "",
+                  pathname: "/**",
+                },
+              ]
+            : []),
           {
-            protocol: "https",
-            hostname: imageHostname,
+            protocol: "https" as const,
+            hostname: "*.supabase.co",
             port: "",
             pathname: "/**",
           },
