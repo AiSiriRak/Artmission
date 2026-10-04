@@ -16,8 +16,6 @@ type categorySeed struct {
 }
 
 var categories = []categorySeed{
-	{Key: "portrait", Label: "Portrait"},
-	{Key: "landscape", Label: "Landscape"},
 	{Key: "novel-cover", Label: "Novel Cover"},
 	{Key: "illustration", Label: "Illustration"},
 	{Key: "character-design", Label: "Character Design"},
@@ -46,8 +44,6 @@ type styleSeed struct {
 var styles = []styleSeed{
 	{Key: "cartoon", Label: "Cartoon"},
 	{Key: "realism", Label: "Realism"},
-	{Key: "anime", Label: "Anime"},
-	{Key: "minimalist", Label: "Minimalist"},
 	{Key: "semi-realism", Label: "Semi-Realism"},
 	{Key: "watercolor", Label: "Watercolor"},
 	{Key: "acrylic", Label: "Acrylic"},
