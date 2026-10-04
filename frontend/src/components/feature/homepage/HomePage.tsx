@@ -130,8 +130,8 @@ export default function HomePage() {
             Filter
           </Button>
           <SelectInput
-            className="w-64 rounded-lg" // TODO: fix rounded-lg didn't override properly by cn(...)
-            buttonClassName="h-10"
+            className="w-64"
+            buttonClassName="h-10 rounded-lg"
             value={sort}
             options={SORT_OPTIONS}
             formatSelectedLabel={(label) => (

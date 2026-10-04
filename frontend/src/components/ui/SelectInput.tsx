@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 
+import { cn } from "@/lib/cn";
+
 interface SelectInputProps {
   options: {
     value: string;
@@ -21,8 +23,8 @@ export function SelectInput({
   value,
   onChange,
   formatSelectedLabel,
-  className = "",
-  buttonClassName = "",
+  className,
+  buttonClassName,
 }: SelectInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -53,12 +55,15 @@ export function SelectInput({
   }, []);
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
+    <div className={cn("relative", className)} ref={dropdownRef}>
       {/* Dropdown button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full rounded border-2 px-3 py-2 text-small text-primary-500 text-left bg-white hover:brightness-90 ${buttonClassName}`}
+        className={cn(
+          "w-full rounded border-2 px-3 py-2 text-primary-500 text-small text-left bg-white hover:brightness-90",
+          buttonClassName,
+        )}
       >
         <div className="flex justify-between items-center gap-2">
           <span className="truncate">
@@ -79,15 +84,7 @@ export function SelectInput({
               key={option.value}
               type="button"
               onClick={() => selectOption(option.value)}
-              className={`
-                flex w-full cursor-pointer items-center
-                px-2 py-2
-                text-left
-                text-subtle
-                text-primary-500
-                hover:bg-neutral-100
-                rounded
-              `}
+              className="flex w-full cursor-pointer items-center px-2 py-2 rounded text-left text-subtle text-primary-500 hover:bg-neutral-100"
             >
               {option.label}
             </button>
