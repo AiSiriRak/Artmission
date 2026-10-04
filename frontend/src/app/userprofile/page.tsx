@@ -9,6 +9,7 @@ import {
   updateAccount,
   getBankAccount,
   updateBankAccount,
+  UpdateProfileImage,
 } from "@/lib/api/users";
 import { BankAccount, UserAccount } from "@/lib/api/types";
 import { routes } from "@/lib/routes";
@@ -28,7 +29,7 @@ export default function HomePage() {
     "personal" | "bank" | null
   >(null);
   const [isDeletePopupOpen, setIsDeletePopupOpen] = useState(false);
-  const [profile, setProfile] = useState<File | null>(null);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [user, setUser] = useState<UserAccount | null>(null);
   const [bank, setBank] = useState<BankAccount | null>(null);
   const [deleteStatus, setDeleteStatus] = useState<
@@ -42,6 +43,7 @@ export default function HomePage() {
         const bankdata = await getBankAccount();
         setUser(accountdata);
         setBank(bankdata);
+        setProfileImageUrl(accountdata.profile_image_url ?? null);
       } catch (error: unknown) {
         if (isApiError(error) && error.status === 401) {
           router.replace(routes.login);
@@ -74,8 +76,15 @@ export default function HomePage() {
           <>
             <ProfileHeader
               username={user.username}
-              onUpload={function (imageUrl: File): void {
-                setProfile(imageUrl);
+              profileImageUrl={profileImageUrl}
+              onUpload={async (image: File): Promise<void> => {
+                try {
+                  const updatedUser = await UpdateProfileImage(image);
+                  setUser(updatedUser);
+                  setProfileImageUrl(updatedUser.profile_image_url ?? null);
+                } catch (error) {
+                  console.error("Failed to update profile image:", error);
+                }
               }}
             />
             <PersonalInfoCard

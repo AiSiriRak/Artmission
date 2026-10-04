@@ -10,14 +10,15 @@ import (
 type User struct {
 	bun.BaseModel `bun:"table:users,alias:u"`
 
-	ID           uuid.UUID  `bun:"id,pk"`
-	Username     string     `bun:"username"`
-	Email        string     `bun:"email"`
-	PasswordHash string     `bun:"password_hash"`
-	Role         string     `bun:"role"`
-	CreatedAt    time.Time  `bun:"created_at,nullzero"`
-	UpdatedAt    time.Time  `bun:"updated_at,nullzero"`
-	DeletedAt    *time.Time `bun:"deleted_at,soft_delete,nullzero"`
+	ID              uuid.UUID  `bun:"id,pk"`
+	Username        string     `bun:"username"`
+	Email           string     `bun:"email"`
+	PasswordHash    string     `bun:"password_hash"`
+	Role            string     `bun:"role"`
+	ProfileImageKey *string    `bun:"profile_image_key"`
+	CreatedAt       time.Time  `bun:"created_at,nullzero"`
+	UpdatedAt       time.Time  `bun:"updated_at,nullzero"`
+	DeletedAt       *time.Time `bun:"deleted_at,soft_delete,nullzero"`
 }
 
 type BankAccount struct {
@@ -36,7 +37,7 @@ type ArtistProfile struct {
 
 	UserID          uuid.UUID `bun:"user_id,pk"`
 	Description     *string   `bun:"description"`
-	ProfileImageKey *string   `bun:"profile_image_key"`
+	ProfileImageKey *string   `bun:"profile_image_key,scanonly"`
 	ArtistName      string    `bun:"artist_name,scanonly"`
 	MinPriceSatang  *int64    `bun:"min_price_satang,scanonly"`
 	MaxPriceSatang  *int64    `bun:"max_price_satang,scanonly"`

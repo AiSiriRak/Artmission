@@ -38,7 +38,7 @@ type orderSummaryView struct {
 	ArtistID              string     `json:"artist_id"`
 	Name                  string     `json:"name"`
 	PriceSatang           int64      `json:"price_satang"`
-	DeadlineAt            *time.Time `json:"deadline_at,omitempty"`
+	DeadlineAt            time.Time  `json:"deadline_at"`
 	Status                string     `json:"status"`
 	DeliverablePreviewURL *string    `json:"deliverable_preview_url" doc:"Presigned URL of the most recently submitted deliverable's preview image, regardless of order status; null if none has been submitted yet."`
 	CompletedAt           *time.Time `json:"completed_at,omitempty"`
@@ -113,7 +113,7 @@ func toOrderSummaryView(o *order.Order) orderSummaryView {
 		CustomerID:            o.CustomerID.String(),
 		ArtistID:              o.ArtistID.String(),
 		Name:                  o.Name,
-		PriceSatang:           o.PriceSatangSnapshot,
+		PriceSatang:           o.PriceSatangOrder,
 		DeadlineAt:            o.DeadlineAt,
 		Status:                string(o.Status),
 		DeliverablePreviewURL: o.DeliverablePreviewURL,

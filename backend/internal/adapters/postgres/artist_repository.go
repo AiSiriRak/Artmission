@@ -15,11 +15,10 @@ import (
 
 func newArtistProfileModel(profile *artist.Profile) *pgmodel.ArtistProfile {
 	return &pgmodel.ArtistProfile{
-		UserID:          profile.UserID,
-		Description:     profile.Description,
-		ProfileImageKey: profile.ProfileImageKey,
-		CreatedAt:       profile.CreatedAt,
-		UpdatedAt:       profile.UpdatedAt,
+		UserID:      profile.UserID,
+		Description: profile.Description,
+		CreatedAt:   profile.CreatedAt,
+		UpdatedAt:   profile.UpdatedAt,
 	}
 }
 
@@ -58,7 +57,10 @@ func NewArtistRepository(db *bun.DB) artist.ProfileRepository {
 	return &artistRepository{exec: baserepo.NewExecutor(db)}
 }
 
-func (r *artistRepository) Create(ctx context.Context, profile *artist.Profile) error {
+func (r *artistRepository) Create(
+	ctx context.Context,
+	profile *artist.Profile,
+) error {
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		_, err := idb.NewInsert().Model(newArtistProfileModel(profile)).Exec(ctx)
 		return err
@@ -69,7 +71,11 @@ func (r *artistRepository) Create(ctx context.Context, profile *artist.Profile) 
 	return nil
 }
 
-func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID, query artist.ProfileQuery) (*artist.Profile, error) {
+func (r *artistRepository) GetByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+	query artist.ProfileQuery,
+) (*artist.Profile, error) {
 	model := new(pgmodel.ArtistProfile)
 	categories := make([]referenceModel, 0)
 	styles := make([]referenceModel, 0)
@@ -79,10 +85,10 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID, qu
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		if err := idb.NewSelect().
 			Model(model).
-			ColumnExpr("ap.user_id, ap.description, ap.profile_image_key, ap.created_at, ap.updated_at").
+			ColumnExpr("ap.user_id, ap.description, u.profile_image_key, ap.created_at, ap.updated_at").
 			ColumnExpr("u.username AS artist_name").
-			ColumnExpr("(SELECT MIN(a.price_satang) FROM artworks AS a WHERE a.artist_id = ap.user_id) AS min_price_satang").
-			ColumnExpr("(SELECT MAX(a.price_satang) FROM artworks AS a WHERE a.artist_id = ap.user_id) AS max_price_satang").
+			ColumnExpr("(SELECT MIN(a.price_satang) FROM artworks AS a WHERE a.artist_id = ap.user_id AND a.deleted_at IS NULL) AS min_price_satang").
+			ColumnExpr("(SELECT MAX(a.price_satang) FROM artworks AS a WHERE a.artist_id = ap.user_id AND a.deleted_at IS NULL) AS max_price_satang").
 			ColumnExpr("(SELECT ROUND(AVG(r.rating)::numeric, 1)::double precision FROM reviews AS r WHERE r.artist_id = ap.user_id) AS review_score").
 			Join("JOIN users AS u ON u.id = ap.user_id AND u.deleted_at IS NULL").
 			Where("ap.user_id = ?", userID).
@@ -95,7 +101,7 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID, qu
 			ColumnExpr("DISTINCT c.id").
 			ColumnExpr("c.label").
 			Join("JOIN artworks AS a ON a.category_id = c.id").
-			Where("a.artist_id = ?", userID).
+			Where("a.artist_id = ? AND a.deleted_at IS NULL", userID).
 			OrderExpr("c.label ASC, c.id ASC").
 			Scan(ctx, &categories); err != nil {
 			return err
@@ -107,7 +113,7 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID, qu
 			ColumnExpr("s.label").
 			Join("JOIN artwork_styles AS aws ON aws.style_id = s.id").
 			Join("JOIN artworks AS a ON a.id = aws.artwork_id").
-			Where("a.artist_id = ?", userID).
+			Where("a.artist_id = ? AND a.deleted_at IS NULL", userID).
 			OrderExpr("s.label ASC, s.id ASC").
 			Scan(ctx, &styles); err != nil {
 			return err
@@ -116,10 +122,11 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID, qu
 		reviewQuery := idb.NewSelect().
 			TableExpr("reviews AS r").
 			ColumnExpr("reviewer.username AS username").
-			ColumnExpr("o.artwork_name_snapshot AS order_name").
+			ColumnExpr("COALESCE(a.name, o.name) AS order_name").
 			ColumnExpr("r.rating").
 			Join("JOIN users AS reviewer ON reviewer.id = r.customer_id").
 			Join("JOIN orders AS o ON o.id = r.order_id").
+			Join("LEFT JOIN artworks AS a ON a.id = o.artwork_id AND a.deleted_at IS NULL").
 			Where("r.artist_id = ?", userID).
 			OrderExpr("r.created_at DESC, r.id DESC").
 			Limit(query.Limit).
@@ -138,50 +145,104 @@ func (r *artistRepository) GetByUserID(ctx context.Context, userID uuid.UUID, qu
 	profile := artistProfileToDomain(model)
 	profile.Categories = make([]artist.Category, len(categories))
 	for i, category := range categories {
-		profile.Categories[i] = artist.Category{ID: category.ID, Label: category.Label}
+		profile.Categories[i] = artist.Category{
+			ID:    category.ID,
+			Label: category.Label,
+		}
 	}
+
 	profile.Styles = make([]artist.Style, len(styles))
 	for i, style := range styles {
-		profile.Styles[i] = artist.Style{ID: style.ID, Label: style.Label}
+		profile.Styles[i] = artist.Style{
+			ID:    style.ID,
+			Label: style.Label,
+		}
 	}
+
 	profile.Reviews = make([]artist.Review, len(reviews))
 	for i, review := range reviews {
-		profile.Reviews[i] = artist.Review{Username: review.Username, Order: review.Order, Rating: review.Rating}
+		profile.Reviews[i] = artist.Review{
+			Username: review.Username,
+			Order:    review.Order,
+			Rating:   review.Rating,
+		}
 	}
+
 	profile.Total = total
 	return profile, nil
 }
 
-func (r *artistRepository) UpdateByUserID(ctx context.Context, userID uuid.UUID, update artist.ProfileUpdate) error {
-	model := &pgmodel.ArtistProfile{
-		UserID:          userID,
-		Description:     update.Description,
-		ProfileImageKey: update.ProfileImageKey,
-		UpdatedAt:       update.UpdatedAt,
-	}
-	columns := []string{"updated_at"}
-	if update.DescriptionSet {
-		columns = append(columns, "description")
-	}
-	if update.ProfileImageKeySet {
-		columns = append(columns, "profile_image_key")
-	}
-
-	var result sql.Result
+func (r *artistRepository) UpdateByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+	update artist.ProfileUpdate,
+) error {
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		var err error
-		result, err = idb.NewUpdate().Model(model).Column(columns...).WherePK().Exec(ctx)
-		return err
+		// Artist profile must exist before updating
+		exists, err := idb.NewSelect().
+			Model((*pgmodel.ArtistProfile)(nil)).
+			Column("user_id").
+			Where("user_id = ?", userID).
+			Exists(ctx)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return artist.ErrProfileNotFound
+		}
+
+		// Update description in artist_profiles
+		if update.DescriptionSet {
+			artistModel := &pgmodel.ArtistProfile{
+				UserID:      userID,
+				Description: update.Description,
+				UpdatedAt:   update.UpdatedAt,
+			}
+
+			_, err := idb.NewUpdate().
+				Model(artistModel).
+				Column("description", "updated_at").
+				WherePK().
+				Exec(ctx)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Update profile image key in users
+		if update.ProfileImageKeySet {
+			userModel := &pgmodel.User{
+				ID:              userID,
+				ProfileImageKey: update.ProfileImageKey,
+				UpdatedAt:       update.UpdatedAt,
+			}
+
+			result, err := idb.NewUpdate().
+				Model(userModel).
+				Column("profile_image_key", "updated_at").
+				WherePK().
+				Exec(ctx)
+			if err != nil {
+				return err
+			}
+
+			rows, err := result.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if rows == 0 {
+				return artist.ErrProfileNotFound
+			}
+		}
+		return nil
 	})
+
 	if err != nil {
+		if errors.Is(err, artist.ErrProfileNotFound) {
+			return artist.ErrProfileNotFound
+		}
 		return apperror.Internal("failed to update artist profile", err)
 	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return apperror.Internal("failed to inspect artist profile update", err)
-	}
-	if rows == 0 {
-		return artist.ErrProfileNotFound
-	}
+
 	return nil
 }

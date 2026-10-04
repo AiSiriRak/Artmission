@@ -91,18 +91,15 @@ const (
 )
 
 type Order struct {
-	ID                          uuid.UUID
-	CustomerID                  uuid.UUID
-	ArtistID                    uuid.UUID
-	Name                        string
-	ArtworkID                   *uuid.UUID
-	ArtworkNameSnapshot         string
-	ArtworkDescriptionSnapshot  string
-	PriceSatangSnapshot         int64
-	MinimumDeadlineDaysSnapshot int
-	CustomerDescription         string
-	DeadlineAt                  *time.Time
-	Status                      Status
+	ID                  uuid.UUID
+	CustomerID          uuid.UUID
+	ArtistID            uuid.UUID
+	Name                string
+	ArtworkID           *uuid.UUID
+	PriceSatangOrder    int64
+	CustomerDescription string
+	DeadlineAt          time.Time
+	Status              Status
 	// DeliverablePreviewKey is the private-bucket object key of the most
 	// recently submitted deliverable version, regardless of order status;
 	// nil if the artist hasn't submitted one yet. Populated by
