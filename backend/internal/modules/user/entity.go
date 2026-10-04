@@ -17,14 +17,20 @@ const (
 	RoleAdmin    Role = "admin" // seeded/ops-managed only; not selectable at registration.
 )
 
+const (
+	MaxProfileImageSize = 5 * 1024 * 1024
+)
+
 type User struct {
-	ID           uuid.UUID
-	Username     string
-	Email        string
-	PasswordHash string
-	Role         Role
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID              uuid.UUID
+	Username        string
+	Email           string
+	PasswordHash    string
+	Role            Role
+	ProfileImageKey *string
+	ProfileImageURL *string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type BankAccount struct {
