@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import ReviewList from "./ReviewList";
 import DeleteArtworkModal from "./DeleteArtworkModal";
 import ArtworkSampleGallery from "./ArtworkSampleGallery";
+import { ValidateArtworkForm } from "./ArtworkValidation";
 
 interface ReviewData {
   id: number;
@@ -113,6 +114,15 @@ export default function ArtworkDetail({
   const [styleSearch, setStyleSearch] = useState("");
   const [showCatDropdown, setShowCatDropdown] = useState(false);
   const [showStyleDropdown, setShowStyleDropdown] = useState(false);
+  const [errors, setErrors] = useState({
+    name: "",
+    description: "",
+    category: "",
+    styles: "",
+    minimum_deadline_days: "",
+    price: "",
+  });
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   useEffect(() => {
     if (artwork) {
@@ -135,11 +145,11 @@ export default function ArtworkDetail({
 
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSavedData(newData);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setFormData(newData);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setSavedImages(imgArray);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setImages(imgArray);
     }
   }, [artwork]);
@@ -148,8 +158,18 @@ export default function ArtworkDetail({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const newFormData = { ...formData, [name]: value };
+    
+    setFormData(newFormData);
+    handleErrorChange(newFormData);
   };
+
+  const handleErrorChange = (newFormData: typeof formData) => {
+    if (hasSubmitted) {
+      const newErrors = ValidateArtworkForm(newFormData);
+      setErrors(newErrors);
+    }
+  }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -169,7 +189,25 @@ export default function ArtworkDetail({
     setIsEditing(true);
   };
 
+  const handleNumberKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Prevent entering 'e', 'E', '+', or '-' in number inputs (Deadline and Price fields)
+    if (["e", "E", "+", "-"].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
+
   const handleSave = () => {
+    setHasSubmitted(true);
+
+    const newErrors = ValidateArtworkForm(formData);
+    setErrors(newErrors);
+
+    const hasErrors = Object.values(newErrors).some(Boolean);
+
+    if (hasErrors) {
+      return;
+    }
+
     setSavedData({ ...formData });
     setSavedImages([...images]);
     setIsEditing(false);
@@ -194,7 +232,7 @@ export default function ArtworkDetail({
       };
 
       if (isEditing) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const originalUrls = (artwork?.artwork_samples || [])
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((s: any) => s.image_url || (typeof s === "string" ? s : ""))
@@ -240,6 +278,7 @@ export default function ArtworkDetail({
     if (!formData.styles.includes(style)) {
       setFormData((prev) => ({ ...prev, styles: [...prev.styles, style] }));
     }
+    setErrors((prev) => ({ ...prev, styles: "" }));
     setStyleSearch("");
     setShowStyleDropdown(false);
   };
@@ -249,10 +288,13 @@ export default function ArtworkDetail({
       ...prev,
       styles: prev.styles.filter((s) => s !== styleToRemove),
     }));
+    
+    handleErrorChange({ ...formData, styles: formData.styles.filter((s) => s !== styleToRemove) });
   };
 
   const selectCategory = (cat: string) => {
     setFormData((prev) => ({ ...prev, category: cat }));
+    setErrors((prev) => ({ ...prev, category: "" }));
     setCatSearch("");
     setShowCatDropdown(false);
   };
@@ -285,6 +327,9 @@ export default function ArtworkDetail({
                     placeholder="e.g., Pet Portrait"
                     className="border border-primary-500 p-2.5 w-full rounded-lg bg-white"
                   />
+                  {errors.name && (
+                    <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+                  )}
                 </div>
               ) : (
                 <div className="mb-4">
@@ -394,9 +439,10 @@ export default function ArtworkDetail({
                     <span className="px-4 py-1.5 bg-accent-200 text-primary-500 rounded-full text-sm font-semibold flex items-center gap-2 shadow-sm">
                       {formData.category}
                       <button
-                        onClick={() =>
-                          setFormData((prev) => ({ ...prev, category: "" }))
-                        }
+                        onClick={() => {
+                          setFormData((prev) => ({ ...prev, category: "" }));
+                          handleErrorChange({ ...formData, category: "" });
+                        }}
                         className="text-gray-600 hover:text-black cursor-pointer leading-none"
                       >
                         ✕
@@ -404,6 +450,10 @@ export default function ArtworkDetail({
                     </span>
                   </div>
                 )}
+
+                <p className="text-red-500 text-sm mt-1 min-h-[20px]">
+                  {errors.category || ""}
+                </p>
               </div>
 
               <div className="relative">
@@ -463,6 +513,9 @@ export default function ArtworkDetail({
                     ))}
                   </div>
                 )}
+                <p className="text-red-500 text-sm mt-1 min-h-[20px]">
+                  {errors.styles || ""}
+                </p>
               </div>
             </div>
           )}
@@ -473,14 +526,21 @@ export default function ArtworkDetail({
               Description
             </label>
             {isEditing ? (
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                rows={4}
-                className="border border-primary-500 p-3 w-full rounded-lg bg-white resize-none"
-                placeholder="Describe your artwork..."
-              />
+              <div className="flex flex-col gap-1">
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows={4}
+                  className="border border-primary-500 p-3 w-full rounded-lg bg-white resize-none"
+                  placeholder="Describe your artwork..."
+                />
+                {errors.description && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.description}
+                  </p>
+                )}
+              </div>
             ) : (
               <div className="text-gray-700 text-caption leading-relaxed">
                 {savedData.description}
@@ -491,30 +551,45 @@ export default function ArtworkDetail({
           <ArtworkSampleGallery
             isEditing={isEditing}
             images={displayImages}
+            hasSubmitted={hasSubmitted}
             onUpload={handleImageUpload}
             onRemove={handleRemoveImage}
           />
 
           {/* Pricing & Deadline Section */}
-          <div className="flex flex-wrap items-end gap-6 mb-4 mt-6">
+          <div className="flex flex-wrap items-start gap-6 mb-4 mt-6">
             <div>
               <label className="text-body font-bold text-primary-500 block mb-2">
                 Minimum deadline:
               </label>
               {isEditing ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    name="minimum_deadline_days"
-                    value={formData.minimum_deadline_days}
-                    onChange={handleInputChange}
-                    className="border border-primary-500 p-2.5 w-24 rounded-lg bg-white"
-                  />
-                  <span className="text-sm text-gray-600">days</span>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      name="minimum_deadline_days"
+                      value={formData.minimum_deadline_days}
+                      onChange={handleInputChange}
+                      onKeyDown={handleNumberKeyDown}
+                      min={1}
+                      className="border border-primary-500 p-2.5 w-24 rounded-lg bg-white"
+                    />
+                    <span className="text-sm text-gray-600">days</span>
+                  </div>
+                  {errors.minimum_deadline_days && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.minimum_deadline_days}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="bg-primary-400 text-secondary-200 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2">
-                  ⏳ {savedData.minimum_deadline_days} days
+                  <img
+                    src="/icons/alarm-clock.svg"
+                    alt="Deadline"
+                    className="w-4 h-4 object-contain brightness-0 invert"
+                  />
+                  {savedData.minimum_deadline_days} days
                 </div>
               )}
             </div>
@@ -524,19 +599,31 @@ export default function ArtworkDetail({
                 Price:
               </label>
               {isEditing ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    className="border border-primary-500 p-2.5 w-32 rounded-lg bg-white"
-                  />
-                  <span className="text-sm text-gray-600">THB</span>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      name="price"
+                      value={formData.price}
+                      onChange={handleInputChange}
+                      onKeyDown={handleNumberKeyDown}
+                      min={0}
+                      className="border border-primary-500 p-2.5 w-32 rounded-lg bg-white"
+                    />
+                    <span className="text-sm text-gray-600">THB</span>
+                  </div>
+                  {errors.price && (
+                    <p className="text-red-500 text-sm mt-1">{errors.price}</p>
+                  )}
                 </div>
               ) : (
                 <div className="bg-secondary-600 text-primary-400 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2">
-                  💵 {savedData.price.toLocaleString()} THB
+                  <img
+                    src="/icons/banknote.svg"
+                    alt="Price"
+                    className="w-4 h-4 object-contain"
+                  />
+                  {savedData.price.toLocaleString()} THB
                 </div>
               )}
             </div>
