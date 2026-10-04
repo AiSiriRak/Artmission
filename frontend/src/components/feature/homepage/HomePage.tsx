@@ -108,13 +108,13 @@ export default function HomePage() {
 
   return (
     <MainLayout usertype="customer">
-      <div className="min-h-screen px-6 py-8 md:px-10">
+      <div className="mx-auto min-h-screen w-full max-w-[1400px] px-4 py-6 sm:px-6 md:px-10 md:py-8">
         <div className="mb-2">
           <h1 className="text-h2 text-primary-500">{title}</h1>
-          <p className="mt-1 text-h3 text-neutral">{countLabel}</p>
+          <p className="mt-1 text-body text-neutral sm:text-h3">{countLabel}</p>
         </div>
 
-        <div className="mb-8 flex flex-wrap items-center gap-4">
+        <div className="mb-5 flex flex-wrap items-center gap-3 md:mb-6 md:gap-4">
           <Button
             type="button"
             variant="light"
@@ -130,7 +130,7 @@ export default function HomePage() {
             Filter
           </Button>
           <SelectInput
-            className="w-64"
+            className="w-full max-w-64 sm:w-64"
             buttonClassName="h-10 rounded-lg"
             value={sort}
             options={SORT_OPTIONS}
@@ -164,7 +164,7 @@ export default function HomePage() {
 
         {artworks && artworks.length > 0 && (
           <>
-            <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-12">
+            <div className="mb-12 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
               {artworks.map((item) => (
                 <SearchArtworkCard key={item.artwork_id} item={item} />
               ))}

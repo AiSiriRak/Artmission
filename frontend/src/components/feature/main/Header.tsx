@@ -91,40 +91,40 @@ export default function Header({ usertype = "customer" }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-neutral">
-      <div className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
+      <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-3 sm:h-20 sm:gap-4 sm:px-6">
         {/* ด้านซ้าย: Logo ARTMISSION */}
-        <div className="flex-shrink-0 flex items-center">
-          <Link href="/" className="flex items-center gap-2.5">
+        <div className="flex shrink-0 items-center">
+          <Link href="/" className="flex items-center gap-2 sm:gap-2.5">
             <Image
               src="/icons/A_logo.svg"
               alt="Artmission Logo"
               width={50}
               height={50}
-              className="object-contain"
+              className="h-9 w-9 object-contain sm:h-[50px] sm:w-[50px]"
             />
-            <div className="flex flex-col leading-none font-extrabold text-accent-500 tracking-wider text-lg">
+            <div className="hidden flex-col leading-none font-extrabold text-accent-500 tracking-wider text-lg min-[480px]:flex">
               {usertype == "artist" ? (
                 <>
                   <span>RTMISSION</span> <span className="mt-1 ">RTIST</span>
                 </>
               ) : (
-                <>
-                  <span className="text-[36px]">RTMISSION</span>
-                </>
+                <span className="text-[28px] sm:text-[36px]">RTMISSION</span>
               )}
             </div>
           </Link>
         </div>
 
         {usertype == "customer" && (
-          <Suspense fallback={<div className="w-80 h-10" />}>
-            <CustomerSearchBar />
-          </Suspense>
+          <div className="min-w-0 flex-1 basis-0 px-1 sm:px-2 md:max-w-80 md:flex-none md:basis-80 md:px-0">
+            <Suspense fallback={<div className="h-10 w-full" />}>
+              <CustomerSearchBar />
+            </Suspense>
+          </div>
         )}
 
         {/* ด้านขวา: เมนู และ รูปโปรไฟล์ User */}
-        <div className="relative flex items-center gap-4">
-          <nav className="hidden md:flex items-center gap-2">
+        <div className="relative ml-auto flex shrink-0 items-center gap-1 sm:gap-2 md:gap-4">
+          <nav className="hidden items-center gap-2 md:flex">
             {navItems.map((item) => {
               const isActive = pathname === item.path;
 
@@ -173,13 +173,14 @@ export default function Header({ usertype = "customer" }: HeaderProps) {
                   className="object-contain"
                 />
               }
-              className={`cursor-pointer transition-all flex items-center gap-1 ${
+              className={`cursor-pointer transition-all flex items-center gap-1 px-2 sm:px-5 ${
                 pathname != routes.settings
                   ? "border-none text-gray-700 hover:bg-gray-100"
                   : ""
               }`}
+              aria-label="Setting"
             >
-              Setting
+              <span className="sr-only sm:not-sr-only sm:inline">Setting</span>
             </Button>
             <div ref={dropdownRef}>
               <SettingPopup isActive={isSettingPopupOpen} />

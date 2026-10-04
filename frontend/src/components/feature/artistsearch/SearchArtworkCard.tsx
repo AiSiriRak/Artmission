@@ -22,38 +22,38 @@ export function SearchArtworkCard({ item }: SearchArtworkCardProps) {
     <div className="relative w-full min-w-0 hover:brightness-95 transition-[filter]">
       <WhiteCard
         margin=""
-        roundsize="rounded-[45px]"
+        roundsize="rounded-[40px]"
         padding="p-0"
         className="w-full min-w-0 max-w-none overflow-hidden"
       >
-        <div className="relative w-full aspect-square flex items-center justify-center bg-white">
+        <div className="relative flex aspect-square w-full items-center justify-center bg-white">
           <Image
             src={item.image_url || "/icons/emptyimage.svg"}
             alt={item.artwork_name}
-            width={378}
-            height={378}
-            className="object-contain w-full h-full p-10"
+            width={320}
+            height={320}
+            className="h-full w-full object-contain p-8"
           />
         </div>
 
-        <div className="flex w-full flex-col gap-1.5 p-8.75">
-          <p className="truncate text-h2 text-primary-500">
+        <div className="flex w-full flex-col gap-1 px-6 pb-6 pt-1">
+          <p className="truncate text-h3 text-primary-500">
             {formatPriceThb(item.price_satang)}
           </p>
 
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex flex-col">
-              <p className="truncate text-h3 text-primary-500">
+            <div className="flex min-w-0 flex-col">
+              <p className="truncate text-body font-medium text-primary-500">
                 {item.artwork_name}
               </p>
-              <p className="truncate text-body text-primary-500">
+              <p className="truncate text-small text-primary-500">
                 {item.artist_name}
               </p>
             </div>
 
             {item.review_score !== null && (
               <div className="flex shrink-0 items-center gap-1 pt-0.5">
-                <span className="text-h3 text-primary-500">
+                <span className="text-body font-medium text-primary-500">
                   {formatReviewScore(item.review_score)}
                 </span>
                 <Image src="/icons/star.svg" alt="" width={20} height={20} />

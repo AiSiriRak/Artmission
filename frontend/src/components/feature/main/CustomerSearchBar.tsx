@@ -20,16 +20,19 @@ export function CustomerSearchBar() {
   }
 
   return (
-    <form onSubmit={submitSearch} className="relative w-80 h-10 items-center">
+    <form
+      onSubmit={submitSearch}
+      className="relative flex h-10 w-full min-w-0 max-w-80 items-center"
+    >
       <TextInput
         value={searchValue}
         onChange={setSearchValue}
         placeholder="Search"
-        className="absolute inset-0 pr-12"
+        className="h-full pr-12"
       />
       <button
         type="submit"
-        className="absolute flex rounded-full right-2 top-1/2 h-6 w-6 justify-center items-center bg-white -translate-y-1/2 hover:brightness-90"
+        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-white hover:brightness-90"
         aria-label="Search artists"
       >
         <Image src="/icons/search.svg" alt="Search" width={10} height={10} />
