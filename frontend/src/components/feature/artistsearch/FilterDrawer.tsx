@@ -34,6 +34,22 @@ const RATING_OPTIONS: { value: number | null; label: string }[] = [
   { value: null, label: "Any Rating" },
 ];
 
+/**
+ * Controlled decimal draft for THB prices.
+ * Prefer type="text" + inputMode="decimal" over type="number":
+ * browsers can display invalid number input without updating React state.
+ */
+function sanitizePriceThb(raw: string): string {
+  const cleaned = raw.replace(/[^\d.]/g, "");
+  if (!cleaned) return "";
+
+  const [whole = "", ...rest] = cleaned.split(".");
+  if (rest.length === 0) return whole;
+
+  const fraction = rest.join("").slice(0, 2);
+  return `${whole}.${fraction}`;
+}
+
 interface FilterDrawerProps {
   open: boolean;
   value: ArtistSearchFilters;
@@ -89,11 +105,15 @@ export function FilterDrawer({
               <label className="space-y-1">
                 <span className="text-small text-neutral">Minimum</span>
                 <TextInput
-                  type="number"
-                  min={0}
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
                   value={value.minPriceThb}
                   onChange={(minPriceThb) =>
-                    onChange({ ...value, minPriceThb })
+                    onChange({
+                      ...value,
+                      minPriceThb: sanitizePriceThb(minPriceThb),
+                    })
                   }
                   placeholder="0"
                 />
@@ -101,11 +121,15 @@ export function FilterDrawer({
               <label className="space-y-1">
                 <span className="text-small text-neutral">Maximum</span>
                 <TextInput
-                  type="number"
-                  min={0}
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
                   value={value.maxPriceThb}
                   onChange={(maxPriceThb) =>
-                    onChange({ ...value, maxPriceThb })
+                    onChange({
+                      ...value,
+                      maxPriceThb: sanitizePriceThb(maxPriceThb),
+                    })
                   }
                   placeholder="Maximum Price"
                 />
