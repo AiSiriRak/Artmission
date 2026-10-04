@@ -260,6 +260,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/users/me/profile-image": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * UpdateProfileImage
+     * @description Update or remove the authenticated user's profile image
+     */
+    put: operations["update-profile-image"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -273,6 +293,7 @@ export interface components {
       readonly $schema?: string;
       email: string;
       id: string;
+      profile_image_url: string | null;
       role: string;
       username: string;
     };
@@ -443,7 +464,7 @@ export interface components {
       created_at: string;
       customer_id: string;
       /** Format: date-time */
-      deadline_at?: string;
+      deadline_at: string;
       /** @description Presigned URL of the most recently submitted deliverable's preview image, regardless of order status; null if none has been submitted yet. */
       deliverable_preview_url: string | null;
       id: string;
@@ -1049,6 +1070,43 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["BankAccountView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "update-profile-image": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          profile_image?: string;
+          remove_profile_image?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountView"];
         };
       };
       /** @description Error */
