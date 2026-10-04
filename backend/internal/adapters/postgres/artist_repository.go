@@ -87,8 +87,8 @@ func (r *artistRepository) GetByUserID(
 			Model(model).
 			ColumnExpr("ap.user_id, ap.description, u.profile_image_key, ap.created_at, ap.updated_at").
 			ColumnExpr("u.username AS artist_name").
-			ColumnExpr("(SELECT MIN(a.price_satang) FROM artworks AS a WHERE a.artist_id = ap.user_id) AS min_price_satang").
-			ColumnExpr("(SELECT MAX(a.price_satang) FROM artworks AS a WHERE a.artist_id = ap.user_id) AS max_price_satang").
+			ColumnExpr("(SELECT MIN(a.price_satang) FROM artworks AS a WHERE a.artist_id = ap.user_id AND a.deleted_at IS NULL) AS min_price_satang").
+			ColumnExpr("(SELECT MAX(a.price_satang) FROM artworks AS a WHERE a.artist_id = ap.user_id AND a.deleted_at IS NULL) AS max_price_satang").
 			ColumnExpr("(SELECT ROUND(AVG(r.rating)::numeric, 1)::double precision FROM reviews AS r WHERE r.artist_id = ap.user_id) AS review_score").
 			Join("JOIN users AS u ON u.id = ap.user_id AND u.deleted_at IS NULL").
 			Where("ap.user_id = ?", userID).
@@ -101,7 +101,7 @@ func (r *artistRepository) GetByUserID(
 			ColumnExpr("DISTINCT c.id").
 			ColumnExpr("c.label").
 			Join("JOIN artworks AS a ON a.category_id = c.id").
-			Where("a.artist_id = ?", userID).
+			Where("a.artist_id = ? AND a.deleted_at IS NULL", userID).
 			OrderExpr("c.label ASC, c.id ASC").
 			Scan(ctx, &categories); err != nil {
 			return err
@@ -113,7 +113,7 @@ func (r *artistRepository) GetByUserID(
 			ColumnExpr("s.label").
 			Join("JOIN artwork_styles AS aws ON aws.style_id = s.id").
 			Join("JOIN artworks AS a ON a.id = aws.artwork_id").
-			Where("a.artist_id = ?", userID).
+			Where("a.artist_id = ? AND a.deleted_at IS NULL", userID).
 			OrderExpr("s.label ASC, s.id ASC").
 			Scan(ctx, &styles); err != nil {
 			return err
@@ -122,10 +122,11 @@ func (r *artistRepository) GetByUserID(
 		reviewQuery := idb.NewSelect().
 			TableExpr("reviews AS r").
 			ColumnExpr("reviewer.username AS username").
-			ColumnExpr("o.artwork_name_snapshot AS order_name").
+			ColumnExpr("COALESCE(a.name, o.name) AS order_name").
 			ColumnExpr("r.rating").
 			Join("JOIN users AS reviewer ON reviewer.id = r.customer_id").
 			Join("JOIN orders AS o ON o.id = r.order_id").
+			Join("LEFT JOIN artworks AS a ON a.id = o.artwork_id AND a.deleted_at IS NULL").
 			Where("r.artist_id = ?", userID).
 			OrderExpr("r.created_at DESC, r.id DESC").
 			Limit(query.Limit).

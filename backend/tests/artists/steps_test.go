@@ -150,6 +150,12 @@ func (artistContext *artistsContext) seedReviews() error {
 	ratings := []int{5, 3, 4}
 	artistContext.expectedReviewers = make([]string, len(orderNames))
 	baseTime := time.Now().Add(-time.Hour)
+	categoryID := uuid.New()
+	if _, err := app.DB.ExecContext(context.Background(), `
+		INSERT INTO categories (id, label) VALUES (?, ?)
+	`, categoryID, "Review fixture "+categoryID.String()); err != nil {
+		return err
+	}
 
 	for index := range orderNames {
 		customer, err := apptest.RegisterCustomer(app, apptest.NewClient(app.BaseURL()))
@@ -162,15 +168,20 @@ func (artistContext *artistsContext) seedReviews() error {
 		}
 		artistContext.expectedReviewers[index] = customer.Username
 		orderID := uuid.New()
+		artworkID := uuid.New()
 		createdAt := baseTime.Add(time.Duration(index) * time.Minute)
 		if _, err := app.DB.ExecContext(context.Background(), `
+			INSERT INTO artworks (id, artist_id, category_id, name, description, price_satang, minimum_deadline_days)
+			VALUES (?, ?, ?, ?, 'Historical artwork', 1000, 7)
+		`, artworkID, artistID, categoryID, orderNames[index]); err != nil {
+			return err
+		}
+		if _, err := app.DB.ExecContext(context.Background(), `
 			INSERT INTO orders (
-				id, customer_id, artist_id, artwork_id, artwork_name_snapshot,
-				artwork_description_snapshot, price_satang_snapshot,
-				minimum_deadline_days_snapshot, name, customer_description,
-				status, created_at, updated_at
-			) VALUES (?, ?, ?, NULL, ?, 'Historical artwork', 1000, 7, ?, 'Please create this', 'SUCCESS', ?, ?)
-		`, orderID, customerID, artistID, orderNames[index], orderNames[index], createdAt, createdAt); err != nil {
+				id, customer_id, artist_id, artwork_id, price_satang_order,
+				name, customer_description, deadline_at, status, created_at, updated_at
+			) VALUES (?, ?, ?, ?, 1000, ?, 'Please create this', ?, 'SUCCESS', ?, ?)
+		`, orderID, customerID, artistID, artworkID, orderNames[index], createdAt.AddDate(0, 0, 7), createdAt, createdAt); err != nil {
 			return err
 		}
 		if _, err := app.DB.ExecContext(context.Background(), `

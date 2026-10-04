@@ -20,7 +20,7 @@ type Repository interface {
 	FindOrCreateStyles(ctx context.Context, labels []string) ([]uuid.UUID, error)
 	Create(ctx context.Context, artwork *Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) error
 	UpdateOwnedBy(ctx context.Context, artwork *Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID, deletedSampleURLs []string) ([]string, error)
-	DeleteOwnedBy(ctx context.Context, artworkID, artistID uuid.UUID) ([]string, error)
+	DeleteOwnedBy(ctx context.Context, artworkID, artistID uuid.UUID) error
 }
 
 type ObjectStorage interface {
