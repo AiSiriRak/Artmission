@@ -1,29 +1,6 @@
 import { apiFetch } from "./client";
 import { getAccount } from "./users";
 import type { ArtistProfile, UpdateArtistInput, Artwork } from "./types";
-import {
-  searchArtistsMock,
-  type ArtistSearchParams,
-  type ArtistSearchResult,
-} from "@/lib/mock/artists";
-
-export type {
-  ArtistSearchParams,
-  ArtistSearchResult,
-  ArtistSearchItem,
-  ArtistSearchSort,
-} from "@/lib/mock/artists";
-
-/**
- * Artist Search: query by artist name, return matching artworks.
- * Currently backed by an in-memory mock; swap to apiFetch when the endpoint lands.
- */
-export async function searchArtists(
-  params?: ArtistSearchParams,
-): Promise<ArtistSearchResult> {
-  // TODO: replace with real search endpoint when backend lands
-  return searchArtistsMock(params);
-}
 
 /**
  * ดึงข้อมูลโปรไฟล์สาธารณะของศิลปินตาม artist_id

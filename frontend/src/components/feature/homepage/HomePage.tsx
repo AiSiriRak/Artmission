@@ -15,29 +15,27 @@ import {
 import { Loading } from "@/components/ui/Loading";
 import { Button } from "@/components/ui/Button";
 import { SelectInput } from "@/components/ui/SelectInput";
-import {
-  searchArtists,
-  type ArtistSearchItem,
-  type ArtistSearchSort,
-} from "@/lib/api/artists";
+import { searchArtworks } from "@/lib/api/artworks";
+import type { SearchArtwork, SearchArtworksSort } from "@/lib/api/types";
 import { isApiError } from "@/lib/api/error";
 import { routes } from "@/lib/routes";
 
-const PAGE_SIZE = 12;
+/** BE SearchPageSize is fixed at 20. */
+const PAGE_SIZE = 20;
 
-const SORT_OPTIONS: { value: ArtistSearchSort; label: string }[] = [
+const SORT_OPTIONS: { value: SearchArtworksSort; label: string }[] = [
   { value: "price_asc", label: "Lowest Price" },
   { value: "price_desc", label: "Highest Price" },
   { value: "review_score_asc", label: "Lowest Review Score" },
   { value: "review_score_desc", label: "Highest Review Score" },
 ];
 
-function thbToSatang(value: string): number | undefined {
+function thbToSatang(value: string): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
   const thb = Number(trimmed);
   if (Number.isNaN(thb)) return undefined;
-  return Math.round(thb * 100);
+  return String(Math.round(thb * 100));
 }
 
 export default function HomePage() {
@@ -45,7 +43,7 @@ export default function HomePage() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q")?.trim() ?? "";
 
-  const [sort, setSort] = useState<ArtistSearchSort>("price_asc");
+  const [sort, setSort] = useState<SearchArtworksSort>("price_asc");
   const [page, setPage] = useState(1);
   const [draftFilters, setDraftFilters] =
     useState<ArtistSearchFilters>(EMPTY_FILTERS);
@@ -53,7 +51,7 @@ export default function HomePage() {
     useState<ArtistSearchFilters>(EMPTY_FILTERS);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const [artworks, setArtworks] = useState<ArtistSearchItem[] | null>(null);
+  const [artworks, setArtworks] = useState<SearchArtwork[] | null>(null);
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
@@ -66,22 +64,24 @@ export default function HomePage() {
     async function loadResults() {
       setArtworks(null);
       try {
-        const result = await searchArtists({
-          search: query || undefined,
+        const result = await searchArtworks({
+          q: query || undefined,
           sort,
           min_price_satang: thbToSatang(appliedFilters.minPriceThb),
           max_price_satang: thbToSatang(appliedFilters.maxPriceThb),
           category: appliedFilters.category ?? undefined,
-          styles:
+          style:
             appliedFilters.styles.length > 0
               ? appliedFilters.styles
               : undefined,
-          min_rating: appliedFilters.minRating ?? undefined,
-          limit: PAGE_SIZE,
-          offset: (page - 1) * PAGE_SIZE,
+          min_review_score:
+            appliedFilters.minRating !== null
+              ? String(appliedFilters.minRating)
+              : undefined,
+          page,
         });
         if (!cancelled) {
-          setArtworks(result.artworks);
+          setArtworks(result.artworks ?? []);
           setTotal(result.total);
         }
       } catch (error: unknown) {
@@ -140,7 +140,7 @@ export default function HomePage() {
               </>
             )}
             onChange={(next) => {
-              setSort(next as ArtistSearchSort);
+              setSort(next as SearchArtworksSort);
               setPage(1);
             }}
           />
@@ -166,7 +166,7 @@ export default function HomePage() {
           <>
             <div className="mb-12 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
               {artworks.map((item) => (
-                <SearchArtworkCard key={item.artwork_id} item={item} />
+                <SearchArtworkCard key={item.id} item={item} />
               ))}
             </div>
 

@@ -1,13 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/TextInput";
 import {
-  ARTIST_SEARCH_CATEGORIES,
-  ARTIST_SEARCH_STYLES,
-} from "@/lib/mock/artists";
+  getCategories,
+  getStyles,
+  type CatalogReference,
+} from "@/lib/api/artworks";
 
 export type ArtistSearchFilters = {
   minPriceThb: string;
@@ -67,13 +69,52 @@ export function FilterDrawer({
   onReset,
   onApply,
 }: FilterDrawerProps) {
+  const [categories, setCategories] = useState<CatalogReference[]>([]);
+  const [styles, setStyles] = useState<CatalogReference[]>([]);
+  const [catalogError, setCatalogError] = useState(false);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+
+    let cancelled = false;
+
+    async function loadCatalog() {
+      setCatalogLoading(true);
+      setCatalogError(false);
+      try {
+        const [nextCategories, nextStyles] = await Promise.all([
+          getCategories(),
+          getStyles(),
+        ]);
+        if (!cancelled) {
+          setCategories(nextCategories);
+          setStyles(nextStyles);
+        }
+      } catch {
+        if (!cancelled) {
+          setCatalogError(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setCatalogLoading(false);
+        }
+      }
+    }
+
+    void loadCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
   if (!open) return null;
 
   function toggleStyle(style: string) {
-    const styles = value.styles.includes(style)
+    const nextStyles = value.styles.includes(style)
       ? value.styles.filter((item) => item !== style)
       : [...value.styles, style];
-    onChange({ ...value, styles });
+    onChange({ ...value, styles: nextStyles });
   }
 
   return (
@@ -139,17 +180,25 @@ export function FilterDrawer({
 
           <section className="space-y-3 border-b border-neutral-400 py-6">
             <p className="text-body text-primary-500">Category</p>
+            {catalogLoading && (
+              <p className="text-small text-neutral">Loading categories…</p>
+            )}
+            {catalogError && (
+              <p className="text-small text-error">
+                Couldn’t load categories. Try again later.
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
-              {ARTIST_SEARCH_CATEGORIES.map((category) => {
-                const selected = value.category === category;
+              {categories.map((category) => {
+                const selected = value.category === category.label;
                 return (
                   <button
-                    key={category}
+                    key={category.id}
                     type="button"
                     onClick={() =>
                       onChange({
                         ...value,
-                        category: selected ? null : category,
+                        category: selected ? null : category.label,
                       })
                     }
                     className={`rounded-full border px-4 py-2 text-button transition-colors ${
@@ -158,7 +207,7 @@ export function FilterDrawer({
                         : "border-neutral bg-white text-primary-500 hover:bg-neutral-200"
                     }`}
                   >
-                    {category}
+                    {category.label}
                   </button>
                 );
               })}
@@ -167,18 +216,26 @@ export function FilterDrawer({
 
           <section className="space-y-3 border-b border-neutral-400 py-6">
             <p className="text-body text-primary-500">Style</p>
+            {catalogLoading && (
+              <p className="text-small text-neutral">Loading styles…</p>
+            )}
+            {catalogError && (
+              <p className="text-small text-error">
+                Couldn’t load styles. Try again later.
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3">
-              {ARTIST_SEARCH_STYLES.map((style) => {
-                const checked = value.styles.includes(style);
+              {styles.map((style) => {
+                const checked = value.styles.includes(style.label);
                 return (
                   <label
-                    key={style}
+                    key={style.id}
                     className="flex cursor-pointer items-center gap-2 text-small text-primary-500"
                   >
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => toggleStyle(style)}
+                      onChange={() => toggleStyle(style.label)}
                       className="peer sr-only"
                     />
                     <span
@@ -197,7 +254,7 @@ export function FilterDrawer({
                         />
                       )}
                     </span>
-                    <span className="leading-tight">{style}</span>
+                    <span className="leading-tight">{style.label}</span>
                   </label>
                 );
               })}

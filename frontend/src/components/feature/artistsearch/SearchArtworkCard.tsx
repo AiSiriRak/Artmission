@@ -2,11 +2,11 @@
 
 import Image from "next/image";
 
-import type { ArtistSearchItem } from "@/lib/api/artists";
+import type { SearchArtwork } from "@/lib/api/types";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 
 interface SearchArtworkCardProps {
-  item: ArtistSearchItem;
+  item: SearchArtwork;
 }
 
 function formatPriceThb(priceSatang: number): string {
@@ -18,6 +18,8 @@ function formatReviewScore(score: number): string {
 }
 
 export function SearchArtworkCard({ item }: SearchArtworkCardProps) {
+  const imageUrl = item.artwork_samples?.[0]?.image_url ?? null;
+
   return (
     <div className="relative w-full min-w-0 hover:brightness-95 transition-[filter]">
       <WhiteCard
@@ -28,8 +30,8 @@ export function SearchArtworkCard({ item }: SearchArtworkCardProps) {
       >
         <div className="relative flex aspect-square w-full items-center justify-center bg-white">
           <Image
-            src={item.image_url || "/icons/emptyimage.svg"}
-            alt={item.artwork_name}
+            src={imageUrl || "/icons/emptyimage.svg"}
+            alt={item.name}
             width={320}
             height={320}
             className="h-full w-full object-contain p-8"
@@ -44,17 +46,17 @@ export function SearchArtworkCard({ item }: SearchArtworkCardProps) {
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 flex-col">
               <p className="truncate text-body font-medium text-primary-500">
-                {item.artwork_name}
+                {item.name}
               </p>
               <p className="truncate text-small text-primary-500">
-                {item.artist_name}
+                {item.artist.artist_name}
               </p>
             </div>
 
-            {item.review_score !== null && (
+            {item.artist.review_score !== null && (
               <div className="flex shrink-0 items-center gap-1 pt-0.5">
                 <span className="text-body font-medium text-primary-500">
-                  {formatReviewScore(item.review_score)}
+                  {formatReviewScore(item.artist.review_score)}
                 </span>
                 <Image src="/icons/star.svg" alt="" width={20} height={20} />
               </div>
