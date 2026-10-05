@@ -52,6 +52,21 @@ function sanitizePriceThb(raw: string): string {
   return `${whole}.${fraction}`;
 }
 
+function parsePriceThb(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed === ".") return null;
+  const value = Number(trimmed);
+  return Number.isFinite(value) ? value : null;
+}
+
+/** True when both bounds are set and max is strictly less than min. */
+function isPriceRangeInvalid(minRaw: string, maxRaw: string): boolean {
+  const min = parsePriceThb(minRaw);
+  const max = parsePriceThb(maxRaw);
+  if (min === null || max === null) return false;
+  return max < min;
+}
+
 interface FilterDrawerProps {
   open: boolean;
   value: ArtistSearchFilters;
@@ -109,6 +124,11 @@ export function FilterDrawer({
   }, [open]);
 
   if (!open) return null;
+
+  const priceRangeInvalid = isPriceRangeInvalid(
+    value.minPriceThb,
+    value.maxPriceThb,
+  );
 
   function toggleStyle(style: string) {
     const nextStyles = value.styles.includes(style)
@@ -176,6 +196,11 @@ export function FilterDrawer({
                 />
               </label>
             </div>
+            {priceRangeInvalid && (
+              <p className="text-small text-error">
+                Maximum price must be greater than or equal to minimum price.
+              </p>
+            )}
           </section>
 
           <section className="space-y-3 border-b border-neutral-400 py-6">
@@ -310,6 +335,7 @@ export function FilterDrawer({
             type="button"
             variant="accent-500"
             className="min-w-30.75"
+            disabled={priceRangeInvalid}
             onClick={onApply}
           >
             Show results
