@@ -178,16 +178,25 @@ func (artistContext *artistsContext) seedReviews() error {
 		}
 		if _, err := app.DB.ExecContext(context.Background(), `
 			INSERT INTO orders (
-				id, customer_id, artist_id, artwork_id, price_satang_order,
+				id, customer_id, artist_id, artwork_id, artwork_snapshot, price_satang_order,
 				name, customer_description, deadline_at, status, created_at, updated_at
-			) VALUES (?, ?, ?, ?, 1000, ?, 'Please create this', ?, 'SUCCESS', ?, ?)
-		`, orderID, customerID, artistID, artworkID, orderNames[index], createdAt.AddDate(0, 0, 7), createdAt, createdAt); err != nil {
+			) VALUES (
+				?, ?, ?, ?,
+				jsonb_build_object('artwork_name', ?, 'category_id', ?, 'style_ids', '[]'::jsonb),
+				1000, ?, 'Please create this', ?, 'SUCCESS', ?, ?
+			)
+		`, orderID, customerID, artistID, artworkID, orderNames[index], categoryID, orderNames[index], createdAt.AddDate(0, 0, 7), createdAt, createdAt); err != nil {
 			return err
 		}
 		if _, err := app.DB.ExecContext(context.Background(), `
 			INSERT INTO reviews (id, order_id, customer_id, artist_id, rating, created_at)
 			VALUES (?, ?, ?, ?, ?, ?)
 		`, uuid.New(), orderID, customerID, artistID, ratings[index], createdAt); err != nil {
+			return err
+		}
+		if _, err := app.DB.ExecContext(context.Background(), `
+			DELETE FROM artworks WHERE id = ?
+		`, artworkID); err != nil {
 			return err
 		}
 	}

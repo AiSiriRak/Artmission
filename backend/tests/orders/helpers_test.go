@@ -6,6 +6,7 @@ import (
 	"context"
 	"time"
 
+	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -29,17 +30,18 @@ const (
 type orderRow struct {
 	bun.BaseModel `bun:"table:orders"`
 
-	ID                  uuid.UUID  `bun:"id,pk"`
-	CustomerID          uuid.UUID  `bun:"customer_id"`
-	ArtistID            uuid.UUID  `bun:"artist_id"`
-	ArtworkID           uuid.UUID  `bun:"artwork_id"`
-	Name                string     `bun:"name"`
-	PriceSatangOrder    int64      `bun:"price_satang_order"`
-	CustomerDescription string     `bun:"customer_description"`
-	DeadlineAt          *time.Time `bun:"deadline_at"`
-	Status              string     `bun:"status"`
-	CreatedAt           time.Time  `bun:"created_at"`
-	UpdatedAt           time.Time  `bun:"updated_at"`
+	ID                  uuid.UUID               `bun:"id,pk"`
+	CustomerID          uuid.UUID               `bun:"customer_id"`
+	ArtistID            uuid.UUID               `bun:"artist_id"`
+	ArtworkID           uuid.UUID               `bun:"artwork_id"`
+	ArtworkSnapshot     pgmodel.ArtworkSnapshot `bun:"artwork_snapshot"`
+	Name                string                  `bun:"name"`
+	PriceSatangOrder    int64                   `bun:"price_satang_order"`
+	CustomerDescription string                  `bun:"customer_description"`
+	DeadlineAt          *time.Time              `bun:"deadline_at"`
+	Status              string                  `bun:"status"`
+	CreatedAt           time.Time               `bun:"created_at"`
+	UpdatedAt           time.Time               `bun:"updated_at"`
 }
 
 // orderSeed describes one fixture order row's controllable fields. Every
@@ -94,10 +96,15 @@ func seedOrder(seed orderSeed) (string, error) {
 	}
 
 	row := &orderRow{
-		ID:                  uuid.New(),
-		CustomerID:          uuid.MustParse(seed.CustomerID),
-		ArtistID:            artistID,
-		ArtworkID:           artworkID,
+		ID:         uuid.New(),
+		CustomerID: uuid.MustParse(seed.CustomerID),
+		ArtistID:   artistID,
+		ArtworkID:  artworkID,
+		ArtworkSnapshot: pgmodel.ArtworkSnapshot{
+			ArtworkName: seedArtworkName,
+			CategoryID:  categoryID,
+			StyleIDs:    []uuid.UUID{},
+		},
 		Name:                seedOrderName,
 		PriceSatangOrder:    price,
 		CustomerDescription: seedCustomerDescription,

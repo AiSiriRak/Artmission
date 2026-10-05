@@ -148,7 +148,7 @@ func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.
 		err := idb.NewUpdate().
 			Model(model).
 			Column("category_id", "name", "description", "price_satang", "minimum_deadline_days", "updated_at").
-			Where("id = ? AND artist_id = ? AND deleted_at IS NULL", item.ID, item.ArtistID).
+			Where("id = ? AND artist_id = ?", item.ID, item.ArtistID).
 			Returning("created_at, updated_at").
 			Scan(ctx, &timestamps)
 		if errors.Is(err, sql.ErrNoRows) {
