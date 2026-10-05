@@ -38,3 +38,16 @@ export async function updateBankAccount(
     body: JSON.stringify(data),
   });
 }
+
+export async function UpdateProfileImage(
+  profileImage: File,
+): Promise<UserAccount> {
+  const formData = new FormData();
+  if (profileImage) {
+    formData.append("profile_image", profileImage);
+  }
+  return apiFetch<UserAccount>("/users/me/profile-image", {
+    method: "PUT",
+    body: formData,
+  });
+}

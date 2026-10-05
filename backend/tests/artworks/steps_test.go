@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -303,7 +302,7 @@ func (a *artworkContext) assertPersistedArtwork(item artworkResponse) error {
 	return nil
 }
 
-func (a *artworkContext) assertSoftDeletedArtwork() error {
+func (a *artworkContext) assertHardDeletedArtwork() error {
 	if a.response.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("expected 204, got %d: %s", a.response.StatusCode, a.response.Body)
 	}
@@ -311,26 +310,15 @@ func (a *artworkContext) assertSoftDeletedArtwork() error {
 	if err != nil {
 		return err
 	}
-	var deletedAt *time.Time
-	if err := app.DB.NewSelect().
+	exists, err := app.DB.NewSelect().
 		Table("artworks").
-		Column("deleted_at").
 		Where("id = ?", artworkID).
-		Scan(context.Background(), &deletedAt); err != nil {
-		return fmt.Errorf("read artwork deletion timestamp: %w", err)
-	}
-	if deletedAt == nil {
-		return fmt.Errorf("artwork %s was not soft deleted", artworkID)
-	}
-	activeCount, err := app.DB.NewSelect().
-		Model(new(pgmodel.Artwork)).
-		Where("id = ?", artworkID).
-		Count(context.Background())
+		Exists(context.Background())
 	if err != nil {
-		return fmt.Errorf("check active artwork: %w", err)
+		return fmt.Errorf("check deleted artwork: %w", err)
 	}
-	if activeCount != 0 {
-		return fmt.Errorf("soft-deleted artwork is still visible to model queries")
+	if exists {
+		return fmt.Errorf("artwork %s still exists after deletion", artworkID)
 	}
 	for _, table := range []string{"artwork_images", "artwork_styles"} {
 		var count int
@@ -341,8 +329,8 @@ func (a *artworkContext) assertSoftDeletedArtwork() error {
 		if err != nil {
 			return err
 		}
-		if count == 0 {
-			return fmt.Errorf("%s has no retained rows for soft-deleted artwork", table)
+		if count != 0 {
+			return fmt.Errorf("%s still has %d rows for deleted artwork", table, count)
 		}
 	}
 	return nil
@@ -500,7 +488,7 @@ func InitializeScenario(scenario *godog.ScenarioContext) {
 		return nil
 	})
 	scenario.Step(`^the artist deletes their artwork$`, func() error { return state.deleteArtwork(state.artworkID, state.accessToken) })
-	scenario.Step(`^the artwork is soft deleted and its relations are retained$`, func() error { return state.assertSoftDeletedArtwork() })
+	scenario.Step(`^the artwork is hard deleted with its relations$`, func() error { return state.assertHardDeletedArtwork() })
 	scenario.Step(`^another artist has created artwork with samples$`, func() error { return state.createArtworkForOtherArtist() })
 	scenario.Step(`^the artist deletes the other artist's artwork$`, func() error { return state.deleteArtwork(state.otherArtwork, state.accessToken) })
 	scenario.Step(`^the system reports the artwork was not found and keeps it$`, func() error { return state.assertOtherArtworkWasNotDeleted() })
