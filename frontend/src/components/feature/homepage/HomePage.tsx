@@ -45,6 +45,7 @@ export default function HomePage() {
 
   const [sort, setSort] = useState<SearchArtworksSort>("price_asc");
   const [page, setPage] = useState(1);
+  const [prevQuery, setPrevQuery] = useState(query);
   const [draftFilters, setDraftFilters] =
     useState<ArtistSearchFilters>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] =
@@ -54,9 +55,10 @@ export default function HomePage() {
   const [artworks, setArtworks] = useState<SearchArtwork[] | null>(null);
   const [total, setTotal] = useState(0);
 
-  useEffect(() => {
+  if (query !== prevQuery) {
+    setPrevQuery(query);
     setPage(1);
-  }, [query]);
+  }
 
   useEffect(() => {
     let cancelled = false;
