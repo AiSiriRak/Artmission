@@ -12,7 +12,7 @@ Feature: Artist artwork portfolio
     Given an artist is registered and logged in
     And the artist has created artwork with samples
     When the artist deletes their artwork
-    Then the artwork and its relations are deleted
+    Then the artwork is hard deleted with its relations
 
   Scenario: hide artwork ownership from another artist
     Given an artist is registered and logged in

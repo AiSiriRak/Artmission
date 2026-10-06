@@ -246,18 +246,9 @@ func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.
 	return deletedURLs, nil
 }
 
-func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, artistID uuid.UUID) ([]string, error) {
-	deletedURLs := make([]string, 0)
+func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, artistID uuid.UUID) error {
 	var result sql.Result
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
-		if err := idb.NewSelect().
-			Model(new(pgmodel.ArtworkImage)).
-			Column("ai.image_url").
-			Join("JOIN artworks AS a ON a.id = ai.artwork_id").
-			Where("ai.artwork_id = ? AND a.artist_id = ?", artworkID, artistID).
-			Scan(ctx, &deletedURLs); err != nil {
-			return err
-		}
 		var err error
 		result, err = idb.NewDelete().
 			Model(new(pgmodel.Artwork)).
@@ -266,16 +257,16 @@ func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, art
 		return err
 	})
 	if err != nil {
-		return nil, apperror.Internal("failed to delete artwork", err)
+		return apperror.Internal("failed to delete artwork", err)
 	}
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return nil, apperror.Internal("failed to inspect artwork deletion", err)
+		return apperror.Internal("failed to inspect artwork deletion", err)
 	}
 	if rows == 0 {
-		return nil, artwork.ErrArtworkNotFound
+		return artwork.ErrArtworkNotFound
 	}
-	return deletedURLs, nil
+	return nil
 }
 
 func (repo *artworkRepository) ListAllCategories(ctx context.Context) ([]artwork.Category, error) {

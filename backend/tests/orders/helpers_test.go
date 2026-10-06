@@ -6,6 +6,7 @@ import (
 	"context"
 	"time"
 
+	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -29,36 +30,33 @@ const (
 type orderRow struct {
 	bun.BaseModel `bun:"table:orders"`
 
-	ID                          uuid.UUID  `bun:"id,pk"`
-	CustomerID                  uuid.UUID  `bun:"customer_id"`
-	ArtistID                    uuid.UUID  `bun:"artist_id"`
-	Name                        string     `bun:"name"`
-	ArtworkNameSnapshot         string     `bun:"artwork_name_snapshot"`
-	ArtworkDescriptionSnapshot  string     `bun:"artwork_description_snapshot"`
-	PriceSatangSnapshot         int64      `bun:"price_satang_snapshot"`
-	MinimumDeadlineDaysSnapshot int        `bun:"minimum_deadline_days_snapshot"`
-	CustomerDescription         string     `bun:"customer_description"`
-	DeadlineAt                  *time.Time `bun:"deadline_at"`
-	Status                      string     `bun:"status"`
-	CreatedAt                   time.Time  `bun:"created_at"`
-	UpdatedAt                   time.Time  `bun:"updated_at"`
+	ID                  uuid.UUID               `bun:"id,pk"`
+	CustomerID          uuid.UUID               `bun:"customer_id"`
+	ArtistID            uuid.UUID               `bun:"artist_id"`
+	ArtworkID           uuid.UUID               `bun:"artwork_id"`
+	ArtworkSnapshot     pgmodel.ArtworkSnapshot `bun:"artwork_snapshot"`
+	Name                string                  `bun:"name"`
+	PriceSatangOrder    int64                   `bun:"price_satang_order"`
+	CustomerDescription string                  `bun:"customer_description"`
+	DeadlineAt          *time.Time              `bun:"deadline_at"`
+	Status              string                  `bun:"status"`
+	CreatedAt           time.Time               `bun:"created_at"`
+	UpdatedAt           time.Time               `bun:"updated_at"`
 }
 
 // orderSeed describes one fixture order row's controllable fields. Every
 // field left zero gets seedOrder's default (see below), so a scenario only
 // has to name the field it actually cares about — e.g. an explicit
 // UpdatedAt to control ViewOrders' default sort order deterministically.
-// The remaining NOT NULL snapshot columns (artwork name/description,
-// minimum deadline days, order name, customer description) are not test
-// inputs: every seeded order shares the fixed seed* constants above, and
-// assertions check against them.
+// The artwork and order descriptions are not test inputs: every seeded
+// order shares the fixed seed* constants above.
 type orderSeed struct {
-	CustomerID          string
-	ArtistID            string
-	Status              string
-	PriceSatangSnapshot int64
-	DeadlineAt          *time.Time
-	UpdatedAt           time.Time
+	CustomerID       string
+	ArtistID         string
+	Status           string
+	PriceSatangOrder int64
+	DeadlineAt       *time.Time
+	UpdatedAt        time.Time
 }
 
 // seedOrder inserts one order row directly against the database and
@@ -70,29 +68,50 @@ func seedOrder(seed orderSeed) (string, error) {
 	if status == "" {
 		status = "PENDING"
 	}
-	price := seed.PriceSatangSnapshot
+	price := seed.PriceSatangOrder
 	if price == 0 {
 		price = seedPriceSatang
+	}
+	categoryID, artworkID := uuid.New(), uuid.New()
+	artistID := uuid.MustParse(seed.ArtistID)
+	if _, err := app.DB.ExecContext(context.Background(), `
+		INSERT INTO categories (id, label) VALUES (?, ?)
+	`, categoryID, "Order fixture "+categoryID.String()); err != nil {
+		return "", err
+	}
+	if _, err := app.DB.ExecContext(context.Background(), `
+		INSERT INTO artworks (id, artist_id, category_id, name, description, price_satang, minimum_deadline_days)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, artworkID, artistID, categoryID, seedArtworkName, seedArtworkDescription, price, seedMinimumDeadlineDays); err != nil {
+		return "", err
 	}
 	updatedAt := seed.UpdatedAt
 	if updatedAt.IsZero() {
 		updatedAt = now
 	}
+	deadlineAt := seed.DeadlineAt
+	if deadlineAt == nil {
+		defaultDeadline := now.AddDate(0, 0, seedMinimumDeadlineDays)
+		deadlineAt = &defaultDeadline
+	}
 
 	row := &orderRow{
-		ID:                          uuid.New(),
-		CustomerID:                  uuid.MustParse(seed.CustomerID),
-		ArtistID:                    uuid.MustParse(seed.ArtistID),
-		Name:                        seedOrderName,
-		ArtworkNameSnapshot:         seedArtworkName,
-		ArtworkDescriptionSnapshot:  seedArtworkDescription,
-		PriceSatangSnapshot:         price,
-		MinimumDeadlineDaysSnapshot: seedMinimumDeadlineDays,
-		CustomerDescription:         seedCustomerDescription,
-		DeadlineAt:                  seed.DeadlineAt,
-		Status:                      status,
-		CreatedAt:                   now,
-		UpdatedAt:                   updatedAt,
+		ID:         uuid.New(),
+		CustomerID: uuid.MustParse(seed.CustomerID),
+		ArtistID:   artistID,
+		ArtworkID:  artworkID,
+		ArtworkSnapshot: pgmodel.ArtworkSnapshot{
+			ArtworkName: seedArtworkName,
+			CategoryID:  categoryID,
+			StyleIDs:    []uuid.UUID{},
+		},
+		Name:                seedOrderName,
+		PriceSatangOrder:    price,
+		CustomerDescription: seedCustomerDescription,
+		DeadlineAt:          deadlineAt,
+		Status:              status,
+		CreatedAt:           now,
+		UpdatedAt:           updatedAt,
 	}
 	if _, err := app.DB.NewInsert().Model(row).Exec(context.Background()); err != nil {
 		return "", err
@@ -110,6 +129,7 @@ type orderDeliverableRow struct {
 	OrderID          uuid.UUID `bun:"order_id"`
 	Version          int       `bun:"version"`
 	Decision         *string   `bun:"decision"`
+	Comment          *string   `bun:"comment"`
 	OriginalImageKey string    `bun:"original_image_key"`
 	PreviewImageKey  string    `bun:"preview_image_key"`
 	CreatedAt        time.Time `bun:"created_at"`
@@ -123,11 +143,16 @@ type orderDeliverableRow struct {
 // order, so every version before the latest in a multi-version fixture
 // must pass a non-nil decision.
 func seedDeliverable(orderID string, version int, previewKey string, decision *string) error {
+	var comment *string
+	if decision != nil && *decision == "REJECTED" {
+		comment = new("Please revise this version.")
+	}
 	row := &orderDeliverableRow{
 		ID:               uuid.New(),
 		OrderID:          uuid.MustParse(orderID),
 		Version:          version,
 		Decision:         decision,
+		Comment:          comment,
 		OriginalImageKey: previewKey + ".original",
 		PreviewImageKey:  previewKey,
 		CreatedAt:        time.Now(),

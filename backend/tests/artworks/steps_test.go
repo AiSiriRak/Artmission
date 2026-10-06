@@ -311,7 +311,7 @@ func (a *artworkContext) assertPersistedArtwork(item artworkResponse) error {
 	return nil
 }
 
-func (a *artworkContext) assertDeletedArtwork() error {
+func (a *artworkContext) assertHardDeletedArtwork() error {
 	if a.response.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("expected 204, got %d: %s", a.response.StatusCode, a.response.Body)
 	}
@@ -319,15 +319,22 @@ func (a *artworkContext) assertDeletedArtwork() error {
 	if err != nil {
 		return err
 	}
-	for _, table := range []string{"artworks", "artwork_images", "artwork_styles"} {
+	exists, err := app.DB.NewSelect().
+		Table("artworks").
+		Where("id = ?", artworkID).
+		Exists(context.Background())
+	if err != nil {
+		return fmt.Errorf("check deleted artwork: %w", err)
+	}
+	if exists {
+		return fmt.Errorf("artwork %s still exists after deletion", artworkID)
+	}
+	for _, table := range []string{"artwork_images", "artwork_styles"} {
 		var count int
-		query := app.DB.NewSelect().Table(table)
-		if table == "artworks" {
-			query = query.Where("id = ?", artworkID)
-		} else {
-			query = query.Where("artwork_id = ?", artworkID)
-		}
-		count, err = query.Count(context.Background())
+		count, err = app.DB.NewSelect().
+			Table(table).
+			Where("artwork_id = ?", artworkID).
+			Count(context.Background())
 		if err != nil {
 			return err
 		}
@@ -517,7 +524,7 @@ func InitializeScenario(scenario *godog.ScenarioContext) {
 		return nil
 	})
 	scenario.Step(`^the artist deletes their artwork$`, func() error { return state.deleteArtwork(state.artworkID, state.accessToken) })
-	scenario.Step(`^the artwork and its relations are deleted$`, func() error { return state.assertDeletedArtwork() })
+	scenario.Step(`^the artwork is hard deleted with its relations$`, func() error { return state.assertHardDeletedArtwork() })
 	scenario.Step(`^another artist has created artwork with samples$`, func() error { return state.createArtworkForOtherArtist() })
 	scenario.Step(`^the artist deletes the other artist's artwork$`, func() error { return state.deleteArtwork(state.otherArtwork, state.accessToken) })
 	scenario.Step(`^the system reports the artwork was not found and keeps it$`, func() error { return state.assertOtherArtworkWasNotDeleted() })

@@ -104,17 +104,9 @@ func (u *usecase) Delete(ctx context.Context, artistID, artworkID uuid.UUID) err
 	if artistID == uuid.Nil || artworkID == uuid.Nil {
 		return apperror.InvalidInput("artwork id and artist id must not be empty", nil)
 	}
-	var deletedURLs []string
-	err := u.tx.Transaction(ctx, func(ctx context.Context) error {
-		var err error
-		deletedURLs, err = u.repo.DeleteOwnedBy(ctx, artworkID, artistID)
-		return err
+	return u.tx.Transaction(ctx, func(ctx context.Context) error {
+		return u.repo.DeleteOwnedBy(ctx, artworkID, artistID)
 	})
-	if err != nil {
-		return err
-	}
-	u.deleteSampleURLs(ctx, deletedURLs)
-	return nil
 }
 
 func normalizeArtwork(id uuid.UUID, input CreateInput) (*Artwork, []uuid.UUID, error) {

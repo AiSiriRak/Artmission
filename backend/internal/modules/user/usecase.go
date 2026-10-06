@@ -1,7 +1,10 @@
 package user
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -17,6 +20,7 @@ type userUsecase struct {
 	artistRegistrar ArtistRegistrar
 	deletionRepo    AccountDeletionRepository
 	tx              Transactioner
+	storage         ObjectStorage
 }
 
 func NewUserUsecase(
@@ -25,6 +29,7 @@ func NewUserUsecase(
 	artistRegistrar ArtistRegistrar,
 	deletionRepo AccountDeletionRepository,
 	tx Transactioner,
+	storage ObjectStorage,
 ) UserUsecase {
 	return &userUsecase{
 		repo:            repo,
@@ -32,6 +37,7 @@ func NewUserUsecase(
 		artistRegistrar: artistRegistrar,
 		deletionRepo:    deletionRepo,
 		tx:              tx,
+		storage:         storage,
 	}
 }
 
@@ -128,11 +134,15 @@ func (u *userUsecase) Authenticate(ctx context.Context, email, password string) 
 	if !security.VerifyPassword(found.PasswordHash, password) {
 		return nil, ErrInvalidCredential
 	}
-	return found, nil
+	return u.attachProfileImageURL(found), nil
 }
 
 func (u *userUsecase) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
-	return u.repo.GetByID(ctx, id)
+	account, err := u.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return u.attachProfileImageURL(account), nil
 }
 
 func (u *userUsecase) UpdateAccount(ctx context.Context, id uuid.UUID, in UpdateAccountInput) (*User, error) {
@@ -161,11 +171,15 @@ func (u *userUsecase) UpdateAccount(ctx context.Context, id uuid.UUID, in Update
 		passwordHash = &hash
 	}
 
-	return u.repo.UpdateAccountByID(ctx, id, AccountUpdate{
+	account, err := u.repo.UpdateAccountByID(ctx, id, AccountUpdate{
 		Username:     username,
 		PasswordHash: passwordHash,
 		UpdatedAt:    time.Now(),
 	})
+	if err != nil {
+		return nil, err
+	}
+	return u.attachProfileImageURL(account), nil
 }
 
 func (u *userUsecase) UpdateBankAccount(ctx context.Context, userID uuid.UUID, role Role, in BankAccountInput) (*BankAccount, error) {
@@ -197,4 +211,88 @@ func (u *userUsecase) GetBankAccount(ctx context.Context, userID uuid.UUID, role
 		return nil, ErrBankAccountNotAllowed
 	}
 	return u.bankRepo.GetByUserID(ctx, userID)
+}
+
+func (u *userUsecase) UpdateProfileImage(
+	ctx context.Context,
+	id uuid.UUID,
+	in UpdateProfileImageInput,
+) (*User, error) {
+	if in.ProfileImage == nil && !in.RemoveProfileImage {
+		return nil, ErrNoProfileChanges
+	}
+	if in.ProfileImage != nil && in.RemoveProfileImage {
+		return nil, ErrConflictingProfileImageChange
+	}
+
+	currentUser, err := u.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var newKey *string
+	if in.ProfileImage != nil {
+		content, contentType, extension, err := readProfileImage(in.ProfileImage)
+		if err != nil {
+			return nil, err
+		}
+		key := fmt.Sprintf("profile-images/%s/%s.%s", id, uuid.New(), extension)
+		if err := u.storage.Upload(ctx, key, bytes.NewReader(content), contentType); err != nil {
+			return nil, apperror.Internal("failed to upload profile image", err)
+		}
+		newKey = &key
+	}
+
+	updatedUser, err := u.repo.UpdateProfileImageByID(ctx, id, newKey)
+	if err != nil {
+		if newKey != nil {
+			_ = u.storage.Delete(ctx, *newKey)
+		}
+		return nil, err
+	}
+
+	// Delete the old one if there's change or delete
+	if currentUser.ProfileImageKey != nil && (in.RemoveProfileImage || newKey != nil) {
+		_ = u.storage.Delete(ctx, *currentUser.ProfileImageKey)
+	}
+
+	return u.attachProfileImageURL(updatedUser), nil
+}
+
+func (u *userUsecase) attachProfileImageURL(account *User) *User {
+	if account.ProfileImageKey == nil {
+		account.ProfileImageURL = nil
+		return account
+	}
+	url := u.storage.PublicURL(*account.ProfileImageKey)
+	account.ProfileImageURL = &url
+	return account
+}
+
+func readProfileImage(reader io.Reader) ([]byte, string, string, error) {
+	content, err := io.ReadAll(io.LimitReader(reader, MaxProfileImageSize+1))
+	if err != nil {
+		return nil, "", "", apperror.InvalidInput("failed to read profile image", err)
+	}
+	if len(content) > MaxProfileImageSize {
+		return nil, "", "", ErrProfileImageTooLarge
+	}
+	contentType, extension, ok := detectProfileImageType(content)
+	if !ok {
+		return nil, "", "", ErrInvalidProfileImage
+	}
+	return content, contentType, extension, nil
+}
+
+func detectProfileImageType(content []byte) (string, string, bool) {
+	switch {
+	case len(content) >= 3 && bytes.Equal(content[:3], []byte{0xff, 0xd8, 0xff}):
+		return "image/jpeg", "jpg", true
+	case len(content) >= 8 && bytes.Equal(content[:8], []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}):
+		return "image/png", "png", true
+	case len(content) >= 12 && string(content[:4]) == "RIFF" && string(content[8:12]) == "WEBP":
+		return "image/webp", "webp", true
+	default:
+		return "", "", false
+	}
 }
