@@ -15,12 +15,14 @@ type orderUsecase struct {
 	storage ObjectStorage
 }
 
+// NewOrderUsecase creates the order use case with its repository and storage dependencies.
 func NewOrderUsecase(repo OrderRepository, storage ObjectStorage) OrderUsecase {
 	return &orderUsecase{repo: repo, storage: storage}
 }
 
 const orderDeliverableTTL = 15 * time.Minute
 
+// ViewOrders validates the query, retrieves its page, and resolves preview keys to URLs.
 func (u *orderUsecase) ViewOrders(ctx context.Context, query ListQuery) (Page, error) {
 	normalized, err := normalizeListQuery(query)
 	if err != nil {
@@ -50,10 +52,10 @@ func (u *orderUsecase) ViewOrders(ctx context.Context, query ListQuery) (Page, e
 // normalizeListQuery validates query and defaults every optional field.
 func normalizeListQuery(q ListQuery) (ListQuery, error) {
 	if !q.Participant.IsValid() {
-		return ListQuery{}, apperror.Forbidden("unsupported participant role")
+		return ListQuery{}, ErrUnsupportedParticipantRole
 	}
 	if q.ParticipantID == uuid.Nil {
-		return ListQuery{}, apperror.InvalidInput("missing participant id", nil)
+		return ListQuery{}, ErrMissingParticipantID
 	}
 
 	statuses, err := normalizeStatuses(q.Statuses)
@@ -112,4 +114,52 @@ func normalizeStatuses(in []Status) ([]Status, error) {
 
 	slices.Sort(out)
 	return out, nil
+}
+
+// GetOrder returns an order detail if the authenticated user is a participant
+// in the order. The other party is selected based on the authenticated
+// participant's role.
+func (u *orderUsecase) GetOrder(
+	ctx context.Context,
+	participant Participant,
+	participantID uuid.UUID,
+	orderID uuid.UUID,
+) (*OrderDetail, error) {
+	if !participant.IsValid() {
+		return nil, ErrUnsupportedParticipantRole
+	}
+	if participantID == uuid.Nil {
+		return nil, ErrMissingParticipantID
+	}
+
+	if orderID == uuid.Nil {
+		return nil, ErrMissingOrderID
+	}
+
+	data, err := u.repo.GetOrderByID(
+		ctx,
+		participant,
+		participantID,
+		orderID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if data == nil {
+		return nil, apperror.Internal("order repository returned no order detail", nil)
+	}
+
+	detail := &OrderDetail{
+		Order:           data.Order,
+		ArtworkSnapshot: data.ArtworkSnapshot,
+	}
+
+	switch participant {
+	case ParticipantCustomer:
+		detail.OtherParty = data.Artist
+	case ParticipantArtist:
+		detail.OtherParty = data.Customer
+	}
+
+	return detail, nil
 }

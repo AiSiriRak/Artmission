@@ -15,14 +15,34 @@ import (
 // the usecase) and returns a fixed page or error, so tests can assert on
 // exactly what the usecase delegates.
 type fakeRepo struct {
-	gotQuery order.ListQuery
-	page     order.Page
-	err      error
+	gotQuery         order.ListQuery
+	page             order.Page
+	err              error
+	gotParticipant   order.Participant
+	gotParticipantID uuid.UUID
+	gotOrderID       uuid.UUID
+	orderDetailData  *order.OrderDetailData
+	orderErr         error
+	getOrderCalled   bool
 }
 
 func (f *fakeRepo) ListOrders(_ context.Context, query order.ListQuery) (order.Page, error) {
 	f.gotQuery = query
 	return f.page, f.err
+}
+
+func (f *fakeRepo) GetOrderByID(
+	_ context.Context,
+	participant order.Participant,
+	participantID uuid.UUID,
+	orderID uuid.UUID,
+) (*order.OrderDetailData, error) {
+	f.getOrderCalled = true
+	f.gotParticipant = participant
+	f.gotParticipantID = participantID
+	f.gotOrderID = orderID
+
+	return f.orderDetailData, f.orderErr
 }
 
 var _ order.OrderRepository = (*fakeRepo)(nil)
@@ -258,5 +278,288 @@ func TestViewOrders_PropagatesPresignError(t *testing.T) {
 	var appErr *apperror.Error
 	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInternal {
 		t.Fatalf("ViewOrders() error = %v, want *apperror.Error{Code: CodeInternal}", err)
+	}
+}
+
+func TestGetOrder_RejectsUnsupportedParticipant(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	_, err := usecase.GetOrder(
+		context.Background(),
+		order.Participant("admin"),
+		uuid.New(),
+		uuid.New(),
+	)
+
+	wantForbidden(t, err)
+
+	if repo.getOrderCalled {
+		t.Error("GetOrderByID() should not be called for unsupported participant")
+	}
+}
+
+func TestGetOrder_RejectsMissingParticipantID(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	_, err := usecase.GetOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		uuid.Nil,
+		uuid.New(),
+	)
+
+	wantInvalidInput(t, err)
+
+	if repo.getOrderCalled {
+		t.Error("GetOrderByID() should not be called for missing participant ID")
+	}
+}
+
+func TestGetOrder_RejectsMissingOrderID(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	_, err := usecase.GetOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		uuid.New(),
+		uuid.Nil,
+	)
+
+	wantInvalidInput(t, err)
+
+	if repo.getOrderCalled {
+		t.Error("GetOrderByID() should not be called for missing order ID")
+	}
+}
+
+func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
+	orderID := uuid.New()
+	customerID := uuid.New()
+	artistID := uuid.New()
+
+	artistScore := 4.8
+
+	wantOrder := order.Order{
+		ID:         orderID,
+		CustomerID: customerID,
+		ArtistID:   artistID,
+		Name:       "Test commission",
+		Status:     order.StatusPending,
+	}
+
+	customer := order.OrderParty{
+		ID:    customerID,
+		Name:  "Customer",
+		Email: "customer@example.com",
+	}
+
+	artist := order.OrderParty{
+		ID:                artistID,
+		Name:              "Artist",
+		Email:             "artist@example.com",
+		ArtistReviewScore: &artistScore,
+	}
+
+	repo := &fakeRepo{
+		orderDetailData: &order.OrderDetailData{
+			Order:    wantOrder,
+			Customer: customer,
+			Artist:   artist,
+		},
+	}
+
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	got, err := usecase.GetOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		customerID,
+		orderID,
+	)
+	if err != nil {
+		t.Fatalf("GetOrder() error = %v, want nil", err)
+	}
+
+	if repo.gotParticipant != order.ParticipantCustomer {
+		t.Errorf(
+			"Participant = %q, want %q",
+			repo.gotParticipant,
+			order.ParticipantCustomer,
+		)
+	}
+
+	if repo.gotParticipantID != customerID {
+		t.Errorf(
+			"ParticipantID = %v, want %v",
+			repo.gotParticipantID,
+			customerID,
+		)
+	}
+
+	if repo.gotOrderID != orderID {
+		t.Errorf(
+			"OrderID = %v, want %v",
+			repo.gotOrderID,
+			orderID,
+		)
+	}
+
+	if got.Order.ID != orderID {
+		t.Errorf("Order.ID = %v, want %v", got.Order.ID, orderID)
+	}
+
+	if got.OtherParty.ID != artistID {
+		t.Errorf(
+			"OtherParty.ID = %v, want %v",
+			got.OtherParty.ID,
+			artistID,
+		)
+	}
+
+	if got.OtherParty.Name != artist.Name {
+		t.Errorf(
+			"OtherParty.Name = %q, want %q",
+			got.OtherParty.Name,
+			artist.Name,
+		)
+	}
+
+	if got.OtherParty.Email != artist.Email {
+		t.Errorf(
+			"OtherParty.Email = %q, want %q",
+			got.OtherParty.Email,
+			artist.Email,
+		)
+	}
+
+	if got.OtherParty.ArtistReviewScore == nil {
+		t.Fatal("OtherParty.ArtistReviewScore = nil, want artist score")
+	}
+
+	if *got.OtherParty.ArtistReviewScore != artistScore {
+		t.Errorf(
+			"OtherParty.ArtistReviewScore = %v, want %v",
+			*got.OtherParty.ArtistReviewScore,
+			artistScore,
+		)
+	}
+}
+
+func TestGetOrder_ArtistGetsCustomerAsOtherParty(t *testing.T) {
+	orderID := uuid.New()
+	customerID := uuid.New()
+	artistID := uuid.New()
+
+	wantOrder := order.Order{
+		ID:         orderID,
+		CustomerID: customerID,
+		ArtistID:   artistID,
+		Name:       "Test commission",
+		Status:     order.StatusPending,
+	}
+
+	customer := order.OrderParty{
+		ID:    customerID,
+		Name:  "Customer",
+		Email: "customer@example.com",
+	}
+
+	artist := order.OrderParty{
+		ID:    artistID,
+		Name:  "Artist",
+		Email: "artist@example.com",
+	}
+
+	repo := &fakeRepo{
+		orderDetailData: &order.OrderDetailData{
+			Order:    wantOrder,
+			Customer: customer,
+			Artist:   artist,
+		},
+	}
+
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	got, err := usecase.GetOrder(
+		context.Background(),
+		order.ParticipantArtist,
+		artistID,
+		orderID,
+	)
+	if err != nil {
+		t.Fatalf("GetOrder() error = %v, want nil", err)
+	}
+
+	if got.OtherParty.ID != customerID {
+		t.Errorf(
+			"OtherParty.ID = %v, want %v",
+			got.OtherParty.ID,
+			customerID,
+		)
+	}
+
+	if got.OtherParty.Name != customer.Name {
+		t.Errorf(
+			"OtherParty.Name = %q, want %q",
+			got.OtherParty.Name,
+			customer.Name,
+		)
+	}
+
+	if got.OtherParty.Email != customer.Email {
+		t.Errorf(
+			"OtherParty.Email = %q, want %q",
+			got.OtherParty.Email,
+			customer.Email,
+		)
+	}
+
+	if got.OtherParty.ArtistReviewScore != nil {
+		t.Errorf(
+			"OtherParty.ArtistReviewScore = %v, want nil for customer",
+			*got.OtherParty.ArtistReviewScore,
+		)
+	}
+}
+
+func TestGetOrder_PropagatesRepositoryError(t *testing.T) {
+	wantErr := apperror.Internal("boom", nil)
+
+	repo := &fakeRepo{
+		orderErr: wantErr,
+	}
+
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	orderID := uuid.New()
+	participantID := uuid.New()
+
+	_, err := usecase.GetOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		participantID,
+		orderID,
+	)
+	if !errors.Is(err, wantErr) {
+		t.Errorf("GetOrder() error = %v, want %v", err, wantErr)
+	}
+}
+
+func TestGetOrder_RejectsNilRepositoryResult(t *testing.T) {
+	usecase := order.NewOrderUsecase(&fakeRepo{}, fakeStorage{})
+
+	_, err := usecase.GetOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		uuid.New(),
+		uuid.New(),
+	)
+
+	var appErr *apperror.Error
+	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInternal {
+		t.Fatalf("GetOrder() error = %v, want internal application error", err)
 	}
 }

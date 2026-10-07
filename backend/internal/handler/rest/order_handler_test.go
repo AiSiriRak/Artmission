@@ -20,15 +20,25 @@ import (
 
 type fakeOrderUsecase struct {
 	viewOrdersFunc func(context.Context, order.ListQuery) (order.Page, error)
+	getOrderFunc   func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
 	gotListQuery   order.ListQuery
+	gotParticipant order.Participant
+	gotUserID      uuid.UUID
+	gotOrderID     uuid.UUID
 }
 
 func (f *fakeOrderUsecase) GetOrder(
-	context.Context,
-	order.Participant,
-	uuid.UUID,
-	uuid.UUID,
+	ctx context.Context,
+	participant order.Participant,
+	userID uuid.UUID,
+	orderID uuid.UUID,
 ) (*order.OrderDetail, error) {
+	f.gotParticipant = participant
+	f.gotUserID = userID
+	f.gotOrderID = orderID
+	if f.getOrderFunc != nil {
+		return f.getOrderFunc(ctx, participant, userID, orderID)
+	}
 	return nil, nil
 }
 
@@ -145,6 +155,137 @@ func TestOrderHandlerViewOrdersReturnsFilteredPage(t *testing.T) {
 			}
 			if !reflect.DeepEqual(usecase.gotListQuery, wantQuery) {
 				t.Errorf("list query = %+v, want %+v", usecase.gotListQuery, wantQuery)
+			}
+		})
+	}
+}
+
+func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
+	const (
+		userID     = "00000000-0000-0000-0000-000000000001"
+		orderID    = "00000000-0000-0000-0000-000000000010"
+		customerID = "00000000-0000-0000-0000-000000000002"
+		artistID   = "00000000-0000-0000-0000-000000000003"
+		artworkID  = "00000000-0000-0000-0000-000000000004"
+	)
+	deadline := time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC)
+	createdAt := time.Date(2026, time.October, 1, 12, 0, 0, 0, time.UTC)
+	completedAt := time.Date(2026, time.October, 9, 12, 0, 0, 0, time.UTC)
+	reviewScore := 4.5
+
+	for _, tt := range []struct {
+		name        string
+		role        user.Role
+		participant order.Participant
+	}{
+		{name: "customer", role: user.RoleCustomer, participant: order.ParticipantCustomer},
+		{name: "artist", role: user.RoleArtist, participant: order.ParticipantArtist},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			customerUUID := uuid.MustParse(customerID)
+			artistUUID := uuid.MustParse(artistID)
+			otherParty := order.OrderParty{
+				ID:                artistUUID,
+				Name:              "Artist",
+				Email:             "artist@example.com",
+				ArtistReviewScore: &reviewScore,
+			}
+			if tt.role == user.RoleCustomer {
+				customerUUID = uuid.MustParse(userID)
+			} else {
+				artistUUID = uuid.MustParse(userID)
+				otherParty = order.OrderParty{
+					ID:    customerUUID,
+					Name:  "Customer",
+					Email: "customer@example.com",
+				}
+			}
+			artworkUUID := uuid.MustParse(artworkID)
+
+			detail := &order.OrderDetail{
+				Order: order.Order{
+					ID:                  uuid.MustParse(orderID),
+					CustomerID:          customerUUID,
+					ArtistID:            artistUUID,
+					Name:                "Portrait Commission",
+					ArtworkID:           &artworkUUID,
+					PriceSatangOrder:    150000,
+					CustomerDescription: "Draw a portrait",
+					DeadlineAt:          deadline,
+					Status:              order.StatusSuccess,
+					CompletedAt:         &completedAt,
+					CreatedAt:           createdAt,
+					UpdatedAt:           completedAt,
+				},
+				ArtworkSnapshot: order.ArtworkSnapshot{
+					ArtworkName: "Portrait Example",
+					CategoryID:  uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+					StyleIDs: []uuid.UUID{
+						uuid.MustParse("00000000-0000-0000-0000-000000000021"),
+						uuid.MustParse("00000000-0000-0000-0000-000000000022"),
+					},
+				},
+				OtherParty: otherParty,
+			}
+			usecase := &fakeOrderUsecase{
+				getOrderFunc: func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error) {
+					return detail, nil
+				},
+			}
+			handler := newOrderTestHandler(t, tt.role, usecase)
+			rec := serveOrderRequest(handler, http.MethodGet, "/orders/"+orderID, true)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+			}
+
+			var got orderDetailView
+			if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			categoryID := "00000000-0000-0000-0000-000000000020"
+			styleIDs := []string{
+				"00000000-0000-0000-0000-000000000021",
+				"00000000-0000-0000-0000-000000000022",
+			}
+			artworkIDString := artworkUUID.String()
+			want := orderDetailView{
+				ID:                  orderID,
+				CustomerID:          customerUUID.String(),
+				ArtistID:            artistUUID.String(),
+				Name:                "Portrait Commission",
+				ArtworkID:           &artworkIDString,
+				ArtworkSnapshot:     artworkSnapshotView{ArtworkName: "Portrait Example", CategoryID: categoryID, StyleIDs: styleIDs},
+				PriceSatang:         150000,
+				CustomerDescription: "Draw a portrait",
+				DeadlineAt:          deadline,
+				Status:              string(order.StatusSuccess),
+				CompletedAt:         &completedAt,
+				CreatedAt:           createdAt,
+				UpdatedAt:           completedAt,
+				OtherParty: orderPartyView{
+					ID:                otherParty.ID.String(),
+					Name:              otherParty.Name,
+					Email:             otherParty.Email,
+					ArtistReviewScore: otherParty.ArtistReviewScore,
+				},
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("response body = %+v, want %+v", got, want)
+			}
+
+			if usecase.gotParticipant != tt.participant ||
+				usecase.gotUserID != uuid.MustParse(userID) ||
+				usecase.gotOrderID != uuid.MustParse(orderID) {
+				t.Errorf(
+					"get order input = participant %q, userID %s, orderID %s; want %q, %s, %s",
+					usecase.gotParticipant,
+					usecase.gotUserID,
+					usecase.gotOrderID,
+					tt.participant,
+					userID,
+					orderID,
+				)
 			}
 		})
 	}

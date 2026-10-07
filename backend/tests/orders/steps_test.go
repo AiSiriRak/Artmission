@@ -32,10 +32,12 @@ type ordersContext struct {
 	firstPageIDs []string          // remembered first page, for later-offset assertions
 
 	lastOrderID               string // most recently seeded order's ID, for single-order deliverable-preview assertions
+	otherOrderID              string // order ID seeded for an account other than o.account
 	lastDeliverablePreviewKey string // most recently seeded deliverable version's preview_image_key
 
-	resp *apptest.Response
-	page viewOrdersOutput // last response decoded while resp.StatusCode == 200
+	resp        *apptest.Response
+	page        viewOrdersOutput // last response decoded while resp.StatusCode == 200
+	orderDetail orderDetailOutput
 }
 
 // --- given ---
@@ -94,6 +96,7 @@ func (o *ordersContext) theUserHasAnOrder() error {
 		return err
 	}
 	o.seededOrders[id] = "PENDING"
+	o.lastOrderID = id
 	return nil
 }
 
@@ -199,7 +202,7 @@ func (o *ordersContext) anotherCustomerHasAnOrder() error {
 	if err != nil {
 		return err
 	}
-	_, err = seedOrder(orderSeed{CustomerID: other.ID, ArtistID: artist.ID})
+	o.otherOrderID, err = seedOrder(orderSeed{CustomerID: other.ID, ArtistID: artist.ID})
 	return err
 }
 
@@ -212,7 +215,7 @@ func (o *ordersContext) anotherArtistHasAnOrder() error {
 	if err != nil {
 		return err
 	}
-	_, err = seedOrder(orderSeed{CustomerID: customer.ID, ArtistID: other.ID})
+	o.otherOrderID, err = seedOrder(orderSeed{CustomerID: customer.ID, ArtistID: other.ID})
 	return err
 }
 
@@ -253,6 +256,41 @@ func (o *ordersContext) theUserViewsTheirOrdersWithoutLoggingIn() error {
 		return err
 	}
 	o.resp = resp
+	return nil
+}
+
+// theUserViewsTheirLastOrder fetches the most recently seeded order detail as the authenticated user.
+func (o *ordersContext) theUserViewsTheirLastOrder() error {
+	return o.getOrder(o.lastOrderID, true)
+}
+
+// theUserViewsTheirLastOrderWithoutLoggingIn fetches order detail without an access token.
+func (o *ordersContext) theUserViewsTheirLastOrderWithoutLoggingIn() error {
+	return o.getOrder(o.lastOrderID, false)
+}
+
+// theUserViewsAnotherUsersOrder fetches an order that belongs to a different account.
+func (o *ordersContext) theUserViewsAnotherUsersOrder() error {
+	return o.getOrder(o.otherOrderID, true)
+}
+
+// getOrder sends GET /orders/{id} and decodes a successful detail response.
+func (o *ordersContext) getOrder(orderID string, authenticated bool) error {
+	headers := map[string]string(nil)
+	if authenticated {
+		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
+	}
+	resp, err := o.client.Do(http.MethodGet, "/orders/"+orderID, nil, headers)
+	if err != nil {
+		return err
+	}
+	o.resp = resp
+	o.orderDetail = orderDetailOutput{}
+	if resp.StatusCode == http.StatusOK {
+		if err := resp.JSON(&o.orderDetail); err != nil {
+			return fmt.Errorf("decode order detail response: %w (body: %s)", err, resp.Body)
+		}
+	}
 	return nil
 }
 
@@ -326,6 +364,33 @@ type orderSummaryView struct {
 type viewOrdersOutput struct {
 	Orders []orderSummaryView `json:"orders"`
 	Total  int                `json:"total"`
+}
+
+type orderDetailOutput struct {
+	ID                  string                `json:"id"`
+	CustomerID          string                `json:"customer_id"`
+	ArtistID            string                `json:"artist_id"`
+	Name                string                `json:"name"`
+	ArtworkID           *string               `json:"artwork_id"`
+	ArtworkSnapshot     artworkSnapshotOutput `json:"artwork_snapshot"`
+	PriceSatang         int64                 `json:"price_satang"`
+	CustomerDescription string                `json:"customer_description"`
+	DeadlineAt          time.Time             `json:"deadline_at"`
+	Status              string                `json:"status"`
+	OtherParty          orderPartyOutput      `json:"other_party"`
+}
+
+type artworkSnapshotOutput struct {
+	ArtworkName string   `json:"artwork_name"`
+	CategoryID  string   `json:"category_id"`
+	StyleIDs    []string `json:"style_ids"`
+}
+
+type orderPartyOutput struct {
+	ID                string   `json:"id"`
+	Name              string   `json:"name"`
+	Email             string   `json:"email"`
+	ArtistReviewScore *float64 `json:"artist_review_score"`
 }
 
 func idsOf(orders []orderSummaryView) []string {
@@ -543,6 +608,58 @@ func (o *ordersContext) theSystemRequiresTheUserToLogIn() error {
 	return o.expectStatus(http.StatusUnauthorized)
 }
 
+// theSystemShowsTheOrderDetailsForTheUser checks persisted details and the caller's opposite party.
+func (o *ordersContext) theSystemShowsTheOrderDetailsForTheUser() error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	got := o.orderDetail
+	if got.ID != o.lastOrderID {
+		return fmt.Errorf("order detail ID = %q, want %q", got.ID, o.lastOrderID)
+	}
+	if got.Name != seedOrderName ||
+		got.PriceSatang != seedPriceSatang ||
+		got.CustomerDescription != seedCustomerDescription ||
+		got.Status != "PENDING" {
+		return fmt.Errorf("order detail does not match seeded order: %+v", got)
+	}
+	if got.ArtworkID == nil || *got.ArtworkID == "" {
+		return fmt.Errorf("expected order detail to include artwork_id: %+v", got)
+	}
+	if got.ArtworkSnapshot.ArtworkName != seedArtworkName ||
+		got.ArtworkSnapshot.CategoryID == "" ||
+		len(got.ArtworkSnapshot.StyleIDs) != 0 {
+		return fmt.Errorf("unexpected artwork snapshot: %+v", got.ArtworkSnapshot)
+	}
+	if got.DeadlineAt.IsZero() {
+		return fmt.Errorf("expected order detail to include a deadline: %+v", got)
+	}
+
+	var expectedParty apptest.Account
+	if o.accountRole == "artist" {
+		if got.CustomerID != o.counterpart.ID || got.ArtistID != o.account.ID {
+			return fmt.Errorf("order participants = customer %q artist %q; want customer %q artist %q", got.CustomerID, got.ArtistID, o.counterpart.ID, o.account.ID)
+		}
+		expectedParty = o.counterpart
+	} else {
+		if got.CustomerID != o.account.ID || got.ArtistID != o.counterpart.ID {
+			return fmt.Errorf("order participants = customer %q artist %q; want customer %q artist %q", got.CustomerID, got.ArtistID, o.account.ID, o.counterpart.ID)
+		}
+		expectedParty = o.counterpart
+	}
+	if got.OtherParty.ID != expectedParty.ID ||
+		got.OtherParty.Name != expectedParty.Username ||
+		got.OtherParty.Email != expectedParty.Email {
+		return fmt.Errorf("other_party = %+v; want account ID %q, username %q, email %q", got.OtherParty, expectedParty.ID, expectedParty.Username, expectedParty.Email)
+	}
+	return nil
+}
+
+// theSystemHidesTheOrderFromTheUser verifies another participant's order is reported as not found.
+func (o *ordersContext) theSystemHidesTheOrderFromTheUser() error {
+	return o.expectStatus(http.StatusNotFound)
+}
+
 func (o *ordersContext) decodeOrders() (viewOrdersOutput, error) {
 	if o.resp.StatusCode != http.StatusOK {
 		return viewOrdersOutput{}, fmt.Errorf("expected response status 200, got %d: %s", o.resp.StatusCode, o.resp.Body)
@@ -569,7 +686,7 @@ func (o *ordersContext) expectClientError() error {
 	return nil
 }
 
-// InitializeScenario registers every ViewOrders step and resets the
+// InitializeScenario registers order endpoint steps and resets the
 // scenario context (a fresh client with an empty cookie jar) before each
 // scenario, so scenarios never see each other's cookies or fixtures.
 func InitializeScenario(sc *godog.ScenarioContext) {
@@ -602,6 +719,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	// when
 	sc.Step(`^the user views their orders$`, func() error { return o.theUserViewsTheirOrders() })
 	sc.Step(`^the user views their orders without logging in$`, func() error { return o.theUserViewsTheirOrdersWithoutLoggingIn() })
+	sc.Step(`^the user views their last order$`, func() error { return o.theUserViewsTheirLastOrder() })
+	sc.Step(`^the user views their last order without logging in$`, func() error { return o.theUserViewsTheirLastOrderWithoutLoggingIn() })
+	sc.Step(`^the user views another user's order$`, func() error { return o.theUserViewsAnotherUsersOrder() })
 	sc.Step(`^the user views their orders filtered by status "([^"]*)"$`, func(status string) error {
 		return o.theUserViewsTheirOrdersFilteredByStatus(status)
 	})
@@ -641,6 +761,12 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system returns the first page of orders again$`, func() error { return o.theSystemReturnsTheFirstPageOfOrdersAgain() })
 	sc.Step(`^the system reports a total of (\d+) orders$`, func(n int) error { return o.theSystemReportsATotalOfNOrders(n) })
 	sc.Step(`^the system requires the user to log in$`, func() error { return o.theSystemRequiresTheUserToLogIn() })
+	sc.Step(`^the system shows the order details for the user$`, func() error {
+		return o.theSystemShowsTheOrderDetailsForTheUser()
+	})
+	sc.Step(`^the system hides the order from the user$`, func() error {
+		return o.theSystemHidesTheOrderFromTheUser()
+	})
 	sc.Step(`^the system rejects the request due to an invalid offset$`, func() error { return o.expectClientError() })
 	sc.Step(`^the system rejects the request due to an invalid status$`, func() error { return o.expectClientError() })
 }

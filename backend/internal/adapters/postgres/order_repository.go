@@ -2,7 +2,9 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"time"
 
 	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
@@ -12,6 +14,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// orderModelToDomain converts a PostgreSQL order model into its domain value.
 func orderModelToDomain(m *pgmodel.Order) order.Order {
 	return order.Order{
 		ID:                  m.ID,
@@ -29,12 +32,39 @@ func orderModelToDomain(m *pgmodel.Order) order.Order {
 	}
 }
 
+type orderDetailModel struct {
+	bun.BaseModel `bun:"table:orders,alias:o"`
+
+	ID                  uuid.UUID               `bun:"id,pk"`
+	CustomerID          uuid.UUID               `bun:"customer_id"`
+	ArtistID            uuid.UUID               `bun:"artist_id"`
+	Name                string                  `bun:"name"`
+	ArtworkID           *uuid.UUID              `bun:"artwork_id"`
+	ArtworkSnapshot     pgmodel.ArtworkSnapshot `bun:"artwork_snapshot"`
+	PriceSatangOrder    int64                   `bun:"price_satang_order"`
+	CustomerDescription string                  `bun:"customer_description"`
+	DeadlineAt          time.Time               `bun:"deadline_at"`
+	Status              string                  `bun:"status"`
+	CompletedAt         *time.Time              `bun:"completed_at"`
+	CreatedAt           time.Time               `bun:"created_at,nullzero"`
+	UpdatedAt           time.Time               `bun:"updated_at,nullzero"`
+
+	CustomerName  string `bun:"customer_name,scanonly"`
+	CustomerEmail string `bun:"customer_email,scanonly"`
+
+	ArtistName  string `bun:"artist_name,scanonly"`
+	ArtistEmail string `bun:"artist_email,scanonly"`
+
+	ArtistReviewScore *float64 `bun:"artist_review_score,scanonly"`
+}
+
 type orderRepository struct {
 	exec baserepo.Executor
 }
 
 var _ order.OrderRepository = (*orderRepository)(nil)
 
+// NewOrderRepository creates a PostgreSQL-backed order repository.
 func NewOrderRepository(db *bun.DB) order.OrderRepository {
 	return &orderRepository{exec: baserepo.NewExecutor(db)}
 }
@@ -47,6 +77,7 @@ var orderSortColumns = map[order.SortField]string{
 	order.SortFieldDeadline:  "o.deadline_at",
 }
 
+// applyStatusFilter adds a status predicate when one or more statuses are supplied.
 func applyStatusFilter(q *bun.SelectQuery, statuses []order.Status) *bun.SelectQuery {
 	if len(statuses) == 0 {
 		return q
@@ -147,4 +178,107 @@ func (r *orderRepository) attachLatestDeliverablePreviewKeys(ctx context.Context
 		}
 		return nil
 	})
+}
+
+// GetOrderByID returns an order's stored details and both participants when
+// the requested participant ID belongs to that order.
+func (r *orderRepository) GetOrderByID(
+	ctx context.Context,
+	participant order.Participant,
+	participantID uuid.UUID,
+	orderID uuid.UUID,
+) (*order.OrderDetailData, error) {
+	if participant != order.ParticipantCustomer &&
+		participant != order.ParticipantArtist {
+		return nil, apperror.Internal("unsupported participant", nil)
+	}
+
+	var model orderDetailModel
+
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		q := idb.NewSelect().
+			Model(&model).
+			Column(
+				"o.id",
+				"o.customer_id",
+				"o.artist_id",
+				"o.name",
+				"o.artwork_id",
+				"o.artwork_snapshot",
+				"o.price_satang_order",
+				"o.customer_description",
+				"o.deadline_at",
+				"o.status",
+				"o.completed_at",
+				"o.created_at",
+				"o.updated_at",
+			).
+			ColumnExpr("customer.username AS customer_name").
+			ColumnExpr("customer.email AS customer_email").
+			ColumnExpr("artist.username AS artist_name").
+			ColumnExpr("artist.email AS artist_email").
+			ColumnExpr("rs.review_score AS artist_review_score").
+			Join("JOIN users AS customer ON customer.id = o.customer_id").
+			Join("JOIN users AS artist ON artist.id = o.artist_id").
+			Join("LEFT JOIN ("+
+				"SELECT artist_id, "+
+				"ROUND(AVG(rating)::numeric, 1)::double precision AS review_score "+
+				"FROM reviews "+
+				"GROUP BY artist_id"+
+				") AS rs ON rs.artist_id = o.artist_id").
+			Where("o.id = ?", orderID)
+
+		if participant == order.ParticipantCustomer {
+			q = q.Where("o.customer_id = ?", participantID)
+		} else {
+			q = q.Where("o.artist_id = ?", participantID)
+		}
+
+		return q.Scan(ctx)
+	})
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, order.ErrOrderNotFound
+		}
+
+		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return nil, err
+		}
+
+		return nil, apperror.Internal("failed to get order", err)
+	}
+
+	return &order.OrderDetailData{
+		Order: order.Order{
+			ID:                  model.ID,
+			CustomerID:          model.CustomerID,
+			ArtistID:            model.ArtistID,
+			Name:                model.Name,
+			ArtworkID:           model.ArtworkID,
+			PriceSatangOrder:    model.PriceSatangOrder,
+			CustomerDescription: model.CustomerDescription,
+			DeadlineAt:          model.DeadlineAt,
+			Status:              order.Status(model.Status),
+			CompletedAt:         model.CompletedAt,
+			CreatedAt:           model.CreatedAt,
+			UpdatedAt:           model.UpdatedAt,
+		},
+		ArtworkSnapshot: order.ArtworkSnapshot{
+			ArtworkName: model.ArtworkSnapshot.ArtworkName,
+			CategoryID:  model.ArtworkSnapshot.CategoryID,
+			StyleIDs:    model.ArtworkSnapshot.StyleIDs,
+		},
+		Customer: order.OrderParty{
+			ID:    model.CustomerID,
+			Name:  model.CustomerName,
+			Email: model.CustomerEmail,
+		},
+		Artist: order.OrderParty{
+			ID:                model.ArtistID,
+			Name:              model.ArtistName,
+			Email:             model.ArtistEmail,
+			ArtistReviewScore: model.ArtistReviewScore,
+		},
+	}, nil
 }
