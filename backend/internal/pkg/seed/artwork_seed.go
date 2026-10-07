@@ -15,24 +15,33 @@ type categorySeed struct {
 	ID    uuid.UUID
 }
 
+// IDs match 20261006142000_seed_artwork_catalog.sql. A nil ID makes uuid()
+// mint a second row beside that migration.
 var categories = []categorySeed{
-	{Key: "novel-cover", Label: "Novel Cover"},
-	{Key: "illustration", Label: "Illustration"},
-	{Key: "character-design", Label: "Character Design"},
-	{Key: "background-design", Label: "Background Design"},
-	{Key: "storyboard", Label: "Storyboard"},
-	{Key: "cartoon-panel", Label: "Cartoon Panel"},
-	{Key: "logo-design", Label: "Logo Design"},
-	{Key: "social-media-post", Label: "Social Media Post"},
+	{Key: "novel-cover", Label: "Novel Cover", ID: uuid.MustParse("00000000-0000-0000-0000-000000000001")},
+	{Key: "illustration", Label: "Illustration", ID: uuid.MustParse("00000000-0000-0000-0000-000000000002")},
+	{Key: "character-design", Label: "Character Design", ID: uuid.MustParse("00000000-0000-0000-0000-000000000003")},
+	{Key: "background-design", Label: "Background Design", ID: uuid.MustParse("00000000-0000-0000-0000-000000000004")},
+	{Key: "storyboard", Label: "Storyboard", ID: uuid.MustParse("00000000-0000-0000-0000-000000000005")},
+	{Key: "cartoon-panel", Label: "Cartoon Panel", ID: uuid.MustParse("00000000-0000-0000-0000-000000000006")},
+	{Key: "logo-design", Label: "Logo Design", ID: uuid.MustParse("00000000-0000-0000-0000-000000000007")},
+	{Key: "social-media-post", Label: "Social Media Post", ID: uuid.MustParse("00000000-0000-0000-0000-000000000008")},
 }
 
-func categoryID(key string) uuid.UUID { return id("category", key) }
+func categoryID(key string) uuid.UUID {
+	for _, c := range categories {
+		if c.Key == key {
+			return c.uuid()
+		}
+	}
+	return id("category", key)
+}
 
 func (c categorySeed) uuid() uuid.UUID {
 	if c.ID != uuid.Nil {
 		return c.ID
 	}
-	return categoryID(c.Key)
+	return id("category", c.Key)
 }
 
 type styleSeed struct {
@@ -42,24 +51,31 @@ type styleSeed struct {
 }
 
 var styles = []styleSeed{
-	{Key: "cartoon", Label: "Cartoon"},
-	{Key: "realism", Label: "Realism"},
-	{Key: "semi-realism", Label: "Semi-Realism"},
-	{Key: "watercolor", Label: "Watercolor"},
-	{Key: "acrylic", Label: "Acrylic"},
-	{Key: "sketch", Label: "Sketch"},
-	{Key: "abstract", Label: "Abstract"},
-	{Key: "pixel-art", Label: "Pixel Art"},
-	{Key: "fantasy", Label: "Fantasy"},
+	{Key: "cartoon", Label: "Cartoon", ID: uuid.MustParse("11111111-0000-0000-0000-000000000001")},
+	{Key: "realism", Label: "Realism", ID: uuid.MustParse("11111111-0000-0000-0000-000000000002")},
+	{Key: "semi-realism", Label: "Semi-Realism", ID: uuid.MustParse("11111111-0000-0000-0000-000000000003")},
+	{Key: "watercolor", Label: "Watercolor", ID: uuid.MustParse("11111111-0000-0000-0000-000000000004")},
+	{Key: "acrylic", Label: "Acrylic", ID: uuid.MustParse("11111111-0000-0000-0000-000000000005")},
+	{Key: "sketch", Label: "Sketch", ID: uuid.MustParse("11111111-0000-0000-0000-000000000006")},
+	{Key: "abstract", Label: "Abstract", ID: uuid.MustParse("11111111-0000-0000-0000-000000000007")},
+	{Key: "pixel-art", Label: "Pixel Art", ID: uuid.MustParse("11111111-0000-0000-0000-000000000008")},
+	{Key: "fantasy", Label: "Fantasy", ID: uuid.MustParse("11111111-0000-0000-0000-000000000009")},
 }
 
-func styleID(key string) uuid.UUID { return id("style", key) }
+func styleID(key string) uuid.UUID {
+	for _, s := range styles {
+		if s.Key == key {
+			return s.uuid()
+		}
+	}
+	return id("style", key)
+}
 
 func (s styleSeed) uuid() uuid.UUID {
 	if s.ID != uuid.Nil {
 		return s.ID
 	}
-	return styleID(s.Key)
+	return id("style", s.Key)
 }
 
 // ArtistKey/CategoryKey/StyleKeys reference userSeed.Key/categorySeed.Key/styleSeed.Key by name rather than a literal ID.
@@ -75,36 +91,6 @@ type artworkSeed struct {
 }
 
 var artworks = []artworkSeed{
-	/*{
-		Key: "artwork-1", ArtistKey: "artist-1", CategoryKey: "portrait", StyleKeys: []string{"realism"},
-		Name: "Custom Portrait", Description: "A hand-painted-style digital portrait from your photo.",
-		PriceSatang: 150000, MinimumDeadlineDays: 5,
-	},
-	{
-		Key: "artwork-2", ArtistKey: "artist-1", CategoryKey: "portrait", StyleKeys: []string{"anime"},
-		Name: "Anime Portrait", Description: "Portrait commission in anime style.",
-		PriceSatang: 120000, MinimumDeadlineDays: 4,
-	},
-	{
-		Key: "artwork-3", ArtistKey: "artist-2", CategoryKey: "landscape", StyleKeys: []string{"realism"},
-		Name: "Fantasy Landscape", Description: "A detailed fantasy landscape concept piece.",
-		PriceSatang: 250000, MinimumDeadlineDays: 7,
-	},
-	{
-		Key: "artwork-4", ArtistKey: "artist-2", CategoryKey: "landscape", StyleKeys: []string{"realism", "minimalist"},
-		Name: "Minimalist Vista", Description: "A calm, minimalist landscape piece.",
-		PriceSatang: 100000, MinimumDeadlineDays: 3,
-	},
-	{
-		Key: "artwork-5", ArtistKey: "artist-3", CategoryKey: "portrait", StyleKeys: []string{"minimalist"},
-		Name: "Minimalist Line Portrait", Description: "Single-line-art style portrait.",
-		PriceSatang: 80000, MinimumDeadlineDays: 2,
-	},
-	{
-		Key: "artwork-6", ArtistKey: "artist-3", CategoryKey: "landscape", StyleKeys: []string{"minimalist"},
-		Name: "Minimalist Skyline", Description: "Clean minimalist city skyline illustration.",
-		PriceSatang: 90000, MinimumDeadlineDays: 3,
-	},*/
 	{
 		Key: "artwork-1", ArtistKey: "artist-1", CategoryKey: "illustration", StyleKeys: []string{"realism", "watercolor"},
 		Name: "Custom Portrait", Description: "A hand-painted-style digital portrait from your photo.",
