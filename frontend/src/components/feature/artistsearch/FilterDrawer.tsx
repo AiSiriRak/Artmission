@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/TextInput";
@@ -89,8 +89,10 @@ export function FilterDrawer({
   const [catalogError, setCatalogError] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(false);
 
+  const catalogLoadedRef = useRef(false);
+
   useEffect(() => {
-    if (!open) return;
+    if (!open || catalogLoadedRef.current) return;
 
     let cancelled = false;
 
@@ -105,6 +107,7 @@ export function FilterDrawer({
         if (!cancelled) {
           setCategories(nextCategories);
           setStyles(nextStyles);
+          catalogLoadedRef.current = true;
         }
       } catch {
         if (!cancelled) {
