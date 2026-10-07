@@ -108,8 +108,47 @@ func NewArtworkRepository(db *bun.DB) artwork.Repository {
 	return &artworkRepository{exec: baserepo.NewExecutor(db)}
 }
 
+func catalogRefsExist(ctx context.Context, idb bun.IDB, categoryID uuid.UUID, styleIDs []uuid.UUID) error {
+	categoryExists, err := idb.NewSelect().
+		Table("categories").
+		Where("id = ?", categoryID).
+		Exists(ctx)
+	if err != nil {
+		return err
+	}
+	if !categoryExists {
+		return artwork.ErrCategoryNotFound
+	}
+	if len(styleIDs) == 0 {
+		return nil
+	}
+
+	found := make([]uuid.UUID, 0, len(styleIDs))
+	if err := idb.NewSelect().
+		Table("styles").
+		Column("id").
+		Where("id IN (?)", bun.List(styleIDs)).
+		Scan(ctx, &found); err != nil {
+		return err
+	}
+	foundSet := make(map[uuid.UUID]struct{}, len(found))
+	for _, id := range found {
+		foundSet[id] = struct{}{}
+	}
+	for _, styleID := range styleIDs {
+		if _, ok := foundSet[styleID]; !ok {
+			return artwork.ErrStyleNotFound
+		}
+	}
+	return nil
+}
+
 func (repo *artworkRepository) Create(ctx context.Context, item *artwork.Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) error {
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
+		if err := catalogRefsExist(ctx, idb, categoryID, styleIDs); err != nil {
+			return err
+		}
+
 		if _, err := idb.NewInsert().Model(newArtworkModel(item, categoryID)).Exec(ctx); err != nil {
 			return err
 		}
@@ -141,6 +180,9 @@ func (repo *artworkRepository) Create(ctx context.Context, item *artwork.Artwork
 		return assignCatalogLabels(ctx, idb, item, categoryID, styleIDs)
 	})
 	if err != nil {
+		if errors.Is(err, artwork.ErrCategoryNotFound) || errors.Is(err, artwork.ErrStyleNotFound) {
+			return err
+		}
 		return apperror.Internal("failed to create artwork", err)
 	}
 	return nil
@@ -408,7 +450,7 @@ func (repo *artworkRepository) Search(ctx context.Context, query artwork.SearchQ
 			ColumnExpr("a.id, a.artist_id, a.name, a.description, a.price_satang, a.minimum_deadline_days, a.created_at, a.updated_at").
 			ColumnExpr("c.label AS category").
 			ColumnExpr("u.username AS artist_name").
-			ColumnExpr("ap.profile_image_key").
+			ColumnExpr("u.profile_image_key").
 			ColumnExpr("rs.review_score").
 			Join("JOIN artist_profiles AS ap ON ap.user_id = a.artist_id").
 			Join("JOIN users AS u ON u.id = ap.user_id AND u.deleted_at IS NULL").
