@@ -70,18 +70,17 @@ type bankAccountRecord struct {
 type deletionOrderRow struct {
 	bun.BaseModel `bun:"table:orders"`
 
-	ID                          uuid.UUID `bun:"id,pk"`
-	CustomerID                  uuid.UUID `bun:"customer_id"`
-	ArtistID                    uuid.UUID `bun:"artist_id"`
-	Name                        string    `bun:"name"`
-	ArtworkNameSnapshot         string    `bun:"artwork_name_snapshot"`
-	ArtworkDescriptionSnapshot  string    `bun:"artwork_description_snapshot"`
-	PriceSatangSnapshot         int64     `bun:"price_satang_snapshot"`
-	MinimumDeadlineDaysSnapshot int       `bun:"minimum_deadline_days_snapshot"`
-	CustomerDescription         string    `bun:"customer_description"`
-	Status                      string    `bun:"status"`
-	CreatedAt                   time.Time `bun:"created_at"`
-	UpdatedAt                   time.Time `bun:"updated_at"`
+	ID                  uuid.UUID `bun:"id,pk"`
+	CustomerID          uuid.UUID `bun:"customer_id"`
+	ArtistID            uuid.UUID `bun:"artist_id"`
+	ArtworkID           uuid.UUID `bun:"artwork_id"`
+	Name                string    `bun:"name"`
+	PriceSatangOrder    int64     `bun:"price_satang_order"`
+	CustomerDescription string    `bun:"customer_description"`
+	DeadlineAt          time.Time `bun:"deadline_at"`
+	Status              string    `bun:"status"`
+	CreatedAt           time.Time `bun:"created_at"`
+	UpdatedAt           time.Time `bun:"updated_at"`
 }
 
 func (u *usersContext) theUserHasARegisteredAccount() error {
@@ -120,19 +119,31 @@ func (u *usersContext) aCustomerAndArtistHaveAnActiveOrder() error {
 	u.artist = artist
 
 	now := time.Now()
+	categoryID, artworkID := uuid.New(), uuid.New()
+	artistID := uuid.MustParse(artist.ID)
+	if _, err := app.DB.ExecContext(context.Background(), `
+		INSERT INTO categories (id, label) VALUES (?, ?)
+	`, categoryID, "Account deletion fixture "+categoryID.String()); err != nil {
+		return err
+	}
+	if _, err := app.DB.ExecContext(context.Background(), `
+		INSERT INTO artworks (id, artist_id, category_id, name, description, price_satang, minimum_deadline_days)
+		VALUES (?, ?, ?, 'Portrait commission', 'A hand-painted portrait', 10000, 7)
+	`, artworkID, artistID, categoryID); err != nil {
+		return err
+	}
 	order := &deletionOrderRow{
-		ID:                          uuid.New(),
-		CustomerID:                  uuid.MustParse(customer.ID),
-		ArtistID:                    uuid.MustParse(artist.ID),
-		Name:                        "Anniversary portrait",
-		ArtworkNameSnapshot:         "Portrait commission",
-		ArtworkDescriptionSnapshot:  "A hand-painted portrait",
-		PriceSatangSnapshot:         10000,
-		MinimumDeadlineDaysSnapshot: 7,
-		CustomerDescription:         "Active commission",
-		Status:                      "IN_PROCESS",
-		CreatedAt:                   now,
-		UpdatedAt:                   now,
+		ID:                  uuid.New(),
+		CustomerID:          uuid.MustParse(customer.ID),
+		ArtistID:            artistID,
+		ArtworkID:           artworkID,
+		Name:                "Anniversary portrait",
+		PriceSatangOrder:    10000,
+		CustomerDescription: "Active commission",
+		DeadlineAt:          now.AddDate(0, 0, 7),
+		Status:              "IN_PROCESS",
+		CreatedAt:           now,
+		UpdatedAt:           now,
 	}
 	_, err = app.DB.NewInsert().Model(order).Exec(context.Background())
 	return err

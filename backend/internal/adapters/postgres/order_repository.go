@@ -14,21 +14,18 @@ import (
 
 func orderModelToDomain(m *pgmodel.Order) order.Order {
 	return order.Order{
-		ID:                          m.ID,
-		CustomerID:                  m.CustomerID,
-		ArtistID:                    m.ArtistID,
-		Name:                        m.Name,
-		ArtworkID:                   m.ArtworkID,
-		ArtworkNameSnapshot:         m.ArtworkNameSnapshot,
-		ArtworkDescriptionSnapshot:  m.ArtworkDescriptionSnapshot,
-		PriceSatangSnapshot:         m.PriceSatangSnapshot,
-		MinimumDeadlineDaysSnapshot: m.MinimumDeadlineDaysSnapshot,
-		CustomerDescription:         m.CustomerDescription,
-		DeadlineAt:                  m.DeadlineAt,
-		Status:                      order.Status(m.Status),
-		CompletedAt:                 m.CompletedAt,
-		CreatedAt:                   m.CreatedAt,
-		UpdatedAt:                   m.UpdatedAt,
+		ID:                  m.ID,
+		CustomerID:          m.CustomerID,
+		ArtistID:            m.ArtistID,
+		Name:                m.Name,
+		ArtworkID:           m.ArtworkID,
+		PriceSatangOrder:    m.PriceSatangOrder,
+		CustomerDescription: m.CustomerDescription,
+		DeadlineAt:          m.DeadlineAt,
+		Status:              order.Status(m.Status),
+		CompletedAt:         m.CompletedAt,
+		CreatedAt:           m.CreatedAt,
+		UpdatedAt:           m.UpdatedAt,
 	}
 }
 
@@ -46,7 +43,7 @@ func NewOrderRepository(db *bun.DB) order.OrderRepository {
 // allowlisted SQL column used for ORDER BY.
 var orderSortColumns = map[order.SortField]string{
 	order.SortFieldUpdatedAt: "o.updated_at",
-	order.SortFieldPrice:     "o.price_satang_snapshot",
+	order.SortFieldPrice:     "o.price_satang_order",
 	order.SortFieldDeadline:  "o.deadline_at",
 }
 

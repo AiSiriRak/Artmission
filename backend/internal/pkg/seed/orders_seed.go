@@ -82,26 +82,33 @@ func seedOrdersUp(ctx context.Context, d deps) error {
 	rows := make([]pgmodel.Order, len(orders))
 	for i, o := range orders {
 		artwork := findArtwork(o.ArtworkKey)
+		styleIDs := make([]uuid.UUID, len(artwork.StyleKeys))
+		for index, styleKey := range artwork.StyleKeys {
+			styleIDs[index] = styleID(styleKey)
+		}
 		var completedAt *time.Time
 		if o.Completed {
 			completedAt = &now
 		}
 		artworkKeyID := artworkID(o.ArtworkKey)
 		rows[i] = pgmodel.Order{
-			ID:                          orderID(o.Key),
-			CustomerID:                  userID(o.CustomerKey),
-			ArtistID:                    userID(o.ArtistKey),
-			ArtworkID:                   &artworkKeyID,
-			Name:                        o.Name,
-			ArtworkNameSnapshot:         artwork.Name,
-			ArtworkDescriptionSnapshot:  artwork.Description,
-			PriceSatangSnapshot:         artwork.PriceSatang,
-			MinimumDeadlineDaysSnapshot: artwork.MinimumDeadlineDays,
-			CustomerDescription:         o.CustomerDescription,
-			Status:                      o.Status,
-			CompletedAt:                 completedAt,
-			CreatedAt:                   now,
-			UpdatedAt:                   now,
+			ID:         orderID(o.Key),
+			CustomerID: userID(o.CustomerKey),
+			ArtistID:   userID(o.ArtistKey),
+			ArtworkID:  &artworkKeyID,
+			ArtworkSnapshot: pgmodel.ArtworkSnapshot{
+				ArtworkName: artwork.Name,
+				CategoryID:  categoryID(artwork.CategoryKey),
+				StyleIDs:    styleIDs,
+			},
+			Name:                o.Name,
+			PriceSatangOrder:    artwork.PriceSatang,
+			CustomerDescription: o.CustomerDescription,
+			DeadlineAt:          now.AddDate(0, 0, artwork.MinimumDeadlineDays),
+			Status:              o.Status,
+			CompletedAt:         completedAt,
+			CreatedAt:           now,
+			UpdatedAt:           now,
 		}
 	}
 	return seedTable(ctx, d, rows, "id")

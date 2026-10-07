@@ -52,7 +52,7 @@ func Wire(cfg Config) *httpserver.Server {
 
 	artistUsecase := artist.NewProfileUsecase(artistRepo, cfg.ObjectStorage.Public)
 	artworkUsecase := artwork.NewUsecase(artworkRepo, tx, cfg.ObjectStorage.Public)
-	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx)
+	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx, cfg.ObjectStorage.Public)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private)
 

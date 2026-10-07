@@ -5,32 +5,36 @@ import { useRef, useState } from "react";
 
 interface ProfileHeader {
   username: string;
+  profileImageUrl: string | null;
   onUpload: (imagefile: File) => void;
 }
 
-export function ProfileHeader({ username, onUpload }: ProfileHeader) {
+export function ProfileHeader({
+  username,
+  profileImageUrl,
+  onUpload,
+}: ProfileHeader) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [preview, setPreview] = useState("/icons/emptyprofile.svg");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const handleClick = () => {
     fileInputRef.current?.click();
   };
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (!file) return;
 
-    const imageUrl = URL.createObjectURL(file);
     onUpload(file);
-    setPreview(imageUrl);
   };
+
   return (
     <div className="mt-12 flex flex-col items-center">
       <div className="relative">
         <Image
-          src={preview}
-          alt="/icons/emptyprofile.svg"
+          src={profileImageUrl ?? "/icons/emptyprofile.svg"}
+          alt=""
           width={150}
           height={150}
           className="mx-auto h-[150px] w-[150px] object-cover rounded-full"

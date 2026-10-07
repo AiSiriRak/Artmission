@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
@@ -21,25 +22,27 @@ import (
 
 func newUserModel(u *user.User) *pgmodel.User {
 	return &pgmodel.User{
-		ID:           u.ID,
-		Username:     u.Username,
-		Email:        u.Email,
-		PasswordHash: u.PasswordHash,
-		Role:         string(u.Role),
-		CreatedAt:    u.CreatedAt,
-		UpdatedAt:    u.UpdatedAt,
+		ID:              u.ID,
+		Username:        u.Username,
+		Email:           u.Email,
+		PasswordHash:    u.PasswordHash,
+		Role:            string(u.Role),
+		ProfileImageKey: u.ProfileImageKey,
+		CreatedAt:       u.CreatedAt,
+		UpdatedAt:       u.UpdatedAt,
 	}
 }
 
 func userModelToDomain(m *pgmodel.User) *user.User {
 	return &user.User{
-		ID:           m.ID,
-		Username:     m.Username,
-		Email:        m.Email,
-		PasswordHash: m.PasswordHash,
-		Role:         user.Role(m.Role),
-		CreatedAt:    m.CreatedAt,
-		UpdatedAt:    m.UpdatedAt,
+		ID:              m.ID,
+		Username:        m.Username,
+		Email:           m.Email,
+		PasswordHash:    m.PasswordHash,
+		Role:            user.Role(m.Role),
+		ProfileImageKey: m.ProfileImageKey,
+		CreatedAt:       m.CreatedAt,
+		UpdatedAt:       m.UpdatedAt,
 	}
 }
 
@@ -57,7 +60,10 @@ func NewUserRepository(db *bun.DB) user.UserRepository {
 	}
 }
 
-func (r *userRepository) Create(ctx context.Context, u *user.User) error {
+func (r *userRepository) Create(
+	ctx context.Context,
+	u *user.User,
+) error {
 	err := r.base.Create(ctx, newUserModel(u))
 	if err == nil {
 		return nil
@@ -73,7 +79,10 @@ func (r *userRepository) Create(ctx context.Context, u *user.User) error {
 	return apperror.Internal("failed to create user", err)
 }
 
-func (r *userRepository) GetByEmail(ctx context.Context, email string) (*user.User, error) {
+func (r *userRepository) GetByEmail(
+	ctx context.Context,
+	email string,
+) (*user.User, error) {
 	model := new(pgmodel.User)
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		return idb.NewSelect().Model(model).Where("email = ?", email).Scan(ctx)
@@ -87,7 +96,10 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*user.Us
 	return userModelToDomain(model), nil
 }
 
-func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
+func (r *userRepository) GetByID(
+	ctx context.Context,
+	id uuid.UUID,
+) (*user.User, error) {
 	model, err := r.base.FindByID(ctx, id)
 	if err != nil {
 		if isNotFound(err) {
@@ -98,7 +110,11 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User,
 	return userModelToDomain(model), nil
 }
 
-func (r *userRepository) UpdateAccountByID(ctx context.Context, id uuid.UUID, in user.AccountUpdate) (*user.User, error) {
+func (r *userRepository) UpdateAccountByID(
+	ctx context.Context,
+	id uuid.UUID,
+	in user.AccountUpdate,
+) (*user.User, error) {
 	model := &pgmodel.User{
 		ID:        id,
 		Username:  in.Username,
@@ -122,5 +138,34 @@ func (r *userRepository) UpdateAccountByID(ctx context.Context, id uuid.UUID, in
 		}
 		return nil, apperror.Internal("failed to update account", err)
 	}
+	return userModelToDomain(model), nil
+}
+
+func (r *userRepository) UpdateProfileImageByID(
+	ctx context.Context,
+	id uuid.UUID,
+	profileImageKey *string,
+) (*user.User, error) {
+	model := &pgmodel.User{
+		ID:              id,
+		ProfileImageKey: profileImageKey,
+		UpdatedAt:       time.Now(),
+	}
+
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		return idb.NewUpdate().
+			Model(model).
+			Column("profile_image_key", "updated_at").
+			WherePK().
+			Returning("*").
+			Scan(ctx)
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, user.ErrUserNotFound
+		}
+		return nil, apperror.Internal("failed to update profile image", err)
+	}
+
 	return userModelToDomain(model), nil
 }
