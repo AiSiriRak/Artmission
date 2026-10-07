@@ -240,7 +240,7 @@ export default function ProfileManager({
     }
   };
 
-  // --- ลอจิกดึงข้อมูลอัตโนมัติ (อิงตาม ArtworkView schema) ---
+  
   const derivedCategories = [
     ...new Set(artworks.map((art) => art.category).filter(Boolean)),
   ];

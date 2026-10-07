@@ -22,14 +22,23 @@ type artworkSampleBody struct {
 	ImageURL string `json:"image_url"`
 }
 
+var (
+	catalogBookID       = uuid.MustParse("11111111-1111-4111-8111-111111111111")
+	catalogPixelID      = uuid.MustParse("22222222-2222-4222-8222-222222222222")
+	catalogCartoonID    = uuid.MustParse("33333333-3333-4333-8333-333333333333")
+	catalogWatercolorID = uuid.MustParse("44444444-4444-4444-8444-444444444444")
+)
+
 type createArtworkBody struct {
-	Name                string              `json:"name"`
-	Category            string              `json:"category"`
-	Styles              []string            `json:"styles"`
-	Description         string              `json:"description"`
-	ArtworkSamples      []artworkSampleBody `json:"artwork_samples"`
-	MinimumDeadlineDays int                 `json:"minimum_deadline_days"`
-	PriceSatang         int64               `json:"price_satang"`
+	Name                string
+	CategoryID          uuid.UUID
+	Category            string
+	StyleIDs            []uuid.UUID
+	Styles              []string
+	Description         string
+	ArtworkSamples      []artworkSampleBody
+	MinimumDeadlineDays int
+	PriceSatang         int64
 }
 
 type artworkResponse struct {
@@ -404,7 +413,9 @@ func (a *artworkContext) assertInvalidSampleDeletion() error {
 func newArtworkBody() createArtworkBody {
 	return createArtworkBody{
 		Name:        "Book Cover",
+		CategoryID:  catalogBookID,
 		Category:    "Book",
+		StyleIDs:    []uuid.UUID{catalogPixelID, catalogCartoonID},
 		Styles:      []string{"Pixel Art", "Cartoon"},
 		Description: "A colorful book-cover commission",
 		ArtworkSamples: []artworkSampleBody{
@@ -419,7 +430,9 @@ func newArtworkBody() createArtworkBody {
 func newUpdatedArtworkBody() createArtworkBody {
 	return createArtworkBody{
 		Name:        "Updated Book Cover",
+		CategoryID:  catalogBookID,
 		Category:    "Book",
+		StyleIDs:    []uuid.UUID{catalogCartoonID, catalogWatercolorID},
 		Styles:      []string{"Cartoon", "Watercolor"},
 		Description: "An updated colorful book-cover commission",
 		ArtworkSamples: []artworkSampleBody{
@@ -433,20 +446,43 @@ func newUpdatedArtworkBody() createArtworkBody {
 func newClearedArtworkBody() createArtworkBody {
 	body := newUpdatedArtworkBody()
 	body.Styles = []string{}
+	body.StyleIDs = []uuid.UUID{}
 	body.ArtworkSamples = []artworkSampleBody{}
 	return body
 }
 
 func artworkFields(body createArtworkBody) map[string]string {
-	styles, _ := json.Marshal(body.Styles)
+	styleIDs, _ := json.Marshal(body.StyleIDs)
 	return map[string]string{
 		"name":                  body.Name,
-		"category":              body.Category,
-		"styles":                string(styles),
+		"category_id":           body.CategoryID.String(),
+		"style_ids":             string(styleIDs),
 		"description":           body.Description,
 		"minimum_deadline_days": strconv.Itoa(body.MinimumDeadlineDays),
 		"price_satang":          strconv.FormatInt(body.PriceSatang, 10),
 	}
+}
+
+func seedArtworkCatalog(ctx context.Context) error {
+	rows := []struct {
+		table string
+		id    uuid.UUID
+		label string
+	}{
+		{table: "categories", id: catalogBookID, label: "Book"},
+		{table: "styles", id: catalogPixelID, label: "Pixel Art"},
+		{table: "styles", id: catalogCartoonID, label: "Cartoon"},
+		{table: "styles", id: catalogWatercolorID, label: "Watercolor"},
+	}
+	for _, row := range rows {
+		if _, err := app.DB.NewRaw(
+			"INSERT INTO "+row.table+" (id, label) VALUES (?, ?) ON CONFLICT (label) DO NOTHING",
+			row.id, row.label,
+		).Exec(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func artworkFiles(fieldName string, count int) []apptest.MultipartFile {
@@ -467,7 +503,7 @@ func InitializeScenario(scenario *godog.ScenarioContext) {
 
 	scenario.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 		state = &artworkContext{client: apptest.NewClient(app.BaseURL())}
-		return ctx, nil
+		return ctx, seedArtworkCatalog(ctx)
 	})
 
 	scenario.Step(`^an artist is registered and logged in$`, func() error {
