@@ -147,7 +147,7 @@ type searchArtworkView struct {
 type SearchArtworksInput struct {
 	Q              string   `query:"q" doc:"Partial match on artist name."`
 	Category       string   `query:"category" doc:"Filter by at most one artwork category."`
-	Style          []string `query:"style,explode" doc:"Filter by one or more artwork styles. Repeated values are OR'd."`
+	Style          []string `query:"style,explode" doc:"Filter by one or more artwork styles. An artwork matches only when it has every requested style."`
 	MinPriceSatang string   `query:"min_price_satang" doc:"Inclusive minimum artwork price in satang."`
 	MaxPriceSatang string   `query:"max_price_satang" doc:"Inclusive maximum artwork price in satang."`
 	MinReviewScore string   `query:"min_review_score" doc:"Inclusive minimum artist average review score (0-5)."`

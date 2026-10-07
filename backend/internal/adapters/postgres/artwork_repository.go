@@ -527,7 +527,14 @@ func applyArtworkSearchFilters(q *bun.SelectQuery, query artwork.SearchQuery) *b
 		q = q.Where("c.label = ?", query.Category)
 	}
 	if len(query.Styles) > 0 {
-		q = q.Where("EXISTS (SELECT 1 FROM artwork_styles AS aws JOIN styles AS s ON s.id = aws.style_id WHERE aws.artwork_id = a.id AND s.label IN (?))", bun.In(query.Styles))
+		q = q.Where(`a.id IN (
+			SELECT aws.artwork_id
+			FROM artwork_styles AS aws
+			JOIN styles AS s ON s.id = aws.style_id
+			WHERE s.label IN (?)
+			GROUP BY aws.artwork_id
+			HAVING COUNT(DISTINCT s.label) = ?
+		)`, bun.In(query.Styles), len(query.Styles))
 	}
 	if query.MinPriceSatang != nil {
 		q = q.Where("a.price_satang >= ?", *query.MinPriceSatang)

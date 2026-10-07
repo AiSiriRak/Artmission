@@ -734,7 +734,7 @@ export interface operations {
                 q?: string;
                 /** @description Filter by at most one artwork category. */
                 category?: string;
-                /** @description Filter by one or more artwork styles. Repeated values are OR'd. */
+                /** @description Filter by one or more artwork styles. An artwork matches only when it has every requested style. */
                 style?: string[] | null;
                 /** @description Inclusive minimum artwork price in satang. */
                 min_price_satang?: string;
