@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -201,6 +202,7 @@ func TestSearchRejectsInvalidInput(t *testing.T) {
 		{MinReviewScore: &negativeScore},
 		{Sort: SearchSort("popularity")},
 		{Page: -1},
+		{Page: math.MaxInt},
 	}
 	for index, query := range tests {
 		repo := &fakeRepository{}
@@ -210,6 +212,18 @@ func TestSearchRejectsInvalidInput(t *testing.T) {
 		if repo.searchQuery.Limit != 0 {
 			t.Errorf("case %d called repository: %+v", index, repo.searchQuery)
 		}
+	}
+}
+
+func TestSearchAcceptsLargestPageWhoseOffsetFits(t *testing.T) {
+	page := math.MaxInt/SearchPageSize + 1
+	repo := &fakeRepository{}
+	got, err := NewUsecase(repo, &fakeTransaction{}, &fakeStorage{}).Search(context.Background(), SearchQuery{Page: page})
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if got.Page != page || repo.searchQuery.Page != page || repo.searchQuery.Offset != (page-1)*SearchPageSize || repo.searchQuery.Limit != SearchPageSize {
+		t.Errorf("normalized query = %+v page=%d", repo.searchQuery, got.Page)
 	}
 }
 

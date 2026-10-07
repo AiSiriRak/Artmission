@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"time"
 
@@ -296,6 +297,10 @@ func normalizeSearchQuery(query SearchQuery) (SearchQuery, error) {
 	}
 	if query.Page < 1 {
 		return SearchQuery{}, apperror.InvalidInput("page must be greater than zero", nil)
+	}
+	// (page-1)*SearchPageSize must fit in an int; a larger page wraps the offset.
+	if query.Page-1 > math.MaxInt/SearchPageSize {
+		return SearchQuery{}, apperror.InvalidInput("page is too large", nil)
 	}
 
 	query.Limit = SearchPageSize

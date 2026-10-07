@@ -196,6 +196,10 @@ func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.
 	}{}
 	model := newArtworkModel(item, categoryID)
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
+		if err := catalogRefsExist(ctx, idb, categoryID, styleIDs); err != nil {
+			return err
+		}
+
 		err := idb.NewUpdate().
 			Model(model).
 			Column("category_id", "name", "description", "price_satang", "minimum_deadline_days", "updated_at").
@@ -280,6 +284,9 @@ func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.
 		}
 		if errors.Is(err, artwork.ErrSampleNotOwned) {
 			return nil, artwork.ErrSampleNotOwned
+		}
+		if errors.Is(err, artwork.ErrCategoryNotFound) || errors.Is(err, artwork.ErrStyleNotFound) {
+			return nil, err
 		}
 		return nil, apperror.Internal("failed to update artwork", err)
 	}
