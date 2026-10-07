@@ -105,6 +105,17 @@ type artworkSnapshotView struct {
 	StyleIDs    []string `json:"style_ids"`
 }
 
+// deliverableView is the deliverable data exposed in an order detail response.
+type deliverableView struct {
+	ID              string                    `json:"id"`
+	Version         int                       `json:"version"`
+	Decision        order.DeliverableDecision `json:"decision"`
+	Comment         *string                   `json:"comment"`
+	PreviewImageKey string                    `json:"preview_image_key"`
+	CreatedAt       time.Time                 `json:"created_at"`
+	UpdatedAt       time.Time                 `json:"updated_at"`
+}
+
 // orderDetailView represents the complete order detail returned to the
 // authenticated participant.
 type orderDetailView struct {
@@ -122,6 +133,7 @@ type orderDetailView struct {
 	CreatedAt           time.Time           `json:"created_at"`
 	UpdatedAt           time.Time           `json:"updated_at"`
 	OtherParty          orderPartyView      `json:"other_party"`
+	Deliverables        []deliverableView   `json:"deliverables"`
 }
 
 // viewOrders lists orders scoped to the authenticated customer or artist.
@@ -233,6 +245,19 @@ func toOrderDetailView(o *order.OrderDetail) orderDetailView {
 		styleIDs[i] = id.String()
 	}
 
+	deliverables := make([]deliverableView, len(o.Deliverables))
+	for i, deliverable := range o.Deliverables {
+		deliverables[i] = deliverableView{
+			ID:              deliverable.ID.String(),
+			Version:         deliverable.Version,
+			Decision:        deliverable.Decision,
+			Comment:         deliverable.Comment,
+			PreviewImageKey: deliverable.PreviewImageKey,
+			CreatedAt:       deliverable.CreatedAt,
+			UpdatedAt:       deliverable.UpdatedAt,
+		}
+	}
+
 	return orderDetailView{
 		ID:         o.ID.String(),
 		CustomerID: o.CustomerID.String(),
@@ -257,5 +282,6 @@ func toOrderDetailView(o *order.OrderDetail) orderDetailView {
 			Email:             o.OtherParty.Email,
 			ArtistReviewScore: o.OtherParty.ArtistReviewScore,
 		},
+		Deliverables: deliverables,
 	}
 }

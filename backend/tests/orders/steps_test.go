@@ -119,8 +119,8 @@ func (o *ordersContext) theUserHasAnOrderWithStatus(status string) error {
 // highest version's preview regardless of the order's status (including
 // terminal ones like CANCEL). Every version before the last is seeded
 // REJECTED (the order_deliverables_order_id_pending_key unique index
-// allows at most one pending row per order); only the last version is
-// left pending (decision nil).
+// allows at most one WAIT row per order); only the last version is
+// left pending (decision WAIT).
 func (o *ordersContext) theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersions(status string, n int) error {
 	counterpart, err := o.sharedCounterpart()
 	if err != nil {
@@ -136,9 +136,9 @@ func (o *ordersContext) theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersi
 	rejected := "REJECTED"
 	for v := 1; v <= n; v++ {
 		key := fmt.Sprintf("orders/%s/v%d/preview.png", id, v)
-		var decision *string
+		decision := "WAIT"
 		if v < n {
-			decision = &rejected
+			decision = rejected
 		}
 		if err := seedDeliverable(id, v, key, decision); err != nil {
 			return err

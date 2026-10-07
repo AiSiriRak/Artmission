@@ -171,6 +171,9 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 	deadline := time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC)
 	createdAt := time.Date(2026, time.October, 1, 12, 0, 0, 0, time.UTC)
 	completedAt := time.Date(2026, time.October, 9, 12, 0, 0, 0, time.UTC)
+	deliverableUpdatedAt := time.Date(2026, time.October, 2, 12, 0, 0, 0, time.UTC)
+	deliverableComment := "Please revise this version."
+	deliverablePreviewKey := "orders/order-10/v1/preview.png"
 	reviewScore := 4.5
 
 	for _, tt := range []struct {
@@ -225,6 +228,15 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 						uuid.MustParse("00000000-0000-0000-0000-000000000022"),
 					},
 				},
+				Deliverables: []order.Deliverable{{
+					ID:              uuid.MustParse("00000000-0000-0000-0000-000000000030"),
+					Version:         1,
+					Decision:        order.DeliverableDecisionWait,
+					Comment:         &deliverableComment,
+					PreviewImageKey: deliverablePreviewKey,
+					CreatedAt:       createdAt,
+					UpdatedAt:       deliverableUpdatedAt,
+				}},
 				OtherParty: otherParty,
 			}
 			usecase := &fakeOrderUsecase{
@@ -269,6 +281,15 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 					Email:             otherParty.Email,
 					ArtistReviewScore: otherParty.ArtistReviewScore,
 				},
+				Deliverables: []deliverableView{{
+					ID:              "00000000-0000-0000-0000-000000000030",
+					Version:         1,
+					Decision:        order.DeliverableDecisionWait,
+					Comment:         &deliverableComment,
+					PreviewImageKey: deliverablePreviewKey,
+					CreatedAt:       createdAt,
+					UpdatedAt:       deliverableUpdatedAt,
+				}},
 			}
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("response body = %+v, want %+v", got, want)

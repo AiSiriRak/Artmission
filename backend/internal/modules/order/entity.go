@@ -36,6 +36,27 @@ type ArtworkSnapshot struct {
 	StyleIDs    []uuid.UUID
 }
 
+// DeliverableDecision represents the decision made on a deliverable.
+type DeliverableDecision string
+
+const (
+	DeliverableDecisionWait     DeliverableDecision = "WAIT"
+	DeliverableDecisionApproved DeliverableDecision = "APPROVED"
+	DeliverableDecisionRejected DeliverableDecision = "REJECTED"
+)
+
+// IsValid reports whether the deliverable decision is a supported value.
+func (d DeliverableDecision) IsValid() bool {
+	switch d {
+	case DeliverableDecisionWait,
+		DeliverableDecisionApproved,
+		DeliverableDecisionRejected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Participant is the caller's relationship to an order. It is derived
 // from the authenticated user's role and is used to scope order access.
 // It is never accepted as a request field.
@@ -125,6 +146,18 @@ type Order struct {
 	UpdatedAt             time.Time
 }
 
+// Deliverable represents a version of an order's submitted artwork.
+type Deliverable struct {
+	ID               uuid.UUID
+	Version          int
+	Decision         DeliverableDecision
+	Comment          *string
+	OriginalImageKey string
+	PreviewImageKey  string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
 // ListQuery is ViewOrders input
 //
 // Participant and ParticipantID are always derived from the authenticated
@@ -158,21 +191,24 @@ type OrderParty struct {
 }
 
 // OrderDetailData contains all data required to build an OrderDetail.
-// The repository returns both order participants and the artwork snapshot;
-// the usecase selects the opposite participant based on the authenticated
-// user's role.
+// The repository returns both order participants, the artwork snapshot,
+// and the order's deliverables; the usecase selects the opposite
+// participant based on the authenticated user's role.
 type OrderDetailData struct {
 	Order           Order
 	ArtworkSnapshot ArtworkSnapshot
 	Customer        OrderParty
 	Artist          OrderParty
+	Deliverables    []Deliverable
 }
 
 // OrderDetail is the detailed view of an order for the authenticated
 // participant. It includes the artwork snapshot captured when the order
-// was created and the participant on the opposite side of the order.
+// was created, the participant on the opposite side of the order, and
+// all deliverable versions submitted for the order.
 type OrderDetail struct {
 	Order
 	ArtworkSnapshot ArtworkSnapshot
 	OtherParty      OrderParty
+	Deliverables    []Deliverable
 }

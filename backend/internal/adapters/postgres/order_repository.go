@@ -58,6 +58,22 @@ type orderDetailModel struct {
 	ArtistReviewScore *float64 `bun:"artist_review_score,scanonly"`
 }
 
+// deliverableModelToDomain converts a PostgreSQL deliverable model into its
+// domain value, including the non-null decision value (WAIT, APPROVED, or
+// REJECTED).
+func deliverableModelToDomain(m *pgmodel.OrderDeliverable) order.Deliverable {
+	return order.Deliverable{
+		ID:               m.ID,
+		Version:          m.Version,
+		Decision:         order.DeliverableDecision(m.Decision),
+		Comment:          m.Comment,
+		OriginalImageKey: m.OriginalImageKey,
+		PreviewImageKey:  m.PreviewImageKey,
+		CreatedAt:        m.CreatedAt,
+		UpdatedAt:        m.UpdatedAt,
+	}
+}
+
 type orderRepository struct {
 	exec baserepo.Executor
 }
@@ -180,8 +196,8 @@ func (r *orderRepository) attachLatestDeliverablePreviewKeys(ctx context.Context
 	})
 }
 
-// GetOrderByID returns an order's stored details and both participants when
-// the requested participant ID belongs to that order.
+// GetOrderByID returns an order's stored details, both participants, and
+// all deliverable versions when the requested participant belongs to that order.
 func (r *orderRepository) GetOrderByID(
 	ctx context.Context,
 	participant order.Participant,
@@ -194,6 +210,7 @@ func (r *orderRepository) GetOrderByID(
 	}
 
 	var model orderDetailModel
+	var deliverableModels []pgmodel.OrderDeliverable
 
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		q := idb.NewSelect().
@@ -234,7 +251,19 @@ func (r *orderRepository) GetOrderByID(
 			q = q.Where("o.artist_id = ?", participantID)
 		}
 
-		return q.Scan(ctx)
+		if err := q.Scan(ctx); err != nil {
+			return err
+		}
+
+		if err := idb.NewSelect().
+			Model(&deliverableModels).
+			Where("od.order_id = ?", orderID).
+			OrderExpr("od.version DESC").
+			Scan(ctx); err != nil {
+			return err
+		}
+
+		return nil
 	})
 
 	if err != nil {
@@ -247,6 +276,11 @@ func (r *orderRepository) GetOrderByID(
 		}
 
 		return nil, apperror.Internal("failed to get order", err)
+	}
+
+	deliverables := make([]order.Deliverable, len(deliverableModels))
+	for i := range deliverableModels {
+		deliverables[i] = deliverableModelToDomain(&deliverableModels[i])
 	}
 
 	return &order.OrderDetailData{
@@ -280,5 +314,6 @@ func (r *orderRepository) GetOrderByID(
 			Email:             model.ArtistEmail,
 			ArtistReviewScore: model.ArtistReviewScore,
 		},
+		Deliverables: deliverables,
 	}, nil
 }
