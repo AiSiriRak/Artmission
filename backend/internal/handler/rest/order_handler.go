@@ -8,6 +8,7 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/google/uuid"
 )
 
 type OrderHandler struct {
@@ -15,10 +16,12 @@ type OrderHandler struct {
 	authUsecase  auth.AuthUsecase
 }
 
+// NewOrderHandler creates a handler for order read endpoints.
 func NewOrderHandler(orderUsecase order.OrderUsecase, authUsecase auth.AuthUsecase) *OrderHandler {
 	return &OrderHandler{orderUsecase: orderUsecase, authUsecase: authUsecase}
 }
 
+// Register adds the authenticated order endpoints to the API.
 func (h *OrderHandler) Register(api huma.API) {
 	huma.Get(api, "/orders", h.viewOrders,
 		huma.OperationTags("orders"),
@@ -29,6 +32,19 @@ func (h *OrderHandler) Register(api huma.API) {
 				"sorted by deadline/price/updated_at, and paginated by limit/offset. " +
 				"deliverable_preview_url is the artist's most recently submitted deliverable preview, presigned and time-limited, regardless of order status; null if none has been submitted yet."
 			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireAnyRole(api, user.RoleCustomer, user.RoleArtist))
+		})
+
+	huma.Get(api, "/orders/{order_id}", h.getOrder,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "get-order"
+			o.Summary = "GetOrder"
+			o.Description = "Get the authenticated customer's or artist's order detail."
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireAnyRole(api, user.RoleCustomer, user.RoleArtist),
+			)
 		})
 }
 
@@ -61,6 +77,54 @@ type ViewOrdersOutput struct {
 	}
 }
 
+// GetOrderInput contains the order ID requested by the authenticated
+// participant.
+type GetOrderInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+}
+
+// GetOrderOutput contains the detailed order information.
+type GetOrderOutput struct {
+	Body orderDetailView
+}
+
+// orderPartyView represents the participant on the opposite side of the
+// authenticated user's order.
+type orderPartyView struct {
+	ID                string   `json:"id"`
+	Name              string   `json:"name"`
+	Email             string   `json:"email"`
+	ArtistReviewScore *float64 `json:"artist_review_score,omitempty"`
+}
+
+// artworkSnapshotView represents the artwork information captured when the
+// order was created.
+type artworkSnapshotView struct {
+	ArtworkName string   `json:"artwork_name"`
+	CategoryID  string   `json:"category_id"`
+	StyleIDs    []string `json:"style_ids"`
+}
+
+// orderDetailView represents the complete order detail returned to the
+// authenticated participant.
+type orderDetailView struct {
+	ID                  string              `json:"id"`
+	CustomerID          string              `json:"customer_id"`
+	ArtistID            string              `json:"artist_id"`
+	Name                string              `json:"name"`
+	ArtworkID           *string             `json:"artwork_id,omitempty"`
+	ArtworkSnapshot     artworkSnapshotView `json:"artwork_snapshot"`
+	PriceSatang         int64               `json:"price_satang"`
+	CustomerDescription string              `json:"customer_description"`
+	DeadlineAt          time.Time           `json:"deadline_at"`
+	Status              string              `json:"status"`
+	CompletedAt         *time.Time          `json:"completed_at,omitempty"`
+	CreatedAt           time.Time           `json:"created_at"`
+	UpdatedAt           time.Time           `json:"updated_at"`
+	OtherParty          orderPartyView      `json:"other_party"`
+}
+
+// viewOrders lists orders scoped to the authenticated customer or artist.
 func (h *OrderHandler) viewOrders(ctx context.Context, in *ViewOrdersInput) (*ViewOrdersOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
@@ -96,6 +160,36 @@ func (h *OrderHandler) viewOrders(ctx context.Context, in *ViewOrdersInput) (*Vi
 	return out, nil
 }
 
+// getOrder returns the order detail for the authenticated participant.
+// The participant scope is derived from the authenticated user's role
+// instead of being accepted from the request.
+func (h *OrderHandler) getOrder(
+	ctx context.Context,
+	input *GetOrderInput,
+) (*GetOrderOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	participant := participantForRole(info.Role)
+
+	detail, err := h.orderUsecase.GetOrder(
+		ctx,
+		participant,
+		info.UserID,
+		input.OrderID,
+	)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	return &GetOrderOutput{
+		Body: toOrderDetailView(detail),
+	}, nil
+}
+
+// participantForRole converts an authenticated account role to its order scope.
 func participantForRole(role user.Role) order.Participant {
 	switch role {
 	case user.RoleCustomer:
@@ -107,6 +201,7 @@ func participantForRole(role user.Role) order.Participant {
 	}
 }
 
+// toOrderSummaryView converts a domain order to its list response view.
 func toOrderSummaryView(o *order.Order) orderSummaryView {
 	return orderSummaryView{
 		ID:                    o.ID.String(),
@@ -120,5 +215,47 @@ func toOrderSummaryView(o *order.Order) orderSummaryView {
 		CompletedAt:           o.CompletedAt,
 		CreatedAt:             o.CreatedAt,
 		UpdatedAt:             o.UpdatedAt,
+	}
+}
+
+// toOrderDetailView converts the domain order detail into the HTTP response
+// representation. UUIDs are converted to strings to keep the API response
+// consistent with the other order views.
+func toOrderDetailView(o *order.OrderDetail) orderDetailView {
+	var artworkID *string
+	if o.ArtworkID != nil {
+		id := o.ArtworkID.String()
+		artworkID = &id
+	}
+
+	styleIDs := make([]string, len(o.ArtworkSnapshot.StyleIDs))
+	for i, id := range o.ArtworkSnapshot.StyleIDs {
+		styleIDs[i] = id.String()
+	}
+
+	return orderDetailView{
+		ID:         o.ID.String(),
+		CustomerID: o.CustomerID.String(),
+		ArtistID:   o.ArtistID.String(),
+		Name:       o.Name,
+		ArtworkID:  artworkID,
+		ArtworkSnapshot: artworkSnapshotView{
+			ArtworkName: o.ArtworkSnapshot.ArtworkName,
+			CategoryID:  o.ArtworkSnapshot.CategoryID.String(),
+			StyleIDs:    styleIDs,
+		},
+		PriceSatang:         o.PriceSatangOrder,
+		CustomerDescription: o.CustomerDescription,
+		DeadlineAt:          o.DeadlineAt,
+		Status:              string(o.Status),
+		CompletedAt:         o.CompletedAt,
+		CreatedAt:           o.CreatedAt,
+		UpdatedAt:           o.UpdatedAt,
+		OtherParty: orderPartyView{
+			ID:                o.OtherParty.ID.String(),
+			Name:              o.OtherParty.Name,
+			Email:             o.OtherParty.Email,
+			ArtistReviewScore: o.OtherParty.ArtistReviewScore,
+		},
 	}
 }
