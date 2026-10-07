@@ -23,6 +23,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	testFormCategoryID = "00000000-0000-0000-0000-0000000000c1"
+	testFormStyleID    = "00000000-0000-0000-0000-0000000000c2"
+)
+
 const validArtworkBody = `{
 	"name":"Frontend draft",
 	"category":"Illustration",
@@ -41,15 +46,34 @@ type artworkUsecaseStub struct {
 	artworks       []artwork.Artwork
 	created        *artwork.Artwork
 	updated        *artwork.Artwork
+	searchCalls    int
+	searchQuery    artwork.SearchQuery
+	searchPage     artwork.SearchPage
 	err            error
 	createInput    artwork.CreateInput
 	updateInput    artwork.UpdateInput
 	deleteArtistID uuid.UUID
 	deleteArtwork  uuid.UUID
+	categories     []artwork.Category
+	styles         []artwork.Style
+}
+
+func (stub *artworkUsecaseStub) Search(_ context.Context, query artwork.SearchQuery) (artwork.SearchPage, error) {
+	stub.searchCalls++
+	stub.searchQuery = query
+	return stub.searchPage, stub.err
 }
 
 func (stub *artworkUsecaseStub) ListByArtistID(context.Context, uuid.UUID) ([]artwork.Artwork, error) {
 	return stub.artworks, stub.err
+}
+
+func (stub *artworkUsecaseStub) ListAllCategories(context.Context) ([]artwork.Category, error) {
+	return stub.categories, stub.err
+}
+
+func (stub *artworkUsecaseStub) ListAllStyles(context.Context) ([]artwork.Style, error) {
+	return stub.styles, stub.err
 }
 
 func (stub *artworkUsecaseStub) Create(_ context.Context, input artwork.CreateInput) (*artwork.Artwork, error) {
@@ -104,7 +128,7 @@ func TestArtworkHandlerCreateReturnsCreatedArtwork(t *testing.T) {
 	if want := newArtworkView(usecase.created); !reflect.DeepEqual(got, want) {
 		t.Errorf("response body = %+v, want %+v", got, want)
 	}
-	if usecase.createInput.ArtistID == uuid.Nil || usecase.createInput.Name != "Frontend draft" || usecase.createInput.Category != "Illustration" || len(usecase.createInput.SampleFiles) != 1 {
+	if usecase.createInput.ArtistID == uuid.Nil || usecase.createInput.Name != "Frontend draft" || usecase.createInput.CategoryID.String() != testFormCategoryID || !reflect.DeepEqual(usecase.createInput.StyleIDs, []uuid.UUID{uuid.MustParse(testFormStyleID)}) || len(usecase.createInput.SampleFiles) != 1 {
 		t.Errorf("create input = %+v", usecase.createInput)
 	}
 }
@@ -146,6 +170,107 @@ func TestArtworkHandlerUpdateReturnsUpdatedArtwork(t *testing.T) {
 	}
 	if usecase.updateInput.ArtworkID.String() != artworkID || usecase.updateInput.ArtistID == uuid.Nil || usecase.updateInput.Name != "Frontend draft" || len(usecase.updateInput.SampleFiles) != 1 || !reflect.DeepEqual(usecase.updateInput.DeletedSampleURLs, []string{"https://storage.example.com/old.png"}) {
 		t.Errorf("update input = %+v", usecase.updateInput)
+	}
+}
+
+func TestArtworkHandlerSearchReturnsArtworksForAuthenticatedUser(t *testing.T) {
+	artworkID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+	artistID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	score := 4.5
+	profileURL := "https://public.test/artist.webp"
+	usecase := &artworkUsecaseStub{searchPage: artwork.SearchPage{
+		Items: []artwork.SearchItem{{
+			Artwork: artwork.Artwork{
+				ID:                  artworkID,
+				ArtistID:            artistID,
+				Name:                "Watercolor portrait",
+				Category:            "Portrait",
+				Styles:              []string{"Realism"},
+				Description:         "Painted portrait",
+				Samples:             []artwork.Sample{{ImageURL: "https://storage.example.com/sample.webp"}},
+				MinimumDeadlineDays: 7,
+				PriceSatang:         50000,
+			},
+			Artist: artwork.ArtistSummary{
+				ID:          artistID,
+				Name:        "Ada",
+				ProfileURL:  &profileURL,
+				ReviewScore: &score,
+			},
+		}},
+		Total: 1,
+		Page:  1,
+	}}
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleCustomer, usecase)
+	rec := serveArtworkRequest(handler, http.MethodGet, "/artworks?q=Ada&category=Portrait&style=Realism&style=Cartoon&min_price_satang=1000&max_price_satang=90000&min_review_score=4&sort=price_asc&page=2", "", true)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got struct {
+		Artworks []searchArtworkView `json:"artworks"`
+		Total    int                 `json:"total"`
+		Page     int                 `json:"page"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got.Total != 1 || got.Page != 1 || len(got.Artworks) != 1 {
+		t.Fatalf("response = %+v", got)
+	}
+	if got.Artworks[0].ID != artworkID || got.Artworks[0].Artist.ArtistName != "Ada" || got.Artworks[0].Artist.ReviewScore == nil {
+		t.Errorf("artwork = %+v", got.Artworks[0])
+	}
+	if usecase.searchQuery.ArtistName != "Ada" || usecase.searchQuery.Category != "Portrait" || usecase.searchQuery.Sort != artwork.SearchSortPriceAsc || usecase.searchQuery.Page != 2 {
+		t.Errorf("search query = %+v", usecase.searchQuery)
+	}
+	if !reflect.DeepEqual(usecase.searchQuery.Styles, []string{"Realism", "Cartoon"}) {
+		t.Errorf("styles = %#v", usecase.searchQuery.Styles)
+	}
+	if usecase.searchQuery.MinPriceSatang == nil || *usecase.searchQuery.MinPriceSatang != 1000 || usecase.searchQuery.MaxPriceSatang == nil || *usecase.searchQuery.MaxPriceSatang != 90000 || usecase.searchQuery.MinReviewScore == nil || *usecase.searchQuery.MinReviewScore != 4 {
+		t.Errorf("numeric filters = %+v", usecase.searchQuery)
+	}
+}
+
+func TestArtworkHandlerSearchReturnsEmptyArray(t *testing.T) {
+	usecase := &artworkUsecaseStub{searchPage: artwork.SearchPage{Items: []artwork.SearchItem{}, Total: 0, Page: 1}}
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleCustomer, usecase)
+	rec := serveArtworkRequest(handler, http.MethodGet, "/artworks", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"artworks":[]`) {
+		t.Errorf("response body = %s, want empty artworks array", rec.Body.String())
+	}
+	if usecase.searchQuery.Sort != artwork.SearchSortNameAsc {
+		t.Errorf("default sort = %q, want %q", usecase.searchQuery.Sort, artwork.SearchSortNameAsc)
+	}
+}
+
+func TestArtworkHandlerSearchRequiresCustomerRole(t *testing.T) {
+	for _, role := range []user.Role{user.RoleArtist, user.RoleAdmin} {
+		t.Run(string(role), func(t *testing.T) {
+			usecase := &artworkUsecaseStub{}
+			handler := newArtworkTestHandlerWithUsecase(t, role, usecase)
+			rec := serveArtworkRequest(handler, http.MethodGet, "/artworks", "", true)
+
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusForbidden, rec.Body.String())
+			}
+			var got struct {
+				Status int    `json:"status"`
+				Detail string `json:"detail"`
+			}
+			if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+				t.Fatalf("decode error response: %v", err)
+			}
+			if got.Status != http.StatusForbidden || got.Detail != "insufficient permissions" {
+				t.Errorf("error response = %+v, want forbidden insufficient permissions", got)
+			}
+			if usecase.searchCalls != 0 {
+				t.Errorf("Search called %d times, want 0", usecase.searchCalls)
+			}
+		})
 	}
 }
 
@@ -205,6 +330,7 @@ func TestArtworkHandlerRequiresAuthentication(t *testing.T) {
 		body   string
 	}{
 		{name: "create", method: http.MethodPost, path: "/artworks", body: validArtworkBody},
+		{name: "search", method: http.MethodGet, path: "/artworks"},
 		{name: "update", method: http.MethodPut, path: "/artworks/00000000-0000-0000-0000-000000000003", body: validArtworkBody},
 		{name: "delete", method: http.MethodDelete, path: "/artworks/00000000-0000-0000-0000-000000000003"},
 	}
@@ -241,6 +367,41 @@ func TestArtworkHandlerRequiresArtistRole(t *testing.T) {
 			rec := serveArtworkRequest(handler, tt.method, tt.path, tt.body, true)
 			if rec.Code != http.StatusForbidden {
 				t.Errorf("response status = %d, want %d: %s", rec.Code, http.StatusForbidden, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestListCatalog(t *testing.T) {
+	categoryID := uuid.MustParse("00000000-0000-0000-0000-0000000000c1")
+	styleID := uuid.MustParse("00000000-0000-0000-0000-0000000000c2")
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleArtist, &artworkUsecaseStub{
+		categories: []artwork.Category{{ID: categoryID, Label: "ILLUSTRATION"}},
+		styles:     []artwork.Style{{ID: styleID, Label: "CARTOON"}},
+	})
+
+	tests := []struct {
+		path  string
+		id    uuid.UUID
+		label string
+	}{
+		{path: "/categories", id: categoryID, label: "ILLUSTRATION"},
+		{path: "/styles", id: styleID, label: "CARTOON"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			rec := serveArtworkRequest(handler, http.MethodGet, tt.path, "", false)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+			}
+
+			var items []artistReferenceView
+			if err := json.Unmarshal(rec.Body.Bytes(), &items); err != nil {
+				t.Fatalf("unmarshal response: %v body=%s", err, rec.Body.String())
+			}
+			if len(items) != 1 || items[0].ID != tt.id || items[0].Label != tt.label {
+				t.Fatalf("catalog = %+v, want id %s label %s", items, tt.id, tt.label)
 			}
 		})
 	}
@@ -300,14 +461,14 @@ func validArtworkMultipartBody(update bool) ([]byte, string) {
 	writer := multipart.NewWriter(&body)
 	for name, value := range map[string]string{
 		"name":                  "Frontend draft",
-		"category":              "Illustration",
+		"category_id":           testFormCategoryID,
 		"description":           "A custom editorial illustration",
 		"minimum_deadline_days": "1",
 		"price_satang":          "0",
 	} {
 		_ = writer.WriteField(name, value)
 	}
-	writeJSONPart(writer, "styles", `[]`)
+	writeJSONPart(writer, "style_ids", `["`+testFormStyleID+`"]`)
 	if update {
 		writeJSONPart(writer, "deleted_sample_urls", `["https://storage.example.com/old.png"]`)
 	}

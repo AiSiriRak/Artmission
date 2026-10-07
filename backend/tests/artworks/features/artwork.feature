@@ -3,7 +3,7 @@ Feature: Artist artwork portfolio
   I want to create, update, and delete my portfolio artwork
   So that customers can see my commission offerings
 
-  Scenario: create artist-owned artwork with free labels and samples
+  Scenario: create artist-owned artwork with samples
     Given an artist is registered and logged in
     When the artist creates artwork with samples
     Then the artwork is stored with its category, styles, and ordered samples

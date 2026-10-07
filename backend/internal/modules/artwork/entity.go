@@ -22,6 +22,16 @@ type Artwork struct {
 	UpdatedAt           time.Time
 }
 
+type Category struct {
+	ID    uuid.UUID
+	Label string
+}
+
+type Style struct {
+	ID    uuid.UUID
+	Label string
+}
+
 type Sample struct {
 	ImageURL  string
 	SortOrder int
@@ -30,8 +40,8 @@ type Sample struct {
 type CreateInput struct {
 	ArtistID            uuid.UUID
 	Name                string
-	Category            string
-	Styles              []string
+	CategoryID          uuid.UUID
+	StyleIDs            []uuid.UUID
 	Description         string
 	SampleFiles         []io.Reader
 	MinimumDeadlineDays int
@@ -44,4 +54,57 @@ type UpdateInput struct {
 	ArtworkID         uuid.UUID
 	DeletedSampleURLs []string
 	CreateInput
+}
+
+type SearchSort string
+
+const (
+	SearchSortNameAsc         SearchSort = "name_asc"
+	SearchSortPriceAsc        SearchSort = "price_asc"
+	SearchSortPriceDesc       SearchSort = "price_desc"
+	SearchSortReviewScoreAsc  SearchSort = "review_score_asc"
+	SearchSortReviewScoreDesc SearchSort = "review_score_desc"
+	DefaultSearchSort         SearchSort = SearchSortNameAsc
+	SearchPageSize                       = 20
+)
+
+func (s SearchSort) IsValid() bool {
+	switch s {
+	case SearchSortNameAsc, SearchSortPriceAsc, SearchSortPriceDesc, SearchSortReviewScoreAsc, SearchSortReviewScoreDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+type ArtistSummary struct {
+	ID              uuid.UUID
+	Name            string
+	ProfileImageKey *string
+	ProfileURL      *string
+	ReviewScore     *float64
+}
+
+type SearchItem struct {
+	Artwork Artwork
+	Artist  ArtistSummary
+}
+
+type SearchQuery struct {
+	ArtistName     string
+	Category       string
+	Styles         []string
+	MinPriceSatang *int64
+	MaxPriceSatang *int64
+	MinReviewScore *float64
+	Sort           SearchSort
+	Page           int
+	Limit          int
+	Offset         int
+}
+
+type SearchPage struct {
+	Items []SearchItem
+	Total int
+	Page  int
 }

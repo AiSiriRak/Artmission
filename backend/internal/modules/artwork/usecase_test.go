@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,9 +15,11 @@ import (
 
 type fakeRepository struct {
 	artworks        []Artwork
+	searchPage      SearchPage
 	err             error
-	categoryLabels  []string
-	styleLabels     [][]string
+	searchQuery     SearchQuery
+	categoryID      uuid.UUID
+	styleIDs        []uuid.UUID
 	created         *Artwork
 	updated         *Artwork
 	retainedSamples []Sample
@@ -27,25 +30,26 @@ type fakeRepository struct {
 	}
 }
 
+func (repo *fakeRepository) Search(_ context.Context, query SearchQuery) (SearchPage, error) {
+	repo.searchQuery = query
+	return repo.searchPage, repo.err
+}
+
 func (repo *fakeRepository) ListByArtistID(context.Context, uuid.UUID) ([]Artwork, error) {
 	return repo.artworks, repo.err
 }
 
-func (repo *fakeRepository) FindOrCreateCategory(_ context.Context, label string) (uuid.UUID, error) {
-	repo.categoryLabels = append(repo.categoryLabels, label)
-	return uuid.New(), repo.err
+func (repo *fakeRepository) ListAllCategories(context.Context) ([]Category, error) {
+	return nil, repo.err
 }
 
-func (repo *fakeRepository) FindOrCreateStyles(_ context.Context, labels []string) ([]uuid.UUID, error) {
-	repo.styleLabels = append(repo.styleLabels, append([]string{}, labels...))
-	ids := make([]uuid.UUID, len(labels))
-	for index := range ids {
-		ids[index] = uuid.New()
-	}
-	return ids, repo.err
+func (repo *fakeRepository) ListAllStyles(context.Context) ([]Style, error) {
+	return nil, repo.err
 }
 
-func (repo *fakeRepository) Create(_ context.Context, item *Artwork, _ uuid.UUID, _ []uuid.UUID) error {
+func (repo *fakeRepository) Create(_ context.Context, item *Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) error {
+	repo.categoryID = categoryID
+	repo.styleIDs = append([]uuid.UUID{}, styleIDs...)
 	if repo.err != nil {
 		return repo.err
 	}
@@ -56,7 +60,9 @@ func (repo *fakeRepository) Create(_ context.Context, item *Artwork, _ uuid.UUID
 	return nil
 }
 
-func (repo *fakeRepository) UpdateOwnedBy(_ context.Context, item *Artwork, _ uuid.UUID, _ []uuid.UUID, deletedSampleURLs []string) ([]string, error) {
+func (repo *fakeRepository) UpdateOwnedBy(_ context.Context, item *Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID, deletedSampleURLs []string) ([]string, error) {
+	repo.categoryID = categoryID
+	repo.styleIDs = append([]uuid.UUID{}, styleIDs...)
 	if repo.err != nil {
 		return nil, repo.err
 	}
@@ -128,6 +134,107 @@ func (tx *fakeTransaction) Transaction(ctx context.Context, fn func(context.Cont
 	return fn(ctx)
 }
 
+func TestSearchDefaultsPageSizeAndEmptySlice(t *testing.T) {
+	repo := &fakeRepository{}
+	got, err := NewUsecase(repo, &fakeTransaction{}, &fakeStorage{}).Search(context.Background(), SearchQuery{})
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if got.Items == nil || len(got.Items) != 0 || got.Page != 1 {
+		t.Errorf("Search() = %#v, want empty page 1", got)
+	}
+	if repo.searchQuery.Sort != DefaultSearchSort || repo.searchQuery.Limit != SearchPageSize || repo.searchQuery.Offset != 0 || repo.searchQuery.Page != 1 {
+		t.Errorf("normalized query = %+v", repo.searchQuery)
+	}
+}
+
+func TestSearchComputesOffsetAndResolvesProfileURL(t *testing.T) {
+	key := "artist-profiles/one.webp"
+	score := 4.5
+	repo := &fakeRepository{searchPage: SearchPage{Items: []SearchItem{{
+		Artwork: Artwork{Name: "Cover"},
+		Artist:  ArtistSummary{Name: "Ada", ProfileImageKey: &key, ReviewScore: &score},
+	}}, Total: 21}}
+	got, err := NewUsecase(repo, &fakeTransaction{}, &fakeStorage{}).Search(context.Background(), SearchQuery{
+		ArtistName: "  Ada  ",
+		Category:   " Book ",
+		Styles:     []string{" Pixel Art "},
+		Sort:       SearchSortPriceAsc,
+		Page:       2,
+	})
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if repo.searchQuery.ArtistName != "Ada" || repo.searchQuery.Offset != SearchPageSize || repo.searchQuery.Limit != SearchPageSize || repo.searchQuery.Sort != SearchSortPriceAsc {
+		t.Errorf("normalized query = %+v", repo.searchQuery)
+	}
+	if repo.searchQuery.Category != "Book" || !reflect.DeepEqual(repo.searchQuery.Styles, []string{"Pixel Art"}) {
+		t.Errorf("filters = category=%v styles=%v", repo.searchQuery.Category, repo.searchQuery.Styles)
+	}
+	if got.Page != 2 || got.Total != 21 || got.Items[0].Artist.ProfileURL == nil || *got.Items[0].Artist.ProfileURL != "https://public.test/"+key {
+		t.Errorf("Search() = %#v", got)
+	}
+}
+
+func TestSearchAcceptsZeroMinReviewScore(t *testing.T) {
+	zero := 0.0
+	repo := &fakeRepository{}
+	if _, err := NewUsecase(repo, &fakeTransaction{}, &fakeStorage{}).Search(context.Background(), SearchQuery{MinReviewScore: &zero}); err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if repo.searchQuery.MinReviewScore == nil || *repo.searchQuery.MinReviewScore != 0 {
+		t.Errorf("min review score = %v", repo.searchQuery.MinReviewScore)
+	}
+}
+
+func TestSearchRejectsInvalidInput(t *testing.T) {
+	negative := int64(-1)
+	invertedMin, invertedMax := int64(200), int64(100)
+	badScore := 6.0
+	negativeScore := -0.1
+	tests := []SearchQuery{
+		{Category: "  "},
+		{Styles: []string{"  "}},
+		{MinPriceSatang: &negative},
+		{MaxPriceSatang: &negative},
+		{MinPriceSatang: &invertedMin, MaxPriceSatang: &invertedMax},
+		{MinReviewScore: &badScore},
+		{MinReviewScore: &negativeScore},
+		{Sort: SearchSort("popularity")},
+		{Page: -1},
+		{Page: math.MaxInt},
+	}
+	for index, query := range tests {
+		repo := &fakeRepository{}
+		if _, err := NewUsecase(repo, &fakeTransaction{}, &fakeStorage{}).Search(context.Background(), query); err == nil {
+			t.Errorf("case %d: Search() error = nil", index)
+		}
+		if repo.searchQuery.Limit != 0 {
+			t.Errorf("case %d called repository: %+v", index, repo.searchQuery)
+		}
+	}
+}
+
+func TestSearchAcceptsLargestPageWhoseOffsetFits(t *testing.T) {
+	page := math.MaxInt/SearchPageSize + 1
+	repo := &fakeRepository{}
+	got, err := NewUsecase(repo, &fakeTransaction{}, &fakeStorage{}).Search(context.Background(), SearchQuery{Page: page})
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if got.Page != page || repo.searchQuery.Page != page || repo.searchQuery.Offset != (page-1)*SearchPageSize || repo.searchQuery.Limit != SearchPageSize {
+		t.Errorf("normalized query = %+v page=%d", repo.searchQuery, got.Page)
+	}
+}
+
+func TestSearchReturnsRepositoryError(t *testing.T) {
+	want := errors.New("repository failed")
+	got, err := NewUsecase(&fakeRepository{err: want}, &fakeTransaction{}, &fakeStorage{}).Search(context.Background(), SearchQuery{})
+	if !errors.Is(err, want) || !reflect.DeepEqual(got, SearchPage{}) {
+		t.Errorf("Search() = (%#v, %v), want (zero, %v)", got, err, want)
+	}
+}
+
 func TestListByArtistIDPreservesSampleURLsAndNormalizesSlices(t *testing.T) {
 	repo := &fakeRepository{artworks: []Artwork{
 		{ID: uuid.New(), Samples: []Sample{{ImageURL: "https://example.com/one.webp"}}},
@@ -170,11 +277,14 @@ func TestCreateNormalizesAndPersistsArtistOwnedArtwork(t *testing.T) {
 	tx := &fakeTransaction{}
 	storage := &fakeStorage{}
 	artistID := uuid.New()
+	categoryID := uuid.New()
+	pixelStyleID := uuid.New()
+	cartoonStyleID := uuid.New()
 	created, err := NewUsecase(repo, tx, storage).Create(context.Background(), CreateInput{
 		ArtistID:    artistID,
 		Name:        "  Book Cover  ",
-		Category:    "  Book  ",
-		Styles:      []string{" Pixel Art ", "Cartoon", "Pixel Art"},
+		CategoryID:  categoryID,
+		StyleIDs:    []uuid.UUID{pixelStyleID, cartoonStyleID, pixelStyleID},
 		Description: "  A colorful book-cover commission  ",
 		SampleFiles: []io.Reader{
 			bytes.NewReader(testPNG()),
@@ -189,8 +299,8 @@ func TestCreateNormalizesAndPersistsArtistOwnedArtwork(t *testing.T) {
 	if tx.calls != 1 || repo.created == nil {
 		t.Fatalf("transaction calls=%d created=%+v", tx.calls, repo.created)
 	}
-	if !reflect.DeepEqual(repo.categoryLabels, []string{"Book"}) || !reflect.DeepEqual(repo.styleLabels, [][]string{{"Pixel Art", "Cartoon"}}) {
-		t.Errorf("category labels=%#v style labels=%#v", repo.categoryLabels, repo.styleLabels)
+	if repo.categoryID != categoryID || !reflect.DeepEqual(repo.styleIDs, []uuid.UUID{pixelStyleID, cartoonStyleID}) {
+		t.Errorf("category id=%s style ids=%v", repo.categoryID, repo.styleIDs)
 	}
 	if created.ID == uuid.Nil || created.ArtistID != artistID || created.Name != "Book Cover" || created.Description != "A colorful book-cover commission" {
 		t.Errorf("created artwork = %+v", created)
@@ -204,9 +314,9 @@ func TestCreateRejectsInvalidInputBeforeTransaction(t *testing.T) {
 	tests := []CreateInput{
 		validCreateInput(),
 		withCreateInput(validCreateInput(), func(input *CreateInput) { input.ArtistID = uuid.New(); input.Name = "  " }),
-		withCreateInput(validCreateInput(), func(input *CreateInput) { input.ArtistID = uuid.New(); input.Category = "  " }),
+		withCreateInput(validCreateInput(), func(input *CreateInput) { input.ArtistID = uuid.New(); input.CategoryID = uuid.Nil }),
 		withCreateInput(validCreateInput(), func(input *CreateInput) { input.ArtistID = uuid.New(); input.Description = "  " }),
-		withCreateInput(validCreateInput(), func(input *CreateInput) { input.ArtistID = uuid.New(); input.Styles = []string{"  "} }),
+		withCreateInput(validCreateInput(), func(input *CreateInput) { input.ArtistID = uuid.New(); input.StyleIDs = []uuid.UUID{uuid.Nil} }),
 		withCreateInput(validCreateInput(), func(input *CreateInput) {
 			input.ArtistID = uuid.New()
 			input.SampleFiles = []io.Reader{strings.NewReader("not an image")}
@@ -286,8 +396,8 @@ func TestUpdateNormalizesAndPersistsArtistOwnedArtwork(t *testing.T) {
 		CreateInput: CreateInput{
 			ArtistID:            artistID,
 			Name:                "  Updated Cover  ",
-			Category:            "  Book  ",
-			Styles:              []string{" Cartoon ", "Cartoon"},
+			CategoryID:          uuid.New(),
+			StyleIDs:            []uuid.UUID{uuid.MustParse("00000000-0000-0000-0000-0000000000c2"), uuid.MustParse("00000000-0000-0000-0000-0000000000c2")},
 			Description:         "  Updated description  ",
 			SampleFiles:         []io.Reader{bytes.NewReader(testPNG())},
 			MinimumDeadlineDays: 10,
@@ -303,8 +413,8 @@ func TestUpdateNormalizesAndPersistsArtistOwnedArtwork(t *testing.T) {
 	if updated.ID != artworkID || updated.ArtistID != artistID || updated.Name != "Updated Cover" || updated.Description != "Updated description" {
 		t.Errorf("updated artwork = %+v", updated)
 	}
-	if !reflect.DeepEqual(updated.Styles, []string{"Cartoon"}) || len(updated.Samples) != 2 || updated.Samples[0].ImageURL != retainedURL || !strings.HasPrefix(updated.Samples[1].ImageURL, "https://public.test/artists/") || updated.Samples[1].SortOrder != 1 {
-		t.Errorf("styles=%#v samples=%+v", updated.Styles, updated.Samples)
+	if !reflect.DeepEqual(repo.styleIDs, []uuid.UUID{uuid.MustParse("00000000-0000-0000-0000-0000000000c2")}) || len(updated.Samples) != 2 || updated.Samples[0].ImageURL != retainedURL || !strings.HasPrefix(updated.Samples[1].ImageURL, "https://public.test/artists/") || updated.Samples[1].SortOrder != 1 {
+		t.Errorf("style ids=%v samples=%+v", repo.styleIDs, updated.Samples)
 	}
 	if !reflect.DeepEqual(repo.updateDeletes, []string{deletedURL}) || !reflect.DeepEqual(storage.deletes, []string{"artists/artist/artworks/artwork/deleted.png"}) {
 		t.Errorf("repository deletes=%v storage deletes=%v", repo.updateDeletes, storage.deletes)
@@ -333,9 +443,9 @@ func TestUpdateRejectsInvalidInputBeforeTransaction(t *testing.T) {
 		{CreateInput: valid},
 		{ArtworkID: uuid.New(), CreateInput: validCreateInput()},
 		{ArtworkID: uuid.New(), CreateInput: withCreateInput(valid, func(input *CreateInput) { input.Name = "  " })},
-		{ArtworkID: uuid.New(), CreateInput: withCreateInput(valid, func(input *CreateInput) { input.Category = "  " })},
+		{ArtworkID: uuid.New(), CreateInput: withCreateInput(valid, func(input *CreateInput) { input.CategoryID = uuid.Nil })},
 		{ArtworkID: uuid.New(), CreateInput: withCreateInput(valid, func(input *CreateInput) { input.Description = "  " })},
-		{ArtworkID: uuid.New(), CreateInput: withCreateInput(valid, func(input *CreateInput) { input.Styles = []string{"  "} })},
+		{ArtworkID: uuid.New(), CreateInput: withCreateInput(valid, func(input *CreateInput) { input.StyleIDs = []uuid.UUID{uuid.Nil} })},
 		{ArtworkID: uuid.New(), CreateInput: withCreateInput(valid, func(input *CreateInput) { input.SampleFiles = []io.Reader{strings.NewReader("not an image")} })},
 		{ArtworkID: uuid.New(), CreateInput: withCreateInput(valid, func(input *CreateInput) { input.PriceSatang = -1 })},
 		{ArtworkID: uuid.New(), CreateInput: withCreateInput(valid, func(input *CreateInput) { input.MinimumDeadlineDays = 0 })},
@@ -355,7 +465,7 @@ func TestUpdateRejectsInvalidInputBeforeTransaction(t *testing.T) {
 func validCreateInput() CreateInput {
 	return CreateInput{
 		Name:                "Book Cover",
-		Category:            "Book",
+		CategoryID:          uuid.MustParse("00000000-0000-0000-0000-0000000000c1"),
 		Description:         "A colorful book-cover commission",
 		MinimumDeadlineDays: 7,
 		PriceSatang:         250000,
