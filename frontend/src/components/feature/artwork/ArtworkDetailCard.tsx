@@ -4,7 +4,7 @@ const mockArtwork = {
     "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
   category: "Painting",
   styles: ["Abstract", "Modern"],
-  images: ["/default-avatar.png", "/default-avatar.png", "/default-avatar.png"],
+  images: ["/default-avatar.png", "/default-avatar.png", "/default-avatar.png", "/default-avatar.png", "/default-avatar.png"],
 };
 
 export default function ArtworkDetailCard() {
