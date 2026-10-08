@@ -1,5 +1,11 @@
 import { apiFetch } from "./client";
-import type { Artwork, CreateArtworkInput, UpdateArtworkInput } from "./types";
+import type {
+  Artwork,
+  CreateArtworkInput,
+  SearchArtworksQuery,
+  SearchArtworksOutput,
+  UpdateArtworkInput,
+} from "./types";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -79,6 +85,38 @@ function buildFormData(data: Record<string, unknown>): FormData {
     formData.append(key, String(value));
   });
   return formData;
+}
+
+/**
+ * ค้นหาผลงานศิลปะสำหรับหน้าแรกของลูกค้า (ค้นจากชื่อศิลปิน + ตัวกรอง)
+ * GET /artworks
+ */
+export async function searchArtworks(
+  params: SearchArtworksQuery = {},
+): Promise<SearchArtworksOutput> {
+  const searchParams = new URLSearchParams();
+
+  if (params.q) searchParams.set("q", params.q);
+  if (params.category) searchParams.set("category", params.category);
+  if (params.style) {
+    for (const style of params.style) {
+      searchParams.append("style", style);
+    }
+  }
+  if (params.min_price_satang !== undefined) {
+    searchParams.set("min_price_satang", params.min_price_satang);
+  }
+  if (params.max_price_satang !== undefined) {
+    searchParams.set("max_price_satang", params.max_price_satang);
+  }
+  if (params.min_review_score !== undefined) {
+    searchParams.set("min_review_score", params.min_review_score);
+  }
+  if (params.sort) searchParams.set("sort", params.sort);
+  if (params.page !== undefined) searchParams.set("page", String(params.page));
+
+  const query = searchParams.toString();
+  return apiFetch<SearchArtworksOutput>(`/artworks${query ? `?${query}` : ""}`);
 }
 
 /**

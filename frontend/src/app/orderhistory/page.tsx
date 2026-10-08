@@ -109,6 +109,7 @@ export default function HomePage() {
             <div className="w-48">
               <p className="text-small">Deadline</p>
               <SelectInput
+                buttonClassName="mt-1"
                 value={sortOrder || "deadline-asc"}
                 onChange={(value) => {
                   setSortOrder(value);
