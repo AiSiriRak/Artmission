@@ -234,15 +234,10 @@ func (r *orderRepository) GetOrderByID(
 			ColumnExpr("customer.email AS customer_email").
 			ColumnExpr("artist.username AS artist_name").
 			ColumnExpr("artist.email AS artist_email").
-			ColumnExpr("rs.review_score AS artist_review_score").
+			ColumnExpr("artist_profiles.review_score AS artist_review_score").
 			Join("JOIN users AS customer ON customer.id = o.customer_id").
 			Join("JOIN users AS artist ON artist.id = o.artist_id").
-			Join("LEFT JOIN ("+
-				"SELECT artist_id, "+
-				"ROUND(AVG(rating)::numeric, 1)::double precision AS review_score "+
-				"FROM reviews "+
-				"GROUP BY artist_id"+
-				") AS rs ON rs.artist_id = o.artist_id").
+			Join("JOIN artist_profiles ON artist_profiles.user_id = o.artist_id").
 			Where("o.id = ?", orderID)
 
 		if participant == order.ParticipantCustomer {
