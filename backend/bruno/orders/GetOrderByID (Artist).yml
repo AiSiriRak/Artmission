@@ -1,0 +1,48 @@
+info:
+  name: GetOrderByID (Artist)
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{api_url}}/orders/:id"
+  params:
+    - name: id
+      value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
+      type: path
+      description: Order ID
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 200 Response
+    request:
+      url: ""
+      method: GET
+    response:
+      status: 200
+      statusText: OK
+      body:
+        type: text
+        data: ""
+  - name: default Response
+    request:
+      url: "{{api_url}}/orders/:id"
+      method: GET
+      params:
+        - name: id
+          value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
+          type: path
+          description: Order ID
+    response:
+      status: 200
+      statusText: OK
+      body:
+        type: text
+        data: ""

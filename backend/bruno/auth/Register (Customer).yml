@@ -12,9 +12,9 @@ http:
     type: json
     data: |-
       {
-        "username": "maiwantyourart",
-        "email": "mai2@mail.com",
-        "password": "123456789",
+        "username": "{{customer_username}}",
+        "email": "{{customer_email}}",
+        "password": "{{password}}",
         "role": "customer",
         "bank_account": {
           "account_number": "1234567890",
