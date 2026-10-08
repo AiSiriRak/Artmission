@@ -15,6 +15,7 @@ type Usecase interface {
 	Create(ctx context.Context, input CreateInput) (*Artwork, error)
 	Update(ctx context.Context, input UpdateInput) (*Artwork, error)
 	Delete(ctx context.Context, artistID, artworkID uuid.UUID) error
+	GetArtwork(ctx context.Context, artworkID uuid.UUID) (*ArtworkDetail, error)
 }
 
 type Repository interface {
@@ -25,6 +26,7 @@ type Repository interface {
 	Create(ctx context.Context, artwork *Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) error
 	UpdateOwnedBy(ctx context.Context, artwork *Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID, deletedSampleURLs []string) ([]string, error)
 	DeleteOwnedBy(ctx context.Context, artworkID, artistID uuid.UUID) error
+	GetByID(ctx context.Context, artworkID uuid.UUID) (*ArtworkDetail, error)
 }
 
 type ObjectStorage interface {

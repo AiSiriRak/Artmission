@@ -72,6 +72,19 @@ func (h *ArtworkHandler) Register(api huma.API) {
 		},
 	)
 
+	huma.Get(api, "/artworks/{artwork_id}", h.getArtwork,
+		huma.OperationTags("artworks"),
+		func(o *huma.Operation) {
+			o.OperationID = "get-artwork"
+			o.Summary = "GetArtwork"
+			o.Description = "Get the authenticated user artwork detail."
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireAnyRole(api, user.RoleCustomer, user.RoleArtist),
+			)
+		})
+
 	huma.Post(api, "/artworks", h.createArtwork,
 		huma.OperationTags("artworks"),
 		func(o *huma.Operation) {
@@ -121,6 +134,7 @@ func (h *ArtworkHandler) Register(api huma.API) {
 			o.Description = "List artwork styles"
 		},
 	)
+
 }
 
 type searchArtistView struct {
@@ -462,4 +476,63 @@ func newArtworkView(item *artwork.Artwork) artworkView {
 		CreatedAt:           item.CreatedAt,
 		UpdatedAt:           item.UpdatedAt,
 	}
+}
+
+type GetArtworkInput struct {
+	ArtworkID uuid.UUID `path:"artwork_id"`
+}
+
+type GetArtworkOutput struct {
+	Body artworkView
+}
+
+func (h *ArtworkHandler) getArtwork(ctx context.Context, input *GetArtworkInput) (*GetArtworkOutput, error) {
+	detail, err := h.artworkUsecase.GetArtwork(ctx, input.ArtworkID)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	categories, err := h.artworkUsecase.ListAllCategories(ctx)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+	styles, err := h.artworkUsecase.ListAllStyles(ctx)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	categoryName := ""
+	for _, cat := range categories {
+		if cat.ID == detail.CategoryID {
+			categoryName = cat.Label
+			break
+		}
+	}
+
+	styleMap := make(map[uuid.UUID]string, len(styles))
+	for _, style := range styles {
+		styleMap[style.ID] = style.Label
+	}
+
+	styleNames := make([]string, 0, len(detail.StyleIDs))
+	for _, styleID := range detail.StyleIDs {
+		if label, ok := styleMap[styleID]; ok {
+			styleNames = append(styleNames, label)
+		}
+	}
+	artwork := &artwork.Artwork{
+		ID:                  detail.ID,
+		ArtistID:            detail.ArtistID,
+		Name:                detail.Name,
+		Category:            categoryName,
+		Styles:              styleNames,
+		Description:         detail.Description,
+		Samples:             detail.Samples,
+		MinimumDeadlineDays: detail.MinimumDeadlineDays,
+		PriceSatang:         detail.PriceSatang,
+		CreatedAt:           detail.CreatedAt,
+		UpdatedAt:           detail.UpdatedAt}
+	return &GetArtworkOutput{
+		Body: newArtworkView(artwork),
+	}, nil
 }

@@ -192,6 +192,19 @@ func (a *artworkContext) updateArtwork(id, token string, body createArtworkBody,
 	return nil
 }
 
+func (a *artworkContext) getArtwork(id, token string) error {
+	headers := map[string]string{}
+	if token != "" {
+		headers["Authorization"] = "Bearer " + token
+	}
+	response, err := a.client.Do(http.MethodGet, "/artworks/"+id, nil, headers)
+	if err != nil {
+		return err
+	}
+	a.response = response
+	return nil
+}
+
 func (a *artworkContext) assertStoredArtwork() error {
 	if a.response.StatusCode != http.StatusCreated {
 		return fmt.Errorf("expected 201, got %d: %s", a.response.StatusCode, a.response.Body)
@@ -410,6 +423,27 @@ func (a *artworkContext) assertInvalidSampleDeletion() error {
 	return nil
 }
 
+func (a *artworkContext) assertFetchedArtworkDetail() error {
+	if a.response.StatusCode != http.StatusOK {
+		return fmt.Errorf("expected 200, got %d: %s", a.response.StatusCode, a.response.Body)
+	}
+	var got artworkResponse
+	if err := a.response.JSON(&got); err != nil {
+		return fmt.Errorf("decode artwork response: %w", err)
+	}
+
+	if got.ID != a.artworkID || got.Name != a.requestedBody.Name || got.Category != a.requestedBody.Category {
+		return fmt.Errorf("fetched artwork mismatch: got %+v, want category %q", got, a.requestedBody.Category)
+	}
+	if !reflect.DeepEqual(got.Styles, a.requestedBody.Styles) {
+		return fmt.Errorf("fetched styles = %v, want %v", got.Styles, a.requestedBody.Styles)
+	}
+	if len(got.ArtworkSamples) != len(a.currentSampleURLs) {
+		return fmt.Errorf("fetched samples count = %d, want %d", len(got.ArtworkSamples), len(a.currentSampleURLs))
+	}
+	return nil
+}
+
 func newArtworkBody() createArtworkBody {
 	return createArtworkBody{
 		Name:        "Book Cover",
@@ -597,5 +631,17 @@ func InitializeScenario(scenario *godog.ScenarioContext) {
 			return fmt.Errorf("expected 403, got %d: %s", state.response.StatusCode, state.response.Body)
 		}
 		return nil
+	})
+	scenario.Step(`^a user fetches the artwork details$`, func() error {
+		return state.getArtwork(state.artworkID, state.accessToken)
+	})
+	scenario.Step(`^a user fetches a missing artwork details$`, func() error {
+		return state.getArtwork(uuid.NewString(), state.accessToken)
+	})
+	scenario.Step(`^an unauthenticated caller fetches the artwork details$`, func() error {
+		return state.getArtwork(state.artworkID, "")
+	})
+	scenario.Step(`^the system returns the complete artwork detail with category and styles$`, func() error {
+		return state.assertFetchedArtworkDetail()
 	})
 }

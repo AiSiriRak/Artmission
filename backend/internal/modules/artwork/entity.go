@@ -108,3 +108,17 @@ type SearchPage struct {
 	Total int
 	Page  int
 }
+
+type ArtworkDetail struct {
+	ID                  uuid.UUID
+	ArtistID            uuid.UUID
+	Name                string
+	CategoryID          uuid.UUID
+	StyleIDs            []uuid.UUID
+	Description         string
+	Samples             []Sample
+	MinimumDeadlineDays int
+	PriceSatang         int64
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
