@@ -20,6 +20,17 @@ type OrderUsecase interface {
 		participantID uuid.UUID,
 		orderID uuid.UUID,
 	) (*OrderDetail, error)
+
+	// ConfirmOrder accepts or rejects an order on behalf of its artist.
+	// The order must belong to the artist and currently be PENDING.
+	// Accept = true transitions the order's status to NOT_PAID.
+	// Accept = false transitions the order's status to CANCEL.
+	ConfirmOrder(
+		ctx context.Context,
+		artistID uuid.UUID,
+		orderID uuid.UUID,
+		input ConfirmOrderInput,
+	) error
 }
 
 type OrderRepository interface {
@@ -33,9 +44,22 @@ type OrderRepository interface {
 		participantID uuid.UUID,
 		orderID uuid.UUID,
 	) (*OrderDetailData, error)
+
+	// ConfirmOrder transitions a PENDING order to the given status,
+	// scoped to the authenticated artist who owns the order.
+	ConfirmOrder(
+		ctx context.Context,
+		artistID uuid.UUID,
+		orderID uuid.UUID,
+		status Status,
+	) error
 }
 
 type ObjectStorage interface {
 	// GetPresignedURL returns a time-limited URL for the object key.
 	GetPresignedURL(ctx context.Context, key string, ttl time.Duration) (string, error)
+}
+
+type ConfirmOrderInput struct {
+	Accept bool
 }

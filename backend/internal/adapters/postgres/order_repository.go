@@ -312,3 +312,47 @@ func (r *orderRepository) GetOrderByID(
 		Deliverables: deliverables,
 	}, nil
 }
+
+// ConfirmOrder transitions a pending order to the given status,
+// scoped to the authenticated artist who owns the order.
+func (r *orderRepository) ConfirmOrder(
+	ctx context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+	status order.Status,
+) error {
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		result, err := idb.NewUpdate().
+			Model((*pgmodel.Order)(nil)).
+			Set("status = ?", string(status)).
+			Set("updated_at = NOW()").
+			Where("id = ?", orderID).
+			Where("artist_id = ?", artistID).
+			Where("status = ?", string(order.StatusPending)).
+			Exec(ctx)
+
+		if err != nil {
+			return err
+		}
+
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+
+		if rows == 0 {
+			return order.ErrOrderNotFound
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return err
+		}
+		return apperror.Internal("failed to confirm order", err)
+	}
+
+	return nil
+}

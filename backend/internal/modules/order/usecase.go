@@ -164,3 +164,32 @@ func (u *orderUsecase) GetOrder(
 
 	return detail, nil
 }
+
+// ConfirmOrder accepts or rejects an order on behalf of its artist.
+// The order must belong to the artist and currently be PENDING.
+// Accept = true transitions the order's status to NOT_PAID.
+// Accept = false transitions the order's status to CANCEL.
+func (u *orderUsecase) ConfirmOrder(
+	ctx context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+	input ConfirmOrderInput,
+) error {
+	if artistID == uuid.Nil {
+		return ErrMissingParticipantID
+	}
+
+	if orderID == uuid.Nil {
+		return ErrMissingOrderID
+	}
+
+	var status Status
+	switch input.Accept {
+	case true:
+		status = StatusNotPaid
+	case false:
+		status = StatusCancel
+	}
+
+	return u.repo.ConfirmOrder(ctx, artistID, orderID, status)
+}

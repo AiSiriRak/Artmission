@@ -46,6 +46,20 @@ func (h *OrderHandler) Register(api huma.API) {
 				requireAnyRole(api, user.RoleCustomer, user.RoleArtist),
 			)
 		})
+
+	huma.Put(api, "/orders/{order_id}/confirm", h.confirmOrder,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "confirm-order"
+			o.Summary = "ConfirmOrder"
+			o.Description = "Accept or reject a pending order as the authenticated artist."
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireRole(api, user.RoleArtist),
+			)
+		},
+	)
 }
 
 type orderSummaryView struct {
@@ -86,6 +100,21 @@ type GetOrderInput struct {
 // GetOrderOutput contains the detailed order information.
 type GetOrderOutput struct {
 	Body orderDetailView
+}
+
+// ConfirmOrderInput contains the order ID and the artist's decision.
+type ConfirmOrderInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+	Body    struct {
+		Accept bool `json:"accept"`
+	}
+}
+
+// ConfirmOrderOutput is returned after the order confirmation is processed.
+type ConfirmOrderOutput struct {
+	Body struct {
+		Message string `json:"message"`
+	}
 }
 
 // orderPartyView represents the participant on the opposite side of the
@@ -284,4 +313,41 @@ func toOrderDetailView(o *order.OrderDetail) orderDetailView {
 		},
 		Deliverables: deliverables,
 	}
+}
+
+// confirmOrder accepts or rejects a pending order on behalf of the
+// authenticated artist.
+func (h *OrderHandler) confirmOrder(
+	ctx context.Context,
+	input *ConfirmOrderInput,
+) (*ConfirmOrderOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	err := h.orderUsecase.ConfirmOrder(
+		ctx,
+		info.UserID,
+		input.OrderID,
+		order.ConfirmOrderInput{
+			Accept: input.Body.Accept,
+		},
+	)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	var message string
+	switch input.Body.Accept {
+	case true:
+		message = "Order accepted"
+	case false:
+		message = "Order rejected"
+	}
+
+	out := &ConfirmOrderOutput{}
+	out.Body.Message = message
+
+	return out, nil
 }
