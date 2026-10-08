@@ -14,6 +14,23 @@ import (
 	"github.com/uptrace/bun"
 )
 
+func newOrderModel(item *order.Order) *pgmodel.Order {
+	return &pgmodel.Order{
+		ID:                  item.ID,
+		CustomerID:          item.CustomerID,
+		ArtistID:            item.ArtistID,
+		Name:                item.Name,
+		ArtworkID:           item.ArtworkID,
+		PriceSatangOrder:    item.PriceSatangOrder,
+		CustomerDescription: item.CustomerDescription,
+		DeadlineAt:          item.DeadlineAt,
+		Status:              string(item.Status),
+		CompletedAt:         item.CompletedAt,
+		CreatedAt:           item.CreatedAt,
+		UpdatedAt:           item.UpdatedAt,
+	}
+}
+
 // orderModelToDomain converts a PostgreSQL order model into its domain value.
 func orderModelToDomain(m *pgmodel.Order) order.Order {
 	return order.Order{
@@ -281,4 +298,18 @@ func (r *orderRepository) GetOrderByID(
 			ArtistReviewScore: model.ArtistReviewScore,
 		},
 	}, nil
+}
+
+func (r *orderRepository) Create(
+	ctx context.Context,
+	item *order.Order,
+) error {
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		_, err := idb.NewInsert().Model(newOrderModel(item)).Exec(ctx)
+		return err
+	})
+	if err != nil {
+		return apperror.Internal("failed to create order", err)
+	}
+	return nil
 }

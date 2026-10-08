@@ -20,6 +20,8 @@ type OrderUsecase interface {
 		participantID uuid.UUID,
 		orderID uuid.UUID,
 	) (*OrderDetail, error)
+
+	CreateOrder(ctx context.Context, customerID uuid.UUID, input CreateInput) (*Order, error)
 }
 
 type OrderRepository interface {
@@ -33,8 +35,9 @@ type OrderRepository interface {
 		participantID uuid.UUID,
 		orderID uuid.UUID,
 	) (*OrderDetailData, error)
-}
 
+	Create(ctx context.Context, order *Order) error
+}
 type ObjectStorage interface {
 	// GetPresignedURL returns a time-limited URL for the object key.
 	GetPresignedURL(ctx context.Context, key string, ttl time.Duration) (string, error)

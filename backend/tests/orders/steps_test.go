@@ -13,6 +13,7 @@ import (
 
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/cucumber/godog"
+	"github.com/google/uuid"
 )
 
 // ordersContext holds the state for exactly one scenario: the HTTP client
@@ -217,6 +218,84 @@ func (o *ordersContext) anotherArtistHasAnOrder() error {
 	}
 	o.otherOrderID, err = seedOrder(orderSeed{CustomerID: customer.ID, ArtistID: other.ID})
 	return err
+}
+
+func (o *ordersContext) anArtworkExistsForCommission() error {
+	artist, err := apptest.RegisterArtist(app, apptest.NewClient(app.BaseURL()), "Bio")
+	if err != nil {
+		return err
+	}
+	categoryID := uuid.New()
+	artworkID := uuid.New()
+
+	if _, err := app.DB.ExecContext(context.Background(), `
+		INSERT INTO categories (id, label) VALUES (?, ?)
+	`, categoryID, "Category "+categoryID.String()); err != nil {
+		return err
+	}
+
+	if _, err := app.DB.ExecContext(context.Background(), `
+		INSERT INTO artworks (id, artist_id, category_id, name, description, price_satang, minimum_deadline_days)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, artworkID, uuid.MustParse(artist.ID), categoryID, "Sample Artwork", "Desc", 10000, 7); err != nil {
+		return err
+	}
+
+	o.targetArtworkID = artworkID.String()
+	return nil
+}
+
+func (o *ordersContext) theUserSubmitsANewOrderForTheArtwork() error {
+	deadline := time.Now().AddDate(0, 0, 10).Format(time.RFC3339)
+	payload := map[string]any{
+		"artwork_id":           o.targetArtworkID,
+		"name":                 "My Custom Portrait",
+		"customer_description": "Blue background please",
+		"deadline_at":          deadline,
+	}
+
+	resp, err := o.client.Do(http.MethodPost, "/orders", payload, map[string]string{
+		"Authorization": "Bearer " + o.accessToken,
+	})
+	if err != nil {
+		return err
+	}
+	o.resp = resp
+	return nil
+}
+
+func (o *ordersContext) theUserSubmitsANewOrderWithoutLoggingIn() error {
+	deadline := time.Now().AddDate(0, 0, 10).Format(time.RFC3339)
+	payload := map[string]any{
+		"artwork_id":           o.targetArtworkID,
+		"name":                 "My Custom Portrait",
+		"customer_description": "Blue background please",
+		"deadline_at":          deadline,
+	}
+
+	resp, err := o.client.Do(http.MethodPost, "/orders", payload, nil)
+	if err != nil {
+		return err
+	}
+	o.resp = resp
+	return nil
+}
+
+func (o *ordersContext) theSystemCreatesTheOrderSuccessfullyWithStatus(status string) error {
+	if err := o.expectStatus(http.StatusCreated); err != nil {
+		return err
+	}
+	var res struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}
+	if err := o.resp.JSON(&res); err != nil {
+		return err
+	}
+	if res.Status != status {
+		return fmt.Errorf("expected status %s, got %s", status, res.Status)
+	}
+	return nil
 }
 
 // --- when ---
@@ -715,6 +794,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user has (\d+) orders$`, func(n int) error { return o.theUserHasNOrders(n) })
 	sc.Step(`^another customer has an order$`, func() error { return o.anotherCustomerHasAnOrder() })
 	sc.Step(`^another artist has an order$`, func() error { return o.anotherArtistHasAnOrder() })
+	sc.Step(`^an artwork exists for commission$`, func() error { return o.anArtworkExistsForCommission() })
 
 	// when
 	sc.Step(`^the user views their orders$`, func() error { return o.theUserViewsTheirOrders() })
@@ -738,6 +818,8 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user pages through all of their orders using a limit of (\d+)$`, func(limit int) error {
 		return o.theUserPagesThroughAllOfTheirOrdersUsingALimit(limit)
 	})
+	sc.Step(`^the user submits a new order for the artwork$`, func() error { return o.theUserSubmitsANewOrderForTheArtwork() })
+	sc.Step(`^the user submits a new order without logging in$`, func() error { return o.theUserSubmitsANewOrderWithoutLoggingIn() })
 
 	// then
 	sc.Step(`^the system shows all of the user's orders with their current status$`, func() error {
@@ -769,4 +851,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system rejects the request due to an invalid offset$`, func() error { return o.expectClientError() })
 	sc.Step(`^the system rejects the request due to an invalid status$`, func() error { return o.expectClientError() })
+	sc.Step(`^the system creates the order successfully with status "([^"]*)"$`, func(status string) error {
+		return o.theSystemCreatesTheOrderSuccessfullyWithStatus(status)
+	})
 }

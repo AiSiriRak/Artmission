@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
@@ -19,12 +21,29 @@ import (
 )
 
 type fakeOrderUsecase struct {
-	viewOrdersFunc func(context.Context, order.ListQuery) (order.Page, error)
-	getOrderFunc   func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
-	gotListQuery   order.ListQuery
-	gotParticipant order.Participant
-	gotUserID      uuid.UUID
-	gotOrderID     uuid.UUID
+	viewOrdersFunc  func(context.Context, order.ListQuery) (order.Page, error)
+	getOrderFunc    func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
+	gotListQuery    order.ListQuery
+	gotParticipant  order.Participant
+	gotUserID       uuid.UUID
+	gotOrderID      uuid.UUID
+	createOrderFunc func(ctx context.Context, customerID uuid.UUID, input order.CreateInput) (*order.Order, error)
+}
+
+type fakeArtworkUsecase struct {
+	artwork.Usecase
+	getArtworkFunc func(ctx context.Context, artworkID uuid.UUID) (*artwork.ArtworkDetail, error)
+}
+
+func (f *fakeArtworkUsecase) GetArtwork(ctx context.Context, artworkID uuid.UUID) (*artwork.ArtworkDetail, error) {
+	if f.getArtworkFunc != nil {
+		return f.getArtworkFunc(ctx, artworkID)
+	}
+	return &artwork.ArtworkDetail{
+		ID:          artworkID,
+		Name:        "Test Artwork",
+		PriceSatang: 10000,
+	}, nil
 }
 
 func (f *fakeOrderUsecase) GetOrder(
@@ -38,6 +57,13 @@ func (f *fakeOrderUsecase) GetOrder(
 	f.gotOrderID = orderID
 	if f.getOrderFunc != nil {
 		return f.getOrderFunc(ctx, participant, userID, orderID)
+	}
+	return nil, nil
+}
+
+func (f *fakeOrderUsecase) CreateOrder(ctx context.Context, customerID uuid.UUID, input order.CreateInput) (*order.Order, error) {
+	if f.createOrderFunc != nil {
+		return f.createOrderFunc(ctx, customerID, input)
 	}
 	return nil, nil
 }
@@ -291,11 +317,120 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 	}
 }
 
+func TestOrderHandlerCreateOrder(t *testing.T) {
+	const (
+		customerID = "00000000-0000-0000-0000-000000000001"
+		artworkID  = "00000000-0000-0000-0000-000000000004"
+		orderID    = "00000000-0000-0000-0000-000000000010"
+	)
+	deadline := time.Date(2026, time.October, 20, 12, 0, 0, 0, time.UTC)
+	createdAt := time.Date(2026, time.October, 1, 12, 0, 0, 0, time.UTC)
+
+	t.Run("success creating an order as customer", func(t *testing.T) {
+		artworkUUID := uuid.MustParse(artworkID)
+		createdOrder := &order.Order{
+			ID:                  uuid.MustParse(orderID),
+			CustomerID:          uuid.MustParse(customerID),
+			ArtistID:            uuid.MustParse("00000000-0000-0000-0000-000000000003"),
+			ArtworkID:           &artworkUUID,
+			Name:                "Portrait Commission",
+			PriceSatangOrder:    150000,
+			CustomerDescription: "Please draw me with blue background",
+			DeadlineAt:          deadline,
+			Status:              order.StatusPending,
+			CreatedAt:           createdAt,
+			UpdatedAt:           createdAt,
+		}
+
+		usecase := &fakeOrderUsecase{
+			createOrderFunc: func(ctx context.Context, custID uuid.UUID, input order.CreateInput) (*order.Order, error) {
+				if custID != uuid.MustParse(customerID) {
+					t.Errorf("customerID = %s, want %s", custID, customerID)
+				}
+				if input.ArtworkID != artworkUUID {
+					t.Errorf("artworkID = %s, want %s", input.ArtworkID, artworkUUID)
+				}
+				return createdOrder, nil
+			},
+		}
+
+		handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+
+		// 🛠️ เปลี่ยน key จาก snake_case เป็น PascalCase ให้ตรงกับ Schema Validator
+		body := map[string]any{
+			"ArtworkID":           artworkID,
+			"Name":                "Portrait Commission",
+			"CustomerDescription": "Please draw me with blue background",
+			"DeadlineAt":          deadline.Format(time.RFC3339),
+		}
+		jsonBody, _ := json.Marshal(body)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/orders", bytes.NewReader(jsonBody))
+		req.Header.Set("Authorization", "Bearer test-token")
+		req.Header.Set("Content-Type", "application/json")
+
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+		}
+
+		var got orderDetailView
+		if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+
+		if got.ID != orderID || got.Status != string(order.StatusPending) {
+			t.Errorf("got order ID = %s, status = %s; want ID = %s, status = PENDING", got.ID, got.Status, orderID)
+		}
+	})
+
+	t.Run("rejected when user is an artist", func(t *testing.T) {
+		usecase := &fakeOrderUsecase{}
+		handler := newOrderTestHandler(t, user.RoleArtist, usecase)
+
+		// 🛠️ เปลี่ยน key จาก snake_case เป็น PascalCase เช่นกัน
+		body := map[string]any{
+			"ArtworkID":           artworkID,
+			"Name":                "Portrait Commission",
+			"CustomerDescription": "Test",
+			"DeadlineAt":          deadline.Format(time.RFC3339),
+		}
+		jsonBody, _ := json.Marshal(body)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/orders", bytes.NewReader(jsonBody))
+		req.Header.Set("Authorization", "Bearer test-token")
+		req.Header.Set("Content-Type", "application/json")
+
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusForbidden {
+			t.Errorf("response status = %d, want %d", rec.Code, http.StatusForbidden)
+		}
+	})
+
+	t.Run("unauthenticated request rejected", func(t *testing.T) {
+		usecase := &fakeOrderUsecase{}
+		handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/orders", nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("response status = %d, want %d", rec.Code, http.StatusUnauthorized)
+		}
+	})
+}
+
 func newOrderTestHandler(t *testing.T, role user.Role, usecase order.OrderUsecase) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	api, server := httpserver.New("", "/api/v1", nil, logger, nil)
-	NewOrderHandler(usecase, orderAuthStub{role: role}).Register(api)
+	artworkUC := &fakeArtworkUsecase{}
+	NewOrderHandler(usecase, artworkUC, orderAuthStub{role: role}).Register(api)
 	return server.Handler()
 }
 

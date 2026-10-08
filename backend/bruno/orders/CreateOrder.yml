@@ -1,0 +1,25 @@
+info:
+  name: CreateOrder
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{api_url}}/orders"
+  body:
+    type: json
+    data: |-
+      {
+        "ArtworkID": "190ca7d2-8837-45a3-9c8e-59b26f229d12",
+        "CustomerDescription": "descriptionnnnn",
+        "DeadlineAt": "2026-10-08T17:33:55.937Z",
+        "Name": "order01"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -2,8 +2,10 @@ package rest
 
 import (
 	"context"
+	"net/http"
 	"time"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
@@ -12,13 +14,14 @@ import (
 )
 
 type OrderHandler struct {
-	orderUsecase order.OrderUsecase
-	authUsecase  auth.AuthUsecase
+	orderUsecase   order.OrderUsecase
+	artworkUsecase artwork.Usecase
+	authUsecase    auth.AuthUsecase
 }
 
 // NewOrderHandler creates a handler for order read endpoints.
-func NewOrderHandler(orderUsecase order.OrderUsecase, authUsecase auth.AuthUsecase) *OrderHandler {
-	return &OrderHandler{orderUsecase: orderUsecase, authUsecase: authUsecase}
+func NewOrderHandler(orderUsecase order.OrderUsecase, artworkUsecase artwork.Usecase, authUsecase auth.AuthUsecase) *OrderHandler {
+	return &OrderHandler{orderUsecase: orderUsecase, artworkUsecase: artworkUsecase, authUsecase: authUsecase}
 }
 
 // Register adds the authenticated order endpoints to the API.
@@ -46,6 +49,20 @@ func (h *OrderHandler) Register(api huma.API) {
 				requireAnyRole(api, user.RoleCustomer, user.RoleArtist),
 			)
 		})
+	huma.Post(api, "/orders", h.createOrder,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "create-order"
+			o.Summary = "CreateOrder"
+			o.Description = "Create a new order for the authenticated customer."
+			o.DefaultStatus = http.StatusCreated
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireAnyRole(api, user.RoleCustomer),
+			)
+		},
+	)
 }
 
 type orderSummaryView struct {
@@ -122,6 +139,18 @@ type orderDetailView struct {
 	CreatedAt           time.Time           `json:"created_at"`
 	UpdatedAt           time.Time           `json:"updated_at"`
 	OtherParty          orderPartyView      `json:"other_party"`
+}
+
+type CreateOrderInput struct {
+	Body struct {
+		Name                string    `form:"name" minLength:"1" required:"true"`
+		ArtworkID           uuid.UUID `form:"artwork_id" required:"true"`
+		CustomerDescription string    `form:"customer_description" minLength:"1" required:"true"`
+		DeadlineAt          time.Time `form:"deadline_at" minimum:"1" required:"true"`
+	}
+}
+type CreateOrderOutput struct {
+	Body orderSummaryView
 }
 
 // viewOrders lists orders scoped to the authenticated customer or artist.
@@ -258,4 +287,32 @@ func toOrderDetailView(o *order.OrderDetail) orderDetailView {
 			ArtistReviewScore: o.OtherParty.ArtistReviewScore,
 		},
 	}
+}
+
+func (h *OrderHandler) createOrder(ctx context.Context, input *CreateOrderInput) (*CreateOrderOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	artworkDetail, err := h.artworkUsecase.GetArtwork(ctx, input.Body.ArtworkID)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	req := order.CreateInput{
+		Name:                input.Body.Name,
+		ArtworkID:           input.Body.ArtworkID,
+		ArtworkDetail:       artworkDetail,
+		CustomerDescription: input.Body.CustomerDescription,
+		DeadlineAt:          input.Body.DeadlineAt,
+	}
+
+	createdOrder, err := h.orderUsecase.CreateOrder(ctx, info.UserID, req)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	return &CreateOrderOutput{Body: toOrderSummaryView(createdOrder)}, nil
+
 }

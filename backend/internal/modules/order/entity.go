@@ -4,6 +4,7 @@ package order
 import (
 	"time"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/google/uuid"
 )
 
@@ -106,8 +107,9 @@ type Order struct {
 	ID                  uuid.UUID
 	CustomerID          uuid.UUID
 	ArtistID            uuid.UUID
-	Name                string
 	ArtworkID           *uuid.UUID
+	Artwork_snapshot    ArtworkSnapshot
+	Name                string
 	PriceSatangOrder    int64
 	CustomerDescription string
 	DeadlineAt          time.Time
@@ -175,4 +177,12 @@ type OrderDetail struct {
 	Order
 	ArtworkSnapshot ArtworkSnapshot
 	OtherParty      OrderParty
+}
+
+type CreateInput struct {
+	Name                string
+	ArtworkID           uuid.UUID
+	ArtworkDetail       *artwork.ArtworkDetail
+	CustomerDescription string
+	DeadlineAt          time.Time
 }

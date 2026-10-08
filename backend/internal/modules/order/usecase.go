@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/google/uuid"
 )
@@ -162,4 +164,71 @@ func (u *orderUsecase) GetOrder(
 	}
 
 	return detail, nil
+}
+
+func (u *orderUsecase) CreateOrder(ctx context.Context, customerID uuid.UUID, input CreateInput) (*Order, error) {
+	if input.ArtworkID == uuid.Nil {
+		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
+	}
+	if input.ArtworkDetail == nil {
+		return nil, apperror.InvalidInput("artwork detail must not be nil", nil)
+	}
+
+	order, err := normalizeOrder(uuid.New(), customerID, input, input.ArtworkDetail)
+	if err != nil {
+		return nil, err
+	}
+
+	err = u.repo.Create(ctx, order)
+	if err != nil {
+		return nil, err
+	}
+
+	return order, nil
+}
+
+func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput, artwork *artwork.ArtworkDetail) (*Order, error) {
+	if customerID == uuid.Nil {
+		return nil, apperror.InvalidInput("customer id must not be empty", nil)
+	}
+	name, err := requiredText("name", input.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	description, err := requiredText("customer descripition", input.CustomerDescription)
+	if err != nil {
+		return nil, err
+	}
+	if input.DeadlineAt.IsZero() {
+		return nil, apperror.InvalidInput("deadline must not be empty", nil)
+	}
+
+	now := time.Now()
+	artworkSnapshot := ArtworkSnapshot{
+		ArtworkName: artwork.Name,
+		CategoryID:  artwork.CategoryID,
+		StyleIDs:    artwork.StyleIDs}
+	return &Order{
+		ID:                  id,
+		CustomerID:          customerID,
+		ArtistID:            artwork.ArtistID,
+		ArtworkID:           &input.ArtworkID,
+		Artwork_snapshot:    artworkSnapshot,
+		Name:                name,
+		PriceSatangOrder:    artwork.PriceSatang,
+		CustomerDescription: description,
+		DeadlineAt:          input.DeadlineAt,
+		Status:              StatusPending,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}, nil
+}
+
+func requiredText(field, value string) (string, error) {
+	normalized := strings.TrimSpace(value)
+	if normalized == "" {
+		return "", apperror.InvalidInput(field+" must not be blank", nil)
+	}
+	return normalized, nil
 }
