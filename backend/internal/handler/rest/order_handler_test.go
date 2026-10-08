@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,12 +20,15 @@ import (
 )
 
 type fakeOrderUsecase struct {
-	viewOrdersFunc func(context.Context, order.ListQuery) (order.Page, error)
-	getOrderFunc   func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
-	gotListQuery   order.ListQuery
-	gotParticipant order.Participant
-	gotUserID      uuid.UUID
-	gotOrderID     uuid.UUID
+	viewOrdersFunc   func(context.Context, order.ListQuery) (order.Page, error)
+	getOrderFunc     func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
+	confirmOrderFunc func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) error
+	gotListQuery     order.ListQuery
+	gotParticipant   order.Participant
+	gotUserID        uuid.UUID
+	gotOrderID       uuid.UUID
+	gotConfirmInput  order.ConfirmOrderInput
+	confirmCalls     int
 }
 
 func (f *fakeOrderUsecase) GetOrder(
@@ -48,6 +52,22 @@ func (f *fakeOrderUsecase) ViewOrders(ctx context.Context, query order.ListQuery
 		return f.viewOrdersFunc(ctx, query)
 	}
 	return order.Page{}, nil
+}
+
+func (f *fakeOrderUsecase) ConfirmOrder(
+	ctx context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+	input order.ConfirmOrderInput,
+) error {
+	f.confirmCalls++
+	f.gotUserID = artistID
+	f.gotOrderID = orderID
+	f.gotConfirmInput = input
+	if f.confirmOrderFunc != nil {
+		return f.confirmOrderFunc(ctx, artistID, orderID, input)
+	}
+	return nil
 }
 
 type orderAuthStub struct {
@@ -312,7 +332,85 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 	}
 }
 
-func newOrderTestHandler(t *testing.T, role user.Role, usecase order.OrderUsecase) http.Handler {
+func TestOrderHandlerConfirmOrderAcceptsOrRejectsOrder(t *testing.T) {
+	const (
+		orderID = "00000000-0000-0000-0000-000000000010"
+		userID  = "00000000-0000-0000-0000-000000000001"
+	)
+
+	for _, tt := range []struct {
+		name        string
+		body        string
+		accept      bool
+		wantMessage string
+	}{
+		{name: "accept", body: `{"accept":true}`, accept: true, wantMessage: "Order accepted"},
+		{name: "reject", body: `{"accept":false}`, accept: false, wantMessage: "Order rejected"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			usecase := &fakeOrderUsecase{}
+			handler := newOrderTestHandler(t, user.RoleArtist, usecase)
+			rec := serveOrderRequest(
+				handler,
+				http.MethodPut,
+				"/orders/"+orderID+"/confirm",
+				true,
+				tt.body,
+			)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+			}
+
+			var got struct {
+				Message string `json:"message"`
+			}
+			if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if got.Message != tt.wantMessage {
+				t.Errorf("response message = %q, want %q", got.Message, tt.wantMessage)
+			}
+			if usecase.confirmCalls != 1 ||
+				usecase.gotUserID != uuid.MustParse(userID) ||
+				usecase.gotOrderID != uuid.MustParse(orderID) ||
+				usecase.gotConfirmInput.Accept != tt.accept {
+				t.Errorf(
+					"confirm input = calls %d, artistID %s, orderID %s, accept %t",
+					usecase.confirmCalls,
+					usecase.gotUserID,
+					usecase.gotOrderID,
+					usecase.gotConfirmInput.Accept,
+				)
+			}
+		})
+	}
+}
+
+func TestOrderHandlerConfirmOrderRequiresArtistRole(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+	rec := serveOrderRequest(
+		handler,
+		http.MethodPut,
+		"/orders/00000000-0000-0000-0000-000000000010/confirm",
+		true,
+		`{"accept":true}`,
+	)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+	if usecase.confirmCalls != 0 {
+		t.Errorf("ConfirmOrder() calls = %d, want 0", usecase.confirmCalls)
+	}
+}
+
+func newOrderTestHandler(
+	t *testing.T,
+	role user.Role,
+	usecase order.OrderUsecase,
+) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	api, server := httpserver.New("", "/api/v1", nil, logger, nil)
@@ -320,10 +418,38 @@ func newOrderTestHandler(t *testing.T, role user.Role, usecase order.OrderUsecas
 	return server.Handler()
 }
 
-func serveOrderRequest(handler http.Handler, method, path string, authenticated bool) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, "/api/v1"+path, nil)
+func serveOrderRequest(
+	handler http.Handler,
+	method,
+	path string,
+	authenticated bool,
+	body ...string,
+) *httptest.ResponseRecorder {
+	var requestBody io.Reader
+	if len(body) > 0 {
+		requestBody = strings.NewReader(body[0])
+	}
+	req := httptest.NewRequest(method, "/api/v1"+path, requestBody)
+	req.Header.Set("Content-Type", "application/json")
 	if authenticated {
 		req.Header.Set("Authorization", "Bearer test-token")
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec
+}
+
+func serveOrderRequestWithBody(
+	handler http.Handler,
+	method string,
+	path string,
+	body string,
+	authenticated bool,
+) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, "/api/v1"+path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if authenticated {
+		req.Header.Set("Authorization", "******")
 	}
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)

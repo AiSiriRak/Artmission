@@ -15,15 +15,22 @@ import (
 // the usecase) and returns a fixed page or error, so tests can assert on
 // exactly what the usecase delegates.
 type fakeRepo struct {
-	gotQuery         order.ListQuery
-	page             order.Page
-	err              error
+	gotQuery order.ListQuery
+	page     order.Page
+	err      error
+
 	gotParticipant   order.Participant
 	gotParticipantID uuid.UUID
 	gotOrderID       uuid.UUID
 	orderDetailData  *order.OrderDetailData
 	orderErr         error
 	getOrderCalled   bool
+
+	confirmArtistID uuid.UUID
+	confirmOrderID  uuid.UUID
+	confirmStatus   order.Status
+	confirmErr      error
+	confirmCalled   bool
 }
 
 func (f *fakeRepo) ListOrders(_ context.Context, query order.ListQuery) (order.Page, error) {
@@ -43,6 +50,20 @@ func (f *fakeRepo) GetOrderByID(
 	f.gotOrderID = orderID
 
 	return f.orderDetailData, f.orderErr
+}
+
+func (f *fakeRepo) ConfirmOrder(
+	_ context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+	status order.Status,
+) error {
+	f.confirmCalled = true
+	f.confirmArtistID = artistID
+	f.confirmOrderID = orderID
+	f.confirmStatus = status
+
+	return f.confirmErr
 }
 
 var _ order.OrderRepository = (*fakeRepo)(nil)
@@ -561,5 +582,143 @@ func TestGetOrder_RejectsNilRepositoryResult(t *testing.T) {
 	var appErr *apperror.Error
 	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInternal {
 		t.Fatalf("GetOrder() error = %v, want internal application error", err)
+	}
+}
+
+func TestConfirmOrder_AcceptsOrder(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	artistID := uuid.New()
+	orderID := uuid.New()
+
+	err := usecase.ConfirmOrder(
+		context.Background(),
+		artistID,
+		orderID,
+		order.ConfirmOrderInput{
+			Accept: true,
+		},
+	)
+	if err != nil {
+		t.Fatalf("ConfirmOrder() error = %v, want nil", err)
+	}
+
+	if !repo.confirmCalled {
+		t.Fatalf("ConfirmOrder() repository method was not called")
+	}
+
+	if repo.confirmArtistID != artistID {
+		t.Errorf("ArtistID = %v, want %v", repo.confirmArtistID, artistID)
+	}
+
+	if repo.confirmOrderID != orderID {
+		t.Errorf("OrderID = %v, want %v", repo.confirmOrderID, orderID)
+	}
+
+	if repo.confirmStatus != order.StatusNotPaid {
+		t.Errorf(
+			"Status = %q, want %q",
+			repo.confirmStatus,
+			order.StatusNotPaid,
+		)
+	}
+}
+
+func TestConfirmOrder_RejectsOrder(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	artistID := uuid.New()
+	orderID := uuid.New()
+
+	err := usecase.ConfirmOrder(
+		context.Background(),
+		artistID,
+		orderID,
+		order.ConfirmOrderInput{
+			Accept: false,
+		},
+	)
+	if err != nil {
+		t.Fatalf("ConfirmOrder() error = %v, want nil", err)
+	}
+
+	if !repo.confirmCalled {
+		t.Fatalf("ConfirmOrder() repository method was not called")
+	}
+
+	if repo.confirmArtistID != artistID {
+		t.Errorf("ArtistID = %v, want %v", repo.confirmArtistID, artistID)
+	}
+
+	if repo.confirmOrderID != orderID {
+		t.Errorf("OrderID = %v, want %v", repo.confirmOrderID, orderID)
+	}
+
+	if repo.confirmStatus != order.StatusCancel {
+		t.Errorf(
+			"Status = %q, want %q",
+			repo.confirmStatus,
+			order.StatusCancel,
+		)
+	}
+}
+
+func TestConfirmOrder_RejectsMissingArtistID(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	err := usecase.ConfirmOrder(
+		context.Background(),
+		uuid.Nil,
+		uuid.New(),
+		order.ConfirmOrderInput{
+			Accept: true,
+		},
+	)
+
+	wantInvalidInput(t, err)
+
+	if repo.confirmCalled {
+		t.Error("ConfirmOrder() repository method should not be called")
+	}
+}
+
+func TestConfirmOrder_RejectsMissingOrderID(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	err := usecase.ConfirmOrder(
+		context.Background(),
+		uuid.New(),
+		uuid.Nil,
+		order.ConfirmOrderInput{Accept: true},
+	)
+
+	wantInvalidInput(t, err)
+
+	if repo.confirmCalled {
+		t.Error("ConfirmOrder() repository method should not be called")
+	}
+}
+
+func TestConfirmOrder_PropagatesRepositoryError(t *testing.T) {
+	wantErr := apperror.Internal("boom", nil)
+
+	repo := &fakeRepo{
+		confirmErr: wantErr,
+	}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	err := usecase.ConfirmOrder(
+		context.Background(),
+		uuid.New(),
+		uuid.New(),
+		order.ConfirmOrderInput{Accept: true},
+	)
+
+	if !errors.Is(err, wantErr) {
+		t.Errorf("ConfirmOrder() error = %v, want %v", err, wantErr)
 	}
 }

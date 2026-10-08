@@ -274,6 +274,32 @@ func (o *ordersContext) theUserViewsAnotherUsersOrder() error {
 	return o.getOrder(o.otherOrderID, true)
 }
 
+func (o *ordersContext) confirmLastOrder(accept bool) error {
+	resp, err := o.client.Do(
+		http.MethodPut,
+		"/orders/"+o.lastOrderID+"/confirm",
+		map[string]bool{"accept": accept},
+		map[string]string{"Authorization": "Bearer " + o.accessToken},
+	)
+	if err != nil {
+		return err
+	}
+	o.resp = resp
+	return nil
+}
+
+func (o *ordersContext) theArtistAcceptsTheirLastOrder() error {
+	return o.confirmLastOrder(true)
+}
+
+func (o *ordersContext) theArtistRejectsTheirLastOrder() error {
+	return o.confirmLastOrder(false)
+}
+
+func (o *ordersContext) theUserAttemptsToAcceptTheirLastOrder() error {
+	return o.confirmLastOrder(true)
+}
+
 // getOrder sends GET /orders/{id} and decodes a successful detail response.
 func (o *ordersContext) getOrder(orderID string, authenticated bool) error {
 	headers := map[string]string(nil)
@@ -655,6 +681,42 @@ func (o *ordersContext) theSystemShowsTheOrderDetailsForTheUser() error {
 	return nil
 }
 
+func (o *ordersContext) theSystemConfirmsTheOrderWithStatus(status string) error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+
+	var confirmation struct {
+		Message string `json:"message"`
+	}
+	if err := o.resp.JSON(&confirmation); err != nil {
+		return fmt.Errorf("decode confirmation response: %w (body: %s)", err, o.resp.Body)
+	}
+
+	wantMessage := "Order accepted"
+	if status == "CANCEL" {
+		wantMessage = "Order rejected"
+	}
+	if confirmation.Message != wantMessage {
+		return fmt.Errorf("confirmation message = %q, want %q", confirmation.Message, wantMessage)
+	}
+
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if o.orderDetail.Status != status {
+		return fmt.Errorf("order status = %q, want %q", o.orderDetail.Status, status)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemForbidsTheOrderConfirmation() error {
+	return o.expectStatus(http.StatusForbidden)
+}
+
 // theSystemHidesTheOrderFromTheUser verifies another participant's order is reported as not found.
 func (o *ordersContext) theSystemHidesTheOrderFromTheUser() error {
 	return o.expectStatus(http.StatusNotFound)
@@ -722,6 +784,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user views their last order$`, func() error { return o.theUserViewsTheirLastOrder() })
 	sc.Step(`^the user views their last order without logging in$`, func() error { return o.theUserViewsTheirLastOrderWithoutLoggingIn() })
 	sc.Step(`^the user views another user's order$`, func() error { return o.theUserViewsAnotherUsersOrder() })
+	sc.Step(`^the artist accepts their last order$`, func() error { return o.theArtistAcceptsTheirLastOrder() })
+	sc.Step(`^the artist rejects their last order$`, func() error { return o.theArtistRejectsTheirLastOrder() })
+	sc.Step(`^the user attempts to accept their last order$`, func() error { return o.theUserAttemptsToAcceptTheirLastOrder() })
 	sc.Step(`^the user views their orders filtered by status "([^"]*)"$`, func(status string) error {
 		return o.theUserViewsTheirOrdersFilteredByStatus(status)
 	})
@@ -763,6 +828,12 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system requires the user to log in$`, func() error { return o.theSystemRequiresTheUserToLogIn() })
 	sc.Step(`^the system shows the order details for the user$`, func() error {
 		return o.theSystemShowsTheOrderDetailsForTheUser()
+	})
+	sc.Step(`^the system confirms the order with status "([^"]*)"$`, func(status string) error {
+		return o.theSystemConfirmsTheOrderWithStatus(status)
+	})
+	sc.Step(`^the system forbids the order confirmation$`, func() error {
+		return o.theSystemForbidsTheOrderConfirmation()
 	})
 	sc.Step(`^the system hides the order from the user$`, func() error {
 		return o.theSystemHidesTheOrderFromTheUser()
