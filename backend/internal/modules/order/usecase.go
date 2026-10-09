@@ -248,7 +248,7 @@ func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput, artwo
 		CustomerID:          customerID,
 		ArtistID:            artwork.ArtistID,
 		ArtworkID:           &input.ArtworkID,
-		Artwork_snapshot:    artworkSnapshot,
+		ArtworkSnapshot:     artworkSnapshot,
 		Name:                name,
 		PriceSatangOrder:    artwork.PriceSatang,
 		CustomerDescription: description,

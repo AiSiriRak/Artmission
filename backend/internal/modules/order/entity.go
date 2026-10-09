@@ -129,7 +129,7 @@ type Order struct {
 	CustomerID          uuid.UUID
 	ArtistID            uuid.UUID
 	ArtworkID           *uuid.UUID
-	Artwork_snapshot    ArtworkSnapshot
+	ArtworkSnapshot     ArtworkSnapshot
 	Name                string
 	PriceSatangOrder    int64
 	CustomerDescription string

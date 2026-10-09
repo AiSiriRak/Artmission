@@ -21,7 +21,7 @@ func newOrderModel(item *order.Order) *pgmodel.Order {
 		ArtistID:            item.ArtistID,
 		Name:                item.Name,
 		ArtworkID:           item.ArtworkID,
-		ArtworkSnapshot:     pgmodel.ArtworkSnapshot(item.Artwork_snapshot),
+		ArtworkSnapshot:     pgmodel.ArtworkSnapshot(item.ArtworkSnapshot),
 		PriceSatangOrder:    item.PriceSatangOrder,
 		CustomerDescription: item.CustomerDescription,
 		DeadlineAt:          item.DeadlineAt,
