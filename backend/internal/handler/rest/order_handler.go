@@ -185,10 +185,10 @@ type orderDetailView struct {
 
 type CreateOrderInput struct {
 	Body struct {
-		Name                string    `form:"name" minLength:"1" required:"true"`
-		ArtworkID           uuid.UUID `form:"artwork_id" required:"true"`
-		CustomerDescription string    `form:"customer_description" minLength:"1" required:"true"`
-		DeadlineAt          time.Time `form:"deadline_at" minimum:"1" required:"true"`
+		Name                string    `json:"name"`
+		ArtworkID           uuid.UUID `json:"artwork_id"`
+		CustomerDescription string    `json:"customer_description"`
+		DeadlineAt          time.Time `json:"deadline_at"`
 	}
 }
 type CreateOrderOutput struct {
