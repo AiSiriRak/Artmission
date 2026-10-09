@@ -340,6 +340,25 @@ func (r *orderRepository) ConfirmOrder(
 	status order.Status,
 ) error {
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		existing := new(pgmodel.Order)
+		err := idb.NewSelect().
+			Model(existing).
+			Column("id", "status").
+			Where("id = ?", orderID).
+			Where("artist_id = ?", artistID).
+			Scan(ctx)
+
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return order.ErrOrderNotFound
+			}
+			return err
+		}
+
+		if existing.Status != string(order.StatusPending) {
+			return order.ErrInvalidOrderStatus
+		}
+
 		result, err := idb.NewUpdate().
 			Model((*pgmodel.Order)(nil)).
 			Set("status = ?", string(status)).
@@ -359,7 +378,7 @@ func (r *orderRepository) ConfirmOrder(
 		}
 
 		if rows == 0 {
-			return order.ErrOrderNotFound
+			return order.ErrInvalidOrderStatus
 		}
 
 		return nil

@@ -112,6 +112,7 @@ func (o *ordersContext) theUserHasAnOrderWithStatus(status string) error {
 		return err
 	}
 	o.seededOrders[id] = status
+	o.lastOrderID = id
 	return nil
 }
 
@@ -805,6 +806,10 @@ func (o *ordersContext) theSystemForbidsTheOrderConfirmation() error {
 	return o.expectStatus(http.StatusForbidden)
 }
 
+func (o *ordersContext) theSystemRejectsConfirmationForInvalidOrderStatus() error {
+	return o.expectStatus(http.StatusConflict)
+}
+
 // theSystemHidesTheOrderFromTheUser verifies another participant's order is reported as not found.
 func (o *ordersContext) theSystemHidesTheOrderFromTheUser() error {
 	return o.expectStatus(http.StatusNotFound)
@@ -925,6 +930,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system forbids the order confirmation$`, func() error {
 		return o.theSystemForbidsTheOrderConfirmation()
+	})
+	sc.Step(`^the system rejects the confirmation because the order status does not allow it$`, func() error {
+		return o.theSystemRejectsConfirmationForInvalidOrderStatus()
 	})
 	sc.Step(`^the system hides the order from the user$`, func() error {
 		return o.theSystemHidesTheOrderFromTheUser()

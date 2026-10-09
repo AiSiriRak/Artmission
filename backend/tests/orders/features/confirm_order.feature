@@ -17,6 +17,13 @@ Feature: Confirm Order
     When the artist rejects their last order
     Then the system confirms the order with status "CANCEL"
 
+  Scenario: an artist cannot confirm an order that is no longer pending
+    Given the user has a registered artist account
+    And the user has logged in
+    And the user has an order with status "SUCCESS"
+    When the artist accepts their last order
+    Then the system rejects the confirmation because the order status does not allow it
+
   Scenario: a customer cannot confirm an order
     Given the user has a registered customer account
     And the user has logged in

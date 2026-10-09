@@ -7,5 +7,6 @@ var (
 	ErrUnsupportedParticipantRole        = apperror.Forbidden("unsupported participant role")
 	ErrMissingParticipantID              = apperror.InvalidInput("missing participant id", nil)
 	ErrMissingOrderID                    = apperror.InvalidInput("missing order id", nil)
+	ErrInvalidOrderStatus                = apperror.Conflict("order status does not allow this operation")
 	ErrFailedToPresignDeliverablePreview = apperror.Internal("failed to presign deliverable preview image", nil)
 )
