@@ -405,14 +405,22 @@ func (r *orderRepository) Create(
 				Model(&artworkModel).
 				Column(
 					"art.id",
+					"art.artist_id",
 					"art.name",
 					"art.category_id",
+					"art.price_satang",
 				).
 				Where("art.id = ?", *item.ArtworkID).
 				Scan(ctx)
 			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return apperror.InvalidInput("artwork not found", err)
+				}
 				return err
 			}
+
+			item.ArtistID = artworkModel.ArtistID
+			item.PriceSatangOrder = artworkModel.PriceSatang
 
 			var styleIDs []uuid.UUID
 
@@ -422,8 +430,12 @@ func (r *orderRepository) Create(
 				Where("aws.artwork_id = ?", *item.ArtworkID).
 				OrderExpr("aws.style_id ASC").
 				Scan(ctx, &styleIDs)
-			if err != nil {
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				return err
+			}
+
+			if styleIDs == nil {
+				styleIDs = []uuid.UUID{}
 			}
 
 			item.ArtworkSnapshot = order.ArtworkSnapshot{
@@ -441,6 +453,9 @@ func (r *orderRepository) Create(
 	})
 
 	if err != nil {
+		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return err
+		}
 		return apperror.Internal("failed to create order", err)
 	}
 

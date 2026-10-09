@@ -428,24 +428,24 @@ func (repo *artworkRepository) GetByID(ctx context.Context, artworkID uuid.UUID)
 
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
 		// Get artwork with category label
-		err := idb.NewSelect().
+		q := idb.NewSelect().
 			Model(&model).
-			Column("art.id",
-
+			Column(
+				"art.id",
 				"art.artist_id",
 				"art.name",
 				"art.category_id",
-				"cat.label AS category",
 				"art.description",
 				"art.price_satang",
 				"art.minimum_deadline_days",
 				"art.created_at",
-				"art.updated_at").
+				"art.updated_at",
+			).
+			ColumnExpr("cat.label AS category").
 			Join("JOIN categories AS cat ON cat.id = art.category_id").
-			Where("art.id = ?", artworkID).
-			Scan(ctx)
+			Where("art.id = ?", artworkID)
 
-		if err != nil {
+		if err := q.Scan(ctx); err != nil {
 			return err
 		}
 
@@ -460,13 +460,17 @@ func (repo *artworkRepository) GetByID(ctx context.Context, artworkID uuid.UUID)
 			return err
 		}
 
+		if styleNames == nil {
+			styleNames = make([]string, 0)
+		}
+
 		// Get samples
 		var imageModels []artworkImageModel
 		if err := idb.NewSelect().
 			TableExpr("artwork_images AS ai").
 			Column("ai.image_url").
 			Where("ai.artwork_id = ?", artworkID).
-			OrderExpr("ai.id ASC").
+			OrderExpr("ai.sort_order ASC, ai.id ASC").
 			Scan(ctx, &imageModels); err != nil {
 			return err
 		}
