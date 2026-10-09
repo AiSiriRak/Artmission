@@ -148,8 +148,8 @@ type orderPartyView struct {
 // order was created.
 type artworkSnapshotView struct {
 	ArtworkName string   `json:"artwork_name"`
-	CategoryID  string   `json:"category_id"`
-	StyleIDs    []string `json:"style_ids"`
+	Category    string   `json:"category"`
+	Styles      []string `json:"styles"`
 }
 
 // deliverableView is the deliverable data exposed in an order detail response.
@@ -255,8 +255,38 @@ func (h *OrderHandler) getOrder(
 		return nil, mapAppError(err)
 	}
 
+	category, err := h.artworkUsecase.ListAllCategories(ctx)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	styles, err := h.artworkUsecase.ListAllStyles(ctx)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	categoryName := ""
+	for _, cat := range category {
+		if cat.ID == detail.ArtworkSnapshot.CategoryID {
+			categoryName = cat.Label
+			break
+		}
+	}
+
+	styleMap := make(map[uuid.UUID]string, len(styles))
+	for _, style := range styles {
+		styleMap[style.ID] = style.Label
+	}
+
+	styleNames := make([]string, 0, len(detail.ArtworkSnapshot.StyleIDs))
+	for _, styleID := range detail.ArtworkSnapshot.StyleIDs {
+		if label, ok := styleMap[styleID]; ok {
+			styleNames = append(styleNames, label)
+		}
+	}
+
 	return &GetOrderOutput{
-		Body: toOrderDetailView(detail),
+		Body: toOrderDetailView(detail, categoryName, styleNames),
 	}, nil
 }
 
@@ -292,16 +322,14 @@ func toOrderSummaryView(o *order.Order) orderSummaryView {
 // toOrderDetailView converts the domain order detail into the HTTP response
 // representation. UUIDs are converted to strings to keep the API response
 // consistent with the other order views.
-func toOrderDetailView(o *order.OrderDetail) orderDetailView {
+func toOrderDetailView(o *order.OrderDetail,
+	categoryName string,
+	styleNames []string,
+) orderDetailView {
 	var artworkID *string
 	if o.ArtworkID != nil {
 		id := o.ArtworkID.String()
 		artworkID = &id
-	}
-
-	styleIDs := make([]string, len(o.ArtworkSnapshot.StyleIDs))
-	for i, id := range o.ArtworkSnapshot.StyleIDs {
-		styleIDs[i] = id.String()
 	}
 
 	deliverables := make([]deliverableView, len(o.Deliverables))
@@ -325,8 +353,8 @@ func toOrderDetailView(o *order.OrderDetail) orderDetailView {
 		ArtworkID:  artworkID,
 		ArtworkSnapshot: artworkSnapshotView{
 			ArtworkName: o.ArtworkSnapshot.ArtworkName,
-			CategoryID:  o.ArtworkSnapshot.CategoryID.String(),
-			StyleIDs:    styleIDs,
+			Category:    categoryName,
+			Styles:      styleNames,
 		},
 		PriceSatang:         o.PriceSatangOrder,
 		CustomerDescription: o.CustomerDescription,

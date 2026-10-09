@@ -37,6 +37,8 @@ type fakeOrderUsecase struct {
 type fakeArtworkUsecase struct {
 	artwork.Usecase
 	getArtworkFunc func(ctx context.Context, artworkID uuid.UUID) (*artwork.ArtworkDetail, error)
+	categories     []artwork.Category
+	styles         []artwork.Style
 }
 
 func (f *fakeArtworkUsecase) GetArtwork(ctx context.Context, artworkID uuid.UUID) (*artwork.ArtworkDetail, error) {
@@ -48,6 +50,14 @@ func (f *fakeArtworkUsecase) GetArtwork(ctx context.Context, artworkID uuid.UUID
 		Name:        "Test Artwork",
 		PriceSatang: 10000,
 	}, nil
+}
+
+func (f *fakeArtworkUsecase) ListAllCategories(context.Context) ([]artwork.Category, error) {
+	return f.categories, nil
+}
+
+func (f *fakeArtworkUsecase) ListAllStyles(context.Context) ([]artwork.Style, error) {
+	return f.styles, nil
 }
 
 func (f *fakeOrderUsecase) GetOrder(
@@ -293,7 +303,17 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 					return detail, nil
 				},
 			}
-			handler := newOrderTestHandler(t, tt.role, usecase)
+			artworkUC := &fakeArtworkUsecase{
+				categories: []artwork.Category{{
+					ID:    uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+					Label: "Portrait",
+				}},
+				styles: []artwork.Style{
+					{ID: uuid.MustParse("00000000-0000-0000-0000-000000000021"), Label: "Watercolor"},
+					{ID: uuid.MustParse("00000000-0000-0000-0000-000000000022"), Label: "Digital"},
+				},
+			}
+			handler := newOrderTestHandlerWithArtwork(t, tt.role, usecase, artworkUC)
 			rec := serveOrderRequest(handler, http.MethodGet, "/orders/"+orderID, true)
 
 			if rec.Code != http.StatusOK {
@@ -304,10 +324,9 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 			if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
 				t.Fatalf("decode response: %v", err)
 			}
-			categoryID := "00000000-0000-0000-0000-000000000020"
-			styleIDs := []string{
-				"00000000-0000-0000-0000-000000000021",
-				"00000000-0000-0000-0000-000000000022",
+			styleNames := []string{
+				"Watercolor",
+				"Digital",
 			}
 			artworkIDString := artworkUUID.String()
 			want := orderDetailView{
@@ -316,7 +335,7 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 				ArtistID:            artistUUID.String(),
 				Name:                "Portrait Commission",
 				ArtworkID:           &artworkIDString,
-				ArtworkSnapshot:     artworkSnapshotView{ArtworkName: "Portrait Example", CategoryID: categoryID, StyleIDs: styleIDs},
+				ArtworkSnapshot:     artworkSnapshotView{ArtworkName: "Portrait Example", Category: "Portrait", Styles: styleNames},
 				PriceSatang:         150000,
 				CustomerDescription: "Draw a portrait",
 				DeadlineAt:          deadline,
@@ -551,11 +570,19 @@ func newOrderTestHandler(
 	role user.Role,
 	usecase order.OrderUsecase,
 ) http.Handler {
+	return newOrderTestHandlerWithArtwork(t, role, usecase, &fakeArtworkUsecase{})
+}
+
+func newOrderTestHandlerWithArtwork(
+	t *testing.T,
+	role user.Role,
+	usecase order.OrderUsecase,
+	artworkUsecase artwork.Usecase,
+) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	api, server := httpserver.New("", "/api/v1", nil, logger, nil)
-	artworkUC := &fakeArtworkUsecase{}
-	NewOrderHandler(usecase, artworkUC, orderAuthStub{role: role}).Register(api)
+	NewOrderHandler(usecase, artworkUsecase, orderAuthStub{role: role}).Register(api)
 	return server.Handler()
 }
 

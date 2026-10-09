@@ -492,8 +492,8 @@ type orderDetailOutput struct {
 
 type artworkSnapshotOutput struct {
 	ArtworkName string   `json:"artwork_name"`
-	CategoryID  string   `json:"category_id"`
-	StyleIDs    []string `json:"style_ids"`
+	Category    string   `json:"category"`
+	Styles      []string `json:"styles"`
 }
 
 type orderPartyOutput struct {
@@ -737,8 +737,8 @@ func (o *ordersContext) theSystemShowsTheOrderDetailsForTheUser() error {
 		return fmt.Errorf("expected order detail to include artwork_id: %+v", got)
 	}
 	if got.ArtworkSnapshot.ArtworkName != seedArtworkName ||
-		got.ArtworkSnapshot.CategoryID == "" ||
-		len(got.ArtworkSnapshot.StyleIDs) != 0 {
+		!strings.HasPrefix(got.ArtworkSnapshot.Category, "Order fixture ") ||
+		len(got.ArtworkSnapshot.Styles) != 0 {
 		return fmt.Errorf("unexpected artwork snapshot: %+v", got.ArtworkSnapshot)
 	}
 	if got.DeadlineAt.IsZero() {
