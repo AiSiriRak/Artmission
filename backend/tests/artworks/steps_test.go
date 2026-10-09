@@ -423,7 +423,7 @@ func (a *artworkContext) assertInvalidSampleDeletion() error {
 	return nil
 }
 
-func (a *artworkContext) assertFetchedArtworkDetail() error {
+func (a *artworkContext) assertFetchedArtwork() error {
 	if a.response.StatusCode != http.StatusOK {
 		return fmt.Errorf("expected 200, got %d: %s", a.response.StatusCode, a.response.Body)
 	}
@@ -632,16 +632,17 @@ func InitializeScenario(scenario *godog.ScenarioContext) {
 		}
 		return nil
 	})
-	scenario.Step(`^a user fetches the artwork details$`, func() error {
+
+	scenario.Step(`^a user fetches the artwork$`, func() error {
 		return state.getArtwork(state.artworkID, state.accessToken)
 	})
-	scenario.Step(`^a user fetches a missing artwork details$`, func() error {
+	scenario.Step(`^a user fetches a missing artwork$`, func() error {
 		return state.getArtwork(uuid.NewString(), state.accessToken)
 	})
-	scenario.Step(`^an unauthenticated caller fetches the artwork details$`, func() error {
+	scenario.Step(`^an unauthenticated caller fetches the artwork$`, func() error {
 		return state.getArtwork(state.artworkID, "")
 	})
-	scenario.Step(`^the system returns the complete artwork detail with category and styles$`, func() error {
-		return state.assertFetchedArtworkDetail()
+	scenario.Step(`^the system returns the artwork with category and style names$`, func() error {
+		return state.assertFetchedArtwork()
 	})
 }

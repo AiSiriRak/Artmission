@@ -20,8 +20,8 @@ type OrderHandler struct {
 }
 
 // NewOrderHandler creates a handler for order read endpoints.
-func NewOrderHandler(orderUsecase order.OrderUsecase, artworkUsecase artwork.Usecase, authUsecase auth.AuthUsecase) *OrderHandler {
-	return &OrderHandler{orderUsecase: orderUsecase, artworkUsecase: artworkUsecase, authUsecase: authUsecase}
+func NewOrderHandler(orderUsecase order.OrderUsecase, authUsecase auth.AuthUsecase) *OrderHandler {
+	return &OrderHandler{orderUsecase: orderUsecase, authUsecase: authUsecase}
 }
 
 // Register adds the authenticated order endpoints to the API.
@@ -389,15 +389,9 @@ func (h *OrderHandler) createOrder(ctx context.Context, input *CreateOrderInput)
 		return nil, huma.Error401Unauthorized("missing authentication")
 	}
 
-	artworkDetail, err := h.artworkUsecase.GetArtwork(ctx, input.Body.ArtworkID)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
 	req := order.CreateInput{
 		Name:                input.Body.Name,
 		ArtworkID:           input.Body.ArtworkID,
-		ArtworkDetail:       artworkDetail,
 		CustomerDescription: input.Body.CustomerDescription,
 		DeadlineAt:          input.Body.DeadlineAt,
 	}

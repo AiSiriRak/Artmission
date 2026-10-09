@@ -421,25 +421,26 @@ func (repo *artworkRepository) ListByArtistID(ctx context.Context, artistID uuid
 	return artworks, nil
 }
 
-func (repo *artworkRepository) GetByID(ctx context.Context, artworkID uuid.UUID) (*artwork.ArtworkDetail, error) {
+func (repo *artworkRepository) GetByID(ctx context.Context, artworkID uuid.UUID) (*artwork.Artwork, error) {
 	var model pgmodel.Artwork
-	var styleIDs []uuid.UUID
+	var styleNames []string
 	var samples []artwork.Sample
 
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
+		// Get artwork with category label
 		err := idb.NewSelect().
 			Model(&model).
-			Column(
-				"art.id",
+			Column("art.id",
 				"art.artist_id",
 				"art.name",
 				"art.category_id",
+				"cat.label AS category",
 				"art.description",
 				"art.price_satang",
 				"art.minimum_deadline_days",
 				"art.created_at",
-				"art.updated_at",
-			).
+				"art.updated_at").
+			Join("JOIN categories AS cat ON cat.id = art.category_id").
 			Where("art.id = ?", artworkID).
 			Scan(ctx)
 
@@ -447,13 +448,14 @@ func (repo *artworkRepository) GetByID(ctx context.Context, artworkID uuid.UUID)
 			return err
 		}
 
-		// Get style IDs
+		// Get style labels
 		if err := idb.NewSelect().
 			TableExpr("artwork_styles AS aws").
-			Column("aws.style_id").
+			Join("JOIN styles AS sty ON sty.id = aws.style_id").
+			Column("sty.label").
 			Where("aws.artwork_id = ?", artworkID).
-			OrderExpr("aws.style_id ASC").
-			Scan(ctx, &styleIDs); err != nil {
+			OrderExpr("sty.label ASC").
+			Scan(ctx, &styleNames); err != nil {
 			return err
 		}
 
@@ -487,12 +489,12 @@ func (repo *artworkRepository) GetByID(ctx context.Context, artworkID uuid.UUID)
 		return nil, apperror.Internal("failed to get artwork", err)
 	}
 
-	return &artwork.ArtworkDetail{
+	return &artwork.Artwork{
 		ID:                  model.ID,
 		ArtistID:            model.ArtistID,
 		Name:                model.Name,
-		CategoryID:          model.CategoryID,
-		StyleIDs:            styleIDs,
+		Category:            model.Category,
+		Styles:              styleNames,
 		Description:         model.Description,
 		Samples:             samples,
 		MinimumDeadlineDays: model.MinimumDeadlineDays,

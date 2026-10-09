@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
@@ -32,22 +31,6 @@ type fakeOrderUsecase struct {
 	gotOrderID       uuid.UUID
 	gotConfirmInput  order.ConfirmOrderInput
 	confirmCalls     int
-}
-
-type fakeArtworkUsecase struct {
-	artwork.Usecase
-	getArtworkFunc func(ctx context.Context, artworkID uuid.UUID) (*artwork.ArtworkDetail, error)
-}
-
-func (f *fakeArtworkUsecase) GetArtwork(ctx context.Context, artworkID uuid.UUID) (*artwork.ArtworkDetail, error) {
-	if f.getArtworkFunc != nil {
-		return f.getArtworkFunc(ctx, artworkID)
-	}
-	return &artwork.ArtworkDetail{
-		ID:          artworkID,
-		Name:        "Test Artwork",
-		PriceSatang: 10000,
-	}, nil
 }
 
 func (f *fakeOrderUsecase) GetOrder(
@@ -554,8 +537,7 @@ func newOrderTestHandler(
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	api, server := httpserver.New("", "/api/v1", nil, logger, nil)
-	artworkUC := &fakeArtworkUsecase{}
-	NewOrderHandler(usecase, artworkUC, orderAuthStub{role: role}).Register(api)
+	NewOrderHandler(usecase, orderAuthStub{role: role}).Register(api)
 	return server.Handler()
 }
 

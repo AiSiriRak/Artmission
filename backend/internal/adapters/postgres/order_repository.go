@@ -379,11 +379,56 @@ func (r *orderRepository) Create(
 	item *order.Order,
 ) error {
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		_, err := idb.NewInsert().Model(newOrderModel(item)).Exec(ctx)
+		// ดึงข้อมูล Artwork เฉพาะเมื่อมี ArtworkID
+		if item.ArtworkID != nil {
+			var artworkModel pgmodel.Artwork
+
+			// ดึงข้อมูล Artwork
+			err := idb.NewSelect().
+				Model(&artworkModel).
+				Column(
+					"art.id",
+					"art.name",
+					"art.category_id",
+				).
+				Where("art.id = ?", *item.ArtworkID).
+				Scan(ctx)
+			if err != nil {
+				return err
+			}
+
+			// ดึง Style IDs ของ Artwork
+			var styleIDs []uuid.UUID
+
+			err = idb.NewSelect().
+				TableExpr("artwork_styles AS aws").
+				Column("aws.style_id").
+				Where("aws.artwork_id = ?", *item.ArtworkID).
+				OrderExpr("aws.style_id ASC").
+				Scan(ctx, &styleIDs)
+			if err != nil {
+				return err
+			}
+
+			// สร้าง Artwork Snapshot
+			item.Artwork_snapshot = order.ArtworkSnapshot{
+				ArtworkName: artworkModel.Name,
+				CategoryID:  artworkModel.CategoryID,
+				StyleIDs:    styleIDs,
+			}
+		}
+
+		// Insert Order พร้อม Snapshot
+		_, err := idb.NewInsert().
+			Model(newOrderModel(item)).
+			Exec(ctx)
+
 		return err
 	})
+
 	if err != nil {
 		return apperror.Internal("failed to create order", err)
 	}
+
 	return nil
 }
