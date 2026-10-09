@@ -249,10 +249,10 @@ func (o *ordersContext) anArtworkExistsForCommission() error {
 func (o *ordersContext) theUserSubmitsANewOrderForTheArtwork() error {
 	deadline := time.Now().AddDate(0, 0, 10).Format(time.RFC3339)
 	payload := map[string]any{
-		"artwork_id":           o.targetArtworkID,
-		"name":                 "My Custom Portrait",
-		"customer_description": "Blue background please",
-		"deadline_at":          deadline,
+		"artworkId":           o.targetArtworkID,
+		"name":                "My Custom Portrait",
+		"customerDescription": "Blue background please",
+		"deadlineAt":          deadline,
 	}
 
 	resp, err := o.client.Do(http.MethodPost, "/orders", payload, map[string]string{
@@ -263,6 +263,10 @@ func (o *ordersContext) theUserSubmitsANewOrderForTheArtwork() error {
 	}
 	o.resp = resp
 	return nil
+}
+
+func (o *ordersContext) theSystemRejectsTheRequestDueToForbiddenRole() error {
+	return o.expectClientError()
 }
 
 func (o *ordersContext) theUserSubmitsANewOrderWithoutLoggingIn() error {
@@ -854,5 +858,8 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system rejects the request due to an invalid status$`, func() error { return o.expectClientError() })
 	sc.Step(`^the system creates the order successfully with status "([^"]*)"$`, func(status string) error {
 		return o.theSystemCreatesTheOrderSuccessfullyWithStatus(status)
+	})
+	sc.Step(`^the system rejects the request due to forbidden role$`, func() error {
+		return o.theSystemRejectsTheRequestDueToForbiddenRole()
 	})
 }
