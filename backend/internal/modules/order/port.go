@@ -31,6 +31,8 @@ type OrderUsecase interface {
 		orderID uuid.UUID,
 		input ConfirmOrderInput,
 	) (Status, error)
+
+	CreateOrder(ctx context.Context, customerID uuid.UUID, input CreateInput) (*Order, error)
 }
 
 type OrderRepository interface {
@@ -53,6 +55,7 @@ type OrderRepository interface {
 		orderID uuid.UUID,
 		status Status,
 	) error
+	Create(ctx context.Context, order *Order) error
 }
 
 type ObjectStorage interface {

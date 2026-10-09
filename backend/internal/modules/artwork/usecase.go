@@ -373,3 +373,18 @@ func (u *usecase) ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]Art
 	}
 	return artworks, nil
 }
+
+func (u *usecase) GetArtwork(ctx context.Context, artworkID uuid.UUID) (*ArtworkDetail, error) {
+	if artworkID == uuid.Nil {
+		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
+	}
+
+	detail, err := u.repo.GetByID(ctx, artworkID)
+	if err != nil {
+		return nil, err
+	}
+	if detail == nil {
+		return nil, apperror.NotFound("artwork not found")
+	}
+	return detail, nil
+}

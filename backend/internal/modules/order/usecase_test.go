@@ -31,6 +31,8 @@ type fakeRepo struct {
 	confirmStatus   order.Status
 	confirmErr      error
 	confirmCalled   bool
+
+	created *order.Order
 }
 
 func (f *fakeRepo) ListOrders(_ context.Context, query order.ListQuery) (order.Page, error) {
@@ -64,6 +66,11 @@ func (f *fakeRepo) ConfirmOrder(
 	f.confirmStatus = status
 
 	return f.confirmErr
+}
+
+func (repo *fakeRepo) Create(ctx context.Context, item *order.Order) error {
+	repo.created = item
+	return nil
 }
 
 var _ order.OrderRepository = (*fakeRepo)(nil)

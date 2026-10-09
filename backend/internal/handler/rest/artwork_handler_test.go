@@ -50,6 +50,7 @@ type artworkUsecaseStub struct {
 	searchQuery    artwork.SearchQuery
 	searchPage     artwork.SearchPage
 	err            error
+	getArtwork     *artwork.ArtworkDetail
 	createInput    artwork.CreateInput
 	updateInput    artwork.UpdateInput
 	deleteArtistID uuid.UUID
@@ -110,6 +111,10 @@ func (s artworkAuthStub) Authenticate(context.Context, string) (*auth.TokenClaim
 		SessionID: uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 		Role:      s.role,
 	}, nil
+}
+
+func (stub *artworkUsecaseStub) GetArtwork(_ context.Context, _ uuid.UUID) (*artwork.ArtworkDetail, error) {
+	return stub.getArtwork, stub.err
 }
 
 func TestArtworkHandlerCreateReturnsCreatedArtwork(t *testing.T) {
@@ -404,6 +409,56 @@ func TestListCatalog(t *testing.T) {
 				t.Fatalf("catalog = %+v, want id %s label %s", items, tt.id, tt.label)
 			}
 		})
+	}
+}
+
+func TestArtworkHandlerGetArtworkReturnsArtworkDetail(t *testing.T) {
+	artworkID := uuid.MustParse("00000000-0000-0000-0000-000000000010")
+	artistID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	categoryID := uuid.MustParse("00000000-0000-0000-0000-0000000000c1")
+	styleID := uuid.MustParse("00000000-0000-0000-0000-0000000000c2")
+
+	usecase := &artworkUsecaseStub{
+		// Stub คืนค่า Detail จาก Usecase
+		getArtwork: &artwork.ArtworkDetail{
+			ID:                  artworkID,
+			ArtistID:            artistID,
+			Name:                "Watercolor portrait",
+			CategoryID:          categoryID,
+			StyleIDs:            []uuid.UUID{styleID},
+			Description:         "Painted portrait",
+			Samples:             []artwork.Sample{{ImageURL: "https://storage.example.com/sample.webp"}},
+			MinimumDeadlineDays: 7,
+			PriceSatang:         50000,
+		},
+		categories: []artwork.Category{{ID: categoryID, Label: "Portrait"}},
+		styles:     []artwork.Style{{ID: styleID, Label: "Realism"}},
+	}
+
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleCustomer, usecase)
+	rec := serveArtworkRequest(handler, http.MethodGet, "/artworks/"+artworkID.String(), "", true)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var got artworkView
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if got.ID != artworkID || got.Category != "Portrait" || len(got.Styles) != 1 || got.Styles[0] != "Realism" {
+		t.Errorf("got artwork view = %+v", got)
+	}
+}
+
+func TestArtworkHandlerGetArtworkReturnsNotFound(t *testing.T) {
+	usecase := &artworkUsecaseStub{err: artwork.ErrArtworkNotFound}
+	handler := newArtworkTestHandlerWithUsecase(t, user.RoleCustomer, usecase)
+	rec := serveArtworkRequest(handler, http.MethodGet, "/artworks/"+uuid.NewString(), "", true)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusNotFound, rec.Body.String())
 	}
 }
 

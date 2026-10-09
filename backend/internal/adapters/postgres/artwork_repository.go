@@ -421,6 +421,87 @@ func (repo *artworkRepository) ListByArtistID(ctx context.Context, artistID uuid
 	return artworks, nil
 }
 
+func (repo *artworkRepository) GetByID(ctx context.Context, artworkID uuid.UUID) (*artwork.ArtworkDetail, error) {
+	var model pgmodel.Artwork
+	var styleIDs []uuid.UUID
+	var samples []artwork.Sample
+
+	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
+		err := idb.NewSelect().
+			Model(&model).
+			Column(
+				"art.id",
+				"art.artist_id",
+				"art.name",
+				"art.category_id",
+				"art.description",
+				"art.price_satang",
+				"art.minimum_deadline_days",
+				"art.created_at",
+				"art.updated_at",
+			).
+			Where("art.id = ?", artworkID).
+			Scan(ctx)
+
+		if err != nil {
+			return err
+		}
+
+		// Get style IDs
+		if err := idb.NewSelect().
+			TableExpr("artwork_styles AS aws").
+			Column("aws.style_id").
+			Where("aws.artwork_id = ?", artworkID).
+			OrderExpr("aws.style_id ASC").
+			Scan(ctx, &styleIDs); err != nil {
+			return err
+		}
+
+		// Get samples
+		var imageModels []artworkImageModel
+		if err := idb.NewSelect().
+			TableExpr("artwork_images AS ai").
+			Column("ai.image_url").
+			Where("ai.artwork_id = ?", artworkID).
+			OrderExpr("ai.id ASC").
+			Scan(ctx, &imageModels); err != nil {
+			return err
+		}
+
+		samples = make([]artwork.Sample, len(imageModels))
+		for i, image := range imageModels {
+			samples[i] = artwork.Sample{
+				ImageURL:  image.ImageURL,
+				SortOrder: i,
+			}
+		}
+
+		return nil
+	})
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, artwork.ErrArtworkNotFound
+	}
+
+	if err != nil {
+		return nil, apperror.Internal("failed to get artwork", err)
+	}
+
+	return &artwork.ArtworkDetail{
+		ID:                  model.ID,
+		ArtistID:            model.ArtistID,
+		Name:                model.Name,
+		CategoryID:          model.CategoryID,
+		StyleIDs:            styleIDs,
+		Description:         model.Description,
+		Samples:             samples,
+		MinimumDeadlineDays: model.MinimumDeadlineDays,
+		PriceSatang:         model.PriceSatang,
+		CreatedAt:           model.CreatedAt,
+		UpdatedAt:           model.UpdatedAt,
+	}, nil
+}
+
 type artworkSearchModel struct {
 	bun.BaseModel `bun:"table:artworks,alias:a"`
 
