@@ -249,10 +249,10 @@ func (o *ordersContext) anArtworkExistsForCommission() error {
 func (o *ordersContext) theUserSubmitsANewOrderForTheArtwork() error {
 	deadline := time.Now().AddDate(0, 0, 10).Format(time.RFC3339)
 	payload := map[string]any{
-		"artworkId":           o.targetArtworkID,
-		"name":                "My Custom Portrait",
-		"customerDescription": "Blue background please",
-		"deadlineAt":          deadline,
+		"artwork_id":           o.targetArtworkID,
+		"name":                 "My Custom Portrait",
+		"customer_description": "Blue background please",
+		"deadline_at":          deadline,
 	}
 
 	resp, err := o.client.Do(http.MethodPost, "/orders", payload, map[string]string{
