@@ -154,11 +154,6 @@ Feature: View Orders
     When the user views another user's order
     Then the system hides the order from the user
 
-Feature: Create Order
-  As a customer
-  I want to create an order for an artwork
-  So that I can request a custom commission from an artist
-
   Scenario: a customer successfully creates an order
     Given the user has a registered customer account
     And the user has logged in
