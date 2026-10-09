@@ -461,10 +461,10 @@ func TestOrderHandlerCreateOrder(t *testing.T) {
 		handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
 
 		body := map[string]any{
-			"ArtworkID":           artworkID,
-			"Name":                "Portrait Commission",
-			"CustomerDescription": "Please draw me with blue background",
-			"DeadlineAt":          deadline.Format(time.RFC3339),
+			"artwork_id":           artworkID,
+			"name":                 "Portrait Commission",
+			"customer_description": "Please draw me with blue background",
+			"deadline_at":          deadline.Format(time.RFC3339),
 		}
 		jsonBody, _ := json.Marshal(body)
 

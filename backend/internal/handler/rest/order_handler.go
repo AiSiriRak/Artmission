@@ -185,8 +185,8 @@ type orderDetailView struct {
 
 type CreateOrderInput struct {
 	Body struct {
-		Name                string    `json:"name"`
 		ArtworkID           uuid.UUID `json:"artwork_id"`
+		Name                string    `json:"name"`
 		CustomerDescription string    `json:"customer_description"`
 		DeadlineAt          time.Time `json:"deadline_at"`
 	}
