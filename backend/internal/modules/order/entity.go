@@ -4,7 +4,6 @@ package order
 import (
 	"time"
 
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/google/uuid"
 )
 
@@ -219,7 +218,6 @@ type OrderDetail struct {
 type CreateInput struct {
 	Name                string
 	ArtworkID           uuid.UUID
-	ArtworkDetail       *artwork.ArtworkDetail
 	CustomerDescription string
 	DeadlineAt          time.Time
 }

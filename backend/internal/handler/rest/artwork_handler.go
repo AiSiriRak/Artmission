@@ -492,46 +492,19 @@ func (h *ArtworkHandler) getArtwork(ctx context.Context, input *GetArtworkInput)
 		return nil, mapAppError(err)
 	}
 
-	categories, err := h.artworkUsecase.ListAllCategories(ctx)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-	styles, err := h.artworkUsecase.ListAllStyles(ctx)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
-	categoryName := ""
-	for _, cat := range categories {
-		if cat.ID == detail.CategoryID {
-			categoryName = cat.Label
-			break
-		}
-	}
-
-	styleMap := make(map[uuid.UUID]string, len(styles))
-	for _, style := range styles {
-		styleMap[style.ID] = style.Label
-	}
-
-	styleNames := make([]string, 0, len(detail.StyleIDs))
-	for _, styleID := range detail.StyleIDs {
-		if label, ok := styleMap[styleID]; ok {
-			styleNames = append(styleNames, label)
-		}
-	}
 	artwork := &artwork.Artwork{
 		ID:                  detail.ID,
 		ArtistID:            detail.ArtistID,
 		Name:                detail.Name,
-		Category:            categoryName,
-		Styles:              styleNames,
+		Category:            detail.Category,
+		Styles:              detail.Styles,
 		Description:         detail.Description,
 		Samples:             detail.Samples,
 		MinimumDeadlineDays: detail.MinimumDeadlineDays,
 		PriceSatang:         detail.PriceSatang,
 		CreatedAt:           detail.CreatedAt,
 		UpdatedAt:           detail.UpdatedAt}
+
 	return &GetArtworkOutput{
 		Body: newArtworkView(artwork),
 	}, nil

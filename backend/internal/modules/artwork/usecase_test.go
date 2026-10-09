@@ -28,7 +28,6 @@ type fakeRepository struct {
 		artworkID uuid.UUID
 		artistID  uuid.UUID
 	}
-	artworkDetail *ArtworkDetail
 }
 
 func (repo *fakeRepository) Search(_ context.Context, query SearchQuery) (SearchPage, error) {
@@ -86,16 +85,21 @@ func (repo *fakeRepository) DeleteOwnedBy(_ context.Context, artworkID, artistID
 	return repo.err
 }
 
-func (repo *fakeRepository) GetByID(ctx context.Context, artworkID uuid.UUID) (*ArtworkDetail, error) {
+func (repo *fakeRepository) GetByID(ctx context.Context, artworkID uuid.UUID) (*Artwork, error) {
 	if repo.err != nil {
 		return nil, repo.err
 	}
 
-	if repo.artworkDetail == nil {
+	if repo.artworks == nil {
 		return nil, nil
 	}
 
-	return repo.artworkDetail, nil
+	for i := range repo.artworks {
+		if repo.artworks[i].ID == artworkID {
+			return &repo.artworks[i], nil
+		}
+	}
+	return nil, nil
 }
 
 type fakeStorage struct {

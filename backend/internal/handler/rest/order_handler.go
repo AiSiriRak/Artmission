@@ -417,15 +417,9 @@ func (h *OrderHandler) createOrder(ctx context.Context, input *CreateOrderInput)
 		return nil, huma.Error401Unauthorized("missing authentication")
 	}
 
-	artworkDetail, err := h.artworkUsecase.GetArtwork(ctx, input.Body.ArtworkID)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
 	req := order.CreateInput{
 		Name:                input.Body.Name,
 		ArtworkID:           input.Body.ArtworkID,
-		ArtworkDetail:       artworkDetail,
 		CustomerDescription: input.Body.CustomerDescription,
 		DeadlineAt:          input.Body.DeadlineAt,
 	}

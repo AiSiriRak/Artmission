@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/google/uuid"
 )
@@ -223,11 +222,8 @@ func (u *orderUsecase) CreateOrder(ctx context.Context, customerID uuid.UUID, in
 	if input.ArtworkID == uuid.Nil {
 		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
 	}
-	if input.ArtworkDetail == nil {
-		return nil, apperror.InvalidInput("artwork detail must not be nil", nil)
-	}
 
-	order, err := normalizeOrder(uuid.New(), customerID, input, input.ArtworkDetail)
+	order, err := normalizeOrder(uuid.New(), customerID, input)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +236,7 @@ func (u *orderUsecase) CreateOrder(ctx context.Context, customerID uuid.UUID, in
 	return order, nil
 }
 
-func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput, artwork *artwork.ArtworkDetail) (*Order, error) {
+func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput) (*Order, error) {
 	if customerID == uuid.Nil {
 		return nil, apperror.InvalidInput("customer id must not be empty", nil)
 	}
@@ -258,18 +254,11 @@ func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput, artwo
 	}
 
 	now := time.Now()
-	artworkSnapshot := ArtworkSnapshot{
-		ArtworkName: artwork.Name,
-		CategoryID:  artwork.CategoryID,
-		StyleIDs:    artwork.StyleIDs}
 	return &Order{
 		ID:                  id,
 		CustomerID:          customerID,
-		ArtistID:            artwork.ArtistID,
 		ArtworkID:           &input.ArtworkID,
-		ArtworkSnapshot:     artworkSnapshot,
 		Name:                name,
-		PriceSatangOrder:    artwork.PriceSatang,
 		CustomerDescription: description,
 		DeadlineAt:          input.DeadlineAt,
 		Status:              StatusPending,
