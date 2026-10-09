@@ -688,6 +688,7 @@ func (o *ordersContext) theSystemConfirmsTheOrderWithStatus(status string) error
 
 	var confirmation struct {
 		Message string `json:"message"`
+		Status  string `json:"status"`
 	}
 	if err := o.resp.JSON(&confirmation); err != nil {
 		return fmt.Errorf("decode confirmation response: %w (body: %s)", err, o.resp.Body)
@@ -699,6 +700,9 @@ func (o *ordersContext) theSystemConfirmsTheOrderWithStatus(status string) error
 	}
 	if confirmation.Message != wantMessage {
 		return fmt.Errorf("confirmation message = %q, want %q", confirmation.Message, wantMessage)
+	}
+	if confirmation.Status != status {
+		return fmt.Errorf("confirmation status = %q, want %q", confirmation.Status, status)
 	}
 
 	if err := o.getOrder(o.lastOrderID, true); err != nil {

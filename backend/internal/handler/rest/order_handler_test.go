@@ -22,7 +22,7 @@ import (
 type fakeOrderUsecase struct {
 	viewOrdersFunc   func(context.Context, order.ListQuery) (order.Page, error)
 	getOrderFunc     func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
-	confirmOrderFunc func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) error
+	confirmOrderFunc func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) (order.Status, error)
 	gotListQuery     order.ListQuery
 	gotParticipant   order.Participant
 	gotUserID        uuid.UUID
@@ -59,7 +59,7 @@ func (f *fakeOrderUsecase) ConfirmOrder(
 	artistID uuid.UUID,
 	orderID uuid.UUID,
 	input order.ConfirmOrderInput,
-) error {
+) (order.Status, error) {
 	f.confirmCalls++
 	f.gotUserID = artistID
 	f.gotOrderID = orderID
@@ -67,7 +67,10 @@ func (f *fakeOrderUsecase) ConfirmOrder(
 	if f.confirmOrderFunc != nil {
 		return f.confirmOrderFunc(ctx, artistID, orderID, input)
 	}
-	return nil
+	if input.Accept {
+		return order.StatusNotPaid, nil
+	}
+	return order.StatusCancel, nil
 }
 
 type orderAuthStub struct {
@@ -343,9 +346,10 @@ func TestOrderHandlerConfirmOrderAcceptsOrRejectsOrder(t *testing.T) {
 		body        string
 		accept      bool
 		wantMessage string
+		wantStatus  order.Status
 	}{
-		{name: "accept", body: `{"accept":true}`, accept: true, wantMessage: "Order accepted"},
-		{name: "reject", body: `{"accept":false}`, accept: false, wantMessage: "Order rejected"},
+		{name: "accept", body: `{"accept":true}`, accept: true, wantMessage: "Order accepted", wantStatus: order.StatusNotPaid},
+		{name: "reject", body: `{"accept":false}`, accept: false, wantMessage: "Order rejected", wantStatus: order.StatusCancel},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			usecase := &fakeOrderUsecase{}
@@ -364,12 +368,16 @@ func TestOrderHandlerConfirmOrderAcceptsOrRejectsOrder(t *testing.T) {
 
 			var got struct {
 				Message string `json:"message"`
+				Status  string `json:"status"`
 			}
 			if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
 				t.Fatalf("decode response: %v", err)
 			}
 			if got.Message != tt.wantMessage {
 				t.Errorf("response message = %q, want %q", got.Message, tt.wantMessage)
+			}
+			if got.Status != string(tt.wantStatus) {
+				t.Errorf("response status = %q, want %q", got.Status, tt.wantStatus)
 			}
 			if usecase.confirmCalls != 1 ||
 				usecase.gotUserID != uuid.MustParse(userID) ||

@@ -592,7 +592,7 @@ func TestConfirmOrder_AcceptsOrder(t *testing.T) {
 	artistID := uuid.New()
 	orderID := uuid.New()
 
-	err := usecase.ConfirmOrder(
+	gotStatus, err := usecase.ConfirmOrder(
 		context.Background(),
 		artistID,
 		orderID,
@@ -602,6 +602,9 @@ func TestConfirmOrder_AcceptsOrder(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("ConfirmOrder() error = %v, want nil", err)
+	}
+	if gotStatus != order.StatusNotPaid {
+		t.Errorf("ConfirmOrder() status = %q, want %q", gotStatus, order.StatusNotPaid)
 	}
 
 	if !repo.confirmCalled {
@@ -632,7 +635,7 @@ func TestConfirmOrder_RejectsOrder(t *testing.T) {
 	artistID := uuid.New()
 	orderID := uuid.New()
 
-	err := usecase.ConfirmOrder(
+	gotStatus, err := usecase.ConfirmOrder(
 		context.Background(),
 		artistID,
 		orderID,
@@ -642,6 +645,9 @@ func TestConfirmOrder_RejectsOrder(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("ConfirmOrder() error = %v, want nil", err)
+	}
+	if gotStatus != order.StatusCancel {
+		t.Errorf("ConfirmOrder() status = %q, want %q", gotStatus, order.StatusCancel)
 	}
 
 	if !repo.confirmCalled {
@@ -669,7 +675,7 @@ func TestConfirmOrder_RejectsMissingArtistID(t *testing.T) {
 	repo := &fakeRepo{}
 	usecase := order.NewOrderUsecase(repo, fakeStorage{})
 
-	err := usecase.ConfirmOrder(
+	gotStatus, err := usecase.ConfirmOrder(
 		context.Background(),
 		uuid.Nil,
 		uuid.New(),
@@ -679,6 +685,9 @@ func TestConfirmOrder_RejectsMissingArtistID(t *testing.T) {
 	)
 
 	wantInvalidInput(t, err)
+	if gotStatus != "" {
+		t.Errorf("ConfirmOrder() status = %q, want empty status", gotStatus)
+	}
 
 	if repo.confirmCalled {
 		t.Error("ConfirmOrder() repository method should not be called")
@@ -689,7 +698,7 @@ func TestConfirmOrder_RejectsMissingOrderID(t *testing.T) {
 	repo := &fakeRepo{}
 	usecase := order.NewOrderUsecase(repo, fakeStorage{})
 
-	err := usecase.ConfirmOrder(
+	gotStatus, err := usecase.ConfirmOrder(
 		context.Background(),
 		uuid.New(),
 		uuid.Nil,
@@ -697,6 +706,9 @@ func TestConfirmOrder_RejectsMissingOrderID(t *testing.T) {
 	)
 
 	wantInvalidInput(t, err)
+	if gotStatus != "" {
+		t.Errorf("ConfirmOrder() status = %q, want empty status", gotStatus)
+	}
 
 	if repo.confirmCalled {
 		t.Error("ConfirmOrder() repository method should not be called")
@@ -711,13 +723,16 @@ func TestConfirmOrder_PropagatesRepositoryError(t *testing.T) {
 	}
 	usecase := order.NewOrderUsecase(repo, fakeStorage{})
 
-	err := usecase.ConfirmOrder(
+	gotStatus, err := usecase.ConfirmOrder(
 		context.Background(),
 		uuid.New(),
 		uuid.New(),
 		order.ConfirmOrderInput{Accept: true},
 	)
 
+	if gotStatus != "" {
+		t.Errorf("ConfirmOrder() status = %q, want empty status", gotStatus)
+	}
 	if !errors.Is(err, wantErr) {
 		t.Errorf("ConfirmOrder() error = %v, want %v", err, wantErr)
 	}
