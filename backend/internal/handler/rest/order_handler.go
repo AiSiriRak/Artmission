@@ -114,6 +114,7 @@ type ConfirmOrderInput struct {
 type ConfirmOrderOutput struct {
 	Body struct {
 		Message string `json:"message"`
+		Status  string `json:"status"`
 	}
 }
 
@@ -326,7 +327,7 @@ func (h *OrderHandler) confirmOrder(
 		return nil, huma.Error401Unauthorized("missing authentication")
 	}
 
-	err := h.orderUsecase.ConfirmOrder(
+	status, err := h.orderUsecase.ConfirmOrder(
 		ctx,
 		info.UserID,
 		input.OrderID,
@@ -348,6 +349,7 @@ func (h *OrderHandler) confirmOrder(
 
 	out := &ConfirmOrderOutput{}
 	out.Body.Message = message
+	out.Body.Status = string(status)
 
 	return out, nil
 }

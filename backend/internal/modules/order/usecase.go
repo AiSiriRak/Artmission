@@ -174,13 +174,13 @@ func (u *orderUsecase) ConfirmOrder(
 	artistID uuid.UUID,
 	orderID uuid.UUID,
 	input ConfirmOrderInput,
-) error {
+) (Status, error) {
 	if artistID == uuid.Nil {
-		return ErrMissingParticipantID
+		return "", ErrMissingParticipantID
 	}
 
 	if orderID == uuid.Nil {
-		return ErrMissingOrderID
+		return "", ErrMissingOrderID
 	}
 
 	var status Status
@@ -191,5 +191,9 @@ func (u *orderUsecase) ConfirmOrder(
 		status = StatusCancel
 	}
 
-	return u.repo.ConfirmOrder(ctx, artistID, orderID, status)
+	if err := u.repo.ConfirmOrder(ctx, artistID, orderID, status); err != nil {
+		return "", err
+	}
+
+	return status, nil
 }

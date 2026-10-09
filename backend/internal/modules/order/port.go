@@ -30,7 +30,7 @@ type OrderUsecase interface {
 		artistID uuid.UUID,
 		orderID uuid.UUID,
 		input ConfirmOrderInput,
-	) error
+	) (Status, error)
 }
 
 type OrderRepository interface {
