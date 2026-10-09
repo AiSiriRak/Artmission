@@ -35,6 +35,7 @@ type ordersContext struct {
 	lastOrderID               string // most recently seeded order's ID, for single-order deliverable-preview assertions
 	otherOrderID              string // order ID seeded for an account other than o.account
 	lastDeliverablePreviewKey string // most recently seeded deliverable version's preview_image_key
+	targetArtworkID           string
 
 	resp        *apptest.Response
 	page        viewOrdersOutput // last response decoded while resp.StatusCode == 200
