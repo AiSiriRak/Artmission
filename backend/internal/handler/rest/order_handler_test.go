@@ -232,7 +232,7 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 	completedAt := time.Date(2026, time.October, 9, 12, 0, 0, 0, time.UTC)
 	deliverableUpdatedAt := time.Date(2026, time.October, 2, 12, 0, 0, 0, time.UTC)
 	deliverableComment := "Please revise this version."
-	deliverablePreviewKey := "orders/order-10/v1/preview.png"
+	deliverablePreviewURL := "https://storage.example.com/orders/order-10/v1/preview.png"
 	reviewScore := 4.5
 
 	for _, tt := range []struct {
@@ -292,7 +292,7 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 					Version:         1,
 					Decision:        order.DeliverableDecisionWait,
 					Comment:         &deliverableComment,
-					PreviewImageKey: deliverablePreviewKey,
+					PreviewImageURL: deliverablePreviewURL,
 					CreatedAt:       createdAt,
 					UpdatedAt:       deliverableUpdatedAt,
 				}},
@@ -354,7 +354,7 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 					Version:         1,
 					Decision:        order.DeliverableDecisionWait,
 					Comment:         &deliverableComment,
-					PreviewImageKey: deliverablePreviewKey,
+					PreviewImageURL: deliverablePreviewURL,
 					CreatedAt:       createdAt,
 					UpdatedAt:       deliverableUpdatedAt,
 				}},

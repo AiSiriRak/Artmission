@@ -158,7 +158,7 @@ type deliverableView struct {
 	Version         int                       `json:"version"`
 	Decision        order.DeliverableDecision `json:"decision"`
 	Comment         *string                   `json:"comment"`
-	PreviewImageKey string                    `json:"preview_image_key"`
+	PreviewImageURL string                    `json:"preview_image_url"`
 	CreatedAt       time.Time                 `json:"created_at"`
 	UpdatedAt       time.Time                 `json:"updated_at"`
 }
@@ -339,7 +339,7 @@ func toOrderDetailView(o *order.OrderDetail,
 			Version:         deliverable.Version,
 			Decision:        deliverable.Decision,
 			Comment:         deliverable.Comment,
-			PreviewImageKey: deliverable.PreviewImageKey,
+			PreviewImageURL: deliverable.PreviewImageURL,
 			CreatedAt:       deliverable.CreatedAt,
 			UpdatedAt:       deliverable.UpdatedAt,
 		}

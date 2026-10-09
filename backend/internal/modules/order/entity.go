@@ -156,6 +156,7 @@ type Deliverable struct {
 	Comment          *string
 	OriginalImageKey string
 	PreviewImageKey  string
+	PreviewImageURL  string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }

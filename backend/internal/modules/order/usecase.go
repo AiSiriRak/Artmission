@@ -43,7 +43,7 @@ func (u *orderUsecase) ViewOrders(ctx context.Context, query ListQuery) (Page, e
 		}
 		url, err := u.storage.GetPresignedURL(ctx, *key, orderDeliverableTTL)
 		if err != nil {
-			return Page{}, apperror.Internal("failed to presign deliverable preview image", err)
+			return Page{}, ErrFailedToPresignDeliverablePreview
 		}
 		page.Orders[i].DeliverablePreviewURL = &url
 	}
@@ -162,6 +162,25 @@ func (u *orderUsecase) GetOrder(
 		detail.OtherParty = data.Artist
 	case ParticipantArtist:
 		detail.OtherParty = data.Customer
+	}
+
+	for i := range detail.Deliverables {
+		d := &detail.Deliverables[i]
+
+		if d.PreviewImageKey == "" {
+			continue
+		}
+
+		url, err := u.storage.GetPresignedURL(
+			ctx,
+			d.PreviewImageKey,
+			orderDeliverableTTL,
+		)
+		if err != nil {
+			return nil, ErrFailedToPresignDeliverablePreview
+		}
+
+		d.PreviewImageURL = url
 	}
 
 	return detail, nil
