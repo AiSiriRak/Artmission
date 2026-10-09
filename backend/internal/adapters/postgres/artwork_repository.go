@@ -461,9 +461,9 @@ func (repo *artworkRepository) GetByID(ctx context.Context, artworkID uuid.UUID)
 		var imageModels []artworkImageModel
 		if err := idb.NewSelect().
 			TableExpr("artwork_images AS ai").
-			Column("ai.image_url", "ai.sort_order").
+			Column("ai.image_url").
 			Where("ai.artwork_id = ?", artworkID).
-			OrderExpr("ai.sort_order ASC, ai.id ASC").
+			OrderExpr("ai.id ASC").
 			Scan(ctx, &imageModels); err != nil {
 			return err
 		}
