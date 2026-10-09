@@ -1,0 +1,56 @@
+info:
+  name: "Confirm Order: Accept"
+  type: http
+  seq: 5
+
+http:
+  method: PUT
+  url: "{{api_url}}/orders/:id/confirm"
+  params:
+    - name: id
+      value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
+      type: path
+  body:
+    type: json
+    data: |-
+      {
+        accept: true
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 200 Response
+    request:
+      url: "{{api_url}}/orders/:id"
+      method: GET
+      params:
+        - name: id
+          value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
+          type: path
+    response:
+      status: 200
+      statusText: OK
+      body:
+        type: text
+        data: ""
+  - name: default Response
+    request:
+      url: "{{api_url}}/orders/:id"
+      method: GET
+      params:
+        - name: id
+          value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
+          type: path
+    response:
+      status: 200
+      statusText: OK
+      body:
+        type: text
+        data: ""
