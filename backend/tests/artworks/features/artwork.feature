@@ -71,19 +71,19 @@ Feature: Artist artwork portfolio
     When the customer updates the artwork
     Then the system denies artwork updates
 
-  Scenario: get artwork detail as customer or artist
+  Scenario: get artwork as customer or artist
     Given an artist is registered and logged in
     And the artist has created artwork with samples
-    When a user fetches the artwork details
-    Then the system returns the complete artwork detail with category and styles
+    When a user fetches the artwork
+    Then the system returns the artwork with category and style names
 
-  Scenario: return not found for missing artwork detail
+  Scenario: return not found for missing artwork
     Given an artist is registered and logged in
-    When a user fetches a missing artwork details
+    When a user fetches a missing artwork
     Then the system reports the artwork was not found
 
-  Scenario: require authentication to fetch artwork detail
+  Scenario: require authentication to fetch artwork
     Given an artist is registered and logged in
     And the artist has created artwork with samples
-    When an unauthenticated caller fetches the artwork details
+    When an unauthenticated caller fetches the artwork
     Then the system requires the caller to log in
