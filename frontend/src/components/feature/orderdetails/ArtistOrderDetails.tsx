@@ -1,36 +1,63 @@
 import OrderDetails from "./OrderDetails";
 import { Button } from "@/components/ui/Button";
 import { WhiteCard } from "@/components/ui/WhiteCard";
+import type { OrderStatus } from "@/lib/api/types";
+
+// TODO: connect with API
+const mockStatus: OrderStatus = "PENDING";
+
+function renderArtistActions(status: OrderStatus) {
+  // TODO: connect with API
+  switch (status) {
+    case "PENDING":
+      return (
+        <>
+          <Button type="button" className="!border w-32">
+            Reject
+          </Button>
+
+          <Button type="button" variant="dark" className="w-32">
+            Accept
+          </Button>
+        </>
+      );
+
+    case "NOT_PAID":
+      return (
+        <Button type="button" variant="red" className="min-w-32">
+          Cancel Order
+        </Button>
+      );
+
+    case "IN_PROCESS":
+      return (
+        <>
+          <Button type="button" className="!border min-w-32">
+            Postpone Order
+          </Button>
+
+          <Button type="button" variant="red" className="min-w-32">
+            Cancel Order
+          </Button>
+        </>
+      );
+
+    case "SUCCESS":
+    case "CANCEL":
+      return null;
+  }
+}
 
 export default function ArtistOrderDetails() {
   return (
     <OrderDetails
       usertype="artist"
-      status="PENDING"
-      orderActions={
-        <>
-          <Button
-            type="button"
-            variant="light"
-            className="!border w-32"
-          >
-            Reject
-          </Button>
+      status={mockStatus}
+      orderActions={renderArtistActions(mockStatus)}
 
-          <Button
-            type="button"
-            variant="dark"
-            className="w-32"
-          >
-            Accept
-          </Button>
-        </>
-      }
-
-      // artist info
       participantInfo={
         <section>
-          <h2 className="mb-4 text-h3 font-bold text-primary-500">
+          <h2 className="mb-4 text-h3">
             Customer Info
           </h2>
 
@@ -46,11 +73,11 @@ export default function ArtistOrderDetails() {
                 className="h-24 w-24 shrink-0 rounded-full bg-neutral"
               />
 
-              <dl className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2 text-primary-500">
-                <dt className="text-h3 font-bold">Name</dt>
+              <dl className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2">
+                <dt className="text-h3">Name</dt>
                 <dd className="break-words text-body">Username</dd>
 
-                <dt className="text-h3 font-bold">Email</dt>
+                <dt className="text-h3">Email</dt>
                 <dd className="break-words text-body">
                   useremail@gmail.com
                 </dd>
