@@ -20,6 +20,7 @@ type UserUsecase interface {
 	Authenticate(ctx context.Context, email, password string) (*User, error)
 
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
+	GetArtistName(ctx context.Context, id uuid.UUID) (string, error)
 	UpdateAccount(ctx context.Context, id uuid.UUID, in UpdateAccountInput) (*User, error)
 	UpdateBankAccount(ctx context.Context, userID uuid.UUID, role Role, in BankAccountInput) (*BankAccount, error)
 	DeleteAccount(ctx context.Context, userID uuid.UUID) error

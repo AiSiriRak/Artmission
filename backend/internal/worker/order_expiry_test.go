@@ -14,31 +14,12 @@ import (
 )
 
 type expiryUsecase struct {
+	order.OrderUsecase
 	cancelExpired func(context.Context) ([]uuid.UUID, error)
-}
-
-func (u expiryUsecase) ViewOrders(context.Context, order.ListQuery) (order.Page, error) {
-	return order.Page{}, nil
-}
-
-func (u expiryUsecase) GetOrder(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error) {
-	return nil, nil
-}
-
-func (u expiryUsecase) ConfirmOrder(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) (order.Status, error) {
-	return "", nil
-}
-
-func (u expiryUsecase) CancelOrder(context.Context, order.Participant, uuid.UUID, uuid.UUID) error {
-	return nil
 }
 
 func (u expiryUsecase) CancelExpiredOrders(ctx context.Context) ([]uuid.UUID, error) {
 	return u.cancelExpired(ctx)
-}
-
-func (u expiryUsecase) CreateOrder(context.Context, uuid.UUID, order.CreateInput) (*order.Order, error) {
-	return nil, nil
 }
 
 var _ order.OrderUsecase = expiryUsecase{}

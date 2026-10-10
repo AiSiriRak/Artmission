@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"reflect"
 	"strings"
 	"testing"
@@ -27,14 +29,18 @@ type fakeOrderUsecase struct {
 	confirmOrderFunc        func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) (order.Status, error)
 	cancelOrderFunc         func(context.Context, order.Participant, uuid.UUID, uuid.UUID) error
 	cancelExpiredOrdersFunc func(context.Context) ([]uuid.UUID, error)
-	createOrderFunc         func(ctx context.Context, customerID uuid.UUID, input order.CreateInput) (*order.Order, error)
-	gotListQuery            order.ListQuery
-	gotParticipant          order.Participant
-	gotUserID               uuid.UUID
-	gotOrderID              uuid.UUID
-	gotConfirmInput         order.ConfirmOrderInput
-	confirmCalls            int
-	cancelCalls             int
+	createOrderFunc         func(context.Context, uuid.UUID, order.CreateInput) (*order.Order, error)
+	createDeliverableFunc   func(context.Context, uuid.UUID, order.CreateDeliverableInput) (*order.Deliverable, error)
+
+	gotListQuery           order.ListQuery
+	gotParticipant         order.Participant
+	gotUserID              uuid.UUID
+	gotOrderID             uuid.UUID
+	gotConfirmInput        order.ConfirmOrderInput
+	confirmCalls           int
+	cancelCalls            int
+	gotDeliverableInput    order.CreateDeliverableInput
+	gotDeliverableArtistID uuid.UUID
 }
 
 type fakeArtworkUsecase struct {
@@ -132,6 +138,19 @@ func (f *fakeOrderUsecase) CancelExpiredOrders(ctx context.Context) ([]uuid.UUID
 	f.cancelCalls++
 	if f.cancelExpiredOrdersFunc != nil {
 		return f.cancelExpiredOrdersFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (f *fakeOrderUsecase) CreateDeliverable(
+	ctx context.Context,
+	artistID uuid.UUID,
+	input order.CreateDeliverableInput,
+) (*order.Deliverable, error) {
+	f.gotDeliverableArtistID = artistID
+	f.gotDeliverableInput = input
+	if f.createDeliverableFunc != nil {
+		return f.createDeliverableFunc(ctx, artistID, input)
 	}
 	return nil, nil
 }
@@ -464,6 +483,114 @@ func TestOrderHandlerConfirmOrderAcceptsOrRejectsOrder(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+func TestOrderHandlerCreateDeliverableUploadsMultipartImage(t *testing.T) {
+	const (
+		artistID = "00000000-0000-0000-0000-000000000001"
+		orderID  = "00000000-0000-0000-0000-000000000010"
+	)
+	createdAt := time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC)
+	imageContent := []byte("deliverable image bytes")
+	created := &order.Deliverable{
+		ID:               uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+		Version:          1,
+		Decision:         order.DeliverableDecisionWait,
+		OriginalImageKey: "orders/" + orderID + "/original.png",
+		PreviewImageKey:  "orders/" + orderID + "/preview.jpg",
+		PreviewImageURL:  "https://storage.example.com/preview",
+		CreatedAt:        createdAt,
+		UpdatedAt:        createdAt,
+	}
+	var gotImage []byte
+	usecase := &fakeOrderUsecase{
+		createDeliverableFunc: func(_ context.Context, gotArtistID uuid.UUID, input order.CreateDeliverableInput) (*order.Deliverable, error) {
+			if gotArtistID != uuid.MustParse(artistID) {
+				t.Errorf("artistID = %s, want %s", gotArtistID, artistID)
+			}
+			if input.OrderID != uuid.MustParse(orderID) {
+				t.Errorf("orderID = %s, want %s", input.OrderID, orderID)
+			}
+			var err error
+			gotImage, err = io.ReadAll(input.DeliverableImage)
+			if err != nil {
+				t.Errorf("read deliverable image: %v", err)
+			}
+			return created, nil
+		},
+	}
+	handler := newOrderTestHandler(t, user.RoleArtist, usecase)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", `form-data; name="deliverable_image"; filename="deliverable.png"`)
+	header.Set("Content-Type", "image/png")
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		t.Fatalf("create image form part: %v", err)
+	}
+	if _, err := part.Write(imageContent); err != nil {
+		t.Fatalf("write image form part: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/orders/"+orderID+"/deliverables",
+		&body,
+	)
+	req.Header.Set("Authorization", "Bearer test-token")
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if !bytes.Equal(gotImage, imageContent) {
+		t.Errorf("uploaded image = %q, want %q", gotImage, imageContent)
+	}
+	if usecase.gotDeliverableArtistID != uuid.MustParse(artistID) ||
+		usecase.gotDeliverableInput.OrderID != uuid.MustParse(orderID) {
+		t.Errorf("usecase received artistID=%s orderID=%s", usecase.gotDeliverableArtistID, usecase.gotDeliverableInput.OrderID)
+	}
+
+	var got deliverableView
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got.ID != created.ID.String() ||
+		got.Version != created.Version ||
+		got.Decision != created.Decision ||
+		got.PreviewImageURL != created.PreviewImageURL ||
+		!got.CreatedAt.Equal(createdAt) ||
+		!got.UpdatedAt.Equal(createdAt) {
+		t.Errorf("response deliverable = %+v, want fields from %+v", got, created)
+	}
+}
+
+func TestOrderHandlerCreateDeliverableRequiresArtistRole(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/orders/00000000-0000-0000-0000-000000000010/deliverables",
+		nil,
+	)
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+	if usecase.gotDeliverableArtistID != uuid.Nil {
+		t.Error("CreateDeliverable() should not be called for a customer")
 	}
 }
 

@@ -1,16 +1,22 @@
 info:
   name: CancelOrder
   type: http
-  seq: 7
+  seq: 8
 
 http:
   method: PUT
   url: "{{api_url}}/orders/:id/cancel"
   params:
     - name: id
-      value: f849a9ae-9f34-4bad-ad10-ade78a92305b
+      value: "{{OrderID}}"
       type: path
+      description: Order ID
   auth: inherit
+
+runtime:
+  variables:
+    - name: OrderID
+      value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
 
 settings:
   encodeUrl: true
@@ -18,3 +24,57 @@ settings:
   followRedirects: true
   maxRedirects: 5
   forwardAuthorizationHeader: false
+
+examples:
+  - name: 200 Response
+    description: OK
+    request:
+      url: "{{api_url}}/orders/:id/cancel"
+      method: PUT
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Order ID
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "message": "",
+            "status": ""
+          }
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/orders/:id/cancel"
+      method: PUT
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Order ID
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: Cancel order by ID
