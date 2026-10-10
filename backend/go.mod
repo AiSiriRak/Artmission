@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3
 	github.com/cucumber/godog v0.16.0
 	github.com/danielgtaylor/huma/v2 v2.39.1
+	github.com/disintegration/imaging v1.6.2
 	github.com/fogleman/gg v1.3.0
 	github.com/gabriel-vasile/mimetype v1.4.13
 	github.com/go-playground/validator/v10 v10.30.3

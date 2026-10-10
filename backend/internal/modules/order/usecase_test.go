@@ -868,7 +868,7 @@ func TestCreateDeliverableUploadsOriginalAndWatermarkedPreview(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode preview: %v", err)
 	}
-	if format != "jpeg" || preview.Bounds().Dx() != orderPreviewSize || preview.Bounds().Dy() != orderPreviewHeight {
+	if format != "jpeg" || preview.Bounds().Dx() != orderPreviewWidth || preview.Bounds().Dy() != orderPreviewHeight {
 		t.Errorf("preview dimensions/format = %dx%d %q", preview.Bounds().Dx(), preview.Bounds().Dy(), format)
 	}
 	if created.OriginalImageKey != storage.uploads[0].key || created.PreviewImageKey != storage.uploads[1].key {
@@ -946,6 +946,6 @@ func TestCreateDeliverableCleansUpWhenPersistenceFails(t *testing.T) {
 }
 
 const (
-	orderPreviewSize   = 400
-	orderPreviewHeight = 200
+	orderPreviewWidth  = 640
+	orderPreviewHeight = 320
 )

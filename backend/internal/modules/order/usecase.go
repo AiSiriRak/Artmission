@@ -8,7 +8,6 @@ import (
 	"image"
 	"image/color"
 	stdDraw "image/draw"
-	"image/jpeg"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
+	"github.com/disintegration/imaging"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
 	xdraw "golang.org/x/image/draw"
@@ -512,82 +512,133 @@ func readDeliverableImage(reader io.Reader) ([]byte, string, string, error) {
 	}
 }
 
-// createDeliverablePreview decodes the original image, scales it down
-// to the configured maximum dimension without enlarging small images,
-// adds a watermark, and encodes the result as JPEG.
+// createDeliverablePreview decodes the original image with EXIF orientation,
+// resizes it to the configured maximum dimension without upscaling, adds a
+// watermark that fits the image, and encodes the result as a JPEG preview.
 func createDeliverablePreview(
 	original []byte,
 	artistName string,
 	submittedAt time.Time,
 ) ([]byte, error) {
-	src, _, err := image.Decode(bytes.NewReader(original))
+	src, err := imaging.Decode(
+		bytes.NewReader(original),
+		imaging.AutoOrientation(true),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("decode deliverable image: %w", err)
 	}
 
-	bounds := src.Bounds()
-	width, height := bounds.Dx(), bounds.Dy()
+	width, height := src.Bounds().Dx(), src.Bounds().Dy()
 	if width <= 0 || height <= 0 {
 		return nil, errors.New("deliverable image has invalid dimensions")
 	}
 
-	// Preserve the aspect ratio and avoid upscaling.
-	scale := min(
-		1,
-		float64(deliverablePreviewSize)/float64(max(width, height)),
-	)
-	previewWidth := max(1, int(float64(width)*scale))
-	previewHeight := max(1, int(float64(height)*scale))
+	// Resize the image while preserving its aspect ratio.
+	if max(width, height) > deliverablePreviewSize {
+		if width >= height {
+			height = max(1, height*deliverablePreviewSize/width)
+			width = deliverablePreviewSize
+		} else {
+			width = max(1, width*deliverablePreviewSize/height)
+			height = deliverablePreviewSize
+		}
 
-	// Resize the source image into a new RGBA image.
-	preview := image.NewRGBA(
-		image.Rect(0, 0, previewWidth, previewHeight),
-	)
-	xdraw.CatmullRom.Scale(
-		preview,
-		preview.Bounds(),
-		src,
-		bounds,
-		xdraw.Src,
-		nil,
-	)
+		src = imaging.Resize(src, width, height, imaging.Lanczos)
+	}
 
-	// Draw a translucent band along the bottom edge as a background
-	// for the watermark.
-	const watermarkBandHeight = 24
-	band := image.Rect(
-		0,
-		max(0, previewHeight-watermarkBandHeight),
-		previewWidth,
-		previewHeight,
-	)
+	// Create a mutable image for drawing the watermark.
+	watermarkImage := imaging.Clone(src)
+	bounds := watermarkImage.Bounds()
+	width, height = bounds.Dx(), bounds.Dy()
+
+	// Calculate watermark dimensions relative to the image.
+	padding := max(4, width/100)
+	availableWidth := max(1, width-2*padding)
+	bandHeight := max(18, min(height/10, 60))
+	bandHeight = min(bandHeight, height)
+
+	// Draw a translucent background at the bottom of the image.
+	band := image.Rect(0, height-bandHeight, width, height)
 	stdDraw.Draw(
-		preview,
+		watermarkImage,
 		band,
-		&image.Uniform{C: color.NRGBA{A: 150}},
+		image.NewUniform(color.NRGBA{A: 180}),
 		image.Point{},
 		stdDraw.Over,
 	)
 
-	// Format the artist name and submission date for the watermark.
-	date := submittedAt.UTC().Format("2006-01-02")
-	watermarkText := artistName + " - " + date
+	// Build the watermark text using the artist name and submission date.
+	watermarkText := artistName + " - " +
+		submittedAt.UTC().Format("2006-01-02")
 
-	// Draw the watermark text over the band.
-	watermark := font.Drawer{
-		Dst:  preview,
+	// Measure the text using the existing fixed-size font.
+	face := basicfont.Face7x13
+	textWidth := font.MeasureString(face, watermarkText).Ceil()
+	textHeight := face.Metrics().Height.Ceil()
+
+	// Scale the rendered text to fit both the available width and band height.
+	availableTextHeight := max(1, bandHeight*2/3)
+	scale := min(
+		float64(availableWidth)/float64(max(1, textWidth)),
+		float64(availableTextHeight)/float64(max(1, textHeight)),
+	)
+
+	scaledWidth := max(1, int(float64(textWidth)*scale))
+	scaledHeight := max(1, int(float64(textHeight)*scale))
+
+	// Render the text to a temporary image.
+	textImage := image.NewRGBA(
+		image.Rect(0, 0, max(1, textWidth), max(1, textHeight)),
+	)
+
+	drawer := font.Drawer{
+		Dst:  textImage,
 		Src:  image.NewUniform(color.White),
-		Face: basicfont.Face7x13,
-		Dot:  fixed.P(8, max(15, previewHeight-6)),
+		Face: face,
+		Dot: fixed.P(
+			0,
+			face.Metrics().Ascent.Ceil(),
+		),
 	}
-	watermark.DrawString(watermarkText)
+	drawer.DrawString(watermarkText)
 
-	// Encode the preview as JPEG with a reduced quality to limit size.
+	// Resize the rendered text to fit the available space.
+	scaledText := image.NewRGBA(
+		image.Rect(0, 0, scaledWidth, scaledHeight),
+	)
+	xdraw.CatmullRom.Scale(
+		scaledText,
+		scaledText.Bounds(),
+		textImage,
+		textImage.Bounds(),
+		xdraw.Src,
+		nil,
+	)
+
+	// Center the text vertically within the watermark band.
+	textX := padding
+	textY := height - bandHeight + (bandHeight-scaledHeight)/2
+
+	stdDraw.Draw(
+		watermarkImage,
+		image.Rect(
+			textX,
+			textY,
+			textX+scaledWidth,
+			textY+scaledHeight,
+		),
+		scaledText,
+		image.Point{},
+		stdDraw.Over,
+	)
+
+	// Encode the watermarked preview as JPEG.
 	var output bytes.Buffer
-	if err := jpeg.Encode(
+	if err := imaging.Encode(
 		&output,
-		preview,
-		&jpeg.Options{Quality: 85},
+		watermarkImage,
+		imaging.JPEG,
+		imaging.JPEGQuality(88),
 	); err != nil {
 		return nil, fmt.Errorf("encode deliverable preview: %w", err)
 	}

@@ -230,8 +230,10 @@ type CreateDeliverableInput struct {
 	DeliverableImage io.Reader
 }
 
+// MaxDeliverableImageSize is assigned to be 20 MB
 const (
-	MaxDeliverableImageSize = 5 * 1024 * 1024
-	deliverablePreviewSize  = 400
-	MaxDeliverableVersions  = 3
+	MaxDeliverableVersions    = 3
+	MaxDeliverableImageSize   = 20 * 1024 * 1024
+	deliverablePreviewSize    = 1800
+	deliverablePreviewQuality = 88
 )
