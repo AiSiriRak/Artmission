@@ -395,6 +395,84 @@ func (r *orderRepository) ConfirmOrder(
 	return nil
 }
 
+// CancelOrder transitions an order to the given status,
+func (r *orderRepository) CancelOrder(
+	ctx context.Context,
+	participant order.Participant,
+	participantID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	if participant != order.ParticipantCustomer && participant != order.ParticipantArtist {
+		return apperror.Internal("unsupported participant", nil)
+	}
+
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		existing := new(pgmodel.Order)
+
+		q := idb.NewSelect().
+			Model(existing).
+			Column("id", "status").
+			Where("id = ?", orderID)
+
+		if participant == order.ParticipantCustomer {
+			q = q.Where("customer_id = ?", participantID)
+		} else {
+			q = q.Where("artist_id = ?", participantID)
+		}
+
+		if err := q.Scan(ctx); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return order.ErrOrderNotFound
+			}
+			return err
+		}
+
+		if existing.Status == string(order.StatusCancel) || existing.Status == string(order.StatusSuccess) {
+			return order.ErrInvalidOrderStatus
+		}
+
+		// TODO - Proceed payment and transaction and check for error before continue
+
+		updateQ := idb.NewUpdate().
+			Model((*pgmodel.Order)(nil)).
+			Set("status = ?", string(order.StatusCancel)).
+			Set("updated_at = NOW()").
+			Where("id = ?", orderID).
+			Where("status = ?", existing.Status)
+
+		if participant == order.ParticipantCustomer {
+			updateQ = updateQ.Where("customer_id = ?", participantID)
+		} else {
+			updateQ = updateQ.Where("artist_id = ?", participantID)
+		}
+
+		result, err := updateQ.Exec(ctx)
+		if err != nil {
+			return err
+		}
+
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+
+		if rows == 0 {
+			return order.ErrInvalidOrderStatus
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return err
+		}
+		return apperror.Internal("failed to cancel order", err)
+	}
+
+	return nil
+}
+
 // Create persists a new order and snapshots artwork data when the order is tied to an artwork.
 func (r *orderRepository) Create(
 	ctx context.Context,

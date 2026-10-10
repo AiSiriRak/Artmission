@@ -1,0 +1,20 @@
+info:
+  name: CancelOrder
+  type: http
+  seq: 7
+
+http:
+  method: PUT
+  url: "{{api_url}}/orders/:id/cancel"
+  params:
+    - name: id
+      value: f849a9ae-9f34-4bad-ad10-ade78a92305b
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
