@@ -43,6 +43,12 @@ type fakeRepo struct {
 	cancelErr           error
 	cancelCalled        bool
 
+	expireCalled        bool
+	expireNow           time.Time
+	expirePendingCutoff time.Time
+	expireIDs           []uuid.UUID
+	expireErr           error
+
 	created              *order.Order
 	createdDeliverable   *order.Deliverable
 	deliverableArtistID  uuid.UUID
@@ -95,6 +101,13 @@ func (f *fakeRepo) CancelOrder(
 	f.cancelOrderID = orderID
 
 	return f.cancelErr
+}
+
+func (f *fakeRepo) CancelExpired(_ context.Context, pendingCutoff, now time.Time) ([]uuid.UUID, error) {
+	f.expireCalled = true
+	f.expireNow = now
+	f.expirePendingCutoff = pendingCutoff
+	return f.expireIDs, f.expireErr
 }
 
 func (repo *fakeRepo) Create(ctx context.Context, item *order.Order) error {
@@ -1081,5 +1094,49 @@ func TestCancelOrder_PropagatesRepositoryError(t *testing.T) {
 
 	if !errors.Is(err, wantErr) {
 		t.Errorf("CancelOrder() error = %v, want %v", err, wantErr)
+	}
+}
+
+func TestCancelExpiredOrders_UsesTTLRelativeToNow(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	before := time.Now()
+	_, err := usecase.CancelExpiredOrders(context.Background())
+	after := time.Now()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !repo.expireCalled {
+		t.Fatal("expected repository CancelExpired to be called")
+	}
+	if repo.expireNow.Before(before) || repo.expireNow.After(after) {
+		t.Fatalf("now %v not within [%v, %v]", repo.expireNow, before, after)
+	}
+	if want := repo.expireNow.Add(-order.PendingConfirmationTTL); !repo.expirePendingCutoff.Equal(want) {
+		t.Fatalf("pending cutoff = %v, want %v", repo.expirePendingCutoff, want)
+	}
+}
+
+func TestCancelExpiredOrders_ReturnsCancelledIDs(t *testing.T) {
+	ids := []uuid.UUID{uuid.New(), uuid.New()}
+	usecase := order.NewOrderUsecase(&fakeRepo{expireIDs: ids}, fakeStorage{})
+
+	got, err := usecase.CancelExpiredOrders(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != len(ids) || got[0] != ids[0] || got[1] != ids[1] {
+		t.Fatalf("got %v, want %v", got, ids)
+	}
+}
+
+func TestCancelExpiredOrders_PropagatesRepositoryError(t *testing.T) {
+	wantErr := errors.New("db down")
+	usecase := order.NewOrderUsecase(&fakeRepo{expireErr: wantErr}, fakeStorage{})
+
+	if _, err := usecase.CancelExpiredOrders(context.Background()); !errors.Is(err, wantErr) {
+		t.Fatalf("err = %v, want %v", err, wantErr)
 	}
 }

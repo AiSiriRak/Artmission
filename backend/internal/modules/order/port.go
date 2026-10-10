@@ -34,6 +34,9 @@ type OrderUsecase interface {
 	) (Status, error)
 
 	CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, orderID uuid.UUID) error
+	// CancelExpiredOrders cancels every order whose artist-confirmation window
+	// or deadline has passed, and returns the IDs it cancelled.
+	CancelExpiredOrders(ctx context.Context) ([]uuid.UUID, error)
 
 	CreateOrder(ctx context.Context, customerID uuid.UUID, input CreateInput) (*Order, error)
 
@@ -69,6 +72,11 @@ type OrderRepository interface {
 	) error
 
 	CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, orderID uuid.UUID) error
+	// CancelExpired atomically moves to CANCEL every order that is either
+	// PENDING with created_at <= pendingCutoff, or in an auto-cancellable status
+	// with deadline_at <= now. It returns the IDs it changed.
+	CancelExpired(ctx context.Context, pendingCutoff, now time.Time) ([]uuid.UUID, error)
+
 	Create(ctx context.Context, order *Order) error
 
 	// CreateDeliverable creates a new deliverable version for an order

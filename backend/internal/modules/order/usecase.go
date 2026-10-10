@@ -263,6 +263,12 @@ func (u *orderUsecase) CancelOrder(ctx context.Context, participant Participant,
 	return nil
 }
 
+// CancelExpiredOrders cancels orders whose confirmation window or deadline has passed.
+func (u *orderUsecase) CancelExpiredOrders(ctx context.Context) ([]uuid.UUID, error) {
+	now := time.Now()
+	return u.repo.CancelExpired(ctx, now.Add(-PendingConfirmationTTL), now)
+}
+
 // CreateOrder validates the artwork reference, builds a pending order, and persists it.
 func (u *orderUsecase) CreateOrder(ctx context.Context, customerID uuid.UUID, input CreateInput) (*Order, error) {
 	if input.ArtworkID == uuid.Nil {

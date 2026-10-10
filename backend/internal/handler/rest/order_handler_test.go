@@ -24,12 +24,13 @@ import (
 )
 
 type fakeOrderUsecase struct {
-	viewOrdersFunc        func(context.Context, order.ListQuery) (order.Page, error)
-	getOrderFunc          func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
-	createOrderFunc       func(ctx context.Context, customerID uuid.UUID, input order.CreateInput) (*order.Order, error)
-	confirmOrderFunc      func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) (order.Status, error)
-	cancelOrderFunc       func(context.Context, order.Participant, uuid.UUID, uuid.UUID) error
-	createDeliverableFunc func(ctx context.Context, artistID uuid.UUID, input order.CreateDeliverableInput) (*order.Deliverable, error)
+	viewOrdersFunc          func(context.Context, order.ListQuery) (order.Page, error)
+	getOrderFunc            func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
+	confirmOrderFunc        func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) (order.Status, error)
+	cancelOrderFunc         func(context.Context, order.Participant, uuid.UUID, uuid.UUID) error
+	cancelExpiredOrdersFunc func(context.Context) ([]uuid.UUID, error)
+	createOrderFunc         func(context.Context, uuid.UUID, order.CreateInput) (*order.Order, error)
+	createDeliverableFunc   func(context.Context, uuid.UUID, order.CreateDeliverableInput) (*order.Deliverable, error)
 
 	gotListQuery           order.ListQuery
 	gotParticipant         order.Participant
@@ -131,6 +132,14 @@ func (f *fakeOrderUsecase) CancelOrder(
 		return f.cancelOrderFunc(ctx, participant, participantID, orderID)
 	}
 	return nil
+}
+
+func (f *fakeOrderUsecase) CancelExpiredOrders(ctx context.Context) ([]uuid.UUID, error) {
+	f.cancelCalls++
+	if f.cancelExpiredOrdersFunc != nil {
+		return f.cancelExpiredOrdersFunc(ctx)
+	}
+	return nil, nil
 }
 
 func (f *fakeOrderUsecase) CreateDeliverable(

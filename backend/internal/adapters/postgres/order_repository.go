@@ -439,7 +439,7 @@ func (r *orderRepository) CancelOrder(
 			return order.ErrInvalidOrderStatus
 		}
 
-		// TODO - Proceed payment and transaction and check for error before continue
+		// TODO(payment): Before cancelling orders, coordinate with the payment flow.
 
 		updateQ := idb.NewUpdate().
 			Model((*pgmodel.Order)(nil)).
@@ -479,6 +479,50 @@ func (r *orderRepository) CancelOrder(
 	}
 
 	return nil
+}
+
+// CancelExpired cancels, in a single conditional UPDATE, every PENDING order
+// older than pendingCutoff and every auto-cancellable order past its deadline.
+// The status predicate lives in the same statement as the write, so an order
+// the artist confirmed a moment ago is never touched and concurrent sweepers
+// can't cancel the same row twice.
+func (r *orderRepository) CancelExpired(
+	ctx context.Context,
+	pendingCutoff, now time.Time,
+) ([]uuid.UUID, error) {
+	autoCancellableStatuses := order.AutoCancellableStatuses()
+	statuses := make([]string, len(autoCancellableStatuses))
+	for i, s := range autoCancellableStatuses {
+		statuses[i] = string(s)
+	}
+
+	// TODO(payment): Before cancelling orders, coordinate with the payment flow.
+
+	var ids []uuid.UUID
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		return idb.NewUpdate().
+			Model((*pgmodel.Order)(nil)).
+			Set("status = ?", string(order.StatusCancel)).
+			Set("updated_at = NOW()").
+			Where("status IN (?)", bun.List(statuses)).
+			WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
+				return q.
+					Where("deadline_at <= ?", now).
+					WhereOr("(status = ? AND created_at <= ?)", string(order.StatusPending), pendingCutoff)
+			}).
+			Returning("id").
+			Scan(ctx, &ids)
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // nothing expired
+		}
+		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return nil, err
+		}
+		return nil, apperror.Internal("failed to cancel expired orders", err)
+	}
+	return ids, nil
 }
 
 // Create persists a new order and snapshots artwork data when the order is tied to an artwork.
