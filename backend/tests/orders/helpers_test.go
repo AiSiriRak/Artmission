@@ -56,6 +56,7 @@ type orderSeed struct {
 	Status           string
 	PriceSatangOrder int64
 	DeadlineAt       *time.Time
+	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
 
@@ -89,6 +90,10 @@ func seedOrder(seed orderSeed) (string, error) {
 	if updatedAt.IsZero() {
 		updatedAt = now
 	}
+	createdAt := seed.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = now
+	}
 	deadlineAt := seed.DeadlineAt
 	if deadlineAt == nil {
 		defaultDeadline := now.AddDate(0, 0, seedMinimumDeadlineDays)
@@ -110,7 +115,7 @@ func seedOrder(seed orderSeed) (string, error) {
 		CustomerDescription: seedCustomerDescription,
 		DeadlineAt:          deadlineAt,
 		Status:              status,
-		CreatedAt:           now,
+		CreatedAt:           createdAt,
 		UpdatedAt:           updatedAt,
 	}
 	if _, err := app.DB.NewInsert().Model(row).Exec(context.Background()); err != nil {

@@ -27,6 +27,15 @@ func (s Status) IsValid() bool {
 	}
 }
 
+// PendingConfirmationTTL is how long an artist has to confirm a PENDING order before it is auto-cancelled.
+const PendingConfirmationTTL = 72 * time.Hour
+
+// AutoCancellableStatuses returns the statuses the expiry sweep may move to
+// CANCEL once the order's deadline has passed.
+func AutoCancellableStatuses() []Status {
+	return []Status{StatusPending, StatusNotPaid, StatusInProcess}
+}
+
 // ArtworkSnapshot contains the artwork information captured when the order
 // was created. It is used by OrderDetail to display the artwork state at the
 // time of the order, even if the original artwork is changed later.

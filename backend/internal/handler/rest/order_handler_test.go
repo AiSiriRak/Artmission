@@ -22,18 +22,19 @@ import (
 )
 
 type fakeOrderUsecase struct {
-	viewOrdersFunc   func(context.Context, order.ListQuery) (order.Page, error)
-	getOrderFunc     func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
-	confirmOrderFunc func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) (order.Status, error)
-	cancelOrderFunc  func(context.Context, order.Participant, uuid.UUID, uuid.UUID) error
-	createOrderFunc  func(ctx context.Context, customerID uuid.UUID, input order.CreateInput) (*order.Order, error)
-	gotListQuery     order.ListQuery
-	gotParticipant   order.Participant
-	gotUserID        uuid.UUID
-	gotOrderID       uuid.UUID
-	gotConfirmInput  order.ConfirmOrderInput
-	confirmCalls     int
-	cancelCalls      int
+	viewOrdersFunc          func(context.Context, order.ListQuery) (order.Page, error)
+	getOrderFunc            func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
+	confirmOrderFunc        func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) (order.Status, error)
+	cancelOrderFunc         func(context.Context, order.Participant, uuid.UUID, uuid.UUID) error
+	cancelExpiredOrdersFunc func(context.Context) ([]uuid.UUID, error)
+	createOrderFunc         func(ctx context.Context, customerID uuid.UUID, input order.CreateInput) (*order.Order, error)
+	gotListQuery            order.ListQuery
+	gotParticipant          order.Participant
+	gotUserID               uuid.UUID
+	gotOrderID              uuid.UUID
+	gotConfirmInput         order.ConfirmOrderInput
+	confirmCalls            int
+	cancelCalls             int
 }
 
 type fakeArtworkUsecase struct {
@@ -125,6 +126,14 @@ func (f *fakeOrderUsecase) CancelOrder(
 		return f.cancelOrderFunc(ctx, participant, participantID, orderID)
 	}
 	return nil
+}
+
+func (f *fakeOrderUsecase) CancelExpiredOrders(ctx context.Context) ([]uuid.UUID, error) {
+	f.cancelCalls++
+	if f.cancelExpiredOrdersFunc != nil {
+		return f.cancelExpiredOrdersFunc(ctx)
+	}
+	return nil, nil
 }
 
 type orderAuthStub struct {

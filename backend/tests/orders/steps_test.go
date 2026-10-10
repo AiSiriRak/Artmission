@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres"
+	ordermod "github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -925,6 +927,68 @@ func (o *ordersContext) expectClientError() error {
 	return nil
 }
 
+func (o *ordersContext) theUserHasAnOrderWithStatusCreatedAndDeadline(status, created, deadline string) error {
+	counterpart, err := o.sharedCounterpart()
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	createdAt := now
+	switch created {
+	case "just now":
+	case "more than 3 days ago":
+		createdAt = now.Add(-ordermod.PendingConfirmationTTL - time.Hour)
+	default:
+		return fmt.Errorf("unknown creation time %q", created)
+	}
+
+	var deadlineAt time.Time
+	switch deadline {
+	case "has passed":
+		deadlineAt = now.Add(-time.Minute)
+	case "is still ahead":
+		deadlineAt = now.Add(24 * time.Hour)
+	default:
+		return fmt.Errorf("unknown deadline %q", deadline)
+	}
+
+	id, err := o.seedForAccount(orderSeed{
+		Status:     status,
+		CreatedAt:  createdAt,
+		DeadlineAt: &deadlineAt,
+	}, counterpart)
+	if err != nil {
+		return err
+	}
+	o.seededOrders[id] = status
+	o.lastOrderID = id
+	return nil
+}
+
+// theSystemCancelsExpiredOrders runs the expiry sweep once, directly against
+// the usecase: it is a background job, so there is no HTTP endpoint to call.
+func (o *ordersContext) theSystemCancelsExpiredOrders() error {
+	usecase := ordermod.NewOrderUsecase(postgres.NewOrderRepository(app.DB), nil)
+	_, err := usecase.CancelExpiredOrders(context.Background())
+	return err
+}
+
+// theSystemShowsTheOrderWithStatus reads the order back through the real API,
+// so the assertion is what the user would actually see.
+func (o *ordersContext) theSystemShowsTheOrderWithStatus(want string) error {
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if o.resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("get order: status %d (body: %s)", o.resp.StatusCode, o.resp.Body)
+	}
+	if o.orderDetail.Status != want {
+		return fmt.Errorf("order status = %q, want %q", o.orderDetail.Status, want)
+	}
+	return nil
+}
+
 // InitializeScenario registers order endpoint steps and resets the
 // scenario context (a fresh client with an empty cookie jar) before each
 // scenario, so scenarios never see each other's cookies or fixtures.
@@ -955,6 +1019,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^another customer has an order$`, func() error { return o.anotherCustomerHasAnOrder() })
 	sc.Step(`^another artist has an order$`, func() error { return o.anotherArtistHasAnOrder() })
 	sc.Step(`^an artwork exists for commission$`, func() error { return o.anArtworkExistsForCommission() })
+	sc.Step(`^the user has an order with status \"([^\"]*)\" created (just now|more than 3 days ago) and a deadline that (has passed|is still ahead)$`, func(status, created, deadline string) error {
+		return o.theUserHasAnOrderWithStatusCreatedAndDeadline(status, created, deadline)
+	})
 
 	// when
 	sc.Step(`^the user views their orders$`, func() error { return o.theUserViewsTheirOrders() })
@@ -994,6 +1061,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		return o.theUserSubmitsANewOrderWithDeadlineInThePast()
 	})
 	sc.Step(`^the user submits a new order without logging in$`, func() error { return o.theUserSubmitsANewOrderWithoutLoggingIn() })
+	sc.Step(`^the system cancels expired orders$`, func() error { return o.theSystemCancelsExpiredOrders() })
 
 	// then
 	sc.Step(`^the system shows all of the user's orders with their current status$`, func() error {
@@ -1052,5 +1120,8 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system rejects the order due to an invalid deadline$`, func() error {
 		return o.theSystemRejectsTheOrderDueToAnInvalidDeadline()
+	})
+	sc.Step(`^the system shows the order with status \"([^\"]*)\"$`, func(status string) error {
+		return o.theSystemShowsTheOrderWithStatus(status)
 	})
 }
