@@ -145,6 +145,17 @@ func (u *userUsecase) GetByID(ctx context.Context, id uuid.UUID) (*User, error) 
 	return u.attachProfileImageURL(account), nil
 }
 
+func (u *userUsecase) GetArtistName(ctx context.Context, id uuid.UUID) (string, error) {
+	account, err := u.repo.GetByID(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	if account == nil {
+		return "", ErrUserNotFound
+	}
+	return account.Username, nil
+}
+
 func (u *userUsecase) UpdateAccount(ctx context.Context, id uuid.UUID, in UpdateAccountInput) (*User, error) {
 	username := strings.TrimSpace(in.Username)
 
