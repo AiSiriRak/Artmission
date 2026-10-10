@@ -1,7 +1,7 @@
 info:
   name: CreateOrder
   type: http
-  seq: 2
+  seq: 4
 
 http:
   method: POST
@@ -10,10 +10,10 @@ http:
     type: json
     data: |-
       {
-        "ArtworkID": "190ca7d2-8837-45a3-9c8e-59b26f229d12",
-        "CustomerDescription": "descriptionnnnn",
-        "DeadlineAt": "2026-10-08T17:33:55.937Z",
-        "Name": "order01"
+        "artwork_id": "{{ArtworkID}}",
+        "customer_description": "descriptionnnnn",
+        "deadline_at": "2026-10-25T17:33:55.937Z",
+        "name": "order01"
       }
   auth: inherit
 
@@ -23,3 +23,73 @@ settings:
   followRedirects: true
   maxRedirects: 5
   forwardAuthorizationHeader: false
+
+examples:
+  - name: 201 Response
+    description: Created
+    request:
+      url: "{{api_url}}/orders"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "artwork_id": "",
+            "customer_description": "",
+            "deadline_at": "",
+            "name": ""
+          }
+    response:
+      status: 201
+      statusText: Created
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "id": "",
+            "customer_id": "",
+            "artist_id": "",
+            "name": "",
+            "price_satang": 0,
+            "deadline_at": "",
+            "status": "",
+            "deliverable_preview_url": null,
+            "created_at": "",
+            "updated_at": ""
+          }
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/orders"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "artwork_id": "",
+            "customer_description": "",
+            "deadline_at": "",
+            "name": ""
+          }
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: Create a new order

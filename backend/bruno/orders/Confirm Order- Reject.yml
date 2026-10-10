@@ -1,15 +1,16 @@
 info:
   name: "Confirm Order: Reject"
   type: http
-  seq: 5
+  seq: 6
 
 http:
   method: PUT
   url: "{{api_url}}/orders/:id/confirm"
   params:
     - name: id
-      value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
+      value: "{{OrderID}}"
       type: path
+      description: Order ID
   body:
     type: json
     data: |-
@@ -17,6 +18,11 @@ http:
         "accept": false
       }
   auth: inherit
+
+runtime:
+  variables:
+    - name: OrderID
+      value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
 
 settings:
   encodeUrl: true
@@ -27,30 +33,66 @@ settings:
 
 examples:
   - name: 200 Response
+    description: OK
     request:
-      url: "{{api_url}}/orders/:id"
-      method: GET
+      url: "{{api_url}}/orders/:id/confirm"
+      method: PUT
       params:
         - name: id
-          value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
+          value: ""
           type: path
+          description: Order ID
+      body:
+        type: json
+        data: |-
+          {
+            "accept": false
+          }
     response:
       status: 200
       statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
       body:
-        type: text
-        data: ""
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "message": "",
+            "status": ""
+          }
   - name: default Response
+    description: Error
     request:
-      url: "{{api_url}}/orders/:id"
-      method: GET
+      url: "{{api_url}}/orders/:id/confirm"
+      method: PUT
       params:
         - name: id
-          value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
+          value: ""
           type: path
-    response:
-      status: 200
-      statusText: OK
+          description: Order ID
       body:
-        type: text
-        data: ""
+        type: json
+        data: |-
+          {
+            "accept": false
+          }
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: Reject order
