@@ -245,7 +245,7 @@ func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput) (*Ord
 		return nil, err
 	}
 
-	description, err := requiredText("customer descripition", input.CustomerDescription)
+	description, err := requiredText("customer description", input.CustomerDescription)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-Feature: Get Order
+Feature: Create Order
     As a customer
     I want to create an order
     So that the artist can accept the order
