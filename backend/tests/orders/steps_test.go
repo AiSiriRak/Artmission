@@ -3,8 +3,10 @@
 package orders
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"image"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,6 +16,7 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
+	"image/png"
 )
 
 // ordersContext holds the state for exactly one scenario: the HTTP client
@@ -40,6 +43,7 @@ type ordersContext struct {
 	resp        *apptest.Response
 	page        viewOrdersOutput // last response decoded while resp.StatusCode == 200
 	orderDetail orderDetailOutput
+	deliverable deliverableOutput
 }
 
 // --- given ---
@@ -385,6 +389,39 @@ func (o *ordersContext) theUserAttemptsToAcceptTheirLastOrder() error {
 	return o.confirmLastOrder(true)
 }
 
+func (o *ordersContext) theArtistSubmitsADeliverableForTheirLastOrder(authenticated bool) error {
+	var imageData bytes.Buffer
+	if err := png.Encode(&imageData, image.NewRGBA(image.Rect(0, 0, 32, 32))); err != nil {
+		return fmt.Errorf("encode test deliverable image: %w", err)
+	}
+
+	headers := map[string]string(nil)
+	if authenticated {
+		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
+	}
+	resp, err := o.client.DoMultipart(http.MethodPost, "/orders/"+o.lastOrderID+"/deliverables", nil, []apptest.MultipartFile{
+		{
+			FieldName:   "deliverable_image",
+			Filename:    "deliverable.png",
+			ContentType: "image/png",
+			Data:        imageData.Bytes(),
+		},
+	}, headers)
+	if err != nil {
+		return err
+	}
+	o.resp = resp
+	return nil
+}
+
+func (o *ordersContext) theArtistSubmitsADeliverableForTheirLastOrderWithAuthentication() error {
+	return o.theArtistSubmitsADeliverableForTheirLastOrder(true)
+}
+
+func (o *ordersContext) theUserSubmitsADeliverableForTheirLastOrderWithoutLoggingIn() error {
+	return o.theArtistSubmitsADeliverableForTheirLastOrder(false)
+}
+
 // getOrder sends GET /orders/{id} and decodes a successful detail response.
 func (o *ordersContext) getOrder(orderID string, authenticated bool) error {
 	headers := map[string]string(nil)
@@ -489,6 +526,14 @@ type orderDetailOutput struct {
 	DeadlineAt          time.Time             `json:"deadline_at"`
 	Status              string                `json:"status"`
 	OtherParty          orderPartyOutput      `json:"other_party"`
+	Deliverables        []deliverableOutput   `json:"deliverables"`
+}
+
+type deliverableOutput struct {
+	ID              string `json:"id"`
+	Version         int    `json:"version"`
+	Decision        string `json:"decision"`
+	PreviewImageURL string `json:"preview_image_url"`
 }
 
 type artworkSnapshotOutput struct {
@@ -810,6 +855,47 @@ func (o *ordersContext) theSystemRejectsConfirmationForInvalidOrderStatus() erro
 	return o.expectStatus(http.StatusConflict)
 }
 
+func (o *ordersContext) theSystemCreatesTheDeliverableSuccessfully() error {
+	if err := o.expectStatus(http.StatusCreated); err != nil {
+		return err
+	}
+	if err := o.resp.JSON(&o.deliverable); err != nil {
+		return fmt.Errorf("decode deliverable response: %w (body: %s)", err, o.resp.Body)
+	}
+	if o.deliverable.ID == "" {
+		return fmt.Errorf("expected the created deliverable to have an ID, got %+v", o.deliverable)
+	}
+	if o.deliverable.Version != 1 {
+		return fmt.Errorf("deliverable version = %d, want 1", o.deliverable.Version)
+	}
+	if o.deliverable.Decision != "WAIT" {
+		return fmt.Errorf("deliverable decision = %q, want WAIT", o.deliverable.Decision)
+	}
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if len(o.orderDetail.Deliverables) != 1 {
+		return fmt.Errorf("order detail contains %d deliverables, want 1", len(o.orderDetail.Deliverables))
+	}
+	persisted := o.orderDetail.Deliverables[0]
+	if persisted.ID != o.deliverable.ID || persisted.Version != o.deliverable.Version ||
+		persisted.Decision != o.deliverable.Decision || persisted.PreviewImageURL == "" {
+		return fmt.Errorf("order detail deliverable does not match submitted deliverable: got %+v, submitted %+v", persisted, o.deliverable)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemForbidsTheDeliverableSubmission() error {
+	return o.expectStatus(http.StatusForbidden)
+}
+
+func (o *ordersContext) theSystemRejectsDeliverableForInvalidOrderStatus() error {
+	return o.expectStatus(http.StatusConflict)
+}
+
 // theSystemHidesTheOrderFromTheUser verifies another participant's order is reported as not found.
 func (o *ordersContext) theSystemHidesTheOrderFromTheUser() error {
 	return o.expectStatus(http.StatusNotFound)
@@ -881,6 +967,12 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the artist accepts their last order$`, func() error { return o.theArtistAcceptsTheirLastOrder() })
 	sc.Step(`^the artist rejects their last order$`, func() error { return o.theArtistRejectsTheirLastOrder() })
 	sc.Step(`^the user attempts to accept their last order$`, func() error { return o.theUserAttemptsToAcceptTheirLastOrder() })
+	sc.Step(`^the user submits a deliverable for their last order$`, func() error {
+		return o.theArtistSubmitsADeliverableForTheirLastOrderWithAuthentication()
+	})
+	sc.Step(`^the user submits a deliverable for their last order without logging in$`, func() error {
+		return o.theUserSubmitsADeliverableForTheirLastOrderWithoutLoggingIn()
+	})
 	sc.Step(`^the user views their orders filtered by status "([^"]*)"$`, func(status string) error {
 		return o.theUserViewsTheirOrdersFilteredByStatus(status)
 	})
@@ -933,6 +1025,15 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system rejects the confirmation because the order status does not allow it$`, func() error {
 		return o.theSystemRejectsConfirmationForInvalidOrderStatus()
+	})
+	sc.Step(`^the system creates the deliverable successfully$`, func() error {
+		return o.theSystemCreatesTheDeliverableSuccessfully()
+	})
+	sc.Step(`^the system forbids the deliverable submission$`, func() error {
+		return o.theSystemForbidsTheDeliverableSubmission()
+	})
+	sc.Step(`^the system rejects the deliverable because the order status does not allow it$`, func() error {
+		return o.theSystemRejectsDeliverableForInvalidOrderStatus()
 	})
 	sc.Step(`^the system hides the order from the user$`, func() error {
 		return o.theSystemHidesTheOrderFromTheUser()

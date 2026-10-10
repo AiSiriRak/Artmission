@@ -1,8 +1,13 @@
 package order_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"image"
+	"image/color"
+	"image/png"
+	"io"
 	"testing"
 	"time"
 
@@ -32,7 +37,11 @@ type fakeRepo struct {
 	confirmErr      error
 	confirmCalled   bool
 
-	created *order.Order
+	created              *order.Order
+	createdDeliverable   *order.Deliverable
+	deliverableArtistID  uuid.UUID
+	deliverableOrderID   uuid.UUID
+	deliverableCreateErr error
 }
 
 func (f *fakeRepo) ListOrders(_ context.Context, query order.ListQuery) (order.Page, error) {
@@ -73,6 +82,18 @@ func (repo *fakeRepo) Create(ctx context.Context, item *order.Order) error {
 	return nil
 }
 
+func (repo *fakeRepo) CreateDeliverable(
+	_ context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+	item *order.Deliverable,
+) error {
+	repo.createdDeliverable = item
+	repo.deliverableArtistID = artistID
+	repo.deliverableOrderID = orderID
+	return repo.deliverableCreateErr
+}
+
 var _ order.OrderRepository = (*fakeRepo)(nil)
 
 // fakeStorage returns url+key for any GetPresignedURL call, or err if set —
@@ -90,7 +111,78 @@ func (f fakeStorage) GetPresignedURL(_ context.Context, key string, ttl time.Dur
 	return f.url + key, nil
 }
 
+func (fakeStorage) Upload(_ context.Context, _ string, _ io.Reader, _ string) error {
+	return nil
+}
+
+func (fakeStorage) Delete(_ context.Context, _ string) error {
+	return nil
+}
+
 var _ order.ObjectStorage = fakeStorage{}
+
+type storedObject struct {
+	key         string
+	contentType string
+	content     []byte
+}
+
+type recordingStorage struct {
+	uploads      []storedObject
+	deletes      []string
+	failUploadAt int
+	uploadErr    error
+	deleteErr    error
+}
+
+func (storage *recordingStorage) GetPresignedURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	return key, nil
+}
+
+func (storage *recordingStorage) Upload(_ context.Context, key string, body io.Reader, contentType string) error {
+	content, err := io.ReadAll(body)
+	if err != nil {
+		return err
+	}
+	storage.uploads = append(storage.uploads, storedObject{key: key, contentType: contentType, content: content})
+	if storage.failUploadAt == len(storage.uploads) {
+		return storage.uploadErr
+	}
+	return nil
+}
+
+func (storage *recordingStorage) Delete(_ context.Context, key string) error {
+	storage.deletes = append(storage.deletes, key)
+	return storage.deleteErr
+}
+
+var _ order.ObjectStorage = (*recordingStorage)(nil)
+
+type fakeArtistGetter struct {
+	name string
+	err  error
+}
+
+func (getter fakeArtistGetter) GetArtistName(context.Context, uuid.UUID) (string, error) {
+	return getter.name, getter.err
+}
+
+var _ order.ArtistGetter = fakeArtistGetter{}
+
+func testDeliverablePNG(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 640, 320))
+	for y := 0; y < 320; y++ {
+		for x := 0; x < 640; x++ {
+			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 120, A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatalf("encode test image: %v", err)
+	}
+	return buf.Bytes()
+}
 
 func validQuery() order.ListQuery {
 	return order.ListQuery{
@@ -744,3 +836,116 @@ func TestConfirmOrder_PropagatesRepositoryError(t *testing.T) {
 		t.Errorf("ConfirmOrder() error = %v, want %v", err, wantErr)
 	}
 }
+
+func TestCreateDeliverableUploadsOriginalAndWatermarkedPreview(t *testing.T) {
+	repo := &fakeRepo{}
+	storage := &recordingStorage{}
+	usecase := order.NewOrderUsecase(repo, storage, fakeArtistGetter{name: "Test Artist"})
+	artistID, orderID := uuid.New(), uuid.New()
+	original := testDeliverablePNG(t)
+
+	created, err := usecase.CreateDeliverable(context.Background(), artistID, order.CreateDeliverableInput{
+		OrderID:          orderID,
+		DeliverableImage: bytes.NewReader(original),
+	})
+	if err != nil {
+		t.Fatalf("CreateDeliverable() error = %v", err)
+	}
+
+	if len(storage.uploads) != 2 {
+		t.Fatalf("uploads = %d, want 2", len(storage.uploads))
+	}
+	if !bytes.Equal(storage.uploads[0].content, original) || storage.uploads[0].contentType != "image/png" {
+		t.Errorf("original upload = (%s, %q), want original PNG", storage.uploads[0].key, storage.uploads[0].contentType)
+	}
+	if storage.uploads[1].contentType != "image/jpeg" {
+		t.Errorf("preview content type = %q, want image/jpeg", storage.uploads[1].contentType)
+	}
+	if !bytes.HasPrefix(storage.uploads[1].content, []byte{0xff, 0xd8, 0xff}) {
+		t.Fatal("preview upload is not a JPEG")
+	}
+	preview, format, err := image.Decode(bytes.NewReader(storage.uploads[1].content))
+	if err != nil {
+		t.Fatalf("decode preview: %v", err)
+	}
+	if format != "jpeg" || preview.Bounds().Dx() != orderPreviewSize || preview.Bounds().Dy() != orderPreviewHeight {
+		t.Errorf("preview dimensions/format = %dx%d %q", preview.Bounds().Dx(), preview.Bounds().Dy(), format)
+	}
+	if created.OriginalImageKey != storage.uploads[0].key || created.PreviewImageKey != storage.uploads[1].key {
+		t.Errorf("deliverable keys = (%q, %q), want uploaded keys", created.OriginalImageKey, created.PreviewImageKey)
+	}
+	if repo.deliverableArtistID != artistID || repo.deliverableOrderID != orderID || repo.createdDeliverable != created {
+		t.Error("repository did not receive the created deliverable with the authenticated artist and order IDs")
+	}
+	if len(storage.deletes) != 0 {
+		t.Errorf("deletes = %v, want none", storage.deletes)
+	}
+}
+
+func TestCreateDeliverableRejectsInvalidOrOversizedImageBeforeUpload(t *testing.T) {
+	tests := []struct {
+		name  string
+		image []byte
+		want  error
+	}{
+		{name: "invalid image", image: []byte("not an image"), want: order.ErrInvalidDeliverableImage},
+		{name: "oversized image", image: append(testDeliverablePNG(t), make([]byte, order.MaxDeliverableImageSize)...), want: order.ErrDeliverableImageTooLarge},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			storage := &recordingStorage{}
+			usecase := order.NewOrderUsecase(&fakeRepo{}, storage, fakeArtistGetter{name: "Test Artist"})
+
+			_, err := usecase.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{
+				OrderID:          uuid.New(),
+				DeliverableImage: bytes.NewReader(test.image),
+			})
+			if !errors.Is(err, test.want) {
+				t.Errorf("CreateDeliverable() error = %v, want %v", err, test.want)
+			}
+			if len(storage.uploads) != 0 {
+				t.Errorf("uploads = %d, want 0", len(storage.uploads))
+			}
+		})
+	}
+}
+
+func TestCreateDeliverableCleansUpWhenPreviewUploadFails(t *testing.T) {
+	storage := &recordingStorage{failUploadAt: 2, uploadErr: errors.New("storage unavailable")}
+	usecase := order.NewOrderUsecase(&fakeRepo{}, storage, fakeArtistGetter{name: "Test Artist"})
+
+	_, err := usecase.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{
+		OrderID:          uuid.New(),
+		DeliverableImage: bytes.NewReader(testDeliverablePNG(t)),
+	})
+	var appErr *apperror.Error
+	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInternal {
+		t.Fatalf("CreateDeliverable() error = %v, want internal application error", err)
+	}
+	if len(storage.deletes) != 1 || storage.deletes[0] != storage.uploads[0].key {
+		t.Errorf("deletes = %v, want cleanup of uploaded original %q", storage.deletes, storage.uploads[0].key)
+	}
+}
+
+func TestCreateDeliverableCleansUpWhenPersistenceFails(t *testing.T) {
+	repoErr := apperror.Internal("database unavailable", nil)
+	repo := &fakeRepo{deliverableCreateErr: repoErr}
+	storage := &recordingStorage{}
+	usecase := order.NewOrderUsecase(repo, storage, fakeArtistGetter{name: "Test Artist"})
+
+	_, err := usecase.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{
+		OrderID:          uuid.New(),
+		DeliverableImage: bytes.NewReader(testDeliverablePNG(t)),
+	})
+	if !errors.Is(err, repoErr) {
+		t.Errorf("CreateDeliverable() error = %v, want %v", err, repoErr)
+	}
+	if len(storage.deletes) != 2 {
+		t.Errorf("deletes = %v, want both uploaded images removed", storage.deletes)
+	}
+}
+
+const (
+	orderPreviewSize   = 400
+	orderPreviewHeight = 200
+)
