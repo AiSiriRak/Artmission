@@ -1,25 +1,51 @@
 package order
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	stdDraw "image/draw"
+	"image/jpeg"
+	_ "image/jpeg"
+	_ "image/png"
+	"io"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
+	xdraw "golang.org/x/image/draw"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/math/fixed"
+	_ "golang.org/x/image/webp"
 )
 
-type orderUsecase struct {
-	repo    OrderRepository
-	storage ObjectStorage
+type ArtistGetter interface {
+	GetArtistName(ctx context.Context, id uuid.UUID) (string, error)
 }
 
-// NewOrderUsecase creates the order use case with its repository and storage dependencies.
-func NewOrderUsecase(repo OrderRepository, storage ObjectStorage) OrderUsecase {
-	return &orderUsecase{repo: repo, storage: storage}
+type orderUsecase struct {
+	repo         OrderRepository
+	storage      ObjectStorage
+	artistGetter ArtistGetter
+}
+
+// NewOrderUsecase creates the order use case with its repository and storage
+// dependencies. artistGetter is needed only when creating watermarked
+// deliverable previews.
+func NewOrderUsecase(repo OrderRepository, storage ObjectStorage, artistGetters ...ArtistGetter) OrderUsecase {
+	usecase := &orderUsecase{repo: repo, storage: storage}
+	if len(artistGetters) > 0 {
+		usecase.artistGetter = artistGetters[0]
+	}
+	return usecase
 }
 
 const orderDeliverableTTL = 15 * time.Minute
@@ -284,4 +310,295 @@ func requiredText(field, value string) (string, error) {
 		return "", apperror.InvalidInput(field+" must not be blank", nil)
 	}
 	return normalized, nil
+}
+
+// CreateDeliverable creates a new deliverable version for an order owned
+// by the authenticated artist. It validates the uploaded image, generates
+// a preview, uploads both images, and persists the deliverable metadata.
+// If persistence fails, it attempts to remove the uploaded objects.
+func (u *orderUsecase) CreateDeliverable(
+	ctx context.Context,
+	artistID uuid.UUID,
+	input CreateDeliverableInput,
+) (*Deliverable, error) {
+	if artistID == uuid.Nil {
+		return nil, ErrMissingParticipantID
+	}
+
+	if input.OrderID == uuid.Nil {
+		return nil, ErrMissingOrderID
+	}
+
+	// Read the uploaded image, enforce the size limit, and detect its
+	// supported MIME type and file extension.
+	original, originalContentType, extension, err := readDeliverableImage(input.DeliverableImage)
+	if err != nil {
+		return nil, err
+	}
+
+	if u.artistGetter == nil {
+		return nil, ErrArtistGetterUnavailable
+	}
+	artistName, err := u.artistGetter.GetArtistName(ctx, artistID)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+
+	// Generate a resized preview with a watermark.
+	preview, err := createDeliverablePreview(
+		original,
+		artistName,
+		now,
+	)
+	if err != nil {
+		return nil, apperror.InvalidInput("failed to process deliverable image", err)
+	}
+
+	// Generate one ID to associate the uploaded objects with this
+	// deliverable record.
+	deliverableID := uuid.New()
+
+	// Upload the unmodified original and the watermarked preview
+	// under separate private object keys.
+	originalImageKey, previewImageKey, err := u.uploadDeliverableImages(
+		ctx,
+		input.OrderID,
+		deliverableID,
+		original,
+		preview,
+		originalContentType,
+		extension,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	deliverable := normalizeOrderDeliverable(
+		deliverableID,
+		originalImageKey,
+		previewImageKey,
+		now,
+	)
+
+	if err := u.repo.CreateDeliverable(
+		ctx,
+		artistID,
+		input.OrderID,
+		deliverable,
+	); err != nil {
+		if cleanupErr := u.deleteDeliverableImages(
+			ctx,
+			originalImageKey,
+			previewImageKey,
+		); cleanupErr != nil {
+			return nil, apperror.Internal(
+				"failed to create deliverable and clean up uploaded images",
+				errors.Join(err, cleanupErr),
+			)
+		}
+		return nil, err
+	}
+
+	return deliverable, nil
+}
+
+// normalizeOrderDeliverable initializes a new deliverable entity with
+// its ID, default decision, object keys, and timestamps.
+// The repository assigns the version when persisting the entity.
+func normalizeOrderDeliverable(
+	id uuid.UUID,
+	originalImageKey string,
+	previewImageKey string,
+	createdAt time.Time,
+) *Deliverable {
+	return &Deliverable{
+		ID:               id,
+		Decision:         DeliverableDecisionWait,
+		OriginalImageKey: originalImageKey,
+		PreviewImageKey:  previewImageKey,
+		CreatedAt:        createdAt,
+		UpdatedAt:        createdAt,
+	}
+}
+
+// uploadDeliverableImages uploads the original image and its watermarked
+// JPEG preview to separate object keys and returns those keys.
+// If uploading the preview fails, it attempts to remove the original.
+func (u *orderUsecase) uploadDeliverableImages(
+	ctx context.Context,
+	orderID uuid.UUID,
+	deliverableID uuid.UUID,
+	original []byte,
+	preview []byte,
+	originalContentType string,
+	originalExtension string,
+) (string, string, error) {
+	baseKey := fmt.Sprintf(
+		"orders/%s/deliverables/%s",
+		orderID,
+		deliverableID,
+	)
+
+	originalKey := baseKey + "/original." + originalExtension
+	previewKey := baseKey + "/preview.jpg"
+
+	if err := u.storage.Upload(
+		ctx,
+		originalKey,
+		bytes.NewReader(original),
+		originalContentType,
+	); err != nil {
+		return "", "", apperror.Internal(
+			"failed to upload original deliverable image",
+			err,
+		)
+	}
+
+	if err := u.storage.Upload(
+		ctx,
+		previewKey,
+		bytes.NewReader(preview),
+		"image/jpeg",
+	); err != nil {
+		if cleanupErr := u.storage.Delete(ctx, originalKey); cleanupErr != nil {
+			err = errors.Join(err, cleanupErr)
+		}
+		return "", "", apperror.Internal(
+			"failed to upload deliverable preview image",
+			err,
+		)
+	}
+
+	return originalKey, previewKey, nil
+}
+
+// deleteDeliverableImages attempts to delete each supplied object key.
+// It continues after a failure and returns all cleanup errors combined.
+func (u *orderUsecase) deleteDeliverableImages(
+	ctx context.Context,
+	keys ...string,
+) error {
+	var cleanupErr error
+	for _, key := range keys {
+		if err := u.storage.Delete(ctx, key); err != nil {
+			cleanupErr = errors.Join(cleanupErr, fmt.Errorf("delete %q: %w", key, err))
+		}
+	}
+	return cleanupErr
+}
+
+// readDeliverableImage reads an uploaded image while enforcing the
+// maximum file size. It returns the bytes, MIME type, and extension
+// for supported JPEG, PNG, and WebP images.
+func readDeliverableImage(reader io.Reader) ([]byte, string, string, error) {
+	if reader == nil {
+		return nil, "", "", apperror.InvalidInput("deliverable image must not be empty", nil)
+	}
+
+	content, err := io.ReadAll(io.LimitReader(reader, MaxDeliverableImageSize+1))
+	if err != nil {
+		return nil, "", "", apperror.InvalidInput("failed to read deliverable image", err)
+	}
+	if len(content) == 0 {
+		return nil, "", "", apperror.InvalidInput("deliverable image must not be empty", nil)
+	}
+	if len(content) > MaxDeliverableImageSize {
+		return nil, "", "", ErrDeliverableImageTooLarge
+	}
+
+	switch mimetype.Detect(content).String() {
+	case "image/jpeg":
+		return content, "image/jpeg", "jpg", nil
+	case "image/png":
+		return content, "image/png", "png", nil
+	case "image/webp":
+		return content, "image/webp", "webp", nil
+	default:
+		return nil, "", "", ErrInvalidDeliverableImage
+	}
+}
+
+// createDeliverablePreview decodes the original image, scales it down
+// to the configured maximum dimension without enlarging small images,
+// adds a watermark, and encodes the result as JPEG.
+func createDeliverablePreview(
+	original []byte,
+	artistName string,
+	submittedAt time.Time,
+) ([]byte, error) {
+	src, _, err := image.Decode(bytes.NewReader(original))
+	if err != nil {
+		return nil, fmt.Errorf("decode deliverable image: %w", err)
+	}
+
+	bounds := src.Bounds()
+	width, height := bounds.Dx(), bounds.Dy()
+	if width <= 0 || height <= 0 {
+		return nil, errors.New("deliverable image has invalid dimensions")
+	}
+
+	// Preserve the aspect ratio and avoid upscaling.
+	scale := min(
+		1,
+		float64(deliverablePreviewSize)/float64(max(width, height)),
+	)
+	previewWidth := max(1, int(float64(width)*scale))
+	previewHeight := max(1, int(float64(height)*scale))
+
+	// Resize the source image into a new RGBA image.
+	preview := image.NewRGBA(
+		image.Rect(0, 0, previewWidth, previewHeight),
+	)
+	xdraw.CatmullRom.Scale(
+		preview,
+		preview.Bounds(),
+		src,
+		bounds,
+		xdraw.Src,
+		nil,
+	)
+
+	// Draw a translucent band along the bottom edge as a background
+	// for the watermark.
+	const watermarkBandHeight = 24
+	band := image.Rect(
+		0,
+		max(0, previewHeight-watermarkBandHeight),
+		previewWidth,
+		previewHeight,
+	)
+	stdDraw.Draw(
+		preview,
+		band,
+		&image.Uniform{C: color.NRGBA{A: 150}},
+		image.Point{},
+		stdDraw.Over,
+	)
+
+	// Format the artist name and submission date for the watermark.
+	date := submittedAt.UTC().Format("2006-01-02")
+	watermarkText := artistName + " - " + date
+
+	// Draw the watermark text over the band.
+	watermark := font.Drawer{
+		Dst:  preview,
+		Src:  image.NewUniform(color.White),
+		Face: basicfont.Face7x13,
+		Dot:  fixed.P(8, max(15, previewHeight-6)),
+	}
+	watermark.DrawString(watermarkText)
+
+	// Encode the preview as JPEG with a reduced quality to limit size.
+	var output bytes.Buffer
+	if err := jpeg.Encode(
+		&output,
+		preview,
+		&jpeg.Options{Quality: 85},
+	); err != nil {
+		return nil, fmt.Errorf("encode deliverable preview: %w", err)
+	}
+
+	return output.Bytes(), nil
 }

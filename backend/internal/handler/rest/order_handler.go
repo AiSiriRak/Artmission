@@ -77,6 +77,21 @@ func (h *OrderHandler) Register(api huma.API) {
 			)
 		},
 	)
+
+	huma.Post(api, "/orders/{order_id}/deliverables", h.createDeliverable,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "create-order-deliverable"
+			o.Summary = "CreateOrderDeliverable"
+			o.Description = "Create a new deliverable version of a specific order by the authenticated owner artist."
+			o.DefaultStatus = http.StatusCreated
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireRole(api, user.RoleArtist),
+			)
+		},
+	)
 }
 
 type orderSummaryView struct {
@@ -133,6 +148,19 @@ type ConfirmOrderOutput struct {
 		Message string `json:"message"`
 		Status  string `json:"status"`
 	}
+}
+
+type createOrderDeliverableForm struct {
+	DeliverableImage huma.FormFile `form:"deliverable_image" contentType:"image/jpeg,image/png,image/webp" required:"true"`
+}
+
+type CreateOrderDeliverableInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+	RawBody huma.MultipartFormFiles[createOrderDeliverableForm]
+}
+
+type CreateOrderDeliverableOutput struct {
+	Body deliverableView
 }
 
 // orderPartyView represents the participant on the opposite side of the
@@ -437,4 +465,38 @@ func (h *OrderHandler) createOrder(ctx context.Context, input *CreateOrderInput)
 
 	return &CreateOrderOutput{Body: toOrderSummaryView(createdOrder)}, nil
 
+}
+
+func (h *OrderHandler) createDeliverable(
+	ctx context.Context,
+	input *CreateOrderDeliverableInput,
+) (*CreateOrderDeliverableOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	req := order.CreateDeliverableInput{
+		OrderID:          input.OrderID,
+		DeliverableImage: input.RawBody.Data().DeliverableImage.File,
+	}
+
+	createdOrderDeliverable, err := h.orderUsecase.CreateDeliverable(ctx, info.UserID, req)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	return &CreateOrderDeliverableOutput{Body: toDeliverableView(createdOrderDeliverable)}, nil
+}
+
+func toDeliverableView(deliverable *order.Deliverable) deliverableView {
+	return deliverableView{
+		ID:              deliverable.ID.String(),
+		Version:         deliverable.Version,
+		Decision:        deliverable.Decision,
+		Comment:         deliverable.Comment,
+		PreviewImageURL: deliverable.PreviewImageURL,
+		CreatedAt:       deliverable.CreatedAt,
+		UpdatedAt:       deliverable.UpdatedAt,
+	}
 }

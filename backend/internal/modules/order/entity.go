@@ -2,6 +2,7 @@
 package order
 
 import (
+	"io"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
@@ -223,3 +224,16 @@ type CreateInput struct {
 	CustomerDescription string
 	DeadlineAt          time.Time
 }
+
+// CreateDeliverableInput represents the input for CreateDeliverable,
+// submitted by the authenticated artist who owns the order.
+type CreateDeliverableInput struct {
+	OrderID          uuid.UUID
+	DeliverableImage io.Reader
+}
+
+const (
+	MaxDeliverableImageSize = 5 * 1024 * 1024
+	deliverablePreviewSize  = 400
+	MaxDeliverableVersions  = 3
+)

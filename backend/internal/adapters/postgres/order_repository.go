@@ -80,10 +80,14 @@ type orderDetailModel struct {
 // domain value, including the non-null decision value (WAIT, APPROVED, or
 // REJECTED).
 func deliverableModelToDomain(m *pgmodel.OrderDeliverable) order.Deliverable {
+	decision := order.DeliverableDecision(m.Decision)
+	if decision == "" {
+		decision = order.DeliverableDecisionWait
+	}
 	return order.Deliverable{
 		ID:               m.ID,
 		Version:          m.Version,
-		Decision:         order.DeliverableDecision(m.Decision),
+		Decision:         decision,
 		Comment:          m.Comment,
 		OriginalImageKey: m.OriginalImageKey,
 		PreviewImageKey:  m.PreviewImageKey,
@@ -94,13 +98,17 @@ func deliverableModelToDomain(m *pgmodel.OrderDeliverable) order.Deliverable {
 
 type orderRepository struct {
 	exec baserepo.Executor
+	tx   baserepo.Transactioner
 }
 
 var _ order.OrderRepository = (*orderRepository)(nil)
 
 // NewOrderRepository creates a PostgreSQL-backed order repository.
 func NewOrderRepository(db *bun.DB) order.OrderRepository {
-	return &orderRepository{exec: baserepo.NewExecutor(db)}
+	return &orderRepository{
+		exec: baserepo.NewExecutor(db),
+		tx:   baserepo.NewTransactioner(db),
+	}
 }
 
 // orderSortColumns maps each ViewOrders sort field to the one trusted,
@@ -404,5 +412,100 @@ func (r *orderRepository) Create(
 	if err != nil {
 		return apperror.Internal("failed to create order", err)
 	}
+	return nil
+}
+
+// CreateDeliverable creates a new deliverable version for an order owned by
+// the specified artist. It verifies the order's ownership and status, assigns
+// the next version number, and persists the deliverable within a transaction.
+func (r *orderRepository) CreateDeliverable(
+	ctx context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+	item *order.Deliverable,
+) error {
+	if item == nil {
+		return apperror.InvalidInput("deliverable must not be nil", nil)
+	}
+
+	if artistID == uuid.Nil {
+		return order.ErrArtistNotFound
+	}
+
+	if orderID == uuid.Nil {
+		return order.ErrOrderNotFound
+	}
+
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			existing := new(pgmodel.Order)
+
+			// Lock the order row to serialize deliverable version creation.
+			if err := idb.NewSelect().
+				Model(existing).
+				Column("id", "status").
+				Where("id = ?", orderID).
+				Where("artist_id = ?", artistID).
+				For("UPDATE").
+				Scan(ctx); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return order.ErrOrderNotFound
+				}
+				return err
+			}
+
+			// Deliverables can only be created while the order is in process.
+			if existing.Status != string(order.StatusInProcess) {
+				return order.ErrInvalidOrderStatus
+			}
+
+			// Calculate the next version while holding the order lock.
+			var maxVersion int
+			if err := idb.NewSelect().
+				Model((*pgmodel.OrderDeliverable)(nil)).
+				ColumnExpr("COALESCE(MAX(version), 0)").
+				Where("order_id = ?", orderID).
+				Scan(ctx, &maxVersion); err != nil {
+				return err
+			}
+
+			if maxVersion >= order.MaxDeliverableVersions {
+				return order.ErrMaxDeliverableVersionsReached
+			}
+
+			model := &pgmodel.OrderDeliverable{
+				ID:               item.ID,
+				OrderID:          orderID,
+				Version:          maxVersion + 1,
+				Decision:         string(order.DeliverableDecisionWait),
+				Comment:          item.Comment,
+				OriginalImageKey: item.OriginalImageKey,
+				PreviewImageKey:  item.PreviewImageKey,
+				CreatedAt:        item.CreatedAt,
+				UpdatedAt:        item.UpdatedAt,
+			}
+
+			if _, err := idb.NewInsert().
+				Model(model).
+				Exec(ctx); err != nil {
+				return err
+			}
+
+			// Return the version assigned by the repository.
+			item.Version = model.Version
+			item.Decision = order.DeliverableDecision(model.Decision)
+
+			return nil
+		})
+	})
+
+	if err != nil {
+		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return err
+		}
+
+		return apperror.Internal("failed to create deliverable", err)
+	}
+
 	return nil
 }
