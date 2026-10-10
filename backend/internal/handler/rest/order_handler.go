@@ -73,7 +73,7 @@ func (h *OrderHandler) Register(api huma.API) {
 			o.Middlewares = append(
 				o.Middlewares,
 				requireAuth(api, h.authUsecase),
-				requireAnyRole(api, user.RoleCustomer),
+				requireRole(api, user.RoleCustomer),
 			)
 		},
 	)
@@ -439,21 +439,16 @@ func (h *OrderHandler) confirmOrder(
 	return out, nil
 }
 
+// createOrder creates an order for the authenticated customer and returns its summary.
 func (h *OrderHandler) createOrder(ctx context.Context, input *CreateOrderInput) (*CreateOrderOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
 		return nil, huma.Error401Unauthorized("missing authentication")
 	}
 
-	artworkDetail, err := h.artworkUsecase.GetArtwork(ctx, input.Body.ArtworkID)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
 	req := order.CreateInput{
 		Name:                input.Body.Name,
 		ArtworkID:           input.Body.ArtworkID,
-		ArtworkDetail:       artworkDetail,
 		CustomerDescription: input.Body.CustomerDescription,
 		DeadlineAt:          input.Body.DeadlineAt,
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// newArtistProfileModel converts a domain artist profile into the database row used for inserts.
 func newArtistProfileModel(profile *artist.Profile) *pgmodel.ArtistProfile {
 	return &pgmodel.ArtistProfile{
 		UserID:      profile.UserID,
@@ -22,6 +23,7 @@ func newArtistProfileModel(profile *artist.Profile) *pgmodel.ArtistProfile {
 	}
 }
 
+// artistProfileToDomain converts a Postgres artist profile row back into the domain model.
 func artistProfileToDomain(model *pgmodel.ArtistProfile) *artist.Profile {
 	return &artist.Profile{
 		UserID:          model.UserID,
@@ -53,10 +55,12 @@ type artistRepository struct {
 
 var _ artist.ProfileRepository = (*artistRepository)(nil)
 
+// NewArtistRepository returns a Postgres-backed artist profile repository.
 func NewArtistRepository(db *bun.DB) artist.ProfileRepository {
 	return &artistRepository{exec: baserepo.NewExecutor(db)}
 }
 
+// Create inserts a new artist profile and returns any DB errors wrapped as application errors.
 func (r *artistRepository) Create(
 	ctx context.Context,
 	profile *artist.Profile,
@@ -71,6 +75,7 @@ func (r *artistRepository) Create(
 	return nil
 }
 
+// GetByUserID loads a profile and its categories, styles, reviews, and pagination totals for one user.
 func (r *artistRepository) GetByUserID(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -172,6 +177,7 @@ func (r *artistRepository) GetByUserID(
 	return profile, nil
 }
 
+// UpdateByUserID updates a profile description and/or image key after verifying the profile exists.
 func (r *artistRepository) UpdateByUserID(
 	ctx context.Context,
 	userID uuid.UUID,

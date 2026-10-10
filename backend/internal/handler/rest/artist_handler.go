@@ -16,10 +16,12 @@ type ArtistHandler struct {
 	authUsecase    auth.AuthUsecase
 }
 
+// NewArtistHandler wires the artist profile and authentication use cases into a REST handler.
 func NewArtistHandler(profileUsecase artist.ProfileUsecase, authUsecase auth.AuthUsecase) *ArtistHandler {
 	return &ArtistHandler{profileUsecase: profileUsecase, authUsecase: authUsecase}
 }
 
+// Register exposes public artist profiles and authenticated artist profile updates.
 func (h *ArtistHandler) Register(api huma.API) {
 	huma.Get(api, "/artists/{artist_id}", h.getArtistProfile,
 		huma.OperationTags("artists"),
@@ -76,6 +78,7 @@ type GetArtistProfileOutput struct {
 	Body artistProfileView
 }
 
+// getArtistProfile loads a paginated profile and converts it to the public response shape.
 func (h *ArtistHandler) getArtistProfile(ctx context.Context, in *GetArtistProfileInput) (*GetArtistProfileOutput, error) {
 	profile, err := h.profileUsecase.GetProfile(ctx, in.ArtistID, artist.ProfileQuery{Limit: in.Limit, Offset: in.Offset})
 	if err != nil {
@@ -98,6 +101,7 @@ type UpdateMyArtistProfileOutput struct {
 	Body artistProfileView
 }
 
+// updateMyArtistProfile validates the multipart fields and applies the authenticated artist's profile changes.
 func (h *ArtistHandler) updateMyArtistProfile(ctx context.Context, in *updateMyArtistProfileInput) (*UpdateMyArtistProfileOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
@@ -134,6 +138,7 @@ func (h *ArtistHandler) updateMyArtistProfile(ctx context.Context, in *updateMyA
 	return &UpdateMyArtistProfileOutput{Body: newArtistProfileView(profile)}, nil
 }
 
+// newArtistProfileView copies the profile and its nested references and reviews into the REST view.
 func newArtistProfileView(profile *artist.Profile) artistProfileView {
 	categories := make([]artistReferenceView, len(profile.Categories))
 	for i, category := range profile.Categories {

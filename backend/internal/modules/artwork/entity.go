@@ -68,6 +68,7 @@ const (
 	SearchPageSize                       = 20
 )
 
+// IsValid reports whether s is one of the supported artwork search sort orders.
 func (s SearchSort) IsValid() bool {
 	switch s {
 	case SearchSortNameAsc, SearchSortPriceAsc, SearchSortPriceDesc, SearchSortReviewScoreAsc, SearchSortReviewScoreDesc:
@@ -107,18 +108,4 @@ type SearchPage struct {
 	Items []SearchItem
 	Total int
 	Page  int
-}
-
-type ArtworkDetail struct {
-	ID                  uuid.UUID
-	ArtistID            uuid.UUID
-	Name                string
-	CategoryID          uuid.UUID
-	StyleIDs            []uuid.UUID
-	Description         string
-	Samples             []Sample
-	MinimumDeadlineDays int
-	PriceSatang         int64
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
 }

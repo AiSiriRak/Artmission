@@ -423,7 +423,7 @@ func (a *artworkContext) assertInvalidSampleDeletion() error {
 	return nil
 }
 
-func (a *artworkContext) assertFetchedArtworkDetail() error {
+func (a *artworkContext) assertFetchedArtwork() error {
 	if a.response.StatusCode != http.StatusOK {
 		return fmt.Errorf("expected 200, got %d: %s", a.response.StatusCode, a.response.Body)
 	}
@@ -435,7 +435,11 @@ func (a *artworkContext) assertFetchedArtworkDetail() error {
 	if got.ID != a.artworkID || got.Name != a.requestedBody.Name || got.Category != a.requestedBody.Category {
 		return fmt.Errorf("fetched artwork mismatch: got %+v, want category %q", got, a.requestedBody.Category)
 	}
-	if !reflect.DeepEqual(got.Styles, a.requestedBody.Styles) {
+	gotStyles := append([]string{}, got.Styles...)
+	wantStyles := append([]string{}, a.requestedBody.Styles...)
+	sort.Strings(gotStyles)
+	sort.Strings(wantStyles)
+	if !reflect.DeepEqual(gotStyles, wantStyles) {
 		return fmt.Errorf("fetched styles = %v, want %v", got.Styles, a.requestedBody.Styles)
 	}
 	if len(got.ArtworkSamples) != len(a.currentSampleURLs) {
@@ -632,16 +636,17 @@ func InitializeScenario(scenario *godog.ScenarioContext) {
 		}
 		return nil
 	})
-	scenario.Step(`^a user fetches the artwork details$`, func() error {
+
+	scenario.Step(`^a user fetches the artwork$`, func() error {
 		return state.getArtwork(state.artworkID, state.accessToken)
 	})
-	scenario.Step(`^a user fetches a missing artwork details$`, func() error {
+	scenario.Step(`^a user fetches a missing artwork$`, func() error {
 		return state.getArtwork(uuid.NewString(), state.accessToken)
 	})
-	scenario.Step(`^an unauthenticated caller fetches the artwork details$`, func() error {
+	scenario.Step(`^an unauthenticated caller fetches the artwork$`, func() error {
 		return state.getArtwork(state.artworkID, "")
 	})
-	scenario.Step(`^the system returns the complete artwork detail with category and styles$`, func() error {
-		return state.assertFetchedArtworkDetail()
+	scenario.Step(`^the system returns the artwork with category and style names$`, func() error {
+		return state.assertFetchedArtwork()
 	})
 }

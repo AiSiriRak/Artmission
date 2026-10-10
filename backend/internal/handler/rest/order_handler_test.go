@@ -41,16 +41,16 @@ type fakeOrderUsecase struct {
 
 type fakeArtworkUsecase struct {
 	artwork.Usecase
-	getArtworkFunc func(ctx context.Context, artworkID uuid.UUID) (*artwork.ArtworkDetail, error)
+	getArtworkFunc func(ctx context.Context, artworkID uuid.UUID) (*artwork.Artwork, error)
 	categories     []artwork.Category
 	styles         []artwork.Style
 }
 
-func (f *fakeArtworkUsecase) GetArtwork(ctx context.Context, artworkID uuid.UUID) (*artwork.ArtworkDetail, error) {
+func (f *fakeArtworkUsecase) GetArtwork(ctx context.Context, artworkID uuid.UUID) (*artwork.Artwork, error) {
 	if f.getArtworkFunc != nil {
 		return f.getArtworkFunc(ctx, artworkID)
 	}
-	return &artwork.ArtworkDetail{
+	return &artwork.Artwork{
 		ID:          artworkID,
 		Name:        "Test Artwork",
 		PriceSatang: 10000,

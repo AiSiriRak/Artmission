@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
@@ -14,6 +15,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// newOrderModel converts a domain order into the Postgres row stored by the repository.
 func newOrderModel(item *order.Order) *pgmodel.Order {
 	return &pgmodel.Order{
 		ID:                  item.ID,
@@ -401,17 +403,81 @@ func (r *orderRepository) ConfirmOrder(
 	return nil
 }
 
+// Create persists a new order and snapshots artwork data when the order is tied to an artwork.
 func (r *orderRepository) Create(
 	ctx context.Context,
 	item *order.Order,
 ) error {
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		_, err := idb.NewInsert().Model(newOrderModel(item)).Exec(ctx)
+		if item.ArtworkID != nil {
+			var artworkModel pgmodel.Artwork
+
+			err := idb.NewSelect().
+				Model(&artworkModel).
+				Column(
+					"art.id",
+					"art.artist_id",
+					"art.name",
+					"art.category_id",
+					"art.price_satang",
+					"art.minimum_deadline_days",
+				).
+				Where("art.id = ?", *item.ArtworkID).
+				Scan(ctx)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return apperror.InvalidInput("artwork not found", err)
+				}
+				return err
+			}
+
+			if item.DeadlineAt.Before(time.Now().AddDate(0, 0, artworkModel.MinimumDeadlineDays)) {
+				return apperror.InvalidInput(
+					fmt.Sprintf("deadline must be at least %d days from now", artworkModel.MinimumDeadlineDays),
+					nil,
+				)
+			}
+
+			item.ArtistID = artworkModel.ArtistID
+			item.PriceSatangOrder = artworkModel.PriceSatang
+
+			var styleIDs []uuid.UUID
+
+			err = idb.NewSelect().
+				TableExpr("artwork_styles AS aws").
+				Column("aws.style_id").
+				Where("aws.artwork_id = ?", *item.ArtworkID).
+				OrderExpr("aws.style_id ASC").
+				Scan(ctx, &styleIDs)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
+
+			if styleIDs == nil {
+				styleIDs = []uuid.UUID{}
+			}
+
+			item.ArtworkSnapshot = order.ArtworkSnapshot{
+				ArtworkName: artworkModel.Name,
+				CategoryID:  artworkModel.CategoryID,
+				StyleIDs:    styleIDs,
+			}
+		}
+
+		_, err := idb.NewInsert().
+			Model(newOrderModel(item)).
+			Exec(ctx)
+
 		return err
 	})
+
 	if err != nil {
+		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return err
+		}
 		return apperror.Internal("failed to create order", err)
 	}
+
 	return nil
 }
 

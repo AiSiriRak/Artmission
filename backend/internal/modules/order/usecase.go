@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
@@ -245,15 +244,13 @@ func (u *orderUsecase) ConfirmOrder(
 	return status, nil
 }
 
+// CreateOrder validates the artwork reference, builds a pending order, and persists it.
 func (u *orderUsecase) CreateOrder(ctx context.Context, customerID uuid.UUID, input CreateInput) (*Order, error) {
 	if input.ArtworkID == uuid.Nil {
 		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
 	}
-	if input.ArtworkDetail == nil {
-		return nil, apperror.InvalidInput("artwork detail must not be nil", nil)
-	}
 
-	order, err := normalizeOrder(uuid.New(), customerID, input, input.ArtworkDetail)
+	order, err := normalizeOrder(uuid.New(), customerID, input)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +263,8 @@ func (u *orderUsecase) CreateOrder(ctx context.Context, customerID uuid.UUID, in
 	return order, nil
 }
 
-func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput, artwork *artwork.ArtworkDetail) (*Order, error) {
+// normalizeOrder validates customer-provided fields and builds a timestamped pending order.
+func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput) (*Order, error) {
 	if customerID == uuid.Nil {
 		return nil, apperror.InvalidInput("customer id must not be empty", nil)
 	}
@@ -275,7 +273,7 @@ func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput, artwo
 		return nil, err
 	}
 
-	description, err := requiredText("customer descripition", input.CustomerDescription)
+	description, err := requiredText("customer description", input.CustomerDescription)
 	if err != nil {
 		return nil, err
 	}
@@ -284,18 +282,11 @@ func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput, artwo
 	}
 
 	now := time.Now()
-	artworkSnapshot := ArtworkSnapshot{
-		ArtworkName: artwork.Name,
-		CategoryID:  artwork.CategoryID,
-		StyleIDs:    artwork.StyleIDs}
 	return &Order{
 		ID:                  id,
 		CustomerID:          customerID,
-		ArtistID:            artwork.ArtistID,
 		ArtworkID:           &input.ArtworkID,
-		ArtworkSnapshot:     artworkSnapshot,
 		Name:                name,
-		PriceSatangOrder:    artwork.PriceSatang,
 		CustomerDescription: description,
 		DeadlineAt:          input.DeadlineAt,
 		Status:              StatusPending,
@@ -304,6 +295,7 @@ func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput, artwo
 	}, nil
 }
 
+// requiredText trims surrounding whitespace and rejects values that become empty.
 func requiredText(field, value string) (string, error) {
 	normalized := strings.TrimSpace(value)
 	if normalized == "" {
