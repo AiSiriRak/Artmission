@@ -73,7 +73,7 @@ func (h *OrderHandler) Register(api huma.API) {
 			o.Middlewares = append(
 				o.Middlewares,
 				requireAuth(api, h.authUsecase),
-				requireAnyRole(api, user.RoleCustomer),
+				requireRole(api, user.RoleCustomer),
 			)
 		},
 	)
