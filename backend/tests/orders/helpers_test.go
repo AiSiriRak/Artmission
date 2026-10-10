@@ -128,7 +128,7 @@ type orderDeliverableRow struct {
 	ID               uuid.UUID `bun:"id,pk"`
 	OrderID          uuid.UUID `bun:"order_id"`
 	Version          int       `bun:"version"`
-	Decision         *string   `bun:"decision"`
+	Decision         string    `bun:"decision"`
 	Comment          *string   `bun:"comment"`
 	OriginalImageKey string    `bun:"original_image_key"`
 	PreviewImageKey  string    `bun:"preview_image_key"`
@@ -137,14 +137,12 @@ type orderDeliverableRow struct {
 
 // seedDeliverable inserts one order_deliverables row directly against the
 // database for orderID at version, with previewKey as its
-// preview_image_key. decision is nil for a pending (undecided) row, or
-// "APPROVED"/"REJECTED" for a terminal one — the order_deliverables_
-// order_id_pending_key unique index allows at most one pending row per
-// order, so every version before the latest in a multi-version fixture
-// must pass a non-nil decision.
-func seedDeliverable(orderID string, version int, previewKey string, decision *string) error {
+// preview_image_key. decision is "WAIT" for a pending row or
+// "APPROVED"/"REJECTED" for a decided row — the pending unique index
+// allows at most one WAIT row per order.
+func seedDeliverable(orderID string, version int, previewKey string, decision string) error {
 	var comment *string
-	if decision != nil && *decision == "REJECTED" {
+	if decision == "REJECTED" {
 		comment = new("Please revise this version.")
 	}
 	row := &orderDeliverableRow{

@@ -17,10 +17,12 @@ type profileUsecase struct {
 	storage ObjectStorage
 }
 
+// NewProfileUsecase combines profile persistence with public image URL and upload handling.
 func NewProfileUsecase(repo ProfileRepository, storage ObjectStorage) ProfileUsecase {
 	return &profileUsecase{repo: repo, storage: storage}
 }
 
+// CreateProfile stores a new artist profile with a trimmed optional description and timestamps.
 func (u *profileUsecase) CreateProfile(ctx context.Context, userID uuid.UUID, description *string) error {
 	now := time.Now()
 	return u.repo.Create(ctx, &Profile{
@@ -31,6 +33,7 @@ func (u *profileUsecase) CreateProfile(ctx context.Context, userID uuid.UUID, de
 	})
 }
 
+// GetProfile validates pagination, loads a profile, and adds its public image URL.
 func (u *profileUsecase) GetProfile(ctx context.Context, userID uuid.UUID, query ProfileQuery) (*Profile, error) {
 	normalized, err := normalizeProfileQuery(query)
 	if err != nil {
@@ -44,6 +47,7 @@ func (u *profileUsecase) GetProfile(ctx context.Context, userID uuid.UUID, query
 	return profile, nil
 }
 
+// UpdateProfile validates requested changes, replaces or removes the image, and returns the updated profile.
 func (u *profileUsecase) UpdateProfile(ctx context.Context, userID uuid.UUID, in UpdateProfileInput) (*Profile, error) {
 	if in.Description == nil && in.ProfileImage == nil && !in.RemoveProfileImage {
 		return nil, ErrNoProfileChanges
@@ -93,6 +97,7 @@ func (u *profileUsecase) UpdateProfile(ctx context.Context, userID uuid.UUID, in
 	return u.GetProfile(ctx, userID, ProfileQuery{Limit: DefaultReviewLimit})
 }
 
+// attachProfileURL derives the public URL from the stored image key, or clears it when absent.
 func (u *profileUsecase) attachProfileURL(profile *Profile) {
 	if profile.ProfileImageKey == nil {
 		profile.ProfileURL = nil
@@ -102,6 +107,7 @@ func (u *profileUsecase) attachProfileURL(profile *Profile) {
 	profile.ProfileURL = &url
 }
 
+// normalizeProfileQuery applies the default review page size and rejects invalid limits or offsets.
 func normalizeProfileQuery(query ProfileQuery) (ProfileQuery, error) {
 	if query.Limit == 0 {
 		query.Limit = DefaultReviewLimit
@@ -115,6 +121,7 @@ func normalizeProfileQuery(query ProfileQuery) (ProfileQuery, error) {
 	return query, nil
 }
 
+// normalizeDescription trims whitespace and represents empty descriptions as nil.
 func normalizeDescription(description *string) *string {
 	if description == nil {
 		return nil
@@ -126,6 +133,7 @@ func normalizeDescription(description *string) *string {
 	return &normalized
 }
 
+// readProfileImage enforces the size limit and accepts only JPEG, PNG, or WebP image signatures.
 func readProfileImage(reader io.Reader) ([]byte, string, string, error) {
 	content, err := io.ReadAll(io.LimitReader(reader, MaxProfileImageSize+1))
 	if err != nil {
@@ -141,6 +149,7 @@ func readProfileImage(reader io.Reader) ([]byte, string, string, error) {
 	return content, contentType, extension, nil
 }
 
+// detectProfileImageType identifies supported image formats from their file signatures.
 func detectProfileImageType(content []byte) (string, string, bool) {
 	switch {
 	case len(content) >= 3 && bytes.Equal(content[:3], []byte{0xff, 0xd8, 0xff}):

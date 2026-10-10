@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
@@ -15,12 +16,14 @@ type orderUsecase struct {
 	storage ObjectStorage
 }
 
+// NewOrderUsecase creates the order use case with its repository and storage dependencies.
 func NewOrderUsecase(repo OrderRepository, storage ObjectStorage) OrderUsecase {
 	return &orderUsecase{repo: repo, storage: storage}
 }
 
 const orderDeliverableTTL = 15 * time.Minute
 
+// ViewOrders validates the query, retrieves its page, and resolves preview keys to URLs.
 func (u *orderUsecase) ViewOrders(ctx context.Context, query ListQuery) (Page, error) {
 	normalized, err := normalizeListQuery(query)
 	if err != nil {
@@ -39,7 +42,7 @@ func (u *orderUsecase) ViewOrders(ctx context.Context, query ListQuery) (Page, e
 		}
 		url, err := u.storage.GetPresignedURL(ctx, *key, orderDeliverableTTL)
 		if err != nil {
-			return Page{}, apperror.Internal("failed to presign deliverable preview image", err)
+			return Page{}, ErrFailedToPresignDeliverablePreview
 		}
 		page.Orders[i].DeliverablePreviewURL = &url
 	}
@@ -50,10 +53,10 @@ func (u *orderUsecase) ViewOrders(ctx context.Context, query ListQuery) (Page, e
 // normalizeListQuery validates query and defaults every optional field.
 func normalizeListQuery(q ListQuery) (ListQuery, error) {
 	if !q.Participant.IsValid() {
-		return ListQuery{}, apperror.Forbidden("unsupported participant role")
+		return ListQuery{}, ErrUnsupportedParticipantRole
 	}
 	if q.ParticipantID == uuid.Nil {
-		return ListQuery{}, apperror.InvalidInput("missing participant id", nil)
+		return ListQuery{}, ErrMissingParticipantID
 	}
 
 	statuses, err := normalizeStatuses(q.Statuses)
@@ -112,4 +115,165 @@ func normalizeStatuses(in []Status) ([]Status, error) {
 
 	slices.Sort(out)
 	return out, nil
+}
+
+// GetOrder returns an order detail if the authenticated user is a participant
+// in the order. The other party is selected based on the authenticated
+// participant's role.
+func (u *orderUsecase) GetOrder(
+	ctx context.Context,
+	participant Participant,
+	participantID uuid.UUID,
+	orderID uuid.UUID,
+) (*OrderDetail, error) {
+	if !participant.IsValid() {
+		return nil, ErrUnsupportedParticipantRole
+	}
+	if participantID == uuid.Nil {
+		return nil, ErrMissingParticipantID
+	}
+
+	if orderID == uuid.Nil {
+		return nil, ErrMissingOrderID
+	}
+
+	data, err := u.repo.GetOrderByID(
+		ctx,
+		participant,
+		participantID,
+		orderID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if data == nil {
+		return nil, apperror.Internal("order repository returned no order detail", nil)
+	}
+
+	detail := &OrderDetail{
+		Order:           data.Order,
+		ArtworkSnapshot: data.ArtworkSnapshot,
+		Deliverables:    data.Deliverables,
+	}
+
+	switch participant {
+	case ParticipantCustomer:
+		detail.OtherParty = data.Artist
+	case ParticipantArtist:
+		detail.OtherParty = data.Customer
+	}
+
+	for i := range detail.Deliverables {
+		d := &detail.Deliverables[i]
+
+		if d.PreviewImageKey == "" {
+			continue
+		}
+
+		url, err := u.storage.GetPresignedURL(
+			ctx,
+			d.PreviewImageKey,
+			orderDeliverableTTL,
+		)
+		if err != nil {
+			return nil, ErrFailedToPresignDeliverablePreview
+		}
+
+		d.PreviewImageURL = url
+	}
+
+	return detail, nil
+}
+
+// ConfirmOrder accepts or rejects an order on behalf of its artist.
+// The order must belong to the artist and currently be PENDING.
+// Accept = true transitions the order's status to NOT_PAID.
+// Accept = false transitions the order's status to CANCEL.
+func (u *orderUsecase) ConfirmOrder(
+	ctx context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+	input ConfirmOrderInput,
+) (Status, error) {
+	if artistID == uuid.Nil {
+		return "", ErrMissingParticipantID
+	}
+
+	if orderID == uuid.Nil {
+		return "", ErrMissingOrderID
+	}
+
+	var status Status
+	switch input.Accept {
+	case true:
+		status = StatusNotPaid
+	case false:
+		status = StatusCancel
+	}
+
+	if err := u.repo.ConfirmOrder(ctx, artistID, orderID, status); err != nil {
+		return "", err
+	}
+
+	return status, nil
+}
+
+// CreateOrder validates the artwork reference, builds a pending order, and persists it.
+func (u *orderUsecase) CreateOrder(ctx context.Context, customerID uuid.UUID, input CreateInput) (*Order, error) {
+	if input.ArtworkID == uuid.Nil {
+		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
+	}
+
+	order, err := normalizeOrder(uuid.New(), customerID, input)
+	if err != nil {
+		return nil, err
+	}
+
+	err = u.repo.Create(ctx, order)
+	if err != nil {
+		return nil, err
+	}
+
+	return order, nil
+}
+
+// normalizeOrder validates customer-provided fields and builds a timestamped pending order.
+func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput) (*Order, error) {
+	if customerID == uuid.Nil {
+		return nil, apperror.InvalidInput("customer id must not be empty", nil)
+	}
+	name, err := requiredText("name", input.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	description, err := requiredText("customer description", input.CustomerDescription)
+	if err != nil {
+		return nil, err
+	}
+	if input.DeadlineAt.IsZero() {
+		return nil, apperror.InvalidInput("deadline must not be empty", nil)
+	}
+
+	now := time.Now()
+	return &Order{
+		ID:                  id,
+		CustomerID:          customerID,
+		ArtworkID:           &input.ArtworkID,
+		Name:                name,
+		CustomerDescription: description,
+		DeadlineAt:          input.DeadlineAt,
+		Status:              StatusPending,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}, nil
+}
+
+// requiredText trims surrounding whitespace and rejects values that become empty.
+func requiredText(field, value string) (string, error) {
+	normalized := strings.TrimSpace(value)
+	if normalized == "" {
+		return "", apperror.InvalidInput(field+" must not be blank", nil)
+	}
+	return normalized, nil
 }

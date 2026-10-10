@@ -13,6 +13,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// newBankAccountModel converts a domain bank account into the database row used for inserts.
 func newBankAccountModel(ba *user.BankAccount) *pgmodel.BankAccount {
 	return &pgmodel.BankAccount{
 		UserID:            ba.UserID,
@@ -24,6 +25,7 @@ func newBankAccountModel(ba *user.BankAccount) *pgmodel.BankAccount {
 	}
 }
 
+// bankAccountModelToDomain converts a Postgres bank-account row back into the domain model.
 func bankAccountModelToDomain(m *pgmodel.BankAccount) *user.BankAccount {
 	return &user.BankAccount{
 		UserID:            m.UserID,
@@ -41,10 +43,12 @@ type bankAccountRepository struct {
 
 var _ user.BankAccountRepository = (*bankAccountRepository)(nil)
 
+// NewBankAccountRepository returns a Postgres-backed bank-account repository.
 func NewBankAccountRepository(db *bun.DB) user.BankAccountRepository {
 	return &bankAccountRepository{exec: baserepo.NewExecutor(db)}
 }
 
+// Create inserts a bank account row for the user.
 func (r *bankAccountRepository) Create(ctx context.Context, ba *user.BankAccount) error {
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		_, err := idb.NewInsert().Model(newBankAccountModel(ba)).Exec(ctx)
@@ -56,6 +60,7 @@ func (r *bankAccountRepository) Create(ctx context.Context, ba *user.BankAccount
 	return nil
 }
 
+// GetByUserID loads the bank account linked to a user ID.
 func (r *bankAccountRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*user.BankAccount, error) {
 	model := new(pgmodel.BankAccount)
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
@@ -70,6 +75,7 @@ func (r *bankAccountRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 	return bankAccountModelToDomain(model), nil
 }
 
+// UpsertByUserID inserts or updates a user's bank account in one conflict-safe operation.
 func (r *bankAccountRepository) UpsertByUserID(ctx context.Context, ba *user.BankAccount) (*user.BankAccount, error) {
 	model := newBankAccountModel(ba)
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {

@@ -17,11 +17,11 @@ http:
         contentType: text/plain
       - name: category_id
         type: text
-        value: 00000000-0000-0000-0000-0000000000c1
+        value: 00000000-0000-0000-0000-000000000001
         contentType: text/plain
       - name: style_ids
         type: text
-        value: '["00000000-0000-0000-0000-0000000000c2"]'
+        value: '["11111111-0000-0000-0000-000000000001"]'
         contentType: application/json
       - name: description
         type: text

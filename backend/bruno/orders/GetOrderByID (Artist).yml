@@ -1,0 +1,98 @@
+info:
+  name: GetOrderByID (Artist)
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{api_url}}/orders/:id"
+  params:
+    - name: id
+      value: "{{OrderID}}"
+      type: path
+      description: Order ID
+  auth: inherit
+
+runtime:
+  variables:
+    - name: OrderID
+      value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 200 Response
+    request:
+      url: "{{api_url}}/orders/:id"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Order ID
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: content-type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "id": "",
+            "customer_id": "",
+            "artist_id": "",
+            "name": "",
+            "artwork_snapshot": {
+              "artwork_name": "",
+              "category": "",
+              "styles": []
+            },
+            "price_satang": 0,
+            "customer_description": "",
+            "deadline_at": "",
+            "status": "",
+            "created_at": "",
+            "updated_at": "",
+            "other_party": {
+              "id": "",
+              "name": "",
+              "email": ""
+            },
+            "deliverables": []
+          }
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/orders/:id"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Order ID
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: Get order details by ID
