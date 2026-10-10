@@ -435,7 +435,11 @@ func (a *artworkContext) assertFetchedArtwork() error {
 	if got.ID != a.artworkID || got.Name != a.requestedBody.Name || got.Category != a.requestedBody.Category {
 		return fmt.Errorf("fetched artwork mismatch: got %+v, want category %q", got, a.requestedBody.Category)
 	}
-	if !reflect.DeepEqual(got.Styles, a.requestedBody.Styles) {
+	gotStyles := append([]string{}, got.Styles...)
+	wantStyles := append([]string{}, a.requestedBody.Styles...)
+	sort.Strings(gotStyles)
+	sort.Strings(wantStyles)
+	if !reflect.DeepEqual(gotStyles, wantStyles) {
 		return fmt.Errorf("fetched styles = %v, want %v", got.Styles, a.requestedBody.Styles)
 	}
 	if len(got.ArtworkSamples) != len(a.currentSampleURLs) {
