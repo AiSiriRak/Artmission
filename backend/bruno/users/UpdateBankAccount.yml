@@ -8,7 +8,6 @@ info:
 http:
   method: PUT
   url: "{{api_url}}/users/me/bank-account"
-  auth: inherit
   body:
     type: json
     data: |-
@@ -17,11 +16,72 @@ http:
         "account_holder_name": "Test User",
         "account_number": "1234567890"
       }
+  auth: inherit
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: OK
+    request:
+      url: "{{api_url}}/users/me/bank-account"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "bank_name": "",
+            "account_holder_name": "",
+            "account_number": ""
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "bank_name": "",
+            "account_holder_name": "",
+            "account_last4": ""
+          }
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/users/me/bank-account"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "bank_name": "",
+            "account_holder_name": "",
+            "account_number": ""
+          }
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
 
 docs: Update the authenticated user's bank account.

@@ -19,11 +19,6 @@ http:
       }
   auth: inherit
 
-runtime:
-  variables:
-    - name: OrderID
-      value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
-
 settings:
   encodeUrl: true
   timeout: 0

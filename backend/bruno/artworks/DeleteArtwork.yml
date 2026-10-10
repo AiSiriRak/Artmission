@@ -7,7 +7,12 @@ info:
 
 http:
   method: DELETE
-  url: "{{api_url}}/artworks/00000000-0000-0000-0000-000000000001"
+  url: "{{api_url}}/artworks/:id"
+  params:
+    - name: id
+      value: "{{ArtworkID}}"
+      type: path
+      description: Artwork ID
   auth: inherit
 
 settings:
@@ -16,5 +21,46 @@ settings:
   followRedirects: true
   maxRedirects: 5
   forwardAuthorizationHeader: true
+
+examples:
+  - name: 204 Response
+    description: No Content
+    request:
+      url: "{{api_url}}/artworks/:id"
+      method: DELETE
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Artwork ID
+    response:
+      status: 204
+      statusText: No Content
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/artworks/:id"
+      method: DELETE
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Artwork ID
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
 
 docs: Delete portfolio artwork owned by the authenticated artist.

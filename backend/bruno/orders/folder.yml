@@ -6,11 +6,13 @@ info:
 request:
   variables:
     - name: OrderID
-      value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
+      value: 00000000-0000-0000-0000-000000000000
+      description: order id
     - name: ArtworkID
-      value: 4d35dcb2-c0c7-444c-904c-396bcb7ba26a
+      value: 00000000-0000-0000-0000-000000000000
+      description: artist id
     - name: deliverable_image_path
       value: ""
       description: |-
         image path ใช้รูปในเครื่องได้เลยนะครับ 
-        (เพิ่ม \ ใน path ให้เป็น 2 ตัวทุกอันด้วยนะครับ)
+        (เพิ่ม \ ใน path ให้เป็น 2 ตัวทุกอัน, ไม่ต้องมี "")
