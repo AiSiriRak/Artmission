@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
@@ -409,6 +410,7 @@ func (r *orderRepository) Create(
 					"art.name",
 					"art.category_id",
 					"art.price_satang",
+					"art.minimum_deadline_days",
 				).
 				Where("art.id = ?", *item.ArtworkID).
 				Scan(ctx)
@@ -417,6 +419,13 @@ func (r *orderRepository) Create(
 					return apperror.InvalidInput("artwork not found", err)
 				}
 				return err
+			}
+
+			if item.DeadlineAt.Before(time.Now().AddDate(0, 0, artworkModel.MinimumDeadlineDays)) {
+				return apperror.InvalidInput(
+					fmt.Sprintf("deadline must be at least %d days from now", artworkModel.MinimumDeadlineDays),
+					nil,
+				)
 			}
 
 			item.ArtistID = artworkModel.ArtistID

@@ -248,12 +248,23 @@ func (o *ordersContext) anArtworkExistsForCommission() error {
 }
 
 func (o *ordersContext) theUserSubmitsANewOrderForTheArtwork() error {
-	deadline := time.Now().AddDate(0, 0, 10).Format(time.RFC3339)
+	return o.submitNewOrder(time.Now().AddDate(0, 0, 10))
+}
+
+func (o *ordersContext) theUserSubmitsANewOrderWithDeadlineIn(days int) error {
+	return o.submitNewOrder(time.Now().AddDate(0, 0, days))
+}
+
+func (o *ordersContext) theUserSubmitsANewOrderWithDeadlineInThePast() error {
+	return o.submitNewOrder(time.Now().AddDate(0, 0, -1))
+}
+
+func (o *ordersContext) submitNewOrder(deadline time.Time) error {
 	payload := map[string]any{
 		"artwork_id":           o.targetArtworkID,
 		"name":                 "My Custom Portrait",
 		"customer_description": "Blue background please",
-		"deadline_at":          deadline,
+		"deadline_at":          deadline.Format(time.RFC3339),
 	}
 
 	resp, err := o.client.Do(http.MethodPost, "/orders", payload, map[string]string{
@@ -267,6 +278,10 @@ func (o *ordersContext) theUserSubmitsANewOrderForTheArtwork() error {
 }
 
 func (o *ordersContext) theSystemRejectsTheRequestDueToForbiddenRole() error {
+	return o.expectClientError()
+}
+
+func (o *ordersContext) theSystemRejectsTheOrderDueToAnInvalidDeadline() error {
 	return o.expectClientError()
 }
 
@@ -898,6 +913,12 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		return o.theUserPagesThroughAllOfTheirOrdersUsingALimit(limit)
 	})
 	sc.Step(`^the user submits a new order for the artwork$`, func() error { return o.theUserSubmitsANewOrderForTheArtwork() })
+	sc.Step(`^the user submits a new order with a deadline (-?\d+) days from now$`, func(days int) error {
+		return o.theUserSubmitsANewOrderWithDeadlineIn(days)
+	})
+	sc.Step(`^the user submits a new order with a deadline in the past$`, func() error {
+		return o.theUserSubmitsANewOrderWithDeadlineInThePast()
+	})
 	sc.Step(`^the user submits a new order without logging in$`, func() error { return o.theUserSubmitsANewOrderWithoutLoggingIn() })
 
 	// then
@@ -944,5 +965,8 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system rejects the request due to forbidden role$`, func() error {
 		return o.theSystemRejectsTheRequestDueToForbiddenRole()
+	})
+	sc.Step(`^the system rejects the order due to an invalid deadline$`, func() error {
+		return o.theSystemRejectsTheOrderDueToAnInvalidDeadline()
 	})
 }
