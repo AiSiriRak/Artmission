@@ -16,6 +16,7 @@ type ArtworkSnapshot struct {
 	StyleIDs    []uuid.UUID `json:"style_ids"`
 }
 
+// Value serializes the artwork snapshot to JSON so it can be stored as a Postgres value.
 func (s ArtworkSnapshot) Value() (driver.Value, error) {
 	data, err := json.Marshal(s)
 	if err != nil {
@@ -24,6 +25,7 @@ func (s ArtworkSnapshot) Value() (driver.Value, error) {
 	return string(data), nil
 }
 
+// Scan decodes the artwork snapshot from a JSON value returned by Postgres.
 func (s *ArtworkSnapshot) Scan(src any) error {
 	var data []byte
 	switch value := src.(type) {
@@ -66,9 +68,10 @@ type OrderDeliverable struct {
 	ID               uuid.UUID `bun:"id,pk"`
 	OrderID          uuid.UUID `bun:"order_id"`
 	Version          int       `bun:"version"`
-	Decision         *string   `bun:"decision,nullzero"`
+	Decision         string    `bun:"decision"`
 	Comment          *string   `bun:"comment,nullzero"`
 	OriginalImageKey string    `bun:"original_image_key"`
 	PreviewImageKey  string    `bun:"preview_image_key"`
 	CreatedAt        time.Time `bun:"created_at,nullzero"`
+	UpdatedAt        time.Time `bun:"updated_at,nullzero"`
 }

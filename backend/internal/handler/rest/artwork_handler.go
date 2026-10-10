@@ -48,10 +48,12 @@ type ArtworkHandler struct {
 	authUsecase    auth.AuthUsecase
 }
 
+// NewArtworkHandler wires the artwork and authentication use cases into a REST handler.
 func NewArtworkHandler(artworkUsecase artwork.Usecase, authUsecase auth.AuthUsecase) *ArtworkHandler {
 	return &ArtworkHandler{artworkUsecase: artworkUsecase, authUsecase: authUsecase}
 }
 
+// Register adds the artwork search, portfolio, and lookup routes with their access rules.
 func (h *ArtworkHandler) Register(api huma.API) {
 	huma.Get(api, "/artworks", h.searchArtworks,
 		huma.OperationTags("artworks"),
@@ -71,6 +73,19 @@ func (h *ArtworkHandler) Register(api huma.API) {
 			operation.Description = "Get every artwork created by an artist, newest first"
 		},
 	)
+
+	huma.Get(api, "/artworks/{artwork_id}", h.getArtwork,
+		huma.OperationTags("artworks"),
+		func(o *huma.Operation) {
+			o.OperationID = "get-artwork"
+			o.Summary = "GetArtwork"
+			o.Description = "Get the authenticated user artwork detail."
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireAnyRole(api, user.RoleCustomer, user.RoleArtist),
+			)
+		})
 
 	huma.Post(api, "/artworks", h.createArtwork,
 		huma.OperationTags("artworks"),
@@ -121,6 +136,7 @@ func (h *ArtworkHandler) Register(api huma.API) {
 			o.Description = "List artwork styles"
 		},
 	)
+
 }
 
 type searchArtistView struct {
@@ -163,6 +179,7 @@ type SearchArtworksOutput struct {
 	}
 }
 
+// searchArtworks parses optional numeric filters, queries a page, and converts results to response views.
 func (h *ArtworkHandler) searchArtworks(ctx context.Context, input *SearchArtworksInput) (*SearchArtworksOutput, error) {
 	if _, ok := authInfoFromContext(ctx); !ok {
 		return nil, huma.Error401Unauthorized("missing authentication")
@@ -205,6 +222,7 @@ func (h *ArtworkHandler) searchArtworks(ctx context.Context, input *SearchArtwor
 	return output, nil
 }
 
+// parseOptionalInt64Query returns nil for an empty value or parses it as a 64-bit integer.
 func parseOptionalInt64Query(name, raw string) (*int64, error) {
 	if raw == "" {
 		return nil, nil
@@ -216,6 +234,7 @@ func parseOptionalInt64Query(name, raw string) (*int64, error) {
 	return &value, nil
 }
 
+// parseOptionalFloat64Query returns nil for an empty value or parses it as a 64-bit float.
 func parseOptionalFloat64Query(name, raw string) (*float64, error) {
 	if raw == "" {
 		return nil, nil
@@ -227,6 +246,7 @@ func parseOptionalFloat64Query(name, raw string) (*float64, error) {
 	return &value, nil
 }
 
+// newSearchArtworkView combines an artwork view with its artist's search summary.
 func newSearchArtworkView(item artwork.SearchItem) searchArtworkView {
 	view := newArtworkView(&item.Artwork)
 	return searchArtworkView{
@@ -259,6 +279,7 @@ type GetArtistArtworksOutput struct {
 	}
 }
 
+// getArtistArtworks lists an artist's portfolio and maps each sample URL into the response.
 func (h *ArtworkHandler) getArtistArtworks(ctx context.Context, input *GetArtistArtworksInput) (*GetArtistArtworksOutput, error) {
 	artworks, err := h.artworkUsecase.ListByArtistID(ctx, input.ArtistID)
 	if err != nil {
@@ -315,6 +336,7 @@ type CreateArtworkOutput struct {
 	Body artworkView
 }
 
+// createArtwork associates the submitted artwork form with the authenticated artist and returns the created view.
 func (h *ArtworkHandler) createArtwork(ctx context.Context, input *CreateArtworkInput) (*CreateArtworkOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
@@ -338,6 +360,7 @@ type UpdateArtworkOutput struct {
 	Body artworkView
 }
 
+// updateArtwork applies the submitted form to the authenticated artist's specified artwork.
 func (h *ArtworkHandler) updateArtwork(ctx context.Context, input *UpdateArtworkInput) (*UpdateArtworkOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
@@ -351,6 +374,7 @@ func (h *ArtworkHandler) updateArtwork(ctx context.Context, input *UpdateArtwork
 	return &UpdateArtworkOutput{Body: newArtworkView(updated)}, nil
 }
 
+// newArtworkCreateInput maps form fields and uploaded sample readers to a use-case input.
 func newArtworkCreateInput(form *artworkForm, artistID uuid.UUID) artwork.CreateInput {
 	return artwork.CreateInput{
 		ArtistID:            artistID,
@@ -364,6 +388,7 @@ func newArtworkCreateInput(form *artworkForm, artistID uuid.UUID) artwork.Create
 	}
 }
 
+// newArtworkUpdateInput maps editable fields, uploaded files, and removed sample URLs to a use-case input.
 func newArtworkUpdateInput(form *updateArtworkForm, artworkID, artistID uuid.UUID) artwork.UpdateInput {
 	return artwork.UpdateInput{
 		ArtworkID:         artworkID,
@@ -381,6 +406,7 @@ func newArtworkUpdateInput(form *updateArtworkForm, artworkID, artistID uuid.UUI
 	}
 }
 
+// artworkFileReaders extracts the readers from the multipart form files.
 func artworkFileReaders(files []huma.FormFile) []io.Reader {
 	readers := make([]io.Reader, len(files))
 	for index := range files {
@@ -395,6 +421,7 @@ type DeleteArtworkInput struct {
 
 type DeleteArtworkOutput struct{}
 
+// deleteArtwork removes the specified artwork for the authenticated artist.
 func (h *ArtworkHandler) deleteArtwork(ctx context.Context, input *DeleteArtworkInput) (*DeleteArtworkOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
@@ -418,6 +445,7 @@ type ListStylesOutput struct {
 	Body []artistReferenceView
 }
 
+// listCategories returns category IDs and labels for artwork forms.
 func (h *ArtworkHandler) listCategories(ctx context.Context, _ *ListCategoriesInput) (*ListCategoriesOutput, error) {
 	categories, err := h.artworkUsecase.ListAllCategories(ctx)
 	if err != nil {
@@ -431,6 +459,7 @@ func (h *ArtworkHandler) listCategories(ctx context.Context, _ *ListCategoriesIn
 	return &ListCategoriesOutput{Body: body}, nil
 }
 
+// listStyles returns style IDs and labels for artwork forms.
 func (h *ArtworkHandler) listStyles(ctx context.Context, _ *ListStylesInput) (*ListStylesOutput, error) {
 	styles, err := h.artworkUsecase.ListAllStyles(ctx)
 	if err != nil {
@@ -444,6 +473,7 @@ func (h *ArtworkHandler) listStyles(ctx context.Context, _ *ListStylesInput) (*L
 	return &ListStylesOutput{Body: body}, nil
 }
 
+// newArtworkView converts an artwork and its samples into the REST response shape.
 func newArtworkView(item *artwork.Artwork) artworkView {
 	samples := make([]artworkSampleView, len(item.Samples))
 	for index, sample := range item.Samples {
@@ -462,4 +492,37 @@ func newArtworkView(item *artwork.Artwork) artworkView {
 		CreatedAt:           item.CreatedAt,
 		UpdatedAt:           item.UpdatedAt,
 	}
+}
+
+type GetArtworkInput struct {
+	ArtworkID uuid.UUID `path:"artwork_id"`
+}
+
+type GetArtworkOutput struct {
+	Body artworkView
+}
+
+// getArtwork loads an artwork by ID and returns its detail view.
+func (h *ArtworkHandler) getArtwork(ctx context.Context, input *GetArtworkInput) (*GetArtworkOutput, error) {
+	detail, err := h.artworkUsecase.GetArtwork(ctx, input.ArtworkID)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	artwork := &artwork.Artwork{
+		ID:                  detail.ID,
+		ArtistID:            detail.ArtistID,
+		Name:                detail.Name,
+		Category:            detail.Category,
+		Styles:              detail.Styles,
+		Description:         detail.Description,
+		Samples:             detail.Samples,
+		MinimumDeadlineDays: detail.MinimumDeadlineDays,
+		PriceSatang:         detail.PriceSatang,
+		CreatedAt:           detail.CreatedAt,
+		UpdatedAt:           detail.UpdatedAt}
+
+	return &GetArtworkOutput{
+		Body: newArtworkView(artwork),
+	}, nil
 }

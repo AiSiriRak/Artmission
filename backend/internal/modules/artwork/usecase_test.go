@@ -85,6 +85,23 @@ func (repo *fakeRepository) DeleteOwnedBy(_ context.Context, artworkID, artistID
 	return repo.err
 }
 
+func (repo *fakeRepository) GetByID(ctx context.Context, artworkID uuid.UUID) (*Artwork, error) {
+	if repo.err != nil {
+		return nil, repo.err
+	}
+
+	if repo.artworks == nil {
+		return nil, nil
+	}
+
+	for i := range repo.artworks {
+		if repo.artworks[i].ID == artworkID {
+			return &repo.artworks[i], nil
+		}
+	}
+	return nil, nil
+}
+
 type fakeStorage struct {
 	uploads []string
 	deletes []string

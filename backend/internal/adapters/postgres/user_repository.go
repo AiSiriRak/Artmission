@@ -20,6 +20,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// newUserModel converts a domain user into the Postgres row written by the repository.
 func newUserModel(u *user.User) *pgmodel.User {
 	return &pgmodel.User{
 		ID:              u.ID,
@@ -33,6 +34,7 @@ func newUserModel(u *user.User) *pgmodel.User {
 	}
 }
 
+// userModelToDomain converts a Postgres user row into the domain user model.
 func userModelToDomain(m *pgmodel.User) *user.User {
 	return &user.User{
 		ID:              m.ID,
@@ -53,6 +55,7 @@ type userRepository struct {
 
 var _ user.UserRepository = (*userRepository)(nil)
 
+// NewUserRepository returns a Postgres-backed user repository.
 func NewUserRepository(db *bun.DB) user.UserRepository {
 	return &userRepository{
 		base: baserepo.NewBaseRepo[pgmodel.User](db, "user"),
@@ -60,6 +63,7 @@ func NewUserRepository(db *bun.DB) user.UserRepository {
 	}
 }
 
+// Create inserts a user and translates duplicate-email conflicts to a domain error.
 func (r *userRepository) Create(
 	ctx context.Context,
 	u *user.User,
@@ -79,6 +83,7 @@ func (r *userRepository) Create(
 	return apperror.Internal("failed to create user", err)
 }
 
+// GetByEmail loads a user by exact email and maps missing rows to ErrUserNotFound.
 func (r *userRepository) GetByEmail(
 	ctx context.Context,
 	email string,
@@ -96,6 +101,7 @@ func (r *userRepository) GetByEmail(
 	return userModelToDomain(model), nil
 }
 
+// GetByID fetches a user by primary key or returns a not-found domain error.
 func (r *userRepository) GetByID(
 	ctx context.Context,
 	id uuid.UUID,
@@ -110,6 +116,7 @@ func (r *userRepository) GetByID(
 	return userModelToDomain(model), nil
 }
 
+// UpdateAccountByID updates the username and optional password hash, then returns the refreshed user row.
 func (r *userRepository) UpdateAccountByID(
 	ctx context.Context,
 	id uuid.UUID,
@@ -141,6 +148,7 @@ func (r *userRepository) UpdateAccountByID(
 	return userModelToDomain(model), nil
 }
 
+// UpdateProfileImageByID sets the profile image key and returns the updated user record.
 func (r *userRepository) UpdateProfileImageByID(
 	ctx context.Context,
 	id uuid.UUID,
