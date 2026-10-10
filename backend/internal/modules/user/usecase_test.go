@@ -230,6 +230,33 @@ func TestGetByID_ResolvesProfileImageURL(t *testing.T) {
 	}
 }
 
+func TestGetArtistName(t *testing.T) {
+	repo := newFakeRepo()
+	userID := uuid.New()
+	repo.byID[userID] = &user.User{ID: userID, Username: "alice", Role: user.RoleArtist}
+
+	name, err := newUsecase(repo, newFakeBankRepo(), newFakeArtistRegistrar()).GetArtistName(context.Background(), userID)
+	if err != nil {
+		t.Fatalf("GetArtistName() error = %v, want nil", err)
+	}
+	if name != "alice" {
+		t.Errorf("GetArtistName() = %q, want %q", name, "alice")
+	}
+}
+
+func TestGetArtistNameReturnsRepositoryError(t *testing.T) {
+	repo := newFakeRepo()
+	userID := uuid.New()
+
+	name, err := newUsecase(repo, newFakeBankRepo(), newFakeArtistRegistrar()).GetArtistName(context.Background(), userID)
+	if !errors.Is(err, user.ErrUserNotFound) {
+		t.Fatalf("GetArtistName() error = %v, want %v", err, user.ErrUserNotFound)
+	}
+	if name != "" {
+		t.Errorf("GetArtistName() = %q, want empty string", name)
+	}
+}
+
 func customerInput() user.RegisterInput {
 	return user.RegisterInput{
 		Username: "alice",

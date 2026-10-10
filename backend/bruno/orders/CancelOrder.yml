@@ -1,18 +1,16 @@
 info:
-  name: GetArtwork
+  name: CancelOrder
   type: http
-  seq: 6
-  tags:
-    - artworks
+  seq: 8
 
 http:
-  method: GET
-  url: "{{api_url}}/artworks/:id"
+  method: PUT
+  url: "{{api_url}}/orders/:id/cancel"
   params:
     - name: id
-      value: "{{ArtworkID}}"
+      value: "{{OrderID}}"
       type: path
-      description: Artwork ID
+      description: Order ID
   auth: inherit
 
 settings:
@@ -20,19 +18,19 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
-  forwardAuthorizationHeader: true
+  forwardAuthorizationHeader: false
 
 examples:
   - name: 200 Response
     description: OK
     request:
-      url: "{{api_url}}/artworks/:id"
-      method: GET
+      url: "{{api_url}}/orders/:id/cancel"
+      method: PUT
       params:
         - name: id
           value: ""
           type: path
-          description: Artwork ID
+          description: Order ID
     response:
       status: 200
       statusText: OK
@@ -44,28 +42,19 @@ examples:
         data: |-
           {
             "$schema": "",
-            "id": "",
-            "artist_id": "",
-            "name": "",
-            "category": "",
-            "styles": [],
-            "description": "",
-            "artwork_samples": [],
-            "minimum_deadline_days": 0,
-            "price_satang": 0,
-            "created_at": "",
-            "updated_at": ""
+            "message": "",
+            "status": ""
           }
   - name: default Response
     description: Error
     request:
-      url: "{{api_url}}/artworks/:id"
-      method: GET
+      url: "{{api_url}}/orders/:id/cancel"
+      method: PUT
       params:
         - name: id
           value: ""
           type: path
-          description: Artwork ID
+          description: Order ID
     response:
       headers:
         - name: Content-Type
@@ -83,4 +72,4 @@ examples:
             "type": ""
           }
 
-docs: Get detailed information about a specific artwork by ID.
+docs: Cancel order by ID

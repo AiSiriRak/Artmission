@@ -2,6 +2,7 @@
 package order
 
 import (
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -221,3 +222,18 @@ type CreateInput struct {
 	CustomerDescription string
 	DeadlineAt          time.Time
 }
+
+// CreateDeliverableInput represents the input for CreateDeliverable,
+// submitted by the authenticated artist who owns the order.
+type CreateDeliverableInput struct {
+	OrderID          uuid.UUID
+	DeliverableImage io.Reader
+}
+
+// MaxDeliverableImageSize is assigned to be 20 MB
+const (
+	MaxDeliverableVersions    = 3
+	MaxDeliverableImageSize   = 20 * 1024 * 1024
+	deliverablePreviewSize    = 1800
+	deliverablePreviewQuality = 88
+)

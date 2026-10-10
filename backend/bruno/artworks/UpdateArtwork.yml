@@ -7,7 +7,12 @@ info:
 
 http:
   method: PUT
-  url: "{{api_url}}/artworks/{{artwork_id}}"
+  url: "{{api_url}}/artworks/:id"
+  params:
+    - name: id
+      value: "{{ArtworkID}}"
+      type: path
+      description: Artwork ID
   body:
     type: multipart-form
     data:
@@ -17,11 +22,11 @@ http:
         contentType: text/plain
       - name: category_id
         type: text
-        value: 00000000-0000-0000-0000-0000000000c1
+        value: "{{CategoryID}}"
         contentType: text/plain
       - name: style_ids
         type: text
-        value: '["00000000-0000-0000-0000-0000000000c2"]'
+        value: '["{{StyleID}}"]'
         contentType: application/json
       - name: description
         type: text
@@ -34,7 +39,7 @@ http:
         disabled: true
       - name: deleted_sample_urls
         type: text
-        value: '[]'
+        value: "[]"
         contentType: application/json
       - name: minimum_deadline_days
         type: text
@@ -46,17 +51,143 @@ http:
         contentType: text/plain
   auth: inherit
 
-runtime:
-  variables:
-    - name: artwork_id
-      value: 00000000-0000-0000-0000-000000000001
-
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
   forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: OK
+    request:
+      url: "{{api_url}}/artworks/:id"
+      method: PUT
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Artwork ID
+      body:
+        type: multipart-form
+        data:
+          - name: name
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: category_id
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: style_ids
+            type: text
+            value: ""
+            contentType: application/json
+          - name: description
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: uploaded_samples
+            type: file
+            value: []
+            contentType: image/png
+          - name: deleted_sample_urls
+            type: text
+            value: ""
+            contentType: application/json
+          - name: minimum_deadline_days
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: price_satang
+            type: text
+            value: ""
+            contentType: text/plain
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "id": "",
+            "artist_id": "",
+            "name": "",
+            "category": "",
+            "styles": [],
+            "description": "",
+            "artwork_samples": [],
+            "minimum_deadline_days": 0,
+            "price_satang": 0,
+            "created_at": "",
+            "updated_at": ""
+          }
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/artworks/:id"
+      method: PUT
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Artwork ID
+      body:
+        type: multipart-form
+        data:
+          - name: name
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: category_id
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: style_ids
+            type: text
+            value: ""
+            contentType: application/json
+          - name: description
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: uploaded_samples
+            type: file
+            value: []
+            contentType: image/png
+          - name: deleted_sample_urls
+            type: text
+            value: ""
+            contentType: application/json
+          - name: minimum_deadline_days
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: price_satang
+            type: text
+            value: ""
+            contentType: text/plain
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
 
 docs: |-
   Update portfolio artwork owned by the authenticated artist. Add JPEG, PNG, or

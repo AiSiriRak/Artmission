@@ -2,3 +2,8 @@ info:
   name: artists
   type: folder
   seq: 4
+
+request:
+  variables:
+    - name: ArtistID
+      value: 00000000-0000-0000-0000-000000000000

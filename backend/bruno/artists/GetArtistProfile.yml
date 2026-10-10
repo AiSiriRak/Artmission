@@ -7,21 +7,18 @@ info:
 
 http:
   method: GET
-  url: "{{api_url}}/artists/{{artist_id}}"
+  url: "{{api_url}}/artists/:id"
   params:
-    - name: limit
-      value: "20"
-      type: query
-      description: Maximum number of reviews to return
-    - name: offset
-      value: "0"
-      type: query
-      description: Number of reviews to skip
+    - name: id
+      value: "{{ArtistID}}"
+      type: path
+      description: Artist User ID
+  auth: inherit
 
 runtime:
   variables:
-    - name: artist_id
-      value: f2125c2b-f740-4aee-b216-b96d8cab3908
+    - name: ArtistID
+      value: 1455c1b8-a858-4096-bac0-d6729fab1f20
 
 settings:
   encodeUrl: true
@@ -29,5 +26,66 @@ settings:
   followRedirects: true
   maxRedirects: 5
   forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: OK
+    request:
+      url: "{{api_url}}/artists/:id"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Artist User ID
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "artist_id": "",
+            "artist_name": "",
+            "profile_url": null,
+            "description": "",
+            "categories": [],
+            "styles": [],
+            "min_price_satang": 0,
+            "max_price_satang": 0,
+            "review_score": null,
+            "reviews": [],
+            "total": 0
+          }
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/artists/:id"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Artist User ID
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
 
 docs: Get a public artist profile by artist user ID, including artwork-derived metadata and paginated reviews.

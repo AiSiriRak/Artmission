@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"reflect"
 	"strings"
 	"testing"
@@ -22,16 +24,22 @@ import (
 )
 
 type fakeOrderUsecase struct {
-	viewOrdersFunc   func(context.Context, order.ListQuery) (order.Page, error)
-	getOrderFunc     func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
-	confirmOrderFunc func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) (order.Status, error)
-	createOrderFunc  func(ctx context.Context, customerID uuid.UUID, input order.CreateInput) (*order.Order, error)
-	gotListQuery     order.ListQuery
-	gotParticipant   order.Participant
-	gotUserID        uuid.UUID
-	gotOrderID       uuid.UUID
-	gotConfirmInput  order.ConfirmOrderInput
-	confirmCalls     int
+	viewOrdersFunc        func(context.Context, order.ListQuery) (order.Page, error)
+	getOrderFunc          func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
+	createOrderFunc       func(ctx context.Context, customerID uuid.UUID, input order.CreateInput) (*order.Order, error)
+	confirmOrderFunc      func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) (order.Status, error)
+	cancelOrderFunc       func(context.Context, order.Participant, uuid.UUID, uuid.UUID) error
+	createDeliverableFunc func(ctx context.Context, artistID uuid.UUID, input order.CreateDeliverableInput) (*order.Deliverable, error)
+
+	gotListQuery           order.ListQuery
+	gotParticipant         order.Participant
+	gotUserID              uuid.UUID
+	gotOrderID             uuid.UUID
+	gotConfirmInput        order.ConfirmOrderInput
+	confirmCalls           int
+	cancelCalls            int
+	gotDeliverableInput    order.CreateDeliverableInput
+	gotDeliverableArtistID uuid.UUID
 }
 
 type fakeArtworkUsecase struct {
@@ -107,6 +115,35 @@ func (f *fakeOrderUsecase) ConfirmOrder(
 		return order.StatusNotPaid, nil
 	}
 	return order.StatusCancel, nil
+}
+
+func (f *fakeOrderUsecase) CancelOrder(
+	ctx context.Context,
+	participant order.Participant,
+	participantID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	f.cancelCalls++
+	f.gotParticipant = participant
+	f.gotUserID = participantID
+	f.gotOrderID = orderID
+	if f.cancelOrderFunc != nil {
+		return f.cancelOrderFunc(ctx, participant, participantID, orderID)
+	}
+	return nil
+}
+
+func (f *fakeOrderUsecase) CreateDeliverable(
+	ctx context.Context,
+	artistID uuid.UUID,
+	input order.CreateDeliverableInput,
+) (*order.Deliverable, error) {
+	f.gotDeliverableArtistID = artistID
+	f.gotDeliverableInput = input
+	if f.createDeliverableFunc != nil {
+		return f.createDeliverableFunc(ctx, artistID, input)
+	}
+	return nil, nil
 }
 
 type orderAuthStub struct {
@@ -440,6 +477,114 @@ func TestOrderHandlerConfirmOrderAcceptsOrRejectsOrder(t *testing.T) {
 	}
 }
 
+func TestOrderHandlerCreateDeliverableUploadsMultipartImage(t *testing.T) {
+	const (
+		artistID = "00000000-0000-0000-0000-000000000001"
+		orderID  = "00000000-0000-0000-0000-000000000010"
+	)
+	createdAt := time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC)
+	imageContent := []byte("deliverable image bytes")
+	created := &order.Deliverable{
+		ID:               uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+		Version:          1,
+		Decision:         order.DeliverableDecisionWait,
+		OriginalImageKey: "orders/" + orderID + "/original.png",
+		PreviewImageKey:  "orders/" + orderID + "/preview.jpg",
+		PreviewImageURL:  "https://storage.example.com/preview",
+		CreatedAt:        createdAt,
+		UpdatedAt:        createdAt,
+	}
+	var gotImage []byte
+	usecase := &fakeOrderUsecase{
+		createDeliverableFunc: func(_ context.Context, gotArtistID uuid.UUID, input order.CreateDeliverableInput) (*order.Deliverable, error) {
+			if gotArtistID != uuid.MustParse(artistID) {
+				t.Errorf("artistID = %s, want %s", gotArtistID, artistID)
+			}
+			if input.OrderID != uuid.MustParse(orderID) {
+				t.Errorf("orderID = %s, want %s", input.OrderID, orderID)
+			}
+			var err error
+			gotImage, err = io.ReadAll(input.DeliverableImage)
+			if err != nil {
+				t.Errorf("read deliverable image: %v", err)
+			}
+			return created, nil
+		},
+	}
+	handler := newOrderTestHandler(t, user.RoleArtist, usecase)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", `form-data; name="deliverable_image"; filename="deliverable.png"`)
+	header.Set("Content-Type", "image/png")
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		t.Fatalf("create image form part: %v", err)
+	}
+	if _, err := part.Write(imageContent); err != nil {
+		t.Fatalf("write image form part: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/orders/"+orderID+"/deliverables",
+		&body,
+	)
+	req.Header.Set("Authorization", "Bearer test-token")
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if !bytes.Equal(gotImage, imageContent) {
+		t.Errorf("uploaded image = %q, want %q", gotImage, imageContent)
+	}
+	if usecase.gotDeliverableArtistID != uuid.MustParse(artistID) ||
+		usecase.gotDeliverableInput.OrderID != uuid.MustParse(orderID) {
+		t.Errorf("usecase received artistID=%s orderID=%s", usecase.gotDeliverableArtistID, usecase.gotDeliverableInput.OrderID)
+	}
+
+	var got deliverableView
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got.ID != created.ID.String() ||
+		got.Version != created.Version ||
+		got.Decision != created.Decision ||
+		got.PreviewImageURL != created.PreviewImageURL ||
+		!got.CreatedAt.Equal(createdAt) ||
+		!got.UpdatedAt.Equal(createdAt) {
+		t.Errorf("response deliverable = %+v, want fields from %+v", got, created)
+	}
+}
+
+func TestOrderHandlerCreateDeliverableRequiresArtistRole(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/orders/00000000-0000-0000-0000-000000000010/deliverables",
+		nil,
+	)
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+	if usecase.gotDeliverableArtistID != uuid.Nil {
+		t.Error("CreateDeliverable() should not be called for a customer")
+	}
+}
+
 func TestOrderHandlerCreateOrder(t *testing.T) {
 	const (
 		customerID = "00000000-0000-0000-0000-000000000001"
@@ -562,6 +707,142 @@ func TestOrderHandlerConfirmOrderRequiresArtistRole(t *testing.T) {
 	}
 	if usecase.confirmCalls != 0 {
 		t.Errorf("ConfirmOrder() calls = %d, want 0", usecase.confirmCalls)
+	}
+}
+
+func TestOrderHandlerCancelOrder(t *testing.T) {
+	const (
+		orderID = "00000000-0000-0000-0000-000000000010"
+		userID  = "00000000-0000-0000-0000-000000000001"
+	)
+
+	for _, tt := range []struct {
+		name        string
+		role        user.Role
+		participant order.Participant
+	}{
+		{name: "customer cancels own order", role: user.RoleCustomer, participant: order.ParticipantCustomer},
+		{name: "artist cancels own order", role: user.RoleArtist, participant: order.ParticipantArtist},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			usecase := &fakeOrderUsecase{}
+			handler := newOrderTestHandler(t, tt.role, usecase)
+			rec := serveOrderRequest(
+				handler,
+				http.MethodPut,
+				"/orders/"+orderID+"/cancel",
+				true,
+			)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+			}
+
+			var got struct {
+				Message string `json:"message"`
+				Status  string `json:"status"`
+			}
+			if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if got.Message != "Order cancelled successfully" {
+				t.Errorf("response message = %q, want %q", got.Message, "Order cancelled successfully")
+			}
+			if got.Status != string(order.StatusCancel) {
+				t.Errorf("response status = %q, want %q", got.Status, order.StatusCancel)
+			}
+			if usecase.cancelCalls != 1 ||
+				usecase.gotParticipant != tt.participant ||
+				usecase.gotUserID != uuid.MustParse(userID) ||
+				usecase.gotOrderID != uuid.MustParse(orderID) {
+				t.Errorf(
+					"cancel input = calls %d, participant %q, userID %s, orderID %s; want 1, %q, %s, %s",
+					usecase.cancelCalls,
+					usecase.gotParticipant,
+					usecase.gotUserID,
+					usecase.gotOrderID,
+					tt.participant,
+					userID,
+					orderID,
+				)
+			}
+		})
+	}
+}
+
+func TestOrderHandlerCancelOrderRequiresAuthentication(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+	rec := serveOrderRequest(
+		handler,
+		http.MethodPut,
+		"/orders/00000000-0000-0000-0000-000000000010/cancel",
+		false,
+	)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusUnauthorized, rec.Body.String())
+	}
+	if usecase.cancelCalls != 0 {
+		t.Errorf("CancelOrder() calls = %d, want 0", usecase.cancelCalls)
+	}
+}
+
+func TestOrderHandlerCancelOrderRequiresCustomerOrArtistRole(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleAdmin, usecase)
+	rec := serveOrderRequest(
+		handler,
+		http.MethodPut,
+		"/orders/00000000-0000-0000-0000-000000000010/cancel",
+		true,
+	)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+	if usecase.cancelCalls != 0 {
+		t.Errorf("CancelOrder() calls = %d, want 0", usecase.cancelCalls)
+	}
+}
+
+func TestOrderHandlerCancelOrderPropagatesUsecaseError(t *testing.T) {
+	usecase := &fakeOrderUsecase{
+		cancelOrderFunc: func(context.Context, order.Participant, uuid.UUID, uuid.UUID) error {
+			return order.ErrInvalidOrderStatus
+		},
+	}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+	rec := serveOrderRequest(
+		handler,
+		http.MethodPut,
+		"/orders/00000000-0000-0000-0000-000000000010/cancel",
+		true,
+	)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	if usecase.cancelCalls != 1 {
+		t.Errorf("CancelOrder() calls = %d, want 1", usecase.cancelCalls)
+	}
+}
+
+func TestOrderHandlerCancelOrderRejectsInvalidOrderID(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+	rec := serveOrderRequest(
+		handler,
+		http.MethodPut,
+		"/orders/not-a-uuid/cancel",
+		true,
+	)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
+	}
+	if usecase.cancelCalls != 0 {
+		t.Errorf("CancelOrder() calls = %d, want 0", usecase.cancelCalls)
 	}
 }
 

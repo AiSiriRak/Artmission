@@ -2,3 +2,10 @@ info:
   name: users
   type: folder
   seq: 1
+
+request:
+  variables:
+    - name: old_password
+      value: password123
+    - name: new_password
+      value: password1234
