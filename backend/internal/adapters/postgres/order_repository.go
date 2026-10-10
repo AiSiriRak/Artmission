@@ -539,11 +539,19 @@ func (r *orderRepository) CreateDeliverable(
 				return order.ErrMaxDeliverableVersionsReached
 			}
 
+			var decision string
+			switch {
+			case maxVersion+1 == order.MaxDeliverableVersions:
+				decision = string(order.DeliverableDecisionApproved)
+			case maxVersion+1 < order.MaxDeliverableVersions:
+				decision = string(order.DeliverableDecisionWait)
+			}
+
 			model := &pgmodel.OrderDeliverable{
 				ID:               item.ID,
 				OrderID:          orderID,
 				Version:          maxVersion + 1,
-				Decision:         string(order.DeliverableDecisionWait),
+				Decision:         decision,
 				Comment:          item.Comment,
 				OriginalImageKey: item.OriginalImageKey,
 				PreviewImageKey:  item.PreviewImageKey,
@@ -555,6 +563,17 @@ func (r *orderRepository) CreateDeliverable(
 				Model(model).
 				Exec(ctx); err != nil {
 				return err
+			}
+
+			if decision == string(order.DeliverableDecisionApproved) {
+				if _, err := idb.NewUpdate().
+					Model((*pgmodel.Order)(nil)).
+					Set("status = ?", string(order.StatusSuccess)).
+					Set("updated_at = NOW()").
+					Where("id = ?", orderID).
+					Exec(ctx); err != nil {
+					return err
+				}
 			}
 
 			// Return the version assigned by the repository.
