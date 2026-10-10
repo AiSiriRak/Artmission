@@ -3,4 +3,13 @@ info:
   type: folder
   seq: 5
 
-request: {}
+request:
+  variables:
+    - name: ArtworkID
+      value: 00000000-0000-0000-0000-000000000000
+    - name: CategoryID
+      value: 00000000-0000-0000-0000-000000000000
+    - name: StyleID
+      value: 00000000-0000-0000-0000-000000000000
+    - name: ArtistID
+      value: 00000000-0000-0000-0000-000000000000

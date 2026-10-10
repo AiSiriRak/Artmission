@@ -2,3 +2,16 @@ info:
   name: auth
   type: folder
   seq: 1
+
+request:
+  variables:
+    - name: artist_username
+      value: testartist
+    - name: artist_email
+      value: artist@example.com
+    - name: customer_email
+      value: customer@example.com
+    - name: customer_username
+      value: testcustomer
+    - name: password
+      value: password123
