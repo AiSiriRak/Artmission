@@ -411,6 +411,7 @@ func (h *OrderHandler) confirmOrder(
 	return out, nil
 }
 
+// createOrder creates an order for the authenticated customer and returns its summary.
 func (h *OrderHandler) createOrder(ctx context.Context, input *CreateOrderInput) (*CreateOrderOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {

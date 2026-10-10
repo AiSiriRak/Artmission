@@ -15,6 +15,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// newOrderModel converts a domain order into the Postgres row stored by the repository.
 func newOrderModel(item *order.Order) *pgmodel.Order {
 	return &pgmodel.Order{
 		ID:                  item.ID,
@@ -394,6 +395,7 @@ func (r *orderRepository) ConfirmOrder(
 	return nil
 }
 
+// Create persists a new order and snapshots artwork data when the order is tied to an artwork.
 func (r *orderRepository) Create(
 	ctx context.Context,
 	item *order.Order,

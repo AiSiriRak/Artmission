@@ -218,6 +218,7 @@ func (u *orderUsecase) ConfirmOrder(
 	return status, nil
 }
 
+// CreateOrder validates the artwork reference, builds a pending order, and persists it.
 func (u *orderUsecase) CreateOrder(ctx context.Context, customerID uuid.UUID, input CreateInput) (*Order, error) {
 	if input.ArtworkID == uuid.Nil {
 		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
@@ -236,6 +237,7 @@ func (u *orderUsecase) CreateOrder(ctx context.Context, customerID uuid.UUID, in
 	return order, nil
 }
 
+// normalizeOrder validates customer-provided fields and builds a timestamped pending order.
 func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput) (*Order, error) {
 	if customerID == uuid.Nil {
 		return nil, apperror.InvalidInput("customer id must not be empty", nil)
@@ -267,6 +269,7 @@ func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput) (*Ord
 	}, nil
 }
 
+// requiredText trims surrounding whitespace and rejects values that become empty.
 func requiredText(field, value string) (string, error) {
 	normalized := strings.TrimSpace(value)
 	if normalized == "" {

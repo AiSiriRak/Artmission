@@ -15,6 +15,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// newArtworkModel converts a domain artwork and category into the database row used for inserts or updates.
 func newArtworkModel(item *artwork.Artwork, categoryID uuid.UUID) *pgmodel.Artwork {
 	return &pgmodel.Artwork{
 		ID:                  item.ID,
@@ -29,6 +30,7 @@ func newArtworkModel(item *artwork.Artwork, categoryID uuid.UUID) *pgmodel.Artwo
 	}
 }
 
+// artworkModelToDomain converts an artwork row into the domain value used by the application.
 func artworkModelToDomain(model *pgmodel.Artwork) artwork.Artwork {
 	return artwork.Artwork{
 		ID:                  model.ID,
@@ -60,6 +62,7 @@ type catalogIDLabel struct {
 	Label string    `bun:"label"`
 }
 
+// assignCatalogLabels resolves the category and style labels for an artwork from the catalog tables.
 func assignCatalogLabels(ctx context.Context, idb bun.IDB, item *artwork.Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) error {
 	var categoryLabel string
 	if err := idb.NewSelect().
@@ -104,10 +107,12 @@ type artworkRepository struct {
 
 var _ artwork.Repository = (*artworkRepository)(nil)
 
+// NewArtworkRepository returns a Postgres-backed artwork repository.
 func NewArtworkRepository(db *bun.DB) artwork.Repository {
 	return &artworkRepository{exec: baserepo.NewExecutor(db)}
 }
 
+// catalogRefsExist confirms that the artwork category and all style IDs exist before writes.
 func catalogRefsExist(ctx context.Context, idb bun.IDB, categoryID uuid.UUID, styleIDs []uuid.UUID) error {
 	categoryExists, err := idb.NewSelect().
 		Table("categories").
@@ -143,6 +148,7 @@ func catalogRefsExist(ctx context.Context, idb bun.IDB, categoryID uuid.UUID, st
 	return nil
 }
 
+// Create stores a new artwork and its related styles and samples, validating catalog references first.
 func (repo *artworkRepository) Create(ctx context.Context, item *artwork.Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID) error {
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
 		if err := catalogRefsExist(ctx, idb, categoryID, styleIDs); err != nil {
@@ -188,6 +194,7 @@ func (repo *artworkRepository) Create(ctx context.Context, item *artwork.Artwork
 	return nil
 }
 
+// UpdateOwnedBy rewrites an artist-owned artwork and its styles/samples while enforcing ownership and sample validation.
 func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.Artwork, categoryID uuid.UUID, styleIDs []uuid.UUID, deletedSampleURLs []string) ([]string, error) {
 	deletedURLs := make([]string, 0, len(deletedSampleURLs))
 	timestamps := struct {
@@ -295,6 +302,7 @@ func (repo *artworkRepository) UpdateOwnedBy(ctx context.Context, item *artwork.
 	return deletedURLs, nil
 }
 
+// DeleteOwnedBy removes an artwork only when it belongs to the provided artist.
 func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, artistID uuid.UUID) error {
 	var result sql.Result
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
@@ -318,6 +326,7 @@ func (repo *artworkRepository) DeleteOwnedBy(ctx context.Context, artworkID, art
 	return nil
 }
 
+// ListAllCategories returns every catalog category in label order.
 func (repo *artworkRepository) ListAllCategories(ctx context.Context) ([]artwork.Category, error) {
 	models := make([]pgmodel.Category, 0)
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
@@ -337,6 +346,7 @@ func (repo *artworkRepository) ListAllCategories(ctx context.Context) ([]artwork
 	return categories, nil
 }
 
+// ListAllStyles returns every catalog style in label order.
 func (repo *artworkRepository) ListAllStyles(ctx context.Context) ([]artwork.Style, error) {
 	models := make([]pgmodel.Style, 0)
 	err := repo.exec.Run(ctx, func(idb bun.IDB) error {
@@ -356,6 +366,7 @@ func (repo *artworkRepository) ListAllStyles(ctx context.Context) ([]artwork.Sty
 	return styles, nil
 }
 
+// ListByArtistID returns all artworks owned by an artist with styles and samples attached.
 func (repo *artworkRepository) ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]artwork.Artwork, error) {
 	models := make([]pgmodel.Artwork, 0)
 	var styleModels []artworkStyleModel
@@ -421,6 +432,7 @@ func (repo *artworkRepository) ListByArtistID(ctx context.Context, artistID uuid
 	return artworks, nil
 }
 
+// GetByID loads one artwork plus its category, styles, and sample URLs.
 func (repo *artworkRepository) GetByID(ctx context.Context, artworkID uuid.UUID) (*artwork.Artwork, error) {
 	var model pgmodel.Artwork
 	var styleNames []string
@@ -534,6 +546,7 @@ var artworkSearchOrderExpr = map[artwork.SearchSort]string{
 	artwork.SearchSortReviewScoreDesc: "rs.review_score DESC NULLS LAST, a.name ASC, a.id ASC",
 }
 
+// Search executes a paginated artwork search with the requested filters and sort order.
 func (repo *artworkRepository) Search(ctx context.Context, query artwork.SearchQuery) (artwork.SearchPage, error) {
 	orderExpr, ok := artworkSearchOrderExpr[query.Sort]
 	if !ok {
@@ -614,6 +627,7 @@ func (repo *artworkRepository) Search(ctx context.Context, query artwork.SearchQ
 	return artwork.SearchPage{Items: items, Total: page.Total}, nil
 }
 
+// applyArtworkSearchFilters adds the supported search predicates to a bun query.
 func applyArtworkSearchFilters(q *bun.SelectQuery, query artwork.SearchQuery) *bun.SelectQuery {
 	if query.ArtistName != "" {
 		q = q.Where("u.username ILIKE ? ESCAPE '\\'", likeContains(query.ArtistName))
@@ -643,11 +657,13 @@ func applyArtworkSearchFilters(q *bun.SelectQuery, query artwork.SearchQuery) *b
 	return q
 }
 
+// likeContains escapes SQL LIKE wildcards so a user value is treated as literal text.
 func likeContains(value string) string {
 	escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(value)
 	return "%" + escaped + "%"
 }
 
+// loadArtworkStylesAndImages loads style labels and image URLs for the provided artwork IDs.
 func loadArtworkStylesAndImages(ctx context.Context, idb bun.IDB, artworkIDs []uuid.UUID) ([]artworkStyleModel, []artworkImageModel, error) { //error
 	styleModels := make([]artworkStyleModel, 0)
 	imageModels := make([]artworkImageModel, 0)

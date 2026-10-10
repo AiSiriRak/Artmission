@@ -23,6 +23,7 @@ type userUsecase struct {
 	storage         ObjectStorage
 }
 
+// NewUserUsecase wires account, bank, artist-profile, deletion, transaction, and image dependencies.
 func NewUserUsecase(
 	repo UserRepository,
 	bankRepo BankAccountRepository,
@@ -41,6 +42,7 @@ func NewUserUsecase(
 	}
 }
 
+// DeleteAccount atomically blocks active orders, removes bank and session records, and soft-deletes the user.
 func (u *userUsecase) DeleteAccount(ctx context.Context, userID uuid.UUID) error {
 	blockingStatuses := []order.Status{order.StatusPending, order.StatusNotPaid, order.StatusInProcess}
 
@@ -65,6 +67,7 @@ func (u *userUsecase) DeleteAccount(ctx context.Context, userID uuid.UUID) error
 	})
 }
 
+// Register validates role-specific details, hashes the password, and transactionally creates the account and related records.
 func (u *userUsecase) Register(ctx context.Context, in RegisterInput) (*User, error) {
 	if in.Role != RoleCustomer && in.Role != RoleArtist {
 		return nil, ErrInvalidRole
@@ -122,6 +125,7 @@ func (u *userUsecase) Register(ctx context.Context, in RegisterInput) (*User, er
 	return newUser, nil
 }
 
+// Authenticate loads the account, verifies its password, and attaches its public profile-image URL.
 func (u *userUsecase) Authenticate(ctx context.Context, email, password string) (*User, error) {
 	found, err := u.repo.GetByEmail(ctx, email)
 	if err != nil {
@@ -137,6 +141,7 @@ func (u *userUsecase) Authenticate(ctx context.Context, email, password string) 
 	return u.attachProfileImageURL(found), nil
 }
 
+// GetByID loads an account by ID and attaches its public profile-image URL.
 func (u *userUsecase) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	account, err := u.repo.GetByID(ctx, id)
 	if err != nil {
@@ -145,6 +150,7 @@ func (u *userUsecase) GetByID(ctx context.Context, id uuid.UUID) (*User, error) 
 	return u.attachProfileImageURL(account), nil
 }
 
+// UpdateAccount changes the username and optionally verifies and hashes a replacement password.
 func (u *userUsecase) UpdateAccount(ctx context.Context, id uuid.UUID, in UpdateAccountInput) (*User, error) {
 	username := strings.TrimSpace(in.Username)
 
@@ -182,6 +188,7 @@ func (u *userUsecase) UpdateAccount(ctx context.Context, id uuid.UUID, in Update
 	return u.attachProfileImageURL(account), nil
 }
 
+// UpdateBankAccount validates and trims bank details before upserting them for a supported role.
 func (u *userUsecase) UpdateBankAccount(ctx context.Context, userID uuid.UUID, role Role, in BankAccountInput) (*BankAccount, error) {
 	if role != RoleCustomer && role != RoleArtist {
 		return nil, ErrBankAccountNotAllowed
@@ -206,6 +213,7 @@ func (u *userUsecase) UpdateBankAccount(ctx context.Context, userID uuid.UUID, r
 	return u.bankRepo.UpsertByUserID(ctx, bank)
 }
 
+// GetBankAccount permits supported account roles to retrieve their stored bank details.
 func (u *userUsecase) GetBankAccount(ctx context.Context, userID uuid.UUID, role Role) (*BankAccount, error) {
 	if role != RoleCustomer && role != RoleArtist {
 		return nil, ErrBankAccountNotAllowed
@@ -213,6 +221,7 @@ func (u *userUsecase) GetBankAccount(ctx context.Context, userID uuid.UUID, role
 	return u.bankRepo.GetByUserID(ctx, userID)
 }
 
+// UpdateProfileImage uploads or removes an image and deletes replaced files after the account update.
 func (u *userUsecase) UpdateProfileImage(
 	ctx context.Context,
 	id uuid.UUID,
@@ -259,6 +268,7 @@ func (u *userUsecase) UpdateProfileImage(
 	return u.attachProfileImageURL(updatedUser), nil
 }
 
+// attachProfileImageURL fills the public URL from the stored image key or clears it when absent.
 func (u *userUsecase) attachProfileImageURL(account *User) *User {
 	if account.ProfileImageKey == nil {
 		account.ProfileImageURL = nil
@@ -269,6 +279,7 @@ func (u *userUsecase) attachProfileImageURL(account *User) *User {
 	return account
 }
 
+// readProfileImage enforces the image size limit and accepts only JPEG, PNG, or WebP signatures.
 func readProfileImage(reader io.Reader) ([]byte, string, string, error) {
 	content, err := io.ReadAll(io.LimitReader(reader, MaxProfileImageSize+1))
 	if err != nil {
@@ -284,6 +295,7 @@ func readProfileImage(reader io.Reader) ([]byte, string, string, error) {
 	return content, contentType, extension, nil
 }
 
+// detectProfileImageType identifies supported image formats from their file signatures.
 func detectProfileImageType(content []byte) (string, string, bool) {
 	switch {
 	case len(content) >= 3 && bytes.Equal(content[:3], []byte{0xff, 0xd8, 0xff}):
