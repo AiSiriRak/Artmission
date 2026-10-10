@@ -32,6 +32,8 @@ type OrderUsecase interface {
 		input ConfirmOrderInput,
 	) (Status, error)
 
+	CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, orderID uuid.UUID) error
+
 	CreateOrder(ctx context.Context, customerID uuid.UUID, input CreateInput) (*Order, error)
 }
 
@@ -55,6 +57,8 @@ type OrderRepository interface {
 		orderID uuid.UUID,
 		status Status,
 	) error
+
+	CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, orderID uuid.UUID) error
 	Create(ctx context.Context, order *Order) error
 }
 

@@ -32,6 +32,12 @@ type fakeRepo struct {
 	confirmErr      error
 	confirmCalled   bool
 
+	cancelParticipant   order.Participant
+	cancelParticipantID uuid.UUID
+	cancelOrderID       uuid.UUID
+	cancelErr           error
+	cancelCalled        bool
+
 	created *order.Order
 }
 
@@ -66,6 +72,20 @@ func (f *fakeRepo) ConfirmOrder(
 	f.confirmStatus = status
 
 	return f.confirmErr
+}
+
+func (f *fakeRepo) CancelOrder(
+	_ context.Context,
+	participant order.Participant,
+	participantID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	f.cancelCalled = true
+	f.cancelParticipant = participant
+	f.cancelParticipantID = participantID
+	f.cancelOrderID = orderID
+
+	return f.cancelErr
 }
 
 func (repo *fakeRepo) Create(ctx context.Context, item *order.Order) error {
@@ -742,5 +762,119 @@ func TestConfirmOrder_PropagatesRepositoryError(t *testing.T) {
 	}
 	if !errors.Is(err, wantErr) {
 		t.Errorf("ConfirmOrder() error = %v, want %v", err, wantErr)
+	}
+}
+
+func TestCancelOrder_Success(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	participant := order.ParticipantCustomer
+	participantID := uuid.New()
+	orderID := uuid.New()
+
+	err := usecase.CancelOrder(
+		context.Background(),
+		participant,
+		participantID,
+		orderID,
+	)
+	if err != nil {
+		t.Fatalf("CancelOrder() error = %v, want nil", err)
+	}
+
+	if !repo.cancelCalled {
+		t.Fatal("CancelOrder() repository method was not called")
+	}
+
+	if repo.cancelParticipant != participant {
+		t.Errorf("Participant = %v, want %v", repo.cancelParticipant, participant)
+	}
+
+	if repo.cancelParticipantID != participantID {
+		t.Errorf("ParticipantID = %v, want %v", repo.cancelParticipantID, participantID)
+	}
+
+	if repo.cancelOrderID != orderID {
+		t.Errorf("OrderID = %v, want %v", repo.cancelOrderID, orderID)
+	}
+}
+
+func TestCancelOrder_RejectsInvalidParticipant(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	err := usecase.CancelOrder(
+		context.Background(),
+		order.Participant("invalid_role"),
+		uuid.New(),
+		uuid.New(),
+	)
+
+	if !errors.Is(err, order.ErrUnsupportedParticipantRole) {
+		t.Errorf("CancelOrder() error = %v, want %v", err, order.ErrUnsupportedParticipantRole)
+	}
+
+	if repo.cancelCalled {
+		t.Error("CancelOrder() repository method should not be called")
+	}
+}
+
+func TestCancelOrder_RejectsMissingParticipantID(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	err := usecase.CancelOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		uuid.Nil,
+		uuid.New(),
+	)
+
+	if !errors.Is(err, order.ErrMissingParticipantID) {
+		t.Errorf("CancelOrder() error = %v, want %v", err, order.ErrMissingParticipantID)
+	}
+
+	if repo.cancelCalled {
+		t.Error("CancelOrder() repository method should not be called")
+	}
+}
+
+func TestCancelOrder_RejectsMissingOrderID(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	err := usecase.CancelOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		uuid.New(),
+		uuid.Nil,
+	)
+
+	if !errors.Is(err, order.ErrMissingOrderID) {
+		t.Errorf("CancelOrder() error = %v, want %v", err, order.ErrMissingOrderID)
+	}
+
+	if repo.cancelCalled {
+		t.Error("CancelOrder() repository method should not be called")
+	}
+}
+
+func TestCancelOrder_PropagatesRepositoryError(t *testing.T) {
+	wantErr := errors.New("database connection error")
+	repo := &fakeRepo{
+		cancelErr: wantErr,
+	}
+	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+
+	err := usecase.CancelOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		uuid.New(),
+		uuid.New(),
+	)
+
+	if !errors.Is(err, wantErr) {
+		t.Errorf("CancelOrder() error = %v, want %v", err, wantErr)
 	}
 }

@@ -218,6 +218,25 @@ func (u *orderUsecase) ConfirmOrder(
 	return status, nil
 }
 
+// CancelOrder cancels an order for the specified participant.
+func (u *orderUsecase) CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, orderID uuid.UUID) error {
+	if !participant.IsValid() {
+		return ErrUnsupportedParticipantRole
+	}
+	if participantID == uuid.Nil {
+		return ErrMissingParticipantID
+	}
+	if orderID == uuid.Nil {
+		return ErrMissingOrderID
+	}
+
+	if err := u.repo.CancelOrder(ctx, participant, participantID, orderID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // CreateOrder validates the artwork reference, builds a pending order, and persists it.
 func (u *orderUsecase) CreateOrder(ctx context.Context, customerID uuid.UUID, input CreateInput) (*Order, error) {
 	if input.ArtworkID == uuid.Nil {

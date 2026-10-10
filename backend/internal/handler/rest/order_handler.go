@@ -63,6 +63,21 @@ func (h *OrderHandler) Register(api huma.API) {
 			)
 		},
 	)
+
+	huma.Put(api, "/orders/{order_id}/cancel", h.cancelOrder,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "cancel-order"
+			o.Summary = "CancelOrder"
+			o.Description = "Cancel an order as the authenticated user."
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireAnyRole(api, user.RoleCustomer, user.RoleArtist),
+			)
+		},
+	)
+
 	huma.Post(api, "/orders", h.createOrder,
 		huma.OperationTags("orders"),
 		func(o *huma.Operation) {
@@ -407,6 +422,46 @@ func (h *OrderHandler) confirmOrder(
 	out := &ConfirmOrderOutput{}
 	out.Body.Message = message
 	out.Body.Status = string(status)
+
+	return out, nil
+}
+
+type CancelOrderInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+}
+
+type CancelOrderOutput struct {
+	Body struct {
+		Message string `json:"message"`
+		Status  string `json:"status"`
+	}
+}
+
+// cancelOrder cancel an order if the user is authenticated
+func (h *OrderHandler) cancelOrder(
+	ctx context.Context,
+	input *CancelOrderInput,
+) (*CancelOrderOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	participant := participantForRole(info.Role)
+
+	err := h.orderUsecase.CancelOrder(
+		ctx,
+		participant,
+		info.UserID,
+		input.OrderID,
+	)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	out := &CancelOrderOutput{}
+	out.Body.Message = "Order cancelled successfully"
+	out.Body.Status = string(order.StatusCancel)
 
 	return out, nil
 }

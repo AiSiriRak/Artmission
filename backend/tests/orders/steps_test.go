@@ -400,6 +400,31 @@ func (o *ordersContext) theUserAttemptsToAcceptTheirLastOrder() error {
 	return o.confirmLastOrder(true)
 }
 
+func (o *ordersContext) cancelOrder(orderID string, authenticated bool) error {
+	headers := map[string]string(nil)
+	if authenticated {
+		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
+	}
+	resp, err := o.client.Do(http.MethodPut, "/orders/"+orderID+"/cancel", nil, headers)
+	if err != nil {
+		return err
+	}
+	o.resp = resp
+	return nil
+}
+
+func (o *ordersContext) theUserCancelsTheirLastOrder() error {
+	return o.cancelOrder(o.lastOrderID, true)
+}
+
+func (o *ordersContext) theUserCancelsTheirLastOrderWithoutLoggingIn() error {
+	return o.cancelOrder(o.lastOrderID, false)
+}
+
+func (o *ordersContext) theUserCancelsAnotherUsersOrder() error {
+	return o.cancelOrder(o.otherOrderID, true)
+}
+
 // getOrder sends GET /orders/{id} and decodes a successful detail response.
 func (o *ordersContext) getOrder(orderID string, authenticated bool) error {
 	headers := map[string]string(nil)
@@ -504,6 +529,11 @@ type orderDetailOutput struct {
 	DeadlineAt          time.Time             `json:"deadline_at"`
 	Status              string                `json:"status"`
 	OtherParty          orderPartyOutput      `json:"other_party"`
+}
+
+type cancelOrderOutput struct {
+	Message string `json:"message"`
+	Status  string `json:"status"`
 }
 
 type artworkSnapshotOutput struct {
@@ -825,6 +855,45 @@ func (o *ordersContext) theSystemRejectsConfirmationForInvalidOrderStatus() erro
 	return o.expectStatus(http.StatusConflict)
 }
 
+func (o *ordersContext) theSystemCancelsTheOrder() error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	var cancellation cancelOrderOutput
+	if err := o.resp.JSON(&cancellation); err != nil {
+		return fmt.Errorf("decode cancellation response: %w (body: %s)", err, o.resp.Body)
+	}
+	if cancellation.Message != "Order cancelled successfully" {
+		return fmt.Errorf("cancellation message = %q, want %q", cancellation.Message, "Order cancelled successfully")
+	}
+	if cancellation.Status != "CANCEL" {
+		return fmt.Errorf("cancellation status = %q, want CANCEL", cancellation.Status)
+	}
+
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if o.orderDetail.Status != "CANCEL" {
+		return fmt.Errorf("persisted order status = %q, want CANCEL", o.orderDetail.Status)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemRejectsCancellationBecauseTheOrderStatusDoesNotAllowIt() error {
+	return o.expectStatus(http.StatusConflict)
+}
+
+func (o *ordersContext) theSystemRejectsCancellationBecauseTheOrderIsNotOwned() error {
+	return o.expectStatus(http.StatusNotFound)
+}
+
+func (o *ordersContext) theSystemRequiresTheUserToLogInToCancel() error {
+	return o.expectStatus(http.StatusUnauthorized)
+}
+
 // theSystemHidesTheOrderFromTheUser verifies another participant's order is reported as not found.
 func (o *ordersContext) theSystemHidesTheOrderFromTheUser() error {
 	return o.expectStatus(http.StatusNotFound)
@@ -896,6 +965,11 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the artist accepts their last order$`, func() error { return o.theArtistAcceptsTheirLastOrder() })
 	sc.Step(`^the artist rejects their last order$`, func() error { return o.theArtistRejectsTheirLastOrder() })
 	sc.Step(`^the user attempts to accept their last order$`, func() error { return o.theUserAttemptsToAcceptTheirLastOrder() })
+	sc.Step(`^the user cancels their last order$`, func() error { return o.theUserCancelsTheirLastOrder() })
+	sc.Step(`^the user cancels their last order without logging in$`, func() error {
+		return o.theUserCancelsTheirLastOrderWithoutLoggingIn()
+	})
+	sc.Step(`^the user cancels another user's order$`, func() error { return o.theUserCancelsAnotherUsersOrder() })
 	sc.Step(`^the user views their orders filtered by status "([^"]*)"$`, func(status string) error {
 		return o.theUserViewsTheirOrdersFilteredByStatus(status)
 	})
@@ -954,6 +1028,16 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system rejects the confirmation because the order status does not allow it$`, func() error {
 		return o.theSystemRejectsConfirmationForInvalidOrderStatus()
+	})
+	sc.Step(`^the system cancels the order$`, func() error { return o.theSystemCancelsTheOrder() })
+	sc.Step(`^the system rejects cancellation because the order status does not allow it$`, func() error {
+		return o.theSystemRejectsCancellationBecauseTheOrderStatusDoesNotAllowIt()
+	})
+	sc.Step(`^the system rejects cancellation because the order is not owned$`, func() error {
+		return o.theSystemRejectsCancellationBecauseTheOrderIsNotOwned()
+	})
+	sc.Step(`^the system requires the user to log in to cancel$`, func() error {
+		return o.theSystemRequiresTheUserToLogInToCancel()
 	})
 	sc.Step(`^the system hides the order from the user$`, func() error {
 		return o.theSystemHidesTheOrderFromTheUser()
