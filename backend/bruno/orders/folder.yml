@@ -11,3 +11,6 @@ request:
       value: 4d35dcb2-c0c7-444c-904c-396bcb7ba26a
     - name: deliverable_image_path
       value: ""
+      description: |-
+        image path ใช้รูปในเครื่องได้เลยนะครับ 
+        (เพิ่ม \ ใน path ให้เป็น 2 ตัวทุกอันด้วยนะครับ)
