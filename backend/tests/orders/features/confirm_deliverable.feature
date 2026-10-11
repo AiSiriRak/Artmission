@@ -8,7 +8,7 @@ Feature: Confirm Deliverable
     And the user has logged in
     And the user has an order with a pending deliverable
     When the customer accepts their last deliverable
-    Then the system confirms the deliverable
+    Then the system confirms the deliverable and marks the order as "SUCCESS"
 
   Scenario: a customer cannot confirm another customer's deliverable
     Given the user has a registered customer account

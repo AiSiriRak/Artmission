@@ -1027,7 +1027,7 @@ func (o *ordersContext) theSystemRejectsDeliverableForInvalidOrderStatus() error
 	return o.expectStatus(http.StatusConflict)
 }
 
-func (o *ordersContext) theSystemConfirmsTheDeliverable() error {
+func (o *ordersContext) theSystemConfirmsTheDeliverableAndMarksOrderWithStatus(status string) error {
 	if err := o.expectStatus(http.StatusOK); err != nil {
 		return err
 	}
@@ -1049,6 +1049,9 @@ func (o *ordersContext) theSystemConfirmsTheDeliverable() error {
 	}
 	if err := o.expectStatus(http.StatusOK); err != nil {
 		return err
+	}
+	if o.orderDetail.Status != status {
+		return fmt.Errorf("order status = %q, want %q", o.orderDetail.Status, status)
 	}
 	for _, deliverable := range o.orderDetail.Deliverables {
 		if deliverable.ID == o.lastDeliverableID && deliverable.Decision == "APPROVED" {
@@ -1331,7 +1334,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system rejects the deliverable because the order status does not allow it$`, func() error {
 		return o.theSystemRejectsDeliverableForInvalidOrderStatus()
 	})
-	sc.Step(`^the system confirms the deliverable$`, func() error { return o.theSystemConfirmsTheDeliverable() })
+	sc.Step(`^the system confirms the deliverable and marks the order as "([^"]*)"$`, func(status string) error {
+		return o.theSystemConfirmsTheDeliverableAndMarksOrderWithStatus(status)
+	})
 	sc.Step(`^the system hides the deliverable from the user$`, func() error {
 		return o.theSystemHidesTheDeliverableFromTheUser()
 	})
