@@ -50,6 +50,19 @@ func (h *OrderHandler) Register(api huma.API) {
 			)
 		})
 
+	huma.Put(api, "/orders/{order_id}/deliverable/{deliverable_id}", h.confirmDeliverable,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "confirm-deliverable"
+			o.Summary = "ConfirmOrderDeliverable"
+			o.Description = "Accept or reject a waiting deliverable as the authenticated customer."
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireRole(api, user.RoleCustomer),
+			)
+		},
+	)
 	huma.Put(api, "/orders/{order_id}/confirm", h.confirmOrder,
 		huma.OperationTags("orders"),
 		func(o *huma.Operation) {
@@ -450,6 +463,59 @@ func (h *OrderHandler) confirmOrder(
 	out := &ConfirmOrderOutput{}
 	out.Body.Message = message
 	out.Body.Status = string(status)
+
+	return out, nil
+}
+
+type confirmDeliverableInput struct {
+	OrderID       uuid.UUID `path:"order_id"`
+	DeliverableID uuid.UUID `path:"deliverable_id"`
+	Body          struct {
+		Accept  bool
+		Comment string `json:"comment,omitempty"`
+	}
+}
+
+type confirmDeliverableOutput struct {
+	Body struct {
+		Message string `json:"message"`
+		Status  string `json:"status"`
+	}
+}
+
+// confirmDeliverable accepts or rejects a submitted deliverable on behalf of the authenticated customer.
+func (h *OrderHandler) confirmDeliverable(ctx context.Context, input *confirmDeliverableInput) (*confirmDeliverableOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	decision, err := h.orderUsecase.ConfirmDeliverable(
+		ctx,
+		info.UserID,
+		order.ConfirmDeliverableInput{
+			OrderID:       input.OrderID,
+			DeliverableID: input.DeliverableID,
+			Accept:        input.Body.Accept,
+			Comment:       input.Body.Comment,
+		},
+	)
+
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	var message string
+	switch input.Body.Accept {
+	case true:
+		message = "Deliverable accepted"
+	case false:
+		message = "Deliverable rejected"
+	}
+
+	out := &confirmDeliverableOutput{}
+	out.Body.Message = message
+	out.Body.Status = string(decision)
 
 	return out, nil
 }

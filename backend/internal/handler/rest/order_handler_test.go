@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -19,6 +20,7 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/httpserver"
 	"github.com/google/uuid"
 )
@@ -27,20 +29,23 @@ type fakeOrderUsecase struct {
 	viewOrdersFunc          func(context.Context, order.ListQuery) (order.Page, error)
 	getOrderFunc            func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
 	confirmOrderFunc        func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) (order.Status, error)
+	confirmDeliverableFunc  func(context.Context, uuid.UUID, order.ConfirmDeliverableInput) (order.DeliverableDecision, error)
 	cancelOrderFunc         func(context.Context, order.Participant, uuid.UUID, uuid.UUID) error
 	cancelExpiredOrdersFunc func(context.Context) ([]uuid.UUID, error)
 	createOrderFunc         func(context.Context, uuid.UUID, order.CreateInput) (*order.Order, error)
 	createDeliverableFunc   func(context.Context, uuid.UUID, order.CreateDeliverableInput) (*order.Deliverable, error)
 
-	gotListQuery           order.ListQuery
-	gotParticipant         order.Participant
-	gotUserID              uuid.UUID
-	gotOrderID             uuid.UUID
-	gotConfirmInput        order.ConfirmOrderInput
-	confirmCalls           int
-	cancelCalls            int
-	gotDeliverableInput    order.CreateDeliverableInput
-	gotDeliverableArtistID uuid.UUID
+	gotListQuery               order.ListQuery
+	gotParticipant             order.Participant
+	gotUserID                  uuid.UUID
+	gotOrderID                 uuid.UUID
+	gotConfirmInput            order.ConfirmOrderInput
+	gotConfirmDeliverableInput order.ConfirmDeliverableInput
+	confirmDeliverableCalls    int
+	confirmCalls               int
+	cancelCalls                int
+	gotDeliverableInput        order.CreateDeliverableInput
+	gotDeliverableArtistID     uuid.UUID
 }
 
 type fakeArtworkUsecase struct {
@@ -116,6 +121,23 @@ func (f *fakeOrderUsecase) ConfirmOrder(
 		return order.StatusNotPaid, nil
 	}
 	return order.StatusCancel, nil
+}
+
+func (f *fakeOrderUsecase) ConfirmDeliverable(
+	ctx context.Context,
+	customerID uuid.UUID,
+	input order.ConfirmDeliverableInput,
+) (order.DeliverableDecision, error) {
+	f.confirmDeliverableCalls++
+	f.gotUserID = customerID
+	f.gotConfirmDeliverableInput = input
+	if f.confirmDeliverableFunc != nil {
+		return f.confirmDeliverableFunc(ctx, customerID, input)
+	}
+	if input.Accept {
+		return order.DeliverableDecisionApproved, nil
+	}
+	return order.DeliverableDecisionRejected, nil
 }
 
 func (f *fakeOrderUsecase) CancelOrder(
@@ -483,6 +505,263 @@ func TestOrderHandlerConfirmOrderAcceptsOrRejectsOrder(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+func TestOrderHandlerConfirmDeliverableAcceptsOrRejectsDeliverable(t *testing.T) {
+	const (
+		orderID       = "00000000-0000-0000-0000-000000000010"
+		deliverableID = "00000000-0000-0000-0000-000000000020"
+		userID        = "00000000-0000-0000-0000-000000000001"
+	)
+
+	for _, tt := range []struct {
+		name        string
+		body        string
+		accept      bool
+		comment     string
+		wantMessage string
+		wantStatus  order.DeliverableDecision
+	}{
+		{
+			name:        "accept",
+			body:        `{"accept":true}`,
+			accept:      true,
+			wantMessage: "Deliverable accepted",
+			wantStatus:  order.DeliverableDecisionApproved,
+		},
+		{
+			name:        "reject with comment",
+			body:        `{"accept":false,"comment":"Please revise the colors."}`,
+			comment:     "Please revise the colors.",
+			wantMessage: "Deliverable rejected",
+			wantStatus:  order.DeliverableDecisionRejected,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			usecase := &fakeOrderUsecase{}
+			handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+			rec := serveOrderRequest(
+				handler,
+				http.MethodPut,
+				"/orders/"+orderID+"/deliverable/"+deliverableID,
+				true,
+				tt.body,
+			)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+			}
+
+			var got struct {
+				Message string `json:"message"`
+				Status  string `json:"status"`
+			}
+			if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if got.Message != tt.wantMessage || got.Status != string(tt.wantStatus) {
+				t.Errorf("response = %+v, want message %q and status %q", got, tt.wantMessage, tt.wantStatus)
+			}
+			if usecase.confirmDeliverableCalls != 1 ||
+				usecase.gotUserID != uuid.MustParse(userID) ||
+				usecase.gotConfirmDeliverableInput != (order.ConfirmDeliverableInput{
+					OrderID:       uuid.MustParse(orderID),
+					DeliverableID: uuid.MustParse(deliverableID),
+					Accept:        tt.accept,
+					Comment:       tt.comment,
+				}) {
+				t.Errorf(
+					"ConfirmDeliverable() received calls=%d customerID=%s input=%+v",
+					usecase.confirmDeliverableCalls,
+					usecase.gotUserID,
+					usecase.gotConfirmDeliverableInput,
+				)
+			}
+		})
+	}
+}
+
+func TestOrderHandlerConfirmDeliverablePropagatesUsecaseError(t *testing.T) {
+	usecase := &fakeOrderUsecase{
+		confirmDeliverableFunc: func(context.Context, uuid.UUID, order.ConfirmDeliverableInput) (order.DeliverableDecision, error) {
+			return "", order.ErrInvalidDeliverableStatus
+		},
+	}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+	rec := serveOrderRequest(
+		handler,
+		http.MethodPut,
+		"/orders/00000000-0000-0000-0000-000000000010/deliverable/00000000-0000-0000-0000-000000000020",
+		true,
+		`{"accept":true}`,
+	)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	if usecase.confirmDeliverableCalls != 1 {
+		t.Errorf("ConfirmDeliverable() calls = %d, want 1", usecase.confirmDeliverableCalls)
+	}
+}
+
+func TestOrderHandlerConfirmDeliverableMapsUsecaseErrors(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		wantStatus int
+	}{
+		{name: "invalid input", err: apperror.InvalidInput("invalid input", nil), wantStatus: http.StatusBadRequest},
+		{name: "unauthorized", err: apperror.Unauthorized("unauthorized"), wantStatus: http.StatusUnauthorized},
+		{name: "forbidden", err: apperror.Forbidden("forbidden"), wantStatus: http.StatusForbidden},
+		{name: "not found", err: apperror.NotFound("not found"), wantStatus: http.StatusNotFound},
+		{name: "conflict", err: apperror.Conflict("conflict"), wantStatus: http.StatusConflict},
+		{name: "internal", err: apperror.Internal("internal", nil), wantStatus: http.StatusInternalServerError},
+		{name: "unrecognized", err: errors.New("unexpected error"), wantStatus: http.StatusInternalServerError},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			usecase := &fakeOrderUsecase{
+				confirmDeliverableFunc: func(context.Context, uuid.UUID, order.ConfirmDeliverableInput) (order.DeliverableDecision, error) {
+					return "", tt.err
+				},
+			}
+			handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+			rec := serveOrderRequest(
+				handler,
+				http.MethodPut,
+				"/orders/00000000-0000-0000-0000-000000000010/deliverable/00000000-0000-0000-0000-000000000020",
+				true,
+				`{"accept":true}`,
+			)
+
+			if rec.Code != tt.wantStatus {
+				t.Errorf("response status = %d, want %d: %s", rec.Code, tt.wantStatus, rec.Body.String())
+			}
+			if usecase.confirmDeliverableCalls != 1 {
+				t.Errorf("ConfirmDeliverable() calls = %d, want 1", usecase.confirmDeliverableCalls)
+			}
+		})
+	}
+}
+
+func TestOrderHandlerConfirmDeliverableRejectsMissingAuthenticationContext(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := &OrderHandler{orderUsecase: usecase}
+	input := &confirmDeliverableInput{
+		OrderID:       uuid.MustParse("00000000-0000-0000-0000-000000000010"),
+		DeliverableID: uuid.MustParse("00000000-0000-0000-0000-000000000020"),
+	}
+	input.Body.Accept = true
+
+	output, err := handler.confirmDeliverable(context.Background(), input)
+	if err == nil {
+		t.Fatal("confirmDeliverable() error = nil, want missing-authentication error")
+	}
+	if output != nil {
+		t.Errorf("confirmDeliverable() output = %+v, want nil", output)
+	}
+	if !strings.Contains(err.Error(), "missing authentication") {
+		t.Errorf("confirmDeliverable() error = %q, want missing-authentication error", err)
+	}
+	if usecase.confirmDeliverableCalls != 0 {
+		t.Errorf("ConfirmDeliverable() calls = %d, want 0", usecase.confirmDeliverableCalls)
+	}
+}
+
+func TestOrderHandlerConfirmDeliverableRequiresCustomerRole(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleArtist, usecase)
+	rec := serveOrderRequest(
+		handler,
+		http.MethodPut,
+		"/orders/00000000-0000-0000-0000-000000000010/deliverable/00000000-0000-0000-0000-000000000020",
+		true,
+		`{"accept":true}`,
+	)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+	if usecase.confirmDeliverableCalls != 0 {
+		t.Errorf("ConfirmDeliverable() calls = %d, want 0", usecase.confirmDeliverableCalls)
+	}
+}
+
+func TestOrderHandlerConfirmDeliverableRequiresAuthentication(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+	rec := serveOrderRequest(
+		handler,
+		http.MethodPut,
+		"/orders/00000000-0000-0000-0000-000000000010/deliverable/00000000-0000-0000-0000-000000000020",
+		false,
+		`{"accept":true}`,
+	)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusUnauthorized, rec.Body.String())
+	}
+	if usecase.confirmDeliverableCalls != 0 {
+		t.Errorf("ConfirmDeliverable() calls = %d, want 0", usecase.confirmDeliverableCalls)
+	}
+}
+
+func TestOrderHandlerConfirmDeliverableRejectsInvalidDeliverableID(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+	rec := serveOrderRequest(
+		handler,
+		http.MethodPut,
+		"/orders/00000000-0000-0000-0000-000000000010/deliverable/not-a-uuid",
+		true,
+		`{"accept":true}`,
+	)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
+	}
+	if usecase.confirmDeliverableCalls != 0 {
+		t.Errorf("ConfirmDeliverable() calls = %d, want 0", usecase.confirmDeliverableCalls)
+	}
+}
+
+func TestOrderHandlerConfirmDeliverableRejectsInvalidOrderID(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+	rec := serveOrderRequest(
+		handler,
+		http.MethodPut,
+		"/orders/not-a-uuid/deliverable/00000000-0000-0000-0000-000000000020",
+		true,
+		`{"accept":true}`,
+	)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
+	}
+	if usecase.confirmDeliverableCalls != 0 {
+		t.Errorf("ConfirmDeliverable() calls = %d, want 0", usecase.confirmDeliverableCalls)
+	}
+}
+
+func TestOrderHandlerConfirmDeliverableRejectsMalformedBody(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+	rec := serveOrderRequest(
+		handler,
+		http.MethodPut,
+		"/orders/00000000-0000-0000-0000-000000000010/deliverable/00000000-0000-0000-0000-000000000020",
+		true,
+		`{"accept":`,
+	)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	if usecase.confirmDeliverableCalls != 0 {
+		t.Errorf("ConfirmDeliverable() calls = %d, want 0", usecase.confirmDeliverableCalls)
 	}
 }
 

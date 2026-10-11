@@ -248,6 +248,43 @@ func (u *orderUsecase) ConfirmOrder(
 	return status, nil
 }
 
+func (u *orderUsecase) ConfirmDeliverable(ctx context.Context, customerID uuid.UUID, input ConfirmDeliverableInput) (DeliverableDecision, error) {
+	if customerID == uuid.Nil {
+		return "", ErrMissingParticipantID
+	}
+
+	if input.OrderID == uuid.Nil {
+		return "", ErrMissingOrderID
+	}
+
+	if input.DeliverableID == uuid.Nil {
+		return "", ErrMissingDeliverableID
+	}
+
+	comment := strings.TrimSpace(input.Comment)
+
+	if input.Accept && comment != "" {
+		return "", apperror.InvalidInput("accepted request comment must be empty", nil)
+	}
+	if !input.Accept && comment == "" {
+		return "", apperror.InvalidInput("rejected request must not be blank", nil)
+	}
+
+	var decision DeliverableDecision
+	switch input.Accept {
+	case true:
+		decision = DeliverableDecisionApproved
+	case false:
+		decision = DeliverableDecisionRejected
+	}
+
+	if err := u.repo.ConfirmDeliverable(ctx, customerID, input.OrderID, input.DeliverableID, decision, input.Comment); err != nil {
+		return "", err
+	}
+
+	return decision, nil
+}
+
 // CancelOrder cancels an order for the specified participant.
 func (u *orderUsecase) CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, orderID uuid.UUID) error {
 	if !participant.IsValid() {

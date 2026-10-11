@@ -403,6 +403,82 @@ func (r *orderRepository) ConfirmOrder(
 	return nil
 }
 
+// ConfirmDeliverable transitions a WAIT deliverable to the given decision.
+func (r *orderRepository) ConfirmDeliverable(
+	ctx context.Context,
+	customerID uuid.UUID,
+	orderID uuid.UUID,
+	deliverableID uuid.UUID,
+	decision order.DeliverableDecision,
+	comment string,
+) error {
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		existing := new(pgmodel.OrderDeliverable)
+		err := idb.NewSelect().
+			Model(existing).
+			Column("od.id", "od.decision").
+			Join("JOIN orders AS o ON o.id = od.order_id").
+			Where("od.id = ?", deliverableID).
+			Where("od.order_id = ?", orderID).
+			Where("o.customer_id = ?", customerID).
+			Scan(ctx)
+
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return order.ErrOrderNotFound
+			}
+			return err
+		}
+
+		if existing.Decision != string(order.DeliverableDecisionWait) {
+			return order.ErrInvalidDeliverableStatus
+		}
+
+		var persistedComment *string
+		if decision == order.DeliverableDecisionRejected {
+			persistedComment = &comment
+		}
+
+		result, err := idb.NewUpdate().
+			Model((*pgmodel.OrderDeliverable)(nil)).
+			Set("decision = ?", string(decision)).
+			Set("comment = ?", persistedComment).
+			Set("updated_at = NOW()").
+			Where("od.id = ?", deliverableID).
+			Where("od.order_id = ?", orderID).
+			Where("od.decision = ?", string(order.DeliverableDecisionWait)).
+			Where(`EXISTS (
+				SELECT 1
+				FROM orders AS o
+				WHERE o.id = od.order_id AND o.customer_id = ?
+			)`, customerID).
+			Exec(ctx)
+
+		if err != nil {
+			return err
+		}
+
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+
+		if rows == 0 {
+			return order.ErrInvalidDeliverableStatus
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return err
+		}
+		return apperror.Internal("failed to confirm decision of order deliverables", err)
+	}
+	return nil
+}
+
 // CancelOrder transitions an order to the given status,
 func (r *orderRepository) CancelOrder(
 	ctx context.Context,
