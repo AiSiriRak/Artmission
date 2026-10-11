@@ -1,5 +1,24 @@
 import { apiFetch } from "./client";
-import { OrderHistory, OrderStatus } from "./types";
+import { Order, OrderHistory, OrderStatus } from "./types";
+
+export interface CreateOrderInput {
+  artwork_id: string;
+  name: string;
+  customer_description: string;
+  /** ISO 8601 date-time */
+  deadline_at: string;
+}
+
+/**
+ * สร้างออเดอร์ใหม่ของลูกค้า
+ * POST /orders
+ */
+export async function createOrder(input: CreateOrderInput): Promise<Order> {
+  return apiFetch<Order>("/orders", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
 
 interface GetOrderHistoryParams {
   status?: OrderStatus[];

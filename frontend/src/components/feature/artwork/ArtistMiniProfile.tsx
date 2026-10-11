@@ -1,7 +1,12 @@
+import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 import type { ArtistProfile } from "@/lib/api/types";
 
 interface ArtistMiniProfileProps {
-  artist: Pick<ArtistProfile, "artist_name" | "profile_url" | "review_score">;
+  artist: Pick<
+    ArtistProfile,
+    "artist_id" | "artist_name" | "profile_url" | "review_score"
+  >;
 }
 
 export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
@@ -25,6 +30,20 @@ export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
           </span>
         </div>
       </div>
+
+      <Link href={`/artists/${artist.artist_id}`}>
+        <Button
+          variant="light"
+          className="text-button mb-10 flex items-center gap-2 !border"
+        >
+          <img
+            src="/icons/external-link-icon.svg"
+            alt="external link icon"
+            className="w-4 h-4"
+          />{" "}
+          View Profile
+        </Button>
+      </Link>
     </div>
   );
 }

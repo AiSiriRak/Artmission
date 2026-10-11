@@ -79,9 +79,11 @@ function ArtworkDetailContent() {
                 <ArtworkDetailCard artwork={artwork} />
                 <div className="sticky top-28 flex flex-col gap-y-4 gap-x-auto">
                   <ArtistMiniProfile artist={artist} />
-                  <ArtworkOrderSection
+                  <ArtworkOrderSection 
                     minimumDeadlineDays={artwork.minimum_deadline_days}
                     priceSatang={artwork.price_satang}
+                    artworkId={artwork.id}
+                    artistId={artist.artist_id}
                   />
                 </div>
               </div>
