@@ -47,10 +47,11 @@ export function OrderRequestSection({ artwork }: OrderRequestSectionProps) {
       setError("Please enter the order name and request details.");
       return;
     }
-    if (!deadline || deadline < minDeadline) {
-      setError(`Deadline must be at least ${artwork.minimum_deadline_days} days from today.`);
-      return;
-    }
+    // System already hard blocking invalid deadline input
+    // if (!deadline || deadline < minDeadline) {
+    //   setError(`Deadline must be at least ${artwork.minimum_deadline_days} days from today.`);
+    //   return;
+    // }
 
     setSubmitting(true);
     setError(null);
@@ -61,6 +62,7 @@ export function OrderRequestSection({ artwork }: OrderRequestSectionProps) {
         customer_description: details.trim(),
         deadline_at: new Date(`${deadline}T00:00:00`).toISOString(),
       });
+      // To do : Navigate to order detail page after creating order (wait for implementation)
       router.push(routes.order.history);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create order.");

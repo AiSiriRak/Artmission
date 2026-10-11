@@ -12,7 +12,7 @@ import type { Artwork } from "@/lib/api/types";
 
 function OrderPlacementContent() {
   const router = useRouter();
-  const { id } = useParams<{ id: string }>();
+  const { artworkId } = useParams<{ artworkId: string }>();
   const artistId = useSearchParams().get("artistId");
 
   const [artwork, setArtwork] = useState<Artwork | null>(null);
@@ -28,7 +28,7 @@ function OrderPlacementContent() {
     getArtistArtworks(artistId)
       .then((artworks) => {
         if (cancelled) return;
-        const found = artworks.find((item) => item.id === id);
+        const found = artworks.find((item) => item.id === artworkId);
         if (found) setArtwork(found);
         else setError("Artwork not found.");
       })
@@ -41,7 +41,7 @@ function OrderPlacementContent() {
     return () => {
       cancelled = true;
     };
-  }, [id, artistId]);
+  }, [artworkId, artistId]);
 
   return (
     <MainLayout usertype="customer">

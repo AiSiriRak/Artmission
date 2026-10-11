@@ -14,7 +14,7 @@ import type { ArtistProfile, Artwork } from "@/lib/api/types";
 
 function ArtworkDetailContent() {
     const router = useRouter();
-    const { id } = useParams<{ id: string }>();
+    const { artworkId } = useParams<{ id: string }>();
     // The backend has no GET /artworks/{id}, so the artwork is looked up
     // in its artist's artwork list (artist id passed as ?artistId=).
     const artistId = useSearchParams().get("artistId");
@@ -38,7 +38,7 @@ function ArtworkDetailContent() {
                 ]);
                 if (cancelled) return;
 
-                const found = artworks.find((item) => item.id === id);
+                const found = artworks.find((item) => item.id === artworkId);
                 if (!found) {
                     setError("Artwork not found.");
                     return;
@@ -55,7 +55,7 @@ function ArtworkDetailContent() {
         return () => {
             cancelled = true;
         };
-    }, [id, artistId]);
+    }, [artworkId, artistId]);
 
     return (
         <MainLayout usertype="customer">
