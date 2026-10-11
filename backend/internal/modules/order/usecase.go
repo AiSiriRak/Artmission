@@ -36,13 +36,17 @@ type orderUsecase struct {
 	artistGetter ArtistGetter
 }
 
-// NewOrderUsecase creates the order use case with its repository and storage
-// dependencies. artistGetter is needed only when creating watermarked
-// deliverable previews.
-func NewOrderUsecase(repo OrderRepository, storage ObjectStorage, artistGetters ...ArtistGetter) OrderUsecase {
-	usecase := &orderUsecase{repo: repo, storage: storage}
-	if len(artistGetters) > 0 {
-		usecase.artistGetter = artistGetters[0]
+// NewOrderUsecase creates the order use case with its repository,
+// storage, and artist lookup dependencies.
+func NewOrderUsecase(
+	repo OrderRepository,
+	storage ObjectStorage,
+	artistGetter ArtistGetter,
+) OrderUsecase {
+	usecase := &orderUsecase{
+		repo:         repo,
+		storage:      storage,
+		artistGetter: artistGetter,
 	}
 	return usecase
 }
@@ -338,12 +342,12 @@ func (u *orderUsecase) CreateDeliverable(
 	artistID uuid.UUID,
 	input CreateDeliverableInput,
 ) (*Deliverable, error) {
-	if artistID == uuid.Nil {
-		return nil, ErrMissingParticipantID
-	}
-
-	if input.OrderID == uuid.Nil {
-		return nil, ErrMissingOrderID
+	if err := u.ValidateOrderForDeliverable(
+		ctx,
+		artistID,
+		input.OrderID,
+	); err != nil {
+		return nil, err
 	}
 
 	// Read the uploaded image, enforce the size limit, and detect its
@@ -353,9 +357,6 @@ func (u *orderUsecase) CreateDeliverable(
 		return nil, err
 	}
 
-	if u.artistGetter == nil {
-		return nil, ErrArtistGetterUnavailable
-	}
 	artistName, err := u.artistGetter.GetArtistName(ctx, artistID)
 	if err != nil {
 		return nil, err
@@ -399,12 +400,13 @@ func (u *orderUsecase) CreateDeliverable(
 		now,
 	)
 
-	if err := u.repo.CreateDeliverable(
+	created, err := u.repo.CreateDeliverable(
 		ctx,
 		artistID,
 		input.OrderID,
 		deliverable,
-	); err != nil {
+	)
+	if err != nil {
 		if cleanupErr := u.deleteDeliverableImages(
 			ctx,
 			originalImageKey,
@@ -418,7 +420,20 @@ func (u *orderUsecase) CreateDeliverable(
 		return nil, err
 	}
 
-	return deliverable, nil
+	previewURL, err := u.storage.GetPresignedURL(
+		ctx,
+		created.PreviewImageKey,
+		orderDeliverableTTL,
+	)
+	if err != nil {
+		return nil, apperror.Internal(
+			"failed to presign deliverable preview image",
+			err,
+		)
+	}
+
+	created.PreviewImageURL = previewURL
+	return created, nil
 }
 
 // normalizeOrderDeliverable initializes a new deliverable entity with
@@ -663,10 +678,30 @@ func createDeliverablePreview(
 		&output,
 		watermarkImage,
 		imaging.JPEG,
-		imaging.JPEGQuality(88),
+		imaging.JPEGQuality(deliverablePreviewQuality),
 	); err != nil {
 		return nil, fmt.Errorf("encode deliverable preview: %w", err)
 	}
 
 	return output.Bytes(), nil
+}
+
+func (u *orderUsecase) ValidateOrderForDeliverable(
+	ctx context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	if artistID == uuid.Nil {
+		return ErrMissingParticipantID
+	}
+
+	if orderID == uuid.Nil {
+		return ErrMissingOrderID
+	}
+
+	return u.repo.ValidateOrderForDeliverable(
+		ctx,
+		artistID,
+		orderID,
+	)
 }

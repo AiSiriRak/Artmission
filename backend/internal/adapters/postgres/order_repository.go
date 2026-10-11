@@ -413,64 +413,65 @@ func (r *orderRepository) CancelOrder(
 	if participant != order.ParticipantCustomer && participant != order.ParticipantArtist {
 		return apperror.Internal("unsupported participant", nil)
 	}
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			existing := new(pgmodel.Order)
 
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		existing := new(pgmodel.Order)
+			q := idb.NewSelect().
+				Model(existing).
+				Column("id", "status").
+				Where("id = ?", orderID)
 
-		q := idb.NewSelect().
-			Model(existing).
-			Column("id", "status").
-			Where("id = ?", orderID)
-
-		if participant == order.ParticipantCustomer {
-			q = q.Where("customer_id = ?", participantID)
-		} else {
-			q = q.Where("artist_id = ?", participantID)
-		}
-
-		if err := q.Scan(ctx); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return order.ErrOrderNotFound
+			if participant == order.ParticipantCustomer {
+				q = q.Where("customer_id = ?", participantID)
+			} else {
+				q = q.Where("artist_id = ?", participantID)
 			}
-			return err
-		}
 
-		if existing.Status == string(order.StatusCancel) || existing.Status == string(order.StatusSuccess) {
-			return order.ErrInvalidOrderStatus
-		}
+			if err := q.Scan(ctx); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return order.ErrOrderNotFound
+				}
+				return err
+			}
 
-		// TODO(payment): Before cancelling orders, coordinate with the payment flow.
+			if existing.Status == string(order.StatusCancel) || existing.Status == string(order.StatusSuccess) {
+				return order.ErrInvalidOrderStatus
+			}
 
-		updateQ := idb.NewUpdate().
-			Model((*pgmodel.Order)(nil)).
-			Set("status = ?", string(order.StatusCancel)).
-			Set("updated_at = NOW()").
-			Where("id = ?", orderID).
-			Where("status = ?", existing.Status)
+			// TODO: Process payment refund/transaction here before updating order status
+			// e.g., if err := r.paymentService.Refund(...); err != nil { return err }
 
-		if participant == order.ParticipantCustomer {
-			updateQ = updateQ.Where("customer_id = ?", participantID)
-		} else {
-			updateQ = updateQ.Where("artist_id = ?", participantID)
-		}
+			updateQ := idb.NewUpdate().
+				Model((*pgmodel.Order)(nil)).
+				Set("status = ?", string(order.StatusCancel)).
+				Set("updated_at = NOW()").
+				Where("id = ?", orderID).
+				Where("status = ?", existing.Status)
 
-		result, err := updateQ.Exec(ctx)
-		if err != nil {
-			return err
-		}
+			if participant == order.ParticipantCustomer {
+				updateQ = updateQ.Where("customer_id = ?", participantID)
+			} else {
+				updateQ = updateQ.Where("artist_id = ?", participantID)
+			}
 
-		rows, err := result.RowsAffected()
-		if err != nil {
-			return err
-		}
+			result, err := updateQ.Exec(ctx)
+			if err != nil {
+				return err
+			}
 
-		if rows == 0 {
-			return order.ErrInvalidOrderStatus
-		}
+			rows, err := result.RowsAffected()
+			if err != nil {
+				return err
+			}
 
-		return nil
+			if rows == 0 {
+				return order.ErrInvalidOrderStatus
+			}
+
+			return nil
+		})
 	})
-
 	if err != nil {
 		if _, ok := errors.AsType[*apperror.Error](err); ok {
 			return err
@@ -496,22 +497,38 @@ func (r *orderRepository) CancelExpired(
 		statuses[i] = string(s)
 	}
 
-	// TODO(payment): Before cancelling orders, coordinate with the payment flow.
-
 	var ids []uuid.UUID
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return idb.NewUpdate().
-			Model((*pgmodel.Order)(nil)).
-			Set("status = ?", string(order.StatusCancel)).
-			Set("updated_at = NOW()").
-			Where("status IN (?)", bun.List(statuses)).
-			WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
-				return q.
-					Where("deadline_at <= ?", now).
-					WhereOr("(status = ? AND created_at <= ?)", string(order.StatusPending), pendingCutoff)
-			}).
-			Returning("id").
-			Scan(ctx, &ids)
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+
+			err := idb.NewUpdate().
+				Model((*pgmodel.Order)(nil)).
+				Set("status = ?", string(order.StatusCancel)).
+				Set("updated_at = NOW()").
+				Where("status IN (?)", bun.List(statuses)).
+				WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
+					return q.
+						Where("deadline_at <= ?", now).
+						WhereOr("(status = ? AND created_at <= ?)", string(order.StatusPending), pendingCutoff)
+				}).
+				Returning("id").
+				Scan(ctx, &ids)
+			if err != nil {
+				return err
+			}
+
+			// TODO (Payment): If payment integration is added, process refund or void transactions for all canceled order IDs here.
+			// Example:
+			// if len(ids) > 0 {
+			//     for _, orderID := range ids {
+			//         if err := r.paymentService.ProcessRefund(ctx, idb, orderID); err != nil {
+			//             return fmt.Errorf("failed to process refund for order %s: %w", orderID, err)
+			//         }
+			//     }
+			// }
+
+			return nil
+		})
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -611,18 +628,20 @@ func (r *orderRepository) CreateDeliverable(
 	artistID uuid.UUID,
 	orderID uuid.UUID,
 	item *order.Deliverable,
-) error {
+) (*order.Deliverable, error) {
 	if item == nil {
-		return apperror.InvalidInput("deliverable must not be nil", nil)
+		return nil, apperror.InvalidInput("deliverable must not be nil", nil)
 	}
 
 	if artistID == uuid.Nil {
-		return order.ErrArtistNotFound
+		return nil, order.ErrArtistNotFound
 	}
 
 	if orderID == uuid.Nil {
-		return order.ErrOrderNotFound
+		return nil, order.ErrOrderNotFound
 	}
+
+	var created order.Deliverable
 
 	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
 		return r.exec.Run(ctx, func(idb bun.IDB) error {
@@ -655,6 +674,21 @@ func (r *orderRepository) CreateDeliverable(
 				Where("order_id = ?", orderID).
 				Scan(ctx, &maxVersion); err != nil {
 				return err
+			}
+
+			var pendingExists bool
+
+			pendingExists, err := idb.NewSelect().
+				Model((*pgmodel.OrderDeliverable)(nil)).
+				Where("order_id = ?", orderID).
+				Where("decision = ?", string(order.DeliverableDecisionWait)).
+				Exists(ctx)
+			if err != nil {
+				return err
+			}
+
+			if pendingExists {
+				return order.ErrDeliverablePending
 			}
 
 			if maxVersion >= order.MaxDeliverableVersions {
@@ -691,6 +725,7 @@ func (r *orderRepository) CreateDeliverable(
 				if _, err := idb.NewUpdate().
 					Model((*pgmodel.Order)(nil)).
 					Set("status = ?", string(order.StatusSuccess)).
+					Set("completed_at = NOW()").
 					Set("updated_at = NOW()").
 					Where("id = ?", orderID).
 					Exec(ctx); err != nil {
@@ -699,8 +734,9 @@ func (r *orderRepository) CreateDeliverable(
 			}
 
 			// Return the version assigned by the repository.
-			item.Version = model.Version
-			item.Decision = order.DeliverableDecision(model.Decision)
+			created = *item
+			created.Version = model.Version
+			created.Decision = order.DeliverableDecision(model.Decision)
 
 			return nil
 		})
@@ -708,10 +744,49 @@ func (r *orderRepository) CreateDeliverable(
 
 	if err != nil {
 		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return nil, err
+		}
+
+		return nil, apperror.Internal("failed to create deliverable", err)
+	}
+
+	return &created, nil
+}
+
+// ValidateOrderForDeliverable verifies that the order exists, belongs to the
+// specified artist, and is in the IN_PROCESS state before processing images.
+func (r *orderRepository) ValidateOrderForDeliverable(
+	ctx context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		existing := new(pgmodel.Order)
+
+		if err := idb.NewSelect().
+			Model(existing).
+			Column("id", "status").
+			Where("id = ?", orderID).
+			Where("artist_id = ?", artistID).
+			Scan(ctx); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return order.ErrOrderNotFound
+			}
 			return err
 		}
 
-		return apperror.Internal("failed to create deliverable", err)
+		if existing.Status != string(order.StatusInProcess) {
+			return order.ErrInvalidOrderStatus
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return err
+		}
+		return apperror.Internal("failed to validate order for deliverable", err)
 	}
 
 	return nil
