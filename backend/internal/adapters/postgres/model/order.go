@@ -75,3 +75,18 @@ type OrderDeliverable struct {
 	CreatedAt        time.Time `bun:"created_at,nullzero"`
 	UpdatedAt        time.Time `bun:"updated_at,nullzero"`
 }
+
+// OrderDelayRequest represents a deadline extension request in the database.
+type OrderDelayRequest struct {
+	bun.BaseModel `bun:"table:order_delay_requests,alias:odr"`
+
+	ID                 uuid.UUID `bun:"id,pk"`
+	OrderID            uuid.UUID `bun:"order_id"`
+	OriginalDeadlineAt time.Time `bun:"original_deadline_at"`
+	DeadlineRequestAt  time.Time `bun:"deadline_request_at"`
+	Reason             string    `bun:"reason"`
+	Explanation        string    `bun:"explanation"`
+	CustomerDecision   string    `bun:"customer_decision"`
+	CreatedAt          time.Time `bun:"created_at"`
+	UpdatedAt          time.Time `bun:"updated_at"`
+}

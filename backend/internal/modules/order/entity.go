@@ -67,6 +67,54 @@ func (d DeliverableDecision) IsValid() bool {
 	}
 }
 
+// DelayRequestReason represents the reason for requesting a deadline extension.
+type DelayRequestReason string
+
+const (
+	DelayReasonNeedMoreTime       DelayRequestReason = "NEED_MORE_TIME"
+	DelayReasonWaitingForFeedback DelayRequestReason = "WAITING_FOR_FEEDBACK"
+	DelayReasonPersonalReason     DelayRequestReason = "PERSONAL_REASON"
+	DelayReasonHighWorkload       DelayRequestReason = "HIGH_WORKLOAD"
+	DelayReasonTechnicalIssue     DelayRequestReason = "TECHNICAL_ISSUE"
+	DelayReasonOther              DelayRequestReason = "OTHER"
+)
+
+// IsValid reports whether the delay request reason is a supported value.
+func (ds DelayRequestReason) IsValid() bool {
+	switch ds {
+	case DelayReasonNeedMoreTime,
+		DelayReasonWaitingForFeedback,
+		DelayReasonPersonalReason,
+		DelayReasonHighWorkload,
+		DelayReasonTechnicalIssue,
+		DelayReasonOther:
+		return true
+	default:
+		return false
+	}
+}
+
+// DelayRequestDecision represents the customer's decision on a deadline extension.
+type DelayRequestDecision string
+
+const (
+	DelayDecisionWait     DelayRequestDecision = "WAIT"
+	DelayDecisionApproved DelayRequestDecision = "APPROVED"
+	DelayDecisionRejected DelayRequestDecision = "REJECTED"
+)
+
+// IsValid reports whether the delay request decision is a supported value.
+func (dd DelayRequestDecision) IsValid() bool {
+	switch dd {
+	case DelayDecisionWait,
+		DelayDecisionApproved,
+		DelayDecisionRejected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Participant is the caller's relationship to an order. It is derived
 // from the authenticated user's role and is used to scope order access.
 // It is never accepted as a request field.
@@ -168,6 +216,19 @@ type Deliverable struct {
 	PreviewImageURL  string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+}
+
+// OrderDelayRequest represents an artist's request to extend an order deadline.
+type OrderDelayRequest struct {
+	ID                 uuid.UUID
+	OrderID            uuid.UUID
+	OriginalDeadlineAt time.Time
+	DeadlineRequestAt  time.Time
+	Reason             DelayRequestReason
+	Explanation        string
+	CustomerDecision   DelayRequestDecision
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 // ListQuery is ViewOrders input
