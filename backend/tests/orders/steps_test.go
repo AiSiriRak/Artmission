@@ -3,13 +3,20 @@
 package orders
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"image"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"image/png"
+
+	"github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres"
+	ordermod "github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/cucumber/godog"
@@ -40,6 +47,7 @@ type ordersContext struct {
 	resp        *apptest.Response
 	page        viewOrdersOutput // last response decoded while resp.StatusCode == 200
 	orderDetail orderDetailOutput
+	deliverable deliverableOutput
 }
 
 // --- given ---
@@ -399,6 +407,63 @@ func (o *ordersContext) theArtistRejectsTheirLastOrder() error {
 func (o *ordersContext) theUserAttemptsToAcceptTheirLastOrder() error {
 	return o.confirmLastOrder(true)
 }
+func (o *ordersContext) theArtistSubmitsADeliverableForTheirLastOrder(authenticated bool) error {
+	var imageData bytes.Buffer
+	if err := png.Encode(&imageData, image.NewRGBA(image.Rect(0, 0, 32, 32))); err != nil {
+		return fmt.Errorf("encode test deliverable image: %w", err)
+	}
+
+	headers := map[string]string(nil)
+	if authenticated {
+		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
+	}
+	resp, err := o.client.DoMultipart(http.MethodPost, "/orders/"+o.lastOrderID+"/deliverables", nil, []apptest.MultipartFile{
+		{
+			FieldName:   "deliverable_image",
+			Filename:    "deliverable.png",
+			ContentType: "image/png",
+			Data:        imageData.Bytes(),
+		},
+	}, headers)
+	if err != nil {
+		return err
+	}
+	o.resp = resp
+	return nil
+}
+
+func (o *ordersContext) theArtistSubmitsADeliverableForTheirLastOrderWithAuthentication() error {
+	return o.theArtistSubmitsADeliverableForTheirLastOrder(true)
+}
+
+func (o *ordersContext) theUserSubmitsADeliverableForTheirLastOrderWithoutLoggingIn() error {
+	return o.theArtistSubmitsADeliverableForTheirLastOrder(false)
+}
+
+func (o *ordersContext) cancelOrder(orderID string, authenticated bool) error {
+	headers := map[string]string(nil)
+	if authenticated {
+		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
+	}
+	resp, err := o.client.Do(http.MethodPut, "/orders/"+orderID+"/cancel", nil, headers)
+	if err != nil {
+		return err
+	}
+	o.resp = resp
+	return nil
+}
+
+func (o *ordersContext) theUserCancelsTheirLastOrder() error {
+	return o.cancelOrder(o.lastOrderID, true)
+}
+
+func (o *ordersContext) theUserCancelsTheirLastOrderWithoutLoggingIn() error {
+	return o.cancelOrder(o.lastOrderID, false)
+}
+
+func (o *ordersContext) theUserCancelsAnotherUsersOrder() error {
+	return o.cancelOrder(o.otherOrderID, true)
+}
 
 // getOrder sends GET /orders/{id} and decodes a successful detail response.
 func (o *ordersContext) getOrder(orderID string, authenticated bool) error {
@@ -504,6 +569,19 @@ type orderDetailOutput struct {
 	DeadlineAt          time.Time             `json:"deadline_at"`
 	Status              string                `json:"status"`
 	OtherParty          orderPartyOutput      `json:"other_party"`
+	Deliverables        []deliverableOutput   `json:"deliverables"`
+}
+
+type deliverableOutput struct {
+	ID              string `json:"id"`
+	Version         int    `json:"version"`
+	Decision        string `json:"decision"`
+	PreviewImageURL string `json:"preview_image_url"`
+}
+
+type cancelOrderOutput struct {
+	Message string `json:"message"`
+	Status  string `json:"status"`
 }
 
 type artworkSnapshotOutput struct {
@@ -825,6 +903,86 @@ func (o *ordersContext) theSystemRejectsConfirmationForInvalidOrderStatus() erro
 	return o.expectStatus(http.StatusConflict)
 }
 
+func (o *ordersContext) theSystemCreatesTheDeliverableSuccessfully() error {
+	if err := o.expectStatus(http.StatusCreated); err != nil {
+		return err
+	}
+	if err := o.resp.JSON(&o.deliverable); err != nil {
+		return fmt.Errorf("decode deliverable response: %w (body: %s)", err, o.resp.Body)
+	}
+	if o.deliverable.ID == "" {
+		return fmt.Errorf("expected the created deliverable to have an ID, got %+v", o.deliverable)
+	}
+	if o.deliverable.Version != 1 {
+		return fmt.Errorf("deliverable version = %d, want 1", o.deliverable.Version)
+	}
+	if o.deliverable.Decision != "WAIT" {
+		return fmt.Errorf("deliverable decision = %q, want WAIT", o.deliverable.Decision)
+	}
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if len(o.orderDetail.Deliverables) != 1 {
+		return fmt.Errorf("order detail contains %d deliverables, want 1", len(o.orderDetail.Deliverables))
+	}
+	persisted := o.orderDetail.Deliverables[0]
+	if persisted.ID != o.deliverable.ID || persisted.Version != o.deliverable.Version ||
+		persisted.Decision != o.deliverable.Decision || persisted.PreviewImageURL == "" {
+		return fmt.Errorf("order detail deliverable does not match submitted deliverable: got %+v, submitted %+v", persisted, o.deliverable)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemForbidsTheDeliverableSubmission() error {
+	return o.expectStatus(http.StatusForbidden)
+}
+
+func (o *ordersContext) theSystemRejectsDeliverableForInvalidOrderStatus() error {
+	return o.expectStatus(http.StatusConflict)
+}
+
+func (o *ordersContext) theSystemCancelsTheOrder() error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	var cancellation cancelOrderOutput
+	if err := o.resp.JSON(&cancellation); err != nil {
+		return fmt.Errorf("decode cancellation response: %w (body: %s)", err, o.resp.Body)
+	}
+	if cancellation.Message != "Order cancelled successfully" {
+		return fmt.Errorf("cancellation message = %q, want %q", cancellation.Message, "Order cancelled successfully")
+	}
+	if cancellation.Status != "CANCEL" {
+		return fmt.Errorf("cancellation status = %q, want CANCEL", cancellation.Status)
+	}
+
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if o.orderDetail.Status != "CANCEL" {
+		return fmt.Errorf("persisted order status = %q, want CANCEL", o.orderDetail.Status)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemRejectsCancellationBecauseTheOrderStatusDoesNotAllowIt() error {
+	return o.expectStatus(http.StatusConflict)
+}
+
+func (o *ordersContext) theSystemRejectsCancellationBecauseTheOrderIsNotOwned() error {
+	return o.expectStatus(http.StatusNotFound)
+}
+
+func (o *ordersContext) theSystemRequiresTheUserToLogInToCancel() error {
+	return o.expectStatus(http.StatusUnauthorized)
+}
+
 // theSystemHidesTheOrderFromTheUser verifies another participant's order is reported as not found.
 func (o *ordersContext) theSystemHidesTheOrderFromTheUser() error {
 	return o.expectStatus(http.StatusNotFound)
@@ -852,6 +1010,68 @@ func (o *ordersContext) expectStatus(code int) error {
 func (o *ordersContext) expectClientError() error {
 	if o.resp.StatusCode < 400 || o.resp.StatusCode >= 500 {
 		return fmt.Errorf("expected a 4xx client error, got %d: %s", o.resp.StatusCode, o.resp.Body)
+	}
+	return nil
+}
+
+func (o *ordersContext) theUserHasAnOrderWithStatusCreatedAndDeadline(status, created, deadline string) error {
+	counterpart, err := o.sharedCounterpart()
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	createdAt := now
+	switch created {
+	case "just now":
+	case "more than 3 days ago":
+		createdAt = now.Add(-ordermod.PendingConfirmationTTL - time.Hour)
+	default:
+		return fmt.Errorf("unknown creation time %q", created)
+	}
+
+	var deadlineAt time.Time
+	switch deadline {
+	case "has passed":
+		deadlineAt = now.Add(-time.Minute)
+	case "is still ahead":
+		deadlineAt = now.Add(24 * time.Hour)
+	default:
+		return fmt.Errorf("unknown deadline %q", deadline)
+	}
+
+	id, err := o.seedForAccount(orderSeed{
+		Status:     status,
+		CreatedAt:  createdAt,
+		DeadlineAt: &deadlineAt,
+	}, counterpart)
+	if err != nil {
+		return err
+	}
+	o.seededOrders[id] = status
+	o.lastOrderID = id
+	return nil
+}
+
+// theSystemCancelsExpiredOrders runs the expiry sweep once, directly against
+// the usecase: it is a background job, so there is no HTTP endpoint to call.
+func (o *ordersContext) theSystemCancelsExpiredOrders() error {
+	usecase := ordermod.NewOrderUsecase(postgres.NewOrderRepository(app.DB), nil)
+	_, err := usecase.CancelExpiredOrders(context.Background())
+	return err
+}
+
+// theSystemShowsTheOrderWithStatus reads the order back through the real API,
+// so the assertion is what the user would actually see.
+func (o *ordersContext) theSystemShowsTheOrderWithStatus(want string) error {
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if o.resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("get order: status %d (body: %s)", o.resp.StatusCode, o.resp.Body)
+	}
+	if o.orderDetail.Status != want {
+		return fmt.Errorf("order status = %q, want %q", o.orderDetail.Status, want)
 	}
 	return nil
 }
@@ -886,6 +1106,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^another customer has an order$`, func() error { return o.anotherCustomerHasAnOrder() })
 	sc.Step(`^another artist has an order$`, func() error { return o.anotherArtistHasAnOrder() })
 	sc.Step(`^an artwork exists for commission$`, func() error { return o.anArtworkExistsForCommission() })
+	sc.Step(`^the user has an order with status \"([^\"]*)\" created (just now|more than 3 days ago) and a deadline that (has passed|is still ahead)$`, func(status, created, deadline string) error {
+		return o.theUserHasAnOrderWithStatusCreatedAndDeadline(status, created, deadline)
+	})
 
 	// when
 	sc.Step(`^the user views their orders$`, func() error { return o.theUserViewsTheirOrders() })
@@ -896,6 +1119,17 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the artist accepts their last order$`, func() error { return o.theArtistAcceptsTheirLastOrder() })
 	sc.Step(`^the artist rejects their last order$`, func() error { return o.theArtistRejectsTheirLastOrder() })
 	sc.Step(`^the user attempts to accept their last order$`, func() error { return o.theUserAttemptsToAcceptTheirLastOrder() })
+	sc.Step(`^the user submits a deliverable for their last order$`, func() error {
+		return o.theArtistSubmitsADeliverableForTheirLastOrderWithAuthentication()
+	})
+	sc.Step(`^the user submits a deliverable for their last order without logging in$`, func() error {
+		return o.theUserSubmitsADeliverableForTheirLastOrderWithoutLoggingIn()
+	})
+	sc.Step(`^the user cancels their last order$`, func() error { return o.theUserCancelsTheirLastOrder() })
+	sc.Step(`^the user cancels their last order without logging in$`, func() error {
+		return o.theUserCancelsTheirLastOrderWithoutLoggingIn()
+	})
+	sc.Step(`^the user cancels another user's order$`, func() error { return o.theUserCancelsAnotherUsersOrder() })
 	sc.Step(`^the user views their orders filtered by status "([^"]*)"$`, func(status string) error {
 		return o.theUserViewsTheirOrdersFilteredByStatus(status)
 	})
@@ -920,6 +1154,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		return o.theUserSubmitsANewOrderWithDeadlineInThePast()
 	})
 	sc.Step(`^the user submits a new order without logging in$`, func() error { return o.theUserSubmitsANewOrderWithoutLoggingIn() })
+	sc.Step(`^the system cancels expired orders$`, func() error { return o.theSystemCancelsExpiredOrders() })
 
 	// then
 	sc.Step(`^the system shows all of the user's orders with their current status$`, func() error {
@@ -955,6 +1190,25 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system rejects the confirmation because the order status does not allow it$`, func() error {
 		return o.theSystemRejectsConfirmationForInvalidOrderStatus()
 	})
+	sc.Step(`^the system creates the deliverable successfully$`, func() error {
+		return o.theSystemCreatesTheDeliverableSuccessfully()
+	})
+	sc.Step(`^the system forbids the deliverable submission$`, func() error {
+		return o.theSystemForbidsTheDeliverableSubmission()
+	})
+	sc.Step(`^the system rejects the deliverable because the order status does not allow it$`, func() error {
+		return o.theSystemRejectsDeliverableForInvalidOrderStatus()
+	})
+	sc.Step(`^the system cancels the order$`, func() error { return o.theSystemCancelsTheOrder() })
+	sc.Step(`^the system rejects cancellation because the order status does not allow it$`, func() error {
+		return o.theSystemRejectsCancellationBecauseTheOrderStatusDoesNotAllowIt()
+	})
+	sc.Step(`^the system rejects cancellation because the order is not owned$`, func() error {
+		return o.theSystemRejectsCancellationBecauseTheOrderIsNotOwned()
+	})
+	sc.Step(`^the system requires the user to log in to cancel$`, func() error {
+		return o.theSystemRequiresTheUserToLogInToCancel()
+	})
 	sc.Step(`^the system hides the order from the user$`, func() error {
 		return o.theSystemHidesTheOrderFromTheUser()
 	})
@@ -968,5 +1222,8 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system rejects the order due to an invalid deadline$`, func() error {
 		return o.theSystemRejectsTheOrderDueToAnInvalidDeadline()
+	})
+	sc.Step(`^the system shows the order with status \"([^\"]*)\"$`, func(status string) error {
+		return o.theSystemShowsTheOrderWithStatus(status)
 	})
 }

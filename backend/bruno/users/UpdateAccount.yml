@@ -13,8 +13,8 @@ http:
     data: |-
       {
         "username": "updated-name",
-        "old_password": "{{password}}",
-        "new_password": "{{password}}"
+        "old_password": "{{old_password}}",
+        "new_password": "{{new_password}}"
       }
   auth: inherit
 
@@ -24,5 +24,66 @@ settings:
   followRedirects: true
   maxRedirects: 5
   forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: OK
+    request:
+      url: "{{api_url}}/users/me"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "username": "",
+            "old_password": "",
+            "new_password": ""
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "id": "",
+            "username": "",
+            "email": "",
+            "role": "",
+            "profile_image_url": null
+          }
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/users/me"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "username": "",
+            "old_password": "",
+            "new_password": ""
+          }
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
 
 docs: Update the authenticated user's username and optionally change their password. Omit both password fields for a username-only update.

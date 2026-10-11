@@ -68,7 +68,7 @@ type OrderDeliverable struct {
 	ID               uuid.UUID `bun:"id,pk"`
 	OrderID          uuid.UUID `bun:"order_id"`
 	Version          int       `bun:"version"`
-	Decision         string    `bun:"decision"`
+	Decision         string    `bun:"decision,nullzero"`
 	Comment          *string   `bun:"comment,nullzero"`
 	OriginalImageKey string    `bun:"original_image_key"`
 	PreviewImageKey  string    `bun:"preview_image_key"`

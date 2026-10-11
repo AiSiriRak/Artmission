@@ -2,6 +2,7 @@ package order
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,7 +33,21 @@ type OrderUsecase interface {
 		input ConfirmOrderInput,
 	) (Status, error)
 
+	CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, orderID uuid.UUID) error
+	// CancelExpiredOrders cancels every order whose artist-confirmation window
+	// or deadline has passed, and returns the IDs it cancelled.
+	CancelExpiredOrders(ctx context.Context) ([]uuid.UUID, error)
+
 	CreateOrder(ctx context.Context, customerID uuid.UUID, input CreateInput) (*Order, error)
+
+	// CreateDeliverable creates a new deliverable version for an order
+	// owned by the authenticated artist. It stores the original image,
+	// generates a watermarked preview, and persists the deliverable metadata.
+	CreateDeliverable(
+		ctx context.Context,
+		artistID uuid.UUID,
+		input CreateDeliverableInput,
+	) (*Deliverable, error)
 }
 
 type OrderRepository interface {
@@ -55,12 +70,34 @@ type OrderRepository interface {
 		orderID uuid.UUID,
 		status Status,
 	) error
+
+	CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, orderID uuid.UUID) error
+	// CancelExpired atomically moves to CANCEL every order that is either
+	// PENDING with created_at <= pendingCutoff, or in an auto-cancellable status
+	// with deadline_at <= now. It returns the IDs it changed.
+	CancelExpired(ctx context.Context, pendingCutoff, now time.Time) ([]uuid.UUID, error)
+
 	Create(ctx context.Context, order *Order) error
+
+	// CreateDeliverable creates a new deliverable version for an order
+	// owned by the specified artist. The order must be IN_PROCESS.
+	CreateDeliverable(
+		ctx context.Context,
+		artistID uuid.UUID,
+		orderID uuid.UUID,
+		orderDeliverable *Deliverable,
+	) error
 }
 
 type ObjectStorage interface {
 	// GetPresignedURL returns a time-limited URL for the object key.
 	GetPresignedURL(ctx context.Context, key string, ttl time.Duration) (string, error)
+
+	// Upload uploads an object from body to the specified key with the given content type.
+	Upload(ctx context.Context, key string, body io.Reader, contentType string) error
+
+	// Delete deletes an object by the key.
+	Delete(ctx context.Context, key string) error
 }
 
 type ConfirmOrderInput struct {

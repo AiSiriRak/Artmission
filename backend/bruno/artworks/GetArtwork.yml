@@ -2,10 +2,17 @@ info:
   name: GetArtwork
   type: http
   seq: 6
+  tags:
+    - artworks
 
 http:
   method: GET
-  url: "{{api_url}}/artworks/"
+  url: "{{api_url}}/artworks/:id"
+  params:
+    - name: id
+      value: "{{ArtworkID}}"
+      type: path
+      description: Artwork ID
   auth: inherit
 
 settings:
@@ -13,4 +20,67 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
-  forwardAuthorizationHeader: false
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: OK
+    request:
+      url: "{{api_url}}/artworks/:id"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Artwork ID
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "id": "",
+            "artist_id": "",
+            "name": "",
+            "category": "",
+            "styles": [],
+            "description": "",
+            "artwork_samples": [],
+            "minimum_deadline_days": 0,
+            "price_satang": 0,
+            "created_at": "",
+            "updated_at": ""
+          }
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/artworks/:id"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Artwork ID
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: Get detailed information about a specific artwork by ID.

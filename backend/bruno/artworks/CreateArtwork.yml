@@ -17,11 +17,11 @@ http:
         contentType: text/plain
       - name: category_id
         type: text
-        value: 00000000-0000-0000-0000-000000000001
+        value: "{{CategoryID}}"
         contentType: text/plain
       - name: style_ids
         type: text
-        value: '["11111111-0000-0000-0000-000000000001"]'
+        value: '["{{StyleID}}"]'
         contentType: application/json
       - name: description
         type: text
@@ -48,6 +48,119 @@ settings:
   followRedirects: true
   maxRedirects: 5
   forwardAuthorizationHeader: true
+
+examples:
+  - name: 201 Response
+    description: Created
+    request:
+      url: "{{api_url}}/artworks"
+      method: POST
+      body:
+        type: multipart-form
+        data:
+          - name: name
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: category_id
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: style_ids
+            type: text
+            value: ""
+            contentType: application/json
+          - name: description
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: artwork_samples
+            type: file
+            value: []
+            contentType: image/png
+          - name: minimum_deadline_days
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: price_satang
+            type: text
+            value: ""
+            contentType: text/plain
+    response:
+      status: 201
+      statusText: Created
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "id": "",
+            "artist_id": "",
+            "name": "",
+            "category": "",
+            "styles": [],
+            "description": "",
+            "artwork_samples": [],
+            "minimum_deadline_days": 0,
+            "price_satang": 0,
+            "created_at": "",
+            "updated_at": ""
+          }
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/artworks"
+      method: POST
+      body:
+        type: multipart-form
+        data:
+          - name: name
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: category_id
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: style_ids
+            type: text
+            value: ""
+            contentType: application/json
+          - name: description
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: artwork_samples
+            type: file
+            value: []
+            contentType: image/png
+          - name: minimum_deadline_days
+            type: text
+            value: ""
+            contentType: text/plain
+          - name: price_satang
+            type: text
+            value: ""
+            contentType: text/plain
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
 
 docs: |-
   Create artist-owned artwork. Select one or more JPEG, PNG, or WebP files
