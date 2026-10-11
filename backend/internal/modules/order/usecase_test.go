@@ -65,6 +65,14 @@ type fakeRepo struct {
 	delayRequest         *order.OrderDelayRequest
 	delayRequestErr      error
 	delayRequestCalled   bool
+
+	confirmDelayRequestCustomerID uuid.UUID
+	confirmDelayRequestOrderID    uuid.UUID
+	confirmDelayRequestID         uuid.UUID
+	confirmDelayRequestDecision   order.DelayRequestDecision
+	confirmDelayRequestDeadline   time.Time
+	confirmDelayRequestErr        error
+	confirmDelayRequestCalled     bool
 }
 
 func (f *fakeRepo) ListOrders(_ context.Context, query order.ListQuery) (order.Page, error) {
@@ -171,6 +179,21 @@ func (repo *fakeRepo) CreateDelayRequest(
 
 	created := *item
 	return &created, nil
+}
+
+func (repo *fakeRepo) ConfirmDelayRequest(
+	_ context.Context,
+	customerID uuid.UUID,
+	orderID uuid.UUID,
+	delayRequestID uuid.UUID,
+	decision order.DelayRequestDecision,
+) (time.Time, error) {
+	repo.confirmDelayRequestCalled = true
+	repo.confirmDelayRequestCustomerID = customerID
+	repo.confirmDelayRequestOrderID = orderID
+	repo.confirmDelayRequestID = delayRequestID
+	repo.confirmDelayRequestDecision = decision
+	return repo.confirmDelayRequestDeadline, repo.confirmDelayRequestErr
 }
 
 var _ order.OrderRepository = (*fakeRepo)(nil)

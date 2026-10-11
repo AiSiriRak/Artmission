@@ -43,6 +43,7 @@ type ordersContext struct {
 	otherOrderID              string // order ID seeded for an account other than o.account
 	lastDeliverablePreviewKey string // most recently seeded deliverable version's preview_image_key
 	delayRequestDeadline      time.Time
+	lastDelayRequestID        string
 	targetArtworkID           string
 
 	resp         *apptest.Response
@@ -452,14 +453,18 @@ func (o *ordersContext) theUserHasAnOrderWithStatusAndPendingDelayRequest(status
 		return err
 	}
 	now := time.Now()
+	delayRequestID := uuid.New()
 	_, err = app.DB.ExecContext(context.Background(), `
 		INSERT INTO order_delay_requests (
 			id, order_id, original_deadline_at, deadline_request_at,
 			reason, explanation, customer_decision, created_at, updated_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, uuid.New(), uuid.MustParse(o.lastOrderID), deadline, deadline.AddDate(0, 0, 7),
+	`, delayRequestID, uuid.MustParse(o.lastOrderID), deadline, deadline.AddDate(0, 0, 7),
 		string(ordermod.DelayReasonOther), "Existing pending request",
 		string(ordermod.DelayDecisionWait), now, now)
+	if err == nil {
+		o.lastDelayRequestID = delayRequestID.String()
+	}
 	return err
 }
 
@@ -504,6 +509,40 @@ func (o *ordersContext) requestDeadlineExtension(authenticated, later bool) erro
 	}
 	o.resp = resp
 	return nil
+}
+
+func (o *ordersContext) confirmPendingDelayRequest(accept, authenticated bool) error {
+	headers := map[string]string(nil)
+	if authenticated {
+		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
+	}
+	resp, err := o.client.Do(
+		http.MethodPut,
+		"/orders/"+o.lastOrderID+"/delay-requests/"+o.lastDelayRequestID,
+		map[string]bool{"accept": accept},
+		headers,
+	)
+	if err != nil {
+		return err
+	}
+	o.resp = resp
+	return nil
+}
+
+func (o *ordersContext) theCustomerApprovesThePendingDelayRequestForTheirLastOrder() error {
+	return o.confirmPendingDelayRequest(true, true)
+}
+
+func (o *ordersContext) theCustomerRejectsThePendingDelayRequestForTheirLastOrder() error {
+	return o.confirmPendingDelayRequest(false, true)
+}
+
+func (o *ordersContext) theArtistAttemptsToApproveThePendingDelayRequestForTheirLastOrder() error {
+	return o.confirmPendingDelayRequest(true, true)
+}
+
+func (o *ordersContext) theUserAttemptsToApproveThePendingDelayRequestWithoutLoggingIn() error {
+	return o.confirmPendingDelayRequest(true, false)
 }
 
 func (o *ordersContext) theArtistRequestsADeadlineExtensionForTheirLastOrder() error {
@@ -1099,6 +1138,63 @@ func (o *ordersContext) theSystemRejectsTheDelayRequestBecauseOneIsAlreadyPendin
 	return o.expectStatus(http.StatusConflict)
 }
 
+func (o *ordersContext) theSystemConfirmsTheDelayRequestAs(decision string) error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	var result struct {
+		Message          string    `json:"message"`
+		CustomerDecision string    `json:"customer_decision"`
+		DeadlineAt       time.Time `json:"deadline_at"`
+	}
+	if err := o.resp.JSON(&result); err != nil {
+		return fmt.Errorf("decode delay request confirmation: %w (body: %s)", err, o.resp.Body)
+	}
+	if result.CustomerDecision != decision {
+		return fmt.Errorf("customer decision = %q, want %q", result.CustomerDecision, decision)
+	}
+
+	var request struct {
+		OriginalDeadlineAt time.Time `bun:"original_deadline_at"`
+		DeadlineRequestAt  time.Time `bun:"deadline_request_at"`
+		CustomerDecision   string    `bun:"customer_decision"`
+	}
+	if err := app.DB.NewSelect().
+		Table("order_delay_requests").
+		Column("original_deadline_at", "deadline_request_at", "customer_decision").
+		Where("id = ?", uuid.MustParse(o.lastDelayRequestID)).
+		Scan(context.Background(), &request); err != nil {
+		return fmt.Errorf("load confirmed delay request: %w", err)
+	}
+	if request.CustomerDecision != decision {
+		return fmt.Errorf("persisted customer decision = %q, want %q", request.CustomerDecision, decision)
+	}
+
+	wantDeadline := request.OriginalDeadlineAt
+	if decision == string(ordermod.DelayDecisionApproved) {
+		wantDeadline = request.DeadlineRequestAt
+	}
+	if !result.DeadlineAt.Equal(wantDeadline) {
+		return fmt.Errorf("response deadline = %s, want %s", result.DeadlineAt, wantDeadline)
+	}
+	persistedDeadline, err := o.orderDeadline(o.lastOrderID)
+	if err != nil {
+		return fmt.Errorf("load updated order deadline: %w", err)
+	}
+	if !persistedDeadline.Equal(wantDeadline) {
+		return fmt.Errorf("persisted order deadline = %s, want %s", persistedDeadline, wantDeadline)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemForbidsTheDelayRequestDecision() error {
+	return o.expectStatus(http.StatusForbidden)
+}
+
+func (o *ordersContext) theSystemRejectsTheDelayRequestDecisionBecauseTheOrderStatusDoesNotAllowIt() error {
+	return o.expectStatus(http.StatusConflict)
+}
+
 func (o *ordersContext) theSystemCancelsTheOrder() error {
 	if err := o.expectStatus(http.StatusOK); err != nil {
 		return err
@@ -1283,6 +1379,18 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user has an order with status "([^"]*)" and a pending delay request$`, func(status string) error {
 		return o.theUserHasAnOrderWithStatusAndPendingDelayRequest(status)
 	})
+	sc.Step(`^the customer approves the pending delay request for their last order$`, func() error {
+		return o.theCustomerApprovesThePendingDelayRequestForTheirLastOrder()
+	})
+	sc.Step(`^the customer rejects the pending delay request for their last order$`, func() error {
+		return o.theCustomerRejectsThePendingDelayRequestForTheirLastOrder()
+	})
+	sc.Step(`^the artist attempts to approve the pending delay request for their last order$`, func() error {
+		return o.theArtistAttemptsToApproveThePendingDelayRequestForTheirLastOrder()
+	})
+	sc.Step(`^the user attempts to approve the pending delay request without logging in$`, func() error {
+		return o.theUserAttemptsToApproveThePendingDelayRequestWithoutLoggingIn()
+	})
 	sc.Step(`^the artist requests a deadline extension for their last order$`, func() error {
 		return o.theArtistRequestsADeadlineExtensionForTheirLastOrder()
 	})
@@ -1380,6 +1488,15 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system rejects the delay request because one is already pending$`, func() error {
 		return o.theSystemRejectsTheDelayRequestBecauseOneIsAlreadyPending()
+	})
+	sc.Step(`^the system confirms the delay request as "([^"]*)"$`, func(decision string) error {
+		return o.theSystemConfirmsTheDelayRequestAs(decision)
+	})
+	sc.Step(`^the system forbids the delay request decision$`, func() error {
+		return o.theSystemForbidsTheDelayRequestDecision()
+	})
+	sc.Step(`^the system rejects the delay request decision because the order status does not allow it$`, func() error {
+		return o.theSystemRejectsTheDelayRequestDecisionBecauseTheOrderStatusDoesNotAllowIt()
 	})
 	sc.Step(`^the system cancels the order$`, func() error { return o.theSystemCancelsTheOrder() })
 	sc.Step(`^the system rejects cancellation because the order status does not allow it$`, func() error {

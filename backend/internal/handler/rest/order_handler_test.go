@@ -32,6 +32,7 @@ type fakeOrderUsecase struct {
 	createOrderFunc         func(context.Context, uuid.UUID, order.CreateInput) (*order.Order, error)
 	createDeliverableFunc   func(context.Context, uuid.UUID, order.CreateDeliverableInput) (*order.Deliverable, error)
 	createDelayRequestFunc  func(context.Context, uuid.UUID, order.CreateDelayRequestInput) (*order.OrderDelayRequest, error)
+	confirmDelayRequestFunc func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmDelayRequestInput) (*order.ConfirmDelayRequestOutput, error)
 
 	gotListQuery           order.ListQuery
 	gotParticipant         order.Participant
@@ -45,6 +46,10 @@ type fakeOrderUsecase struct {
 	gotDelayRequestInput   order.CreateDelayRequestInput
 	gotDelayRequestArtist  uuid.UUID
 	delayRequestCalls      int
+	gotConfirmDelayInput   order.ConfirmDelayRequestInput
+	gotConfirmDelayUserID  uuid.UUID
+	gotConfirmDelayOrderID uuid.UUID
+	confirmDelayCalls      int
 }
 
 type fakeArtworkUsecase struct {
@@ -169,6 +174,22 @@ func (f *fakeOrderUsecase) CreateDelayRequest(
 	f.gotDelayRequestInput = input
 	if f.createDelayRequestFunc != nil {
 		return f.createDelayRequestFunc(ctx, artistID, input)
+	}
+	return nil, nil
+}
+
+func (f *fakeOrderUsecase) ConfirmDelayRequest(
+	ctx context.Context,
+	customerID uuid.UUID,
+	orderID uuid.UUID,
+	input order.ConfirmDelayRequestInput,
+) (*order.ConfirmDelayRequestOutput, error) {
+	f.confirmDelayCalls++
+	f.gotConfirmDelayUserID = customerID
+	f.gotConfirmDelayOrderID = orderID
+	f.gotConfirmDelayInput = input
+	if f.confirmDelayRequestFunc != nil {
+		return f.confirmDelayRequestFunc(ctx, customerID, orderID, input)
 	}
 	return nil, nil
 }
