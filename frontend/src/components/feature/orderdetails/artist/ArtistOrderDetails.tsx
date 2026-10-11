@@ -1,52 +1,20 @@
-import OrderDetails from "../shared/OrderDetails";
-import { Button } from "@/components/ui/Button";
-import { WhiteCard } from "@/components/ui/WhiteCard";
 import type { OrderStatus } from "@/lib/api/types";
+import OrderDetails from "../shared/OrderDetails";
+import OrderDescription from "../shared/OrderDescription";
+import OrderInfo from "../shared/OrderInfo";
+import UserInfo from "../shared/UserInfo";
+import ArtistOrderActions from "./ArtistOrderActions";
 import SubmitDraft from "./SubmitDraft";
 
-// TODO: connect with API
 const mockStatus: OrderStatus = "IN_PROCESS";
+const mockRequestDetail =
+  "Turn your favorite memories of your companion into a timeless piece of fine digital art. This custom pet portrait combines the precise detail of realism with the raw, evocative charm of traditional pencil sketching. Every stroke is tailored to highlight what makes your pet one-of-a-kind—from the subtle glint of life in their eyes and the exact contour of their snout to the natural flow, depth, and softness of their fur. " +
+  "The composition bridges two distinct worlds: an intricately rendered focal point across the face that captures lifelike texture, which then fades organically into loose, expressive graphite-style line work toward the chest and shoulders. Set against a warm, neutral textured canvas, the final result feels less like a sterile photo copy and more like a handcrafted, intimate study found in an artist’s sketchbook. Delivered as a 300 DPI, print-ready digital file, this piece is fully prepared for high-end giclée printing, canvas mounting, or framing as an enduring tribute to your pet's place in your life.";
 
 function renderArtistActions(status: OrderStatus) {
-  // TODO: connect with API
-  switch (status) {
-    case "SUCCESS":
-      return (
-        <>
-          <Button type="button" className="!border w-32">
-            Reject
-          </Button>
+  if (status === "SUCCESS" || status === "CANCEL") return null;
 
-          <Button type="button" variant="dark" className="w-32">
-            Accept
-          </Button>
-        </>
-      );
-
-    case "NOT_PAID":
-      return (
-        <Button type="button" variant="red" className="min-w-32">
-          Cancel Order
-        </Button>
-      );
-
-    case "IN_PROCESS":
-      return (
-        <>
-          <Button type="button" className="!border min-w-32">
-            Postpone Order
-          </Button>
-
-          <Button type="button" variant="red" className="min-w-32">
-            Cancel Order
-          </Button>
-        </>
-      );
-
-    case "SUCCESS":
-    case "CANCEL":
-      return null;
-  }
+  return <ArtistOrderActions status={status} />;
 }
 
 function renderArtistDraft(status: OrderStatus) {
@@ -59,43 +27,36 @@ export default function ArtistOrderDetails() {
   return (
     <OrderDetails
       usertype="artist"
-      status={mockStatus}
-      revisions={{ used: 0, limit: 2 }}
-      orderActions={renderArtistActions(mockStatus)}
-
-      participantInfo={
-        <section>
-          <h2 className="mb-4 text-h3">
-            Customer Info
-          </h2>
-
-          <WhiteCard
-            margin=""
-            padding="p-6 sm:p-8"
-            roundsize="rounded-3xl"
-            className="max-w-none border border-primary-500 bg-secondary-200 shadow-none"
-          >
-            <div className="flex flex-wrap items-center gap-6">
-              <div
-                aria-hidden="true"
-                className="h-24 w-24 shrink-0 rounded-full bg-neutral"
-              />
-
-              <dl className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2">
-                <dt className="text-h3">Name</dt>
-                <dd className="break-words text-body">Username</dd>
-
-                <dt className="text-h3">Email</dt>
-                <dd className="break-words text-body">
-                  useremail@gmail.com
-                </dd>
-              </dl>
-            </div>
-          </WhiteCard>
-        </section>
+      description={
+        <OrderDescription
+          orderNumber="1024"
+          artworkName="Cutie Catto"
+          categoryName="Pet Portrait"
+          categories={["Digital Art"]}
+          styles={["Realism", "Sketch"]}
+          requestDetail={mockRequestDetail}
+        />
       }
-      >
-        {renderArtistDraft(mockStatus)}
-      </OrderDetails>
+      info={
+        <OrderInfo
+          status={mockStatus}
+          priceSatang={300000}
+          orderDate="02 Sep 2026"
+          deadlineDate="10 Sep 2026"
+          deadlineNote="Due in 7 days"
+          revisions={{ used: 0, limit: 2 }}
+          actions={renderArtistActions(mockStatus)}
+        />
+      }
+      userInfo={
+        <UserInfo
+          title="Customer Info"
+          name="Username"
+          email="useremail@gmail.com"
+        />
+      }
+    >
+      {renderArtistDraft(mockStatus)}
+    </OrderDetails>
   );
 }
