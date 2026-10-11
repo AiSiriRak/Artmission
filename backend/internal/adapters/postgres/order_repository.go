@@ -413,64 +413,65 @@ func (r *orderRepository) CancelOrder(
 	if participant != order.ParticipantCustomer && participant != order.ParticipantArtist {
 		return apperror.Internal("unsupported participant", nil)
 	}
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			existing := new(pgmodel.Order)
 
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		existing := new(pgmodel.Order)
+			q := idb.NewSelect().
+				Model(existing).
+				Column("id", "status").
+				Where("id = ?", orderID)
 
-		q := idb.NewSelect().
-			Model(existing).
-			Column("id", "status").
-			Where("id = ?", orderID)
-
-		if participant == order.ParticipantCustomer {
-			q = q.Where("customer_id = ?", participantID)
-		} else {
-			q = q.Where("artist_id = ?", participantID)
-		}
-
-		if err := q.Scan(ctx); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return order.ErrOrderNotFound
+			if participant == order.ParticipantCustomer {
+				q = q.Where("customer_id = ?", participantID)
+			} else {
+				q = q.Where("artist_id = ?", participantID)
 			}
-			return err
-		}
 
-		if existing.Status == string(order.StatusCancel) || existing.Status == string(order.StatusSuccess) {
-			return order.ErrInvalidOrderStatus
-		}
+			if err := q.Scan(ctx); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return order.ErrOrderNotFound
+				}
+				return err
+			}
 
-		// TODO(payment): Before cancelling orders, coordinate with the payment flow.
+			if existing.Status == string(order.StatusCancel) || existing.Status == string(order.StatusSuccess) {
+				return order.ErrInvalidOrderStatus
+			}
 
-		updateQ := idb.NewUpdate().
-			Model((*pgmodel.Order)(nil)).
-			Set("status = ?", string(order.StatusCancel)).
-			Set("updated_at = NOW()").
-			Where("id = ?", orderID).
-			Where("status = ?", existing.Status)
+			// TODO: Process payment refund/transaction here before updating order status
+			// e.g., if err := r.paymentService.Refund(...); err != nil { return err }
 
-		if participant == order.ParticipantCustomer {
-			updateQ = updateQ.Where("customer_id = ?", participantID)
-		} else {
-			updateQ = updateQ.Where("artist_id = ?", participantID)
-		}
+			updateQ := idb.NewUpdate().
+				Model((*pgmodel.Order)(nil)).
+				Set("status = ?", string(order.StatusCancel)).
+				Set("updated_at = NOW()").
+				Where("id = ?", orderID).
+				Where("status = ?", existing.Status)
 
-		result, err := updateQ.Exec(ctx)
-		if err != nil {
-			return err
-		}
+			if participant == order.ParticipantCustomer {
+				updateQ = updateQ.Where("customer_id = ?", participantID)
+			} else {
+				updateQ = updateQ.Where("artist_id = ?", participantID)
+			}
 
-		rows, err := result.RowsAffected()
-		if err != nil {
-			return err
-		}
+			result, err := updateQ.Exec(ctx)
+			if err != nil {
+				return err
+			}
 
-		if rows == 0 {
-			return order.ErrInvalidOrderStatus
-		}
+			rows, err := result.RowsAffected()
+			if err != nil {
+				return err
+			}
 
-		return nil
+			if rows == 0 {
+				return order.ErrInvalidOrderStatus
+			}
+
+			return nil
+		})
 	})
-
 	if err != nil {
 		if _, ok := errors.AsType[*apperror.Error](err); ok {
 			return err
@@ -496,22 +497,38 @@ func (r *orderRepository) CancelExpired(
 		statuses[i] = string(s)
 	}
 
-	// TODO(payment): Before cancelling orders, coordinate with the payment flow.
-
 	var ids []uuid.UUID
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return idb.NewUpdate().
-			Model((*pgmodel.Order)(nil)).
-			Set("status = ?", string(order.StatusCancel)).
-			Set("updated_at = NOW()").
-			Where("status IN (?)", bun.List(statuses)).
-			WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
-				return q.
-					Where("deadline_at <= ?", now).
-					WhereOr("(status = ? AND created_at <= ?)", string(order.StatusPending), pendingCutoff)
-			}).
-			Returning("id").
-			Scan(ctx, &ids)
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+
+			err := idb.NewUpdate().
+				Model((*pgmodel.Order)(nil)).
+				Set("status = ?", string(order.StatusCancel)).
+				Set("updated_at = NOW()").
+				Where("status IN (?)", bun.List(statuses)).
+				WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
+					return q.
+						Where("deadline_at <= ?", now).
+						WhereOr("(status = ? AND created_at <= ?)", string(order.StatusPending), pendingCutoff)
+				}).
+				Returning("id").
+				Scan(ctx, &ids)
+			if err != nil {
+				return err
+			}
+
+			// TODO (Payment): If payment integration is added, process refund or void transactions for all canceled order IDs here.
+			// Example:
+			// if len(ids) > 0 {
+			//     for _, orderID := range ids {
+			//         if err := r.paymentService.ProcessRefund(ctx, idb, orderID); err != nil {
+			//             return fmt.Errorf("failed to process refund for order %s: %w", orderID, err)
+			//         }
+			//     }
+			// }
+
+			return nil
+		})
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
