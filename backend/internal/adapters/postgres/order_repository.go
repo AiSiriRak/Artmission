@@ -412,62 +412,86 @@ func (r *orderRepository) ConfirmDeliverable(
 	decision order.DeliverableDecision,
 	comment string,
 ) error {
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		existing := new(pgmodel.OrderDeliverable)
-		err := idb.NewSelect().
-			Model(existing).
-			Column("od.id", "od.decision").
-			Join("JOIN orders AS o ON o.id = od.order_id").
-			Where("od.id = ?", deliverableID).
-			Where("od.order_id = ?", orderID).
-			Where("o.customer_id = ?", customerID).
-			Scan(ctx)
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			existing := new(pgmodel.OrderDeliverable)
+			err := idb.NewSelect().
+				Model(existing).
+				Column("od.id", "od.decision").
+				Join("JOIN orders AS o ON o.id = od.order_id").
+				Where("od.id = ?", deliverableID).
+				Where("od.order_id = ?", orderID).
+				Where("o.customer_id = ?", customerID).
+				Scan(ctx)
 
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return order.ErrOrderNotFound
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return order.ErrOrderNotFound
+				}
+				return err
 			}
-			return err
-		}
 
-		if existing.Decision != string(order.DeliverableDecisionWait) {
-			return order.ErrInvalidDeliverableStatus
-		}
+			if existing.Decision != string(order.DeliverableDecisionWait) {
+				return order.ErrInvalidDeliverableStatus
+			}
 
-		var persistedComment *string
-		if decision == order.DeliverableDecisionRejected {
-			persistedComment = &comment
-		}
+			var persistedComment *string
+			if decision == order.DeliverableDecisionRejected {
+				persistedComment = &comment
+			}
 
-		result, err := idb.NewUpdate().
-			Model((*pgmodel.OrderDeliverable)(nil)).
-			Set("decision = ?", string(decision)).
-			Set("comment = ?", persistedComment).
-			Set("updated_at = NOW()").
-			Where("od.id = ?", deliverableID).
-			Where("od.order_id = ?", orderID).
-			Where("od.decision = ?", string(order.DeliverableDecisionWait)).
-			Where(`EXISTS (
+			result, err := idb.NewUpdate().
+				Model((*pgmodel.OrderDeliverable)(nil)).
+				Set("decision = ?", string(decision)).
+				Set("comment = ?", persistedComment).
+				Set("updated_at = NOW()").
+				Where("od.id = ?", deliverableID).
+				Where("od.order_id = ?", orderID).
+				Where("od.decision = ?", string(order.DeliverableDecisionWait)).
+				Where(`EXISTS (
 				SELECT 1
 				FROM orders AS o
 				WHERE o.id = od.order_id AND o.customer_id = ?
 			)`, customerID).
-			Exec(ctx)
+				Exec(ctx)
 
-		if err != nil {
-			return err
-		}
+			if err != nil {
+				return err
+			}
 
-		rows, err := result.RowsAffected()
-		if err != nil {
-			return err
-		}
+			rows, err := result.RowsAffected()
+			if err != nil {
+				return err
+			}
 
-		if rows == 0 {
-			return order.ErrInvalidDeliverableStatus
-		}
+			if rows == 0 {
+				return order.ErrInvalidDeliverableStatus
+			}
 
-		return nil
+			if decision == order.DeliverableDecisionApproved {
+				_, err := idb.NewUpdate().
+					Model((*pgmodel.Order)(nil)).
+					Set("status = ?", string(order.StatusSuccess)).
+					Set("completed_at = NOW()").
+					Set("updated_at = NOW()").
+					Where("id = ?", orderID).
+					Where("customer_id = ?", customerID).
+					Exec(ctx)
+
+				if err != nil {
+					return err
+				}
+			}
+
+			// TODO (Payment): Release held funds / transfer payout to artist upon successful deliverable confirmation.
+			// Example:
+			// if err := r.paymentService.ReleasePayout(ctx, idb, orderID); err != nil {
+			//     return fmt.Errorf("failed to process artist payout for order %s: %w", orderID, err)
+			// }
+
+			return nil
+		})
+
 	})
 
 	if err != nil {
