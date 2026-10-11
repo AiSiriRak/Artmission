@@ -239,6 +239,7 @@ func (r *orderRepository) GetOrderByID(
 
 	var model orderDetailModel
 	var deliverableModels []pgmodel.OrderDeliverable
+	var delayRequest *pgmodel.OrderDelayRequest
 
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		q := idb.NewSelect().
@@ -286,6 +287,20 @@ func (r *orderRepository) GetOrderByID(
 			return err
 		}
 
+		delayRequest = new(pgmodel.OrderDelayRequest)
+
+		if err := idb.NewSelect().
+			Model(delayRequest).
+			Where("odr.order_id = ?", orderID).
+			Where("odr.customer_decision = ?", string(order.DelayDecisionWait)).
+			Scan(ctx); err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
+
+			delayRequest = nil
+		}
+
 		return nil
 	})
 
@@ -304,6 +319,22 @@ func (r *orderRepository) GetOrderByID(
 	deliverables := make([]order.Deliverable, len(deliverableModels))
 	for i := range deliverableModels {
 		deliverables[i] = deliverableModelToDomain(&deliverableModels[i])
+	}
+
+	var activeDelayRequest *order.OrderDelayRequest
+
+	if delayRequest != nil {
+		activeDelayRequest = &order.OrderDelayRequest{
+			ID:                 delayRequest.ID,
+			OrderID:            delayRequest.OrderID,
+			OriginalDeadlineAt: delayRequest.OriginalDeadlineAt,
+			DeadlineRequestAt:  delayRequest.DeadlineRequestAt,
+			Reason:             order.DelayRequestReason(delayRequest.Reason),
+			Explanation:        delayRequest.Explanation,
+			CustomerDecision:   order.DelayRequestDecision(delayRequest.CustomerDecision),
+			CreatedAt:          delayRequest.CreatedAt,
+			UpdatedAt:          delayRequest.UpdatedAt,
+		}
 	}
 
 	return &order.OrderDetailData{
@@ -337,7 +368,8 @@ func (r *orderRepository) GetOrderByID(
 			Email:             model.ArtistEmail,
 			ArtistReviewScore: model.ArtistReviewScore,
 		},
-		Deliverables: deliverables,
+		Deliverables:       deliverables,
+		ActiveDelayRequest: activeDelayRequest,
 	}, nil
 }
 

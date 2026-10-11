@@ -181,9 +181,10 @@ func (u *orderUsecase) GetOrder(
 	}
 
 	detail := &OrderDetail{
-		Order:           data.Order,
-		ArtworkSnapshot: data.ArtworkSnapshot,
-		Deliverables:    data.Deliverables,
+		Order:              data.Order,
+		ArtworkSnapshot:    data.ArtworkSnapshot,
+		Deliverables:       data.Deliverables,
+		ActiveDelayRequest: data.ActiveDelayRequest,
 	}
 
 	switch participant {

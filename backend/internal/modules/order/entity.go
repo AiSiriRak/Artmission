@@ -272,11 +272,12 @@ type OrderParty struct {
 // and the order's deliverables; the usecase selects the opposite
 // participant based on the authenticated user's role.
 type OrderDetailData struct {
-	Order           Order
-	ArtworkSnapshot ArtworkSnapshot
-	Customer        OrderParty
-	Artist          OrderParty
-	Deliverables    []Deliverable
+	Order              Order
+	ArtworkSnapshot    ArtworkSnapshot
+	Customer           OrderParty
+	Artist             OrderParty
+	Deliverables       []Deliverable
+	ActiveDelayRequest *OrderDelayRequest
 }
 
 // OrderDetail is the detailed view of an order for the authenticated
@@ -285,9 +286,10 @@ type OrderDetailData struct {
 // all deliverable versions submitted for the order.
 type OrderDetail struct {
 	Order
-	ArtworkSnapshot ArtworkSnapshot
-	OtherParty      OrderParty
-	Deliverables    []Deliverable
+	ArtworkSnapshot    ArtworkSnapshot
+	OtherParty         OrderParty
+	Deliverables       []Deliverable
+	ActiveDelayRequest *OrderDelayRequest
 }
 
 // ConfirmOrderInput represents an artist's decision to accept or reject an order.

@@ -305,6 +305,7 @@ type orderDetailView struct {
 	UpdatedAt           time.Time           `json:"updated_at"`
 	OtherParty          orderPartyView      `json:"other_party"`
 	Deliverables        []deliverableView   `json:"deliverables"`
+	ActiveDelayRequest  *delayRequestView   `json:"active_delay_request"`
 }
 
 // CreateOrderInput contains the artwork and order details submitted by the customer.
@@ -472,6 +473,22 @@ func toOrderDetailView(o *order.OrderDetail,
 		}
 	}
 
+	var activeDelayRequest *delayRequestView
+
+	if req := o.ActiveDelayRequest; req != nil {
+		activeDelayRequest = &delayRequestView{
+			ID:                 req.ID.String(),
+			OrderID:            req.OrderID.String(),
+			OriginalDeadlineAt: req.OriginalDeadlineAt,
+			DeadlineRequestAt:  req.DeadlineRequestAt,
+			Reason:             req.Reason,
+			Explanation:        req.Explanation,
+			CustomerDecision:   req.CustomerDecision,
+			CreatedAt:          req.CreatedAt,
+			UpdatedAt:          req.UpdatedAt,
+		}
+	}
+
 	return orderDetailView{
 		ID:         o.ID.String(),
 		CustomerID: o.CustomerID.String(),
@@ -496,7 +513,8 @@ func toOrderDetailView(o *order.OrderDetail,
 			Email:             o.OtherParty.Email,
 			ArtistReviewScore: o.OtherParty.ArtistReviewScore,
 		},
-		Deliverables: deliverables,
+		Deliverables:       deliverables,
+		ActiveDelayRequest: activeDelayRequest,
 	}
 }
 

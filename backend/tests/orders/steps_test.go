@@ -687,6 +687,7 @@ type orderDetailOutput struct {
 	Status              string                `json:"status"`
 	OtherParty          orderPartyOutput      `json:"other_party"`
 	Deliverables        []deliverableOutput   `json:"deliverables"`
+	ActiveDelayRequest  *delayRequestOutput   `json:"active_delay_request"`
 }
 
 type deliverableOutput struct {
@@ -1119,6 +1120,17 @@ func (o *ordersContext) theSystemCreatesTheDelayRequestSuccessfully() error {
 	if persisted != 1 {
 		return fmt.Errorf("persisted delay request count = %d, want 1", persisted)
 	}
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if active := o.orderDetail.ActiveDelayRequest; active == nil {
+		return fmt.Errorf("order detail has no active delay request after creation")
+	} else if active.ID != o.delayRequest.ID || active.CustomerDecision != string(ordermod.DelayDecisionWait) {
+		return fmt.Errorf("active delay request = %+v, want request %q in WAIT state", active, o.delayRequest.ID)
+	}
 	return nil
 }
 
@@ -1183,6 +1195,19 @@ func (o *ordersContext) theSystemConfirmsTheDelayRequestAs(decision string) erro
 	}
 	if !persistedDeadline.Equal(wantDeadline) {
 		return fmt.Errorf("persisted order deadline = %s, want %s", persistedDeadline, wantDeadline)
+	}
+
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if o.orderDetail.ActiveDelayRequest != nil {
+		return fmt.Errorf("order detail still contains a decided delay request: %+v", o.orderDetail.ActiveDelayRequest)
+	}
+	if !o.orderDetail.DeadlineAt.Equal(wantDeadline) {
+		return fmt.Errorf("order detail deadline = %s, want %s", o.orderDetail.DeadlineAt, wantDeadline)
 	}
 	return nil
 }
