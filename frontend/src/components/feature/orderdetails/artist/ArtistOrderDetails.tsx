@@ -1,15 +1,16 @@
-import OrderDetails from "./OrderDetails";
+import OrderDetails from "../shared/OrderDetails";
 import { Button } from "@/components/ui/Button";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import type { OrderStatus } from "@/lib/api/types";
+import SubmitDraft from "./SubmitDraft";
 
 // TODO: connect with API
-const mockStatus: OrderStatus = "PENDING";
+const mockStatus: OrderStatus = "IN_PROCESS";
 
 function renderArtistActions(status: OrderStatus) {
   // TODO: connect with API
   switch (status) {
-    case "PENDING":
+    case "SUCCESS":
       return (
         <>
           <Button type="button" className="!border w-32">
@@ -48,11 +49,18 @@ function renderArtistActions(status: OrderStatus) {
   }
 }
 
+function renderArtistDraft(status: OrderStatus) {
+  if (status !== "IN_PROCESS") return null;
+
+  return <SubmitDraft />;
+}
+
 export default function ArtistOrderDetails() {
   return (
     <OrderDetails
       usertype="artist"
       status={mockStatus}
+      revisions={{ used: 0, limit: 2 }}
       orderActions={renderArtistActions(mockStatus)}
 
       participantInfo={
@@ -86,7 +94,8 @@ export default function ArtistOrderDetails() {
           </WhiteCard>
         </section>
       }
-
-    />
+      >
+        {renderArtistDraft(mockStatus)}
+      </OrderDetails>
   );
 }

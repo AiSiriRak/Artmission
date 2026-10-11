@@ -16,6 +16,10 @@ interface OrderDetailsProps {
   children?: ReactNode;
   orderActions?: ReactNode;
   participantInfo?: ReactNode;
+  revisions?: {
+    used: number;
+    limit: number;
+  };
 }
 
 const statusColors: Record<OrderStatus, string> = {
@@ -40,12 +44,13 @@ export default function OrderDetails({
   children,
   orderActions,
   participantInfo,
+  revisions,
 }: OrderDetailsProps) {
   const router = useRouter();
 
   return (
     <MainLayout usertype={usertype}>
-      <div className="mx-auto max-w-[1680px] px-6 py-10 sm:px-12 lg:px-20 text-primary-500">
+      <div className="mx-auto max-w-[1920px] px-6 py-10 sm:px-12 lg:px-20 text-primary-500">
         <Button
           type="button"
           className="!border w-24"
@@ -95,10 +100,9 @@ export default function OrderDetails({
                 Request Detail
               </h4>
 
-              <p className="whitespace-pre-wrap break-words text-small">
-                Please draw a portrait of my cat in a realistic pencil sketch style.
-                Use a simple background and keep the details of the fur and eyes.
-                The final artwork should be suitable for printing.
+              <p className="whitespace-pre-wrap break-words text-caption">
+                Turn your favorite memories of your companion into a timeless piece of fine digital art. This custom pet portrait combines the precise detail of realism with the raw, evocative charm of traditional pencil sketching. Every stroke is tailored to highlight what makes your pet one-of-a-kind—from the subtle glint of life in their eyes and the exact contour of their snout to the natural flow, depth, and softness of their fur.
+                The composition bridges two distinct worlds: an intricately rendered focal point across the face that captures lifelike texture, which then fades organically into loose, expressive graphite-style line work toward the chest and shoulders. Set against a warm, neutral textured canvas, the final result feels less like a sterile photo copy and more like a handcrafted, intimate study found in an artist’s sketchbook. Delivered as a 300 DPI, print-ready digital file, this piece is fully prepared for high-end giclée printing, canvas mounting, or framing as an enduring tribute to your pet's place in your life.
               </p>
             </WhiteCard>
 
@@ -150,8 +154,20 @@ export default function OrderDetails({
                 </div>
               </dl>
 
+              {status === "IN_PROCESS" && revisions && (
+                <div className="flex items-baseline justify-between gap-4 border-t border-primary-500 px-6 py-5">
+                  <span className="text-h3">Revisions</span>
+
+                  <span className="text-body">
+                    {revisions.used}/{revisions.limit} used
+                  </span>
+                </div>
+              )}
+
               {orderActions && (
-                <div className="flex flex-wrap justify-center gap-6 border-t border-primary-500 px-6 py-4">
+                <div
+                  className={`flex flex-wrap justify-center gap-6 px-6 pb-4 ${status === "IN_PROCESS" && revisions ? "" : "border-t border-primary-500 pt-4"}`}
+                >
                   {orderActions}
                 </div>
               )}
