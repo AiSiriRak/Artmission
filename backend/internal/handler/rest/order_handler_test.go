@@ -31,6 +31,7 @@ type fakeOrderUsecase struct {
 	cancelExpiredOrdersFunc func(context.Context) ([]uuid.UUID, error)
 	createOrderFunc         func(context.Context, uuid.UUID, order.CreateInput) (*order.Order, error)
 	createDeliverableFunc   func(context.Context, uuid.UUID, order.CreateDeliverableInput) (*order.Deliverable, error)
+	createDelayRequestFunc  func(context.Context, uuid.UUID, order.CreateDelayRequestInput) (*order.OrderDelayRequest, error)
 
 	gotListQuery           order.ListQuery
 	gotParticipant         order.Participant
@@ -41,6 +42,9 @@ type fakeOrderUsecase struct {
 	cancelCalls            int
 	gotDeliverableInput    order.CreateDeliverableInput
 	gotDeliverableArtistID uuid.UUID
+	gotDelayRequestInput   order.CreateDelayRequestInput
+	gotDelayRequestArtist  uuid.UUID
+	delayRequestCalls      int
 }
 
 type fakeArtworkUsecase struct {
@@ -151,6 +155,20 @@ func (f *fakeOrderUsecase) CreateDeliverable(
 	f.gotDeliverableInput = input
 	if f.createDeliverableFunc != nil {
 		return f.createDeliverableFunc(ctx, artistID, input)
+	}
+	return nil, nil
+}
+
+func (f *fakeOrderUsecase) CreateDelayRequest(
+	ctx context.Context,
+	artistID uuid.UUID,
+	input order.CreateDelayRequestInput,
+) (*order.OrderDelayRequest, error) {
+	f.delayRequestCalls++
+	f.gotDelayRequestArtist = artistID
+	f.gotDelayRequestInput = input
+	if f.createDelayRequestFunc != nil {
+		return f.createDelayRequestFunc(ctx, artistID, input)
 	}
 	return nil, nil
 }
@@ -594,6 +612,158 @@ func TestOrderHandlerCreateDeliverableRequiresArtistRole(t *testing.T) {
 	}
 }
 
+func TestOrderHandlerCreateDelayRequest(t *testing.T) {
+	const (
+		artistID  = "00000000-0000-0000-0000-000000000001"
+		orderID   = "00000000-0000-0000-0000-000000000010"
+		requestID = "00000000-0000-0000-0000-000000000020"
+	)
+	originalDeadline := time.Date(2026, time.October, 20, 12, 0, 0, 0, time.UTC)
+	requestedDeadline := time.Date(2026, time.October, 27, 12, 0, 0, 0, time.UTC)
+	createdAt := time.Date(2026, time.October, 11, 12, 0, 0, 0, time.UTC)
+	created := &order.OrderDelayRequest{
+		ID:                 uuid.MustParse(requestID),
+		OrderID:            uuid.MustParse(orderID),
+		OriginalDeadlineAt: originalDeadline,
+		DeadlineRequestAt:  requestedDeadline,
+		Reason:             order.DelayReasonNeedMoreTime,
+		Explanation:        "I need more time to finish the details.",
+		CustomerDecision:   order.DelayDecisionWait,
+		CreatedAt:          createdAt,
+		UpdatedAt:          createdAt,
+	}
+	usecase := &fakeOrderUsecase{
+		createDelayRequestFunc: func(_ context.Context, gotArtistID uuid.UUID, input order.CreateDelayRequestInput) (*order.OrderDelayRequest, error) {
+			if gotArtistID != uuid.MustParse(artistID) {
+				t.Errorf("artistID = %s, want %s", gotArtistID, artistID)
+			}
+			if input.OrderID != uuid.MustParse(orderID) ||
+				!input.DeadlineRequestAt.Equal(requestedDeadline) ||
+				input.Reason != order.DelayReasonNeedMoreTime ||
+				input.Explanation != created.Explanation {
+				t.Errorf("CreateDelayRequest() input = %+v", input)
+			}
+			return created, nil
+		},
+	}
+	handler := newOrderTestHandler(t, user.RoleArtist, usecase)
+	body := `{
+		"deadline_request_at":"2026-10-27T12:00:00Z",
+		"reason":"NEED_MORE_TIME",
+		"explanation":"I need more time to finish the details."
+	}`
+	rec := serveOrderRequestWithBody(
+		handler,
+		http.MethodPost,
+		"/orders/"+orderID+"/delay-requests",
+		body,
+		true,
+	)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if usecase.delayRequestCalls != 1 ||
+		usecase.gotDelayRequestArtist != uuid.MustParse(artistID) ||
+		usecase.gotDelayRequestInput.OrderID != uuid.MustParse(orderID) {
+		t.Errorf(
+			"CreateDelayRequest() calls = %d, artistID = %s, orderID = %s",
+			usecase.delayRequestCalls,
+			usecase.gotDelayRequestArtist,
+			usecase.gotDelayRequestInput.OrderID,
+		)
+	}
+
+	var got delayRequestView
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	want := toDelayRequestView(created)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("response delay request = %+v, want %+v", got, want)
+	}
+}
+
+func TestOrderHandlerCreateDelayRequestRequiresArtistRole(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+	rec := serveOrderRequestWithBody(
+		handler,
+		http.MethodPost,
+		"/orders/00000000-0000-0000-0000-000000000010/delay-requests",
+		`{"deadline_request_at":"2026-10-27T12:00:00Z","reason":"OTHER","explanation":"Details"}`,
+		true,
+	)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+	if usecase.delayRequestCalls != 0 {
+		t.Errorf("CreateDelayRequest() calls = %d, want 0", usecase.delayRequestCalls)
+	}
+}
+
+func TestOrderHandlerCreateDelayRequestRequiresAuthentication(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleArtist, usecase)
+	rec := serveOrderRequestWithBody(
+		handler,
+		http.MethodPost,
+		"/orders/00000000-0000-0000-0000-000000000010/delay-requests",
+		`{"deadline_request_at":"2026-10-27T12:00:00Z","reason":"OTHER","explanation":"Details"}`,
+		false,
+	)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusUnauthorized, rec.Body.String())
+	}
+	if usecase.delayRequestCalls != 0 {
+		t.Errorf("CreateDelayRequest() calls = %d, want 0", usecase.delayRequestCalls)
+	}
+}
+
+func TestOrderHandlerCreateDelayRequestRejectsInvalidReason(t *testing.T) {
+	usecase := &fakeOrderUsecase{}
+	handler := newOrderTestHandler(t, user.RoleArtist, usecase)
+	rec := serveOrderRequestWithBody(
+		handler,
+		http.MethodPost,
+		"/orders/00000000-0000-0000-0000-000000000010/delay-requests",
+		`{"deadline_request_at":"2026-10-27T12:00:00Z","reason":"INVALID","explanation":"Details"}`,
+		true,
+	)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
+	}
+	if usecase.delayRequestCalls != 0 {
+		t.Errorf("CreateDelayRequest() calls = %d, want 0", usecase.delayRequestCalls)
+	}
+}
+
+func TestOrderHandlerCreateDelayRequestPropagatesUsecaseError(t *testing.T) {
+	usecase := &fakeOrderUsecase{
+		createDelayRequestFunc: func(context.Context, uuid.UUID, order.CreateDelayRequestInput) (*order.OrderDelayRequest, error) {
+			return nil, order.ErrDelayRequestPending
+		},
+	}
+	handler := newOrderTestHandler(t, user.RoleArtist, usecase)
+	rec := serveOrderRequestWithBody(
+		handler,
+		http.MethodPost,
+		"/orders/00000000-0000-0000-0000-000000000010/delay-requests",
+		`{"deadline_request_at":"2026-10-27T12:00:00Z","reason":"OTHER","explanation":"Details"}`,
+		true,
+	)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	if usecase.delayRequestCalls != 1 {
+		t.Errorf("CreateDelayRequest() calls = %d, want 1", usecase.delayRequestCalls)
+	}
+}
+
 func TestOrderHandlerCreateOrder(t *testing.T) {
 	const (
 		customerID = "00000000-0000-0000-0000-000000000001"
@@ -907,7 +1077,7 @@ func serveOrderRequestWithBody(
 	req := httptest.NewRequest(method, "/api/v1"+path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	if authenticated {
-		req.Header.Set("Authorization", "******")
+		req.Header.Set("Authorization", "Bearer test-token")
 	}
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)

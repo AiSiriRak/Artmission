@@ -59,6 +59,12 @@ type fakeRepo struct {
 	validateDeliverableOrderID  uuid.UUID
 	validateDeliverableErr      error
 	validateDeliverableCalled   bool
+
+	delayRequestArtistID uuid.UUID
+	delayRequestOrderID  uuid.UUID
+	delayRequest         *order.OrderDelayRequest
+	delayRequestErr      error
+	delayRequestCalled   bool
 }
 
 func (f *fakeRepo) ListOrders(_ context.Context, query order.ListQuery) (order.Page, error) {
@@ -147,6 +153,24 @@ func (repo *fakeRepo) ValidateOrderForDeliverable(
 	repo.validateDeliverableArtistID = artistID
 	repo.validateDeliverableOrderID = orderID
 	return repo.validateDeliverableErr
+}
+
+func (repo *fakeRepo) CreateDelayRequest(
+	_ context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+	item *order.OrderDelayRequest,
+) (*order.OrderDelayRequest, error) {
+	repo.delayRequestCalled = true
+	repo.delayRequestArtistID = artistID
+	repo.delayRequestOrderID = orderID
+	repo.delayRequest = item
+	if repo.delayRequestErr != nil {
+		return nil, repo.delayRequestErr
+	}
+
+	created := *item
+	return &created, nil
 }
 
 var _ order.OrderRepository = (*fakeRepo)(nil)
@@ -1068,6 +1092,117 @@ func TestCreateDeliverablePropagatesPreviewPresignFailure(t *testing.T) {
 	}
 	if len(storage.deletes) != 0 {
 		t.Errorf("deletes = %v, want none after persistence succeeded", storage.deletes)
+	}
+}
+
+func TestCreateDelayRequestPersistsAndReturnsInitializedRequest(t *testing.T) {
+	artistID, orderID := uuid.New(), uuid.New()
+	requestedDeadline := time.Date(2026, time.October, 27, 12, 0, 0, 0, time.UTC)
+	repo := &fakeRepo{}
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+	created, err := usecase.CreateDelayRequest(context.Background(), artistID, order.CreateDelayRequestInput{
+		OrderID:           orderID,
+		DeadlineRequestAt: requestedDeadline,
+		Reason:            order.DelayReasonNeedMoreTime,
+		Explanation:       "More time is needed to finish the order.",
+	})
+	if err != nil {
+		t.Fatalf("CreateDelayRequest() error = %v, want nil", err)
+	}
+	if !repo.delayRequestCalled {
+		t.Fatal("CreateDelayRequest() repository method was not called")
+	}
+	if repo.delayRequestArtistID != artistID || repo.delayRequestOrderID != orderID {
+		t.Errorf(
+			"repository received artistID=%s orderID=%s, want artistID=%s orderID=%s",
+			repo.delayRequestArtistID,
+			repo.delayRequestOrderID,
+			artistID,
+			orderID,
+		)
+	}
+	if repo.delayRequest == nil {
+		t.Fatal("repository received nil delay request")
+	}
+	if repo.delayRequest.ID == uuid.Nil ||
+		repo.delayRequest.OrderID != orderID ||
+		!repo.delayRequest.DeadlineRequestAt.Equal(requestedDeadline) ||
+		repo.delayRequest.Reason != order.DelayReasonNeedMoreTime ||
+		repo.delayRequest.Explanation != "More time is needed to finish the order." ||
+		repo.delayRequest.CustomerDecision != order.DelayDecisionWait ||
+		repo.delayRequest.CreatedAt.IsZero() ||
+		!repo.delayRequest.CreatedAt.Equal(repo.delayRequest.UpdatedAt) {
+		t.Errorf("repository received uninitialized delay request: %+v", repo.delayRequest)
+	}
+	if created == nil || created.ID != repo.delayRequest.ID {
+		t.Errorf("CreateDelayRequest() result = %+v, want persisted request", created)
+	}
+}
+
+func TestCreateDelayRequestRejectsInvalidInputBeforeRepositoryCall(t *testing.T) {
+	tests := []struct {
+		name     string
+		artistID uuid.UUID
+		input    order.CreateDelayRequestInput
+	}{
+		{
+			name:  "missing artist ID",
+			input: order.CreateDelayRequestInput{OrderID: uuid.New(), DeadlineRequestAt: time.Now(), Reason: order.DelayReasonOther},
+		},
+		{
+			name:     "missing order ID",
+			artistID: uuid.New(),
+			input:    order.CreateDelayRequestInput{DeadlineRequestAt: time.Now(), Reason: order.DelayReasonOther},
+		},
+		{
+			name:     "missing requested deadline",
+			artistID: uuid.New(),
+			input:    order.CreateDelayRequestInput{OrderID: uuid.New(), Reason: order.DelayReasonOther},
+		},
+		{
+			name:     "invalid reason",
+			artistID: uuid.New(),
+			input:    order.CreateDelayRequestInput{OrderID: uuid.New(), DeadlineRequestAt: time.Now(), Reason: "INVALID"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			repo := &fakeRepo{}
+			usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+			created, err := usecase.CreateDelayRequest(context.Background(), test.artistID, test.input)
+			wantInvalidInput(t, err)
+			if created != nil {
+				t.Errorf("CreateDelayRequest() result = %+v, want nil", created)
+			}
+			if repo.delayRequestCalled {
+				t.Error("repository CreateDelayRequest() should not be called for invalid input")
+			}
+		})
+	}
+}
+
+func TestCreateDelayRequestPropagatesRepositoryError(t *testing.T) {
+	wantErr := apperror.Conflict("delay request already exists")
+	repo := &fakeRepo{delayRequestErr: wantErr}
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+	created, err := usecase.CreateDelayRequest(context.Background(), uuid.New(), order.CreateDelayRequestInput{
+		OrderID:           uuid.New(),
+		DeadlineRequestAt: time.Now().Add(24 * time.Hour),
+		Reason:            order.DelayReasonOther,
+		Explanation:       "Other reason",
+	})
+	if created != nil {
+		t.Errorf("CreateDelayRequest() result = %+v, want nil", created)
+	}
+	if !errors.Is(err, wantErr) {
+		t.Errorf("CreateDelayRequest() error = %v, want %v", err, wantErr)
+	}
+	if !repo.delayRequestCalled {
+		t.Error("repository CreateDelayRequest() was not called")
 	}
 }
 

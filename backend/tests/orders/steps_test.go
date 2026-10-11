@@ -42,12 +42,14 @@ type ordersContext struct {
 	lastOrderID               string // most recently seeded order's ID, for single-order deliverable-preview assertions
 	otherOrderID              string // order ID seeded for an account other than o.account
 	lastDeliverablePreviewKey string // most recently seeded deliverable version's preview_image_key
+	delayRequestDeadline      time.Time
 	targetArtworkID           string
 
-	resp        *apptest.Response
-	page        viewOrdersOutput // last response decoded while resp.StatusCode == 200
-	orderDetail orderDetailOutput
-	deliverable deliverableOutput
+	resp         *apptest.Response
+	page         viewOrdersOutput // last response decoded while resp.StatusCode == 200
+	orderDetail  orderDetailOutput
+	deliverable  deliverableOutput
+	delayRequest delayRequestOutput
 }
 
 // --- given ---
@@ -440,6 +442,82 @@ func (o *ordersContext) theUserSubmitsADeliverableForTheirLastOrderWithoutLoggin
 	return o.theArtistSubmitsADeliverableForTheirLastOrder(false)
 }
 
+func (o *ordersContext) theUserHasAnOrderWithStatusAndPendingDelayRequest(status string) error {
+	if err := o.theUserHasAnOrderWithStatus(status); err != nil {
+		return err
+	}
+
+	deadline, err := o.orderDeadline(o.lastOrderID)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	_, err = app.DB.ExecContext(context.Background(), `
+		INSERT INTO order_delay_requests (
+			id, order_id, original_deadline_at, deadline_request_at,
+			reason, explanation, customer_decision, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, uuid.New(), uuid.MustParse(o.lastOrderID), deadline, deadline.AddDate(0, 0, 7),
+		string(ordermod.DelayReasonOther), "Existing pending request",
+		string(ordermod.DelayDecisionWait), now, now)
+	return err
+}
+
+func (o *ordersContext) orderDeadline(orderID string) (time.Time, error) {
+	var deadline time.Time
+	err := app.DB.NewSelect().
+		Table("orders").
+		Column("deadline_at").
+		Where("id = ?", uuid.MustParse(orderID)).
+		Scan(context.Background(), &deadline)
+	return deadline, err
+}
+
+func (o *ordersContext) requestDeadlineExtension(authenticated, later bool) error {
+	deadline, err := o.orderDeadline(o.lastOrderID)
+	if err != nil {
+		return err
+	}
+	if later {
+		o.delayRequestDeadline = deadline.AddDate(0, 0, 7).Truncate(time.Second)
+	} else {
+		o.delayRequestDeadline = deadline
+	}
+
+	headers := map[string]string(nil)
+	if authenticated {
+		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
+	}
+	payload := map[string]any{
+		"deadline_request_at": o.delayRequestDeadline.Format(time.RFC3339),
+		"reason":              string(ordermod.DelayReasonNeedMoreTime),
+		"explanation":         "I need more time to complete the order.",
+	}
+	resp, err := o.client.Do(
+		http.MethodPost,
+		"/orders/"+o.lastOrderID+"/delay-requests",
+		payload,
+		headers,
+	)
+	if err != nil {
+		return err
+	}
+	o.resp = resp
+	return nil
+}
+
+func (o *ordersContext) theArtistRequestsADeadlineExtensionForTheirLastOrder() error {
+	return o.requestDeadlineExtension(true, true)
+}
+
+func (o *ordersContext) theArtistRequestsAnExtensionThatIsNotLaterThanTheCurrentDeadline() error {
+	return o.requestDeadlineExtension(true, false)
+}
+
+func (o *ordersContext) theArtistRequestsADeadlineExtensionForTheirLastOrderWithoutLoggingIn() error {
+	return o.requestDeadlineExtension(false, true)
+}
+
 func (o *ordersContext) cancelOrder(orderID string, authenticated bool) error {
 	headers := map[string]string(nil)
 	if authenticated {
@@ -577,6 +655,18 @@ type deliverableOutput struct {
 	Version         int    `json:"version"`
 	Decision        string `json:"decision"`
 	PreviewImageURL string `json:"preview_image_url"`
+}
+
+type delayRequestOutput struct {
+	ID                 string    `json:"id"`
+	OrderID            string    `json:"order_id"`
+	OriginalDeadlineAt time.Time `json:"original_deadline_at"`
+	DeadlineRequestAt  time.Time `json:"deadline_request_at"`
+	Reason             string    `json:"reason"`
+	Explanation        string    `json:"explanation"`
+	CustomerDecision   string    `json:"customer_decision"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 type cancelOrderOutput struct {
@@ -944,6 +1034,71 @@ func (o *ordersContext) theSystemRejectsDeliverableForInvalidOrderStatus() error
 	return o.expectStatus(http.StatusConflict)
 }
 
+func (o *ordersContext) theSystemCreatesTheDelayRequestSuccessfully() error {
+	if err := o.expectStatus(http.StatusCreated); err != nil {
+		return err
+	}
+	if err := o.resp.JSON(&o.delayRequest); err != nil {
+		return fmt.Errorf("decode delay request response: %w (body: %s)", err, o.resp.Body)
+	}
+	if o.delayRequest.ID == "" ||
+		o.delayRequest.OrderID != o.lastOrderID ||
+		o.delayRequest.Reason != string(ordermod.DelayReasonNeedMoreTime) ||
+		o.delayRequest.Explanation != "I need more time to complete the order." ||
+		o.delayRequest.CustomerDecision != string(ordermod.DelayDecisionWait) {
+		return fmt.Errorf("unexpected delay request response: %+v", o.delayRequest)
+	}
+
+	deadline, err := o.orderDeadline(o.lastOrderID)
+	if err != nil {
+		return err
+	}
+	if !o.delayRequest.OriginalDeadlineAt.Equal(deadline) {
+		return fmt.Errorf(
+			"original deadline = %s, want order deadline %s",
+			o.delayRequest.OriginalDeadlineAt,
+			deadline,
+		)
+	}
+	if !o.delayRequest.DeadlineRequestAt.Equal(o.delayRequestDeadline) ||
+		!o.delayRequest.DeadlineRequestAt.After(deadline) {
+		return fmt.Errorf(
+			"requested deadline = %s, want %s after original deadline %s",
+			o.delayRequest.DeadlineRequestAt,
+			o.delayRequestDeadline,
+			deadline,
+		)
+	}
+
+	persisted, err := app.DB.NewSelect().
+		Table("order_delay_requests").
+		Where("id = ?", uuid.MustParse(o.delayRequest.ID)).
+		Count(context.Background())
+	if err != nil {
+		return fmt.Errorf("check persisted delay request: %w", err)
+	}
+	if persisted != 1 {
+		return fmt.Errorf("persisted delay request count = %d, want 1", persisted)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemForbidsTheDelayRequest() error {
+	return o.expectStatus(http.StatusForbidden)
+}
+
+func (o *ordersContext) theSystemRejectsTheDelayRequestBecauseTheOrderStatusDoesNotAllowIt() error {
+	return o.expectStatus(http.StatusConflict)
+}
+
+func (o *ordersContext) theSystemRejectsTheDelayRequestBecauseItsDeadlineIsInvalid() error {
+	return o.expectClientError()
+}
+
+func (o *ordersContext) theSystemRejectsTheDelayRequestBecauseOneIsAlreadyPending() error {
+	return o.expectStatus(http.StatusConflict)
+}
+
 func (o *ordersContext) theSystemCancelsTheOrder() error {
 	if err := o.expectStatus(http.StatusOK); err != nil {
 		return err
@@ -1125,6 +1280,18 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user submits a deliverable for their last order without logging in$`, func() error {
 		return o.theUserSubmitsADeliverableForTheirLastOrderWithoutLoggingIn()
 	})
+	sc.Step(`^the user has an order with status "([^"]*)" and a pending delay request$`, func(status string) error {
+		return o.theUserHasAnOrderWithStatusAndPendingDelayRequest(status)
+	})
+	sc.Step(`^the artist requests a deadline extension for their last order$`, func() error {
+		return o.theArtistRequestsADeadlineExtensionForTheirLastOrder()
+	})
+	sc.Step(`^the artist requests an extension that is not later than the current deadline$`, func() error {
+		return o.theArtistRequestsAnExtensionThatIsNotLaterThanTheCurrentDeadline()
+	})
+	sc.Step(`^the artist requests a deadline extension for their last order without logging in$`, func() error {
+		return o.theArtistRequestsADeadlineExtensionForTheirLastOrderWithoutLoggingIn()
+	})
 	sc.Step(`^the user cancels their last order$`, func() error { return o.theUserCancelsTheirLastOrder() })
 	sc.Step(`^the user cancels their last order without logging in$`, func() error {
 		return o.theUserCancelsTheirLastOrderWithoutLoggingIn()
@@ -1198,6 +1365,21 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system rejects the deliverable because the order status does not allow it$`, func() error {
 		return o.theSystemRejectsDeliverableForInvalidOrderStatus()
+	})
+	sc.Step(`^the system creates the delay request successfully$`, func() error {
+		return o.theSystemCreatesTheDelayRequestSuccessfully()
+	})
+	sc.Step(`^the system forbids the delay request$`, func() error {
+		return o.theSystemForbidsTheDelayRequest()
+	})
+	sc.Step(`^the system rejects the delay request because the order status does not allow it$`, func() error {
+		return o.theSystemRejectsTheDelayRequestBecauseTheOrderStatusDoesNotAllowIt()
+	})
+	sc.Step(`^the system rejects the delay request because its deadline is invalid$`, func() error {
+		return o.theSystemRejectsTheDelayRequestBecauseItsDeadlineIsInvalid()
+	})
+	sc.Step(`^the system rejects the delay request because one is already pending$`, func() error {
+		return o.theSystemRejectsTheDelayRequestBecauseOneIsAlreadyPending()
 	})
 	sc.Step(`^the system cancels the order$`, func() error { return o.theSystemCancelsTheOrder() })
 	sc.Step(`^the system rejects cancellation because the order status does not allow it$`, func() error {
