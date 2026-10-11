@@ -18,4 +18,5 @@ var (
 	ErrMaxDeliverableVersionsReached     = apperror.Conflict("maximum number of deliverable versions reached")
 	ErrArtistNotFound                    = apperror.NotFound("artist not found")
 	ErrDeliverablePending                = apperror.Conflict("an unreviewed deliverable already exists for this order")
+	ErrDelayRequestPending               = apperror.Conflict("an undecided delay request already exists for this order")
 )

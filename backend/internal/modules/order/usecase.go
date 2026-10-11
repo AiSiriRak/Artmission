@@ -705,3 +705,53 @@ func (u *orderUsecase) ValidateOrderForDeliverable(
 		orderID,
 	)
 }
+
+// CreateDelayRequest creates a deadline-extension request for an order owned
+// by the authenticated artist. It validates the input, initializes the
+// request with a WAIT decision, and persists it through the repository.
+func (u *orderUsecase) CreateDelayRequest(
+	ctx context.Context,
+	artistID uuid.UUID,
+	input CreateDelayRequestInput,
+) (*OrderDelayRequest, error) {
+	if artistID == uuid.Nil {
+		return nil, ErrMissingParticipantID
+	}
+
+	if input.OrderID == uuid.Nil {
+		return nil, ErrMissingOrderID
+	}
+
+	if input.DeadlineRequestAt.IsZero() {
+		return nil, apperror.InvalidInput("requested deadline must not be zero", nil)
+	}
+
+	if !input.Reason.IsValid() {
+		return nil, apperror.InvalidInput("invalid delay request reason", nil)
+	}
+
+	now := time.Now()
+
+	item := &OrderDelayRequest{
+		ID:                uuid.New(),
+		OrderID:           input.OrderID,
+		DeadlineRequestAt: input.DeadlineRequestAt,
+		Reason:            input.Reason,
+		Explanation:       input.Explanation,
+		CustomerDecision:  DelayDecisionWait,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}
+
+	created, err := u.repo.CreateDelayRequest(
+		ctx,
+		artistID,
+		input.OrderID,
+		item,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return created, nil
+}

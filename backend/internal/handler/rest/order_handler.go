@@ -107,6 +107,21 @@ func (h *OrderHandler) Register(api huma.API) {
 			)
 		},
 	)
+
+	huma.Post(api, "/orders/{order_id}/delay-requests", h.createDelayRequest,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "create-order-delay-request"
+			o.Summary = "CreateOrderDelayRequest"
+			o.Description = "Request a deadline extension for an order by the authenticated artist."
+			o.DefaultStatus = http.StatusCreated
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireRole(api, user.RoleArtist),
+			)
+		},
+	)
 }
 
 type orderSummaryView struct {
@@ -165,17 +180,48 @@ type ConfirmOrderOutput struct {
 	}
 }
 
+// createOrderDeliverableForm represents the multipart form data used to submit an order deliverable.
 type createOrderDeliverableForm struct {
 	DeliverableImage huma.FormFile `form:"deliverable_image" contentType:"image/jpeg,image/png,image/webp" required:"true"`
 }
 
+// CreateOrderDeliverableInput contains the order ID and the deliverable image uploaded by the artist.
 type CreateOrderDeliverableInput struct {
 	OrderID uuid.UUID `path:"order_id"`
 	RawBody huma.MultipartFormFiles[createOrderDeliverableForm]
 }
 
+// CreateOrderDeliverableOutput contains the created deliverable in the response body.
 type CreateOrderDeliverableOutput struct {
 	Body deliverableView
+}
+
+// CreateDelayRequestInput contains the order ID and the requested deadline extension details.
+type CreateDelayRequestInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+	Body    struct {
+		DeadlineRequestAt time.Time                `json:"deadline_request_at" required:"true"`
+		Reason            order.DelayRequestReason `json:"reason" required:"true" enum:"NEED_MORE_TIME,WAITING_FOR_FEEDBACK,PERSONAL_REASON,HIGH_WORKLOAD,TECHNICAL_ISSUE,OTHER"`
+		Explanation       string                   `json:"explanation" required:"true"`
+	}
+}
+
+// CreateDelayRequestOutput contains the newly created delay request.
+type CreateDelayRequestOutput struct {
+	Body delayRequestView
+}
+
+// delayRequestView represents a delay request exposed by the API.
+type delayRequestView struct {
+	ID                 string                     `json:"id"`
+	OrderID            string                     `json:"order_id"`
+	OriginalDeadlineAt time.Time                  `json:"original_deadline_at"`
+	DeadlineRequestAt  time.Time                  `json:"deadline_request_at"`
+	Reason             order.DelayRequestReason   `json:"reason"`
+	Explanation        string                     `json:"explanation"`
+	CustomerDecision   order.DelayRequestDecision `json:"customer_decision"`
+	CreatedAt          time.Time                  `json:"created_at"`
+	UpdatedAt          time.Time                  `json:"updated_at"`
 }
 
 // orderPartyView represents the participant on the opposite side of the
@@ -226,6 +272,7 @@ type orderDetailView struct {
 	Deliverables        []deliverableView   `json:"deliverables"`
 }
 
+// CreateOrderInput contains the artwork and order details submitted by the customer.
 type CreateOrderInput struct {
 	Body struct {
 		ArtworkID           uuid.UUID `json:"artwork_id"`
@@ -234,6 +281,8 @@ type CreateOrderInput struct {
 		DeadlineAt          time.Time `json:"deadline_at"`
 	}
 }
+
+// CreateOrderOutput contains the summary of the newly created order.
 type CreateOrderOutput struct {
 	Body orderSummaryView
 }
@@ -517,6 +566,9 @@ func (h *OrderHandler) createOrder(ctx context.Context, input *CreateOrderInput)
 
 }
 
+// createDeliverable creates a deliverable for an order on behalf of the authenticated user.
+// It extracts the user's authentication information, passes the request to the usecase,
+// and returns the created deliverable or a mapped application error.
 func (h *OrderHandler) createDeliverable(
 	ctx context.Context,
 	input *CreateOrderDeliverableInput,
@@ -536,9 +588,12 @@ func (h *OrderHandler) createDeliverable(
 		return nil, mapAppError(err)
 	}
 
-	return &CreateOrderDeliverableOutput{Body: toDeliverableView(createdOrderDeliverable)}, nil
+	return &CreateOrderDeliverableOutput{
+		Body: toDeliverableView(createdOrderDeliverable),
+	}, nil
 }
 
+// toDeliverableView converts a deliverable entity into its API response representation.
 func toDeliverableView(deliverable *order.Deliverable) deliverableView {
 	return deliverableView{
 		ID:              deliverable.ID.String(),
@@ -548,5 +603,48 @@ func toDeliverableView(deliverable *order.Deliverable) deliverableView {
 		PreviewImageURL: deliverable.PreviewImageURL,
 		CreatedAt:       deliverable.CreatedAt,
 		UpdatedAt:       deliverable.UpdatedAt,
+	}
+}
+
+// createDelayRequest creates a deadline-extension request for an order
+// on behalf of the authenticated artist.
+func (h *OrderHandler) createDelayRequest(
+	ctx context.Context,
+	input *CreateDelayRequestInput,
+) (*CreateDelayRequestOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	req := order.CreateDelayRequestInput{
+		OrderID:           input.OrderID,
+		DeadlineRequestAt: input.Body.DeadlineRequestAt,
+		Reason:            input.Body.Reason,
+		Explanation:       input.Body.Explanation,
+	}
+
+	created, err := h.orderUsecase.CreateDelayRequest(ctx, info.UserID, req)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	return &CreateDelayRequestOutput{
+		Body: toDelayRequestView(created),
+	}, nil
+}
+
+// toDelayRequestView converts a delay request entity into its API response representation.
+func toDelayRequestView(item *order.OrderDelayRequest) delayRequestView {
+	return delayRequestView{
+		ID:                 item.ID.String(),
+		OrderID:            item.OrderID.String(),
+		OriginalDeadlineAt: item.OriginalDeadlineAt,
+		DeadlineRequestAt:  item.DeadlineRequestAt,
+		Reason:             item.Reason,
+		Explanation:        item.Explanation,
+		CustomerDecision:   item.CustomerDecision,
+		CreatedAt:          item.CreatedAt,
+		UpdatedAt:          item.UpdatedAt,
 	}
 }

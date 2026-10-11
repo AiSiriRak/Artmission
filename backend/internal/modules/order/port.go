@@ -48,6 +48,14 @@ type OrderUsecase interface {
 		artistID uuid.UUID,
 		input CreateDeliverableInput,
 	) (*Deliverable, error)
+
+	// CreateDelayRequest creates a deadline-extension request for an order
+	// owned by the specified artist.
+	CreateDelayRequest(
+		ctx context.Context,
+		artistID uuid.UUID,
+		input CreateDelayRequestInput,
+	) (*OrderDelayRequest, error)
 }
 
 type OrderRepository interface {
@@ -96,6 +104,15 @@ type OrderRepository interface {
 		artistID uuid.UUID,
 		orderID uuid.UUID,
 	) error
+
+	// CreateDelayRequest persists a deadline-extension request for an order
+	// owned by the specified artist.
+	CreateDelayRequest(
+		ctx context.Context,
+		artistID uuid.UUID,
+		orderID uuid.UUID,
+		item *OrderDelayRequest,
+	) (*OrderDelayRequest, error)
 }
 
 type ObjectStorage interface {
@@ -107,8 +124,4 @@ type ObjectStorage interface {
 
 	// Delete deletes an object by the key.
 	Delete(ctx context.Context, key string) error
-}
-
-type ConfirmOrderInput struct {
-	Accept bool
 }

@@ -791,3 +791,116 @@ func (r *orderRepository) ValidateOrderForDeliverable(
 
 	return nil
 }
+
+// CreateDelayRequest creates a delay request for an order owned by the specified artist.
+// It validates the order status, requested deadline, and existing pending requests,
+// then persists the delay request within a transaction.
+func (r *orderRepository) CreateDelayRequest(
+	ctx context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+	item *order.OrderDelayRequest,
+) (*order.OrderDelayRequest, error) {
+	if item == nil {
+		return nil, apperror.InvalidInput("delay request must not be nil", nil)
+	}
+
+	if artistID == uuid.Nil {
+		return nil, order.ErrArtistNotFound
+	}
+
+	if orderID == uuid.Nil {
+		return nil, order.ErrOrderNotFound
+	}
+
+	var created order.OrderDelayRequest
+
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			existing := new(pgmodel.Order)
+
+			// Lock the order row to prevent concurrent modifications while validating
+			// the order's status and original deadline.
+			if err := idb.NewSelect().
+				Model(existing).
+				Column("id", "status", "deadline_at").
+				Where("id = ?", orderID).
+				Where("artist_id = ?", artistID).
+				For("UPDATE").
+				Scan(ctx); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return order.ErrOrderNotFound
+				}
+				return err
+			}
+
+			// Only allow delay requests for orders that are currently in progress.
+			if existing.Status != string(order.StatusInProcess) {
+				return order.ErrInvalidOrderStatus
+			}
+
+			// Require the requested deadline to be later than the order's current deadline.
+			if !item.DeadlineRequestAt.After(existing.DeadlineAt) {
+				return apperror.InvalidInput("requested deadline must be after the old deadline of the order", nil)
+			}
+
+			// Check whether the order already has a delay request awaiting the customer's decision.
+			pendingExists, err := idb.NewSelect().
+				Model((*pgmodel.OrderDelayRequest)(nil)).
+				Where("order_id = ?", orderID).
+				Where("customer_decision = ?", string(order.DelayDecisionWait)).
+				Exists(ctx)
+			if err != nil {
+				return err
+			}
+
+			if pendingExists {
+				return order.ErrDelayRequestPending
+			}
+
+			// Validate the delay request reason before persisting it.
+			if !item.Reason.IsValid() {
+				return apperror.InvalidInput("invalid delay request reason", nil)
+			}
+
+			// Require the initial customer decision to be WAIT.
+			if item.CustomerDecision != order.DelayDecisionWait {
+				return apperror.InvalidInput("customer decision must be WAIT", nil)
+			}
+
+			// Build the database model using the original deadline retrieved from the order.
+			model := &pgmodel.OrderDelayRequest{
+				ID:                 item.ID,
+				OrderID:            orderID,
+				OriginalDeadlineAt: existing.DeadlineAt,
+				DeadlineRequestAt:  item.DeadlineRequestAt,
+				Reason:             string(item.Reason),
+				Explanation:        item.Explanation,
+				CustomerDecision:   string(item.CustomerDecision),
+				CreatedAt:          item.CreatedAt,
+				UpdatedAt:          item.UpdatedAt,
+			}
+
+			// Insert the delay request into the database.
+			if _, err := idb.NewInsert().
+				Model(model).
+				Exec(ctx); err != nil {
+				return err
+			}
+
+			// Return the created request with the original deadline populated.
+			created = *item
+			created.OriginalDeadlineAt = existing.DeadlineAt
+
+			return nil
+		})
+	})
+	if err != nil {
+		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return nil, err
+		}
+		return nil, apperror.Internal("failed to create delay request", err)
+	}
+
+	return &created, nil
+}

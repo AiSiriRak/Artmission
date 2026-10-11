@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Status represents the current state of an order.
 type Status string
 
 const (
@@ -181,6 +182,9 @@ const (
 	MaxLimit     = 100
 )
 
+// Order represents a commission order and its current lifecycle state.
+// It also contains the latest deliverable preview information when populated
+// by the repository and usecase.
 type Order struct {
 	ID                  uuid.UUID
 	CustomerID          uuid.UUID
@@ -286,6 +290,12 @@ type OrderDetail struct {
 	Deliverables    []Deliverable
 }
 
+// ConfirmOrderInput represents an artist's decision to accept or reject an order.
+type ConfirmOrderInput struct {
+	Accept bool
+}
+
+// CreateInput contains the customer-provided information required to create an order.
 type CreateInput struct {
 	Name                string
 	ArtworkID           uuid.UUID
@@ -300,10 +310,19 @@ type CreateDeliverableInput struct {
 	DeliverableImage io.Reader
 }
 
-// MaxDeliverableImageSize is assigned to be 20 MB
+// Deliverable limits and image-processing settings.
 const (
 	MaxDeliverableVersions    = 3
 	MaxDeliverableImageSize   = 20 * 1024 * 1024
 	deliverablePreviewSize    = 1800
 	deliverablePreviewQuality = 88
 )
+
+// CreateDelayRequestInput contains the information an artist submits
+// to request an extension of an order's deadline.
+type CreateDelayRequestInput struct {
+	OrderID           uuid.UUID
+	DeadlineRequestAt time.Time
+	Reason            DelayRequestReason
+	Explanation       string
+}
