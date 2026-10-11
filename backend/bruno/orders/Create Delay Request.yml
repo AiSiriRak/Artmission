@@ -1,0 +1,108 @@
+info:
+  name: CreateDelayRequest
+  type: http
+  seq: 9
+  tags:
+    - orders
+
+http:
+  method: POST
+  url: "{{api_url}}/orders/:id/delay-requests"
+  params:
+    - name: id
+      value: "{{OrderID}}"
+      type: path
+      description: Order ID
+  body:
+    type: json
+    data: |-
+      {
+        "deadline_request_at": "2026-10-30T14:09:56.65919Z",
+        "reason": "NEED_MORE_TIME",
+        "explanation": "tam mai ton bro"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 201 Response
+    description: Created
+    request:
+      url: "{{api_url}}/orders/:id/delay-requests"
+      method: POST
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Order ID
+      body:
+        type: json
+        data: |-
+          {
+            "deadline_request_at": "",
+            "reason": "",
+            "explanation": ""
+          }
+    response:
+      status: 201
+      statusText: Created
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "id": "",
+            "order_id": "",
+            "original_deadline_at": "",
+            "deadline_request_at": "",
+            "reason": "",
+            "explanation": "",
+            "customer_decision": "",
+            "created_at": "",
+            "updated_at": ""
+          }
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/orders/:id/delay-requests"
+      method: POST
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Order ID
+      body:
+        type: json
+        data: |-
+          {
+            "deadline_request_at": "",
+            "reason": "",
+            "explanation": ""
+          }
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: Request a deadline extension for an active order.

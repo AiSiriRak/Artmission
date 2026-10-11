@@ -1,5 +1,5 @@
 info:
-  name: Submit Order Deliverable
+  name: SubmitOrderDeliverable
   type: http
   seq: 7
 
