@@ -81,7 +81,22 @@ const orderExpiryInterval = time.Minute
 // cmd_serve.go is the only caller.
 func WireWorkers(cfg Config) []worker.Worker {
 	orderRepo := postgres.NewOrderRepository(cfg.DB)
-	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private)
+	userRepo := postgres.NewUserRepository(cfg.DB)
+	bankRepo := postgres.NewBankAccountRepository(cfg.DB)
+	artistRepo := postgres.NewArtistRepository(cfg.DB)
+	accountDeletionRepo := postgres.NewAccountDeletionRepository(cfg.DB)
+	tx := baserepo.NewTransactioner(cfg.DB)
+
+	artistUsecase := artist.NewProfileUsecase(artistRepo, cfg.ObjectStorage.Public)
+	userUsecase := user.NewUserUsecase(
+		userRepo,
+		bankRepo,
+		artistUsecase,
+		accountDeletionRepo,
+		tx,
+		cfg.ObjectStorage.Public,
+	)
+	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private, userUsecase)
 
 	return []worker.Worker{
 		worker.NewOrderExpiryWorker(orderUsecase, orderExpiryInterval, cfg.Logger),

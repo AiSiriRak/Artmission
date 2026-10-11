@@ -1192,7 +1192,7 @@ func TestCancelOrder_PropagatesRepositoryError(t *testing.T) {
 
 func TestCancelExpiredOrders_UsesTTLRelativeToNow(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	before := time.Now()
 	_, err := usecase.CancelExpiredOrders(context.Background())
@@ -1214,7 +1214,7 @@ func TestCancelExpiredOrders_UsesTTLRelativeToNow(t *testing.T) {
 
 func TestCancelExpiredOrders_ReturnsCancelledIDs(t *testing.T) {
 	ids := []uuid.UUID{uuid.New(), uuid.New()}
-	usecase := order.NewOrderUsecase(&fakeRepo{expireIDs: ids}, fakeStorage{})
+	usecase := newTestOrderUsecase(&fakeRepo{expireIDs: ids}, fakeStorage{})
 
 	got, err := usecase.CancelExpiredOrders(context.Background())
 	if err != nil {
@@ -1227,7 +1227,7 @@ func TestCancelExpiredOrders_ReturnsCancelledIDs(t *testing.T) {
 
 func TestCancelExpiredOrders_PropagatesRepositoryError(t *testing.T) {
 	wantErr := errors.New("db down")
-	usecase := order.NewOrderUsecase(&fakeRepo{expireErr: wantErr}, fakeStorage{})
+	usecase := newTestOrderUsecase(&fakeRepo{expireErr: wantErr}, fakeStorage{})
 
 	if _, err := usecase.CancelExpiredOrders(context.Background()); !errors.Is(err, wantErr) {
 		t.Fatalf("err = %v, want %v", err, wantErr)
