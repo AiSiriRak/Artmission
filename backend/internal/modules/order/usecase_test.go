@@ -54,6 +54,11 @@ type fakeRepo struct {
 	deliverableArtistID  uuid.UUID
 	deliverableOrderID   uuid.UUID
 	deliverableCreateErr error
+
+	validateDeliverableArtistID uuid.UUID
+	validateDeliverableOrderID  uuid.UUID
+	validateDeliverableErr      error
+	validateDeliverableCalled   bool
 }
 
 func (f *fakeRepo) ListOrders(_ context.Context, query order.ListQuery) (order.Page, error) {
@@ -120,11 +125,28 @@ func (repo *fakeRepo) CreateDeliverable(
 	artistID uuid.UUID,
 	orderID uuid.UUID,
 	item *order.Deliverable,
-) error {
+) (*order.Deliverable, error) {
 	repo.createdDeliverable = item
 	repo.deliverableArtistID = artistID
 	repo.deliverableOrderID = orderID
-	return repo.deliverableCreateErr
+	if repo.deliverableCreateErr != nil {
+		return nil, repo.deliverableCreateErr
+	}
+
+	created := *item
+	created.Version = 1
+	return &created, nil
+}
+
+func (repo *fakeRepo) ValidateOrderForDeliverable(
+	_ context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	repo.validateDeliverableCalled = true
+	repo.validateDeliverableArtistID = artistID
+	repo.validateDeliverableOrderID = orderID
+	return repo.validateDeliverableErr
 }
 
 var _ order.OrderRepository = (*fakeRepo)(nil)
@@ -161,14 +183,20 @@ type storedObject struct {
 }
 
 type recordingStorage struct {
-	uploads      []storedObject
-	deletes      []string
-	failUploadAt int
-	uploadErr    error
-	deleteErr    error
+	uploads       []storedObject
+	deletes       []string
+	presignedKeys []string
+	failUploadAt  int
+	uploadErr     error
+	presignErr    error
+	deleteErr     error
 }
 
 func (storage *recordingStorage) GetPresignedURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	storage.presignedKeys = append(storage.presignedKeys, key)
+	if storage.presignErr != nil {
+		return "", storage.presignErr
+	}
 	return key, nil
 }
 
@@ -201,6 +229,10 @@ func (getter fakeArtistGetter) GetArtistName(context.Context, uuid.UUID) (string
 }
 
 var _ order.ArtistGetter = fakeArtistGetter{}
+
+func newTestOrderUsecase(repo order.OrderRepository, storage order.ObjectStorage) order.OrderUsecase {
+	return order.NewOrderUsecase(repo, storage, fakeArtistGetter{})
+}
 
 func testDeliverablePNG(t *testing.T) []byte {
 	t.Helper()
@@ -248,7 +280,7 @@ func wantInvalidInput(t *testing.T, err error) {
 
 func TestViewOrders_DefaultsSortOrderAndLimit(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	if _, err := usecase.ViewOrders(context.Background(), validQuery()); err != nil {
 		t.Fatalf("ViewOrders() error = %v, want nil", err)
@@ -267,7 +299,7 @@ func TestViewOrders_DefaultsSortOrderAndLimit(t *testing.T) {
 
 func TestViewOrders_ArtistParticipant_PassesThrough(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	q := validQuery()
 	q.Participant = order.ParticipantArtist
@@ -285,7 +317,7 @@ func TestViewOrders_ArtistParticipant_PassesThrough(t *testing.T) {
 
 func TestViewOrders_RejectsUnsupportedParticipant(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	q := validQuery()
 	q.Participant = "admin"
@@ -295,7 +327,7 @@ func TestViewOrders_RejectsUnsupportedParticipant(t *testing.T) {
 
 func TestViewOrders_RejectsMissingParticipantID(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	q := validQuery()
 	q.ParticipantID = uuid.Nil
@@ -305,7 +337,7 @@ func TestViewOrders_RejectsMissingParticipantID(t *testing.T) {
 
 func TestViewOrders_RejectsInvalidSort(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	q := validQuery()
 	q.Sort = "created_at"
@@ -315,7 +347,7 @@ func TestViewOrders_RejectsInvalidSort(t *testing.T) {
 
 func TestViewOrders_RejectsInvalidOrder(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	q := validQuery()
 	q.Order = "sideways"
@@ -325,7 +357,7 @@ func TestViewOrders_RejectsInvalidOrder(t *testing.T) {
 
 func TestViewOrders_RejectsLimitOutOfRange(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	for _, limit := range []int{-1, order.MaxLimit + 1} {
 		q := validQuery()
@@ -337,7 +369,7 @@ func TestViewOrders_RejectsLimitOutOfRange(t *testing.T) {
 
 func TestViewOrders_RejectsNegativeOffset(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	q := validQuery()
 	q.Offset = -1
@@ -347,7 +379,7 @@ func TestViewOrders_RejectsNegativeOffset(t *testing.T) {
 
 func TestViewOrders_RejectsInvalidStatus(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	q := validQuery()
 	q.Statuses = []order.Status{"NOT_A_STATUS"}
@@ -357,7 +389,7 @@ func TestViewOrders_RejectsInvalidStatus(t *testing.T) {
 
 func TestViewOrders_NormalizesStatuses_DedupesAndSorts(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	q := validQuery()
 	q.Statuses = []order.Status{order.StatusSuccess, order.StatusPending, order.StatusPending}
@@ -379,7 +411,7 @@ func TestViewOrders_NormalizesStatuses_DedupesAndSorts(t *testing.T) {
 
 func TestViewOrders_EmptyPageIsNotAnError(t *testing.T) {
 	repo := &fakeRepo{page: order.Page{Orders: []order.Order{}}}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	page, err := usecase.ViewOrders(context.Background(), validQuery())
 	if err != nil {
@@ -393,7 +425,7 @@ func TestViewOrders_EmptyPageIsNotAnError(t *testing.T) {
 func TestViewOrders_PropagatesRepositoryError(t *testing.T) {
 	wantErr := apperror.Internal("boom", nil)
 	repo := &fakeRepo{err: wantErr}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	_, err := usecase.ViewOrders(context.Background(), validQuery())
 	if !errors.Is(err, wantErr) {
@@ -406,7 +438,7 @@ func TestViewOrders_ResolvesDeliverablePreviewKeyToURL(t *testing.T) {
 	withKey := order.Order{ID: uuid.New(), DeliverablePreviewKey: &key}
 	withoutKey := order.Order{ID: uuid.New()}
 	repo := &fakeRepo{page: order.Page{Orders: []order.Order{withKey, withoutKey}}}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{url: "https://cdn.test/"})
+	usecase := newTestOrderUsecase(repo, fakeStorage{url: "https://cdn.test/"})
 
 	page, err := usecase.ViewOrders(context.Background(), validQuery())
 	if err != nil {
@@ -425,7 +457,7 @@ func TestViewOrders_PropagatesPresignError(t *testing.T) {
 	key := "orders/abc/v1/preview.png"
 	repo := &fakeRepo{page: order.Page{Orders: []order.Order{{ID: uuid.New(), DeliverablePreviewKey: &key}}}}
 	wantErr := errors.New("s3 unreachable")
-	usecase := order.NewOrderUsecase(repo, fakeStorage{err: wantErr})
+	usecase := newTestOrderUsecase(repo, fakeStorage{err: wantErr})
 
 	_, err := usecase.ViewOrders(context.Background(), validQuery())
 	var appErr *apperror.Error
@@ -436,7 +468,7 @@ func TestViewOrders_PropagatesPresignError(t *testing.T) {
 
 func TestGetOrder_RejectsUnsupportedParticipant(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	_, err := usecase.GetOrder(
 		context.Background(),
@@ -454,7 +486,7 @@ func TestGetOrder_RejectsUnsupportedParticipant(t *testing.T) {
 
 func TestGetOrder_RejectsMissingParticipantID(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	_, err := usecase.GetOrder(
 		context.Background(),
@@ -472,7 +504,7 @@ func TestGetOrder_RejectsMissingParticipantID(t *testing.T) {
 
 func TestGetOrder_RejectsMissingOrderID(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	_, err := usecase.GetOrder(
 		context.Background(),
@@ -524,7 +556,7 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 		},
 	}
 
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	got, err := usecase.GetOrder(
 		context.Background(),
@@ -634,7 +666,7 @@ func TestGetOrder_ArtistGetsCustomerAsOtherParty(t *testing.T) {
 		},
 	}
 
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	got, err := usecase.GetOrder(
 		context.Background(),
@@ -685,7 +717,7 @@ func TestGetOrder_PropagatesRepositoryError(t *testing.T) {
 		orderErr: wantErr,
 	}
 
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	orderID := uuid.New()
 	participantID := uuid.New()
@@ -702,7 +734,7 @@ func TestGetOrder_PropagatesRepositoryError(t *testing.T) {
 }
 
 func TestGetOrder_RejectsNilRepositoryResult(t *testing.T) {
-	usecase := order.NewOrderUsecase(&fakeRepo{}, fakeStorage{})
+	usecase := newTestOrderUsecase(&fakeRepo{}, fakeStorage{})
 
 	_, err := usecase.GetOrder(
 		context.Background(),
@@ -719,7 +751,7 @@ func TestGetOrder_RejectsNilRepositoryResult(t *testing.T) {
 
 func TestConfirmOrder_AcceptsOrder(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	artistID := uuid.New()
 	orderID := uuid.New()
@@ -762,7 +794,7 @@ func TestConfirmOrder_AcceptsOrder(t *testing.T) {
 
 func TestConfirmOrder_RejectsOrder(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	artistID := uuid.New()
 	orderID := uuid.New()
@@ -805,7 +837,7 @@ func TestConfirmOrder_RejectsOrder(t *testing.T) {
 
 func TestConfirmOrder_RejectsMissingArtistID(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	gotStatus, err := usecase.ConfirmOrder(
 		context.Background(),
@@ -828,7 +860,7 @@ func TestConfirmOrder_RejectsMissingArtistID(t *testing.T) {
 
 func TestConfirmOrder_RejectsMissingOrderID(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	gotStatus, err := usecase.ConfirmOrder(
 		context.Background(),
@@ -853,7 +885,7 @@ func TestConfirmOrder_PropagatesRepositoryError(t *testing.T) {
 	repo := &fakeRepo{
 		confirmErr: wantErr,
 	}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	gotStatus, err := usecase.ConfirmOrder(
 		context.Background(),
@@ -907,8 +939,25 @@ func TestCreateDeliverableUploadsOriginalAndWatermarkedPreview(t *testing.T) {
 	if created.OriginalImageKey != storage.uploads[0].key || created.PreviewImageKey != storage.uploads[1].key {
 		t.Errorf("deliverable keys = (%q, %q), want uploaded keys", created.OriginalImageKey, created.PreviewImageKey)
 	}
-	if repo.deliverableArtistID != artistID || repo.deliverableOrderID != orderID || repo.createdDeliverable != created {
+	if repo.deliverableArtistID != artistID || repo.deliverableOrderID != orderID {
 		t.Error("repository did not receive the created deliverable with the authenticated artist and order IDs")
+	}
+	if !repo.validateDeliverableCalled ||
+		repo.validateDeliverableArtistID != artistID ||
+		repo.validateDeliverableOrderID != orderID {
+		t.Error("order eligibility was not validated for the authenticated artist and order")
+	}
+	if repo.createdDeliverable == nil || repo.createdDeliverable.ID != created.ID {
+		t.Error("repository did not receive the deliverable returned by CreateDeliverable")
+	}
+	if created.Version != 1 {
+		t.Errorf("created version = %d, want repository-assigned version 1", created.Version)
+	}
+	if created.PreviewImageURL != created.PreviewImageKey {
+		t.Errorf("preview URL = %q, want presigned URL for key %q", created.PreviewImageURL, created.PreviewImageKey)
+	}
+	if len(storage.presignedKeys) != 1 || storage.presignedKeys[0] != created.PreviewImageKey {
+		t.Errorf("presigned keys = %v, want [%q]", storage.presignedKeys, created.PreviewImageKey)
 	}
 	if len(storage.deletes) != 0 {
 		t.Errorf("deletes = %v, want none", storage.deletes)
@@ -940,6 +989,27 @@ func TestCreateDeliverableRejectsInvalidOrOversizedImageBeforeUpload(t *testing.
 				t.Errorf("uploads = %d, want 0", len(storage.uploads))
 			}
 		})
+	}
+}
+
+func TestCreateDeliverableReturnsValidationErrorBeforeUpload(t *testing.T) {
+	wantErr := order.ErrInvalidOrderStatus
+	repo := &fakeRepo{validateDeliverableErr: wantErr}
+	storage := &recordingStorage{}
+	usecase := order.NewOrderUsecase(repo, storage, fakeArtistGetter{name: "Test Artist"})
+
+	_, err := usecase.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{
+		OrderID:          uuid.New(),
+		DeliverableImage: bytes.NewReader(testDeliverablePNG(t)),
+	})
+	if !errors.Is(err, wantErr) {
+		t.Errorf("CreateDeliverable() error = %v, want %v", err, wantErr)
+	}
+	if !repo.validateDeliverableCalled {
+		t.Error("ValidateOrderForDeliverable() was not called")
+	}
+	if len(storage.uploads) != 0 {
+		t.Errorf("uploads = %d, want 0 when the order is not eligible", len(storage.uploads))
 	}
 }
 
@@ -978,6 +1048,29 @@ func TestCreateDeliverableCleansUpWhenPersistenceFails(t *testing.T) {
 	}
 }
 
+func TestCreateDeliverablePropagatesPreviewPresignFailure(t *testing.T) {
+	storage := &recordingStorage{presignErr: errors.New("storage unavailable")}
+	usecase := order.NewOrderUsecase(&fakeRepo{}, storage, fakeArtistGetter{name: "Test Artist"})
+
+	created, err := usecase.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{
+		OrderID:          uuid.New(),
+		DeliverableImage: bytes.NewReader(testDeliverablePNG(t)),
+	})
+	var appErr *apperror.Error
+	if created != nil {
+		t.Errorf("CreateDeliverable() result = %+v, want nil on presign failure", created)
+	}
+	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInternal {
+		t.Fatalf("CreateDeliverable() error = %v, want internal application error", err)
+	}
+	if len(storage.presignedKeys) != 1 || storage.presignedKeys[0] != storage.uploads[1].key {
+		t.Errorf("presigned keys = %v, want the persisted preview key %q", storage.presignedKeys, storage.uploads[1].key)
+	}
+	if len(storage.deletes) != 0 {
+		t.Errorf("deletes = %v, want none after persistence succeeded", storage.deletes)
+	}
+}
+
 const (
 	orderPreviewWidth  = 640
 	orderPreviewHeight = 320
@@ -985,7 +1078,7 @@ const (
 
 func TestCancelOrder_Success(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	participant := order.ParticipantCustomer
 	participantID := uuid.New()
@@ -1020,7 +1113,7 @@ func TestCancelOrder_Success(t *testing.T) {
 
 func TestCancelOrder_RejectsInvalidParticipant(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	err := usecase.CancelOrder(
 		context.Background(),
@@ -1040,7 +1133,7 @@ func TestCancelOrder_RejectsInvalidParticipant(t *testing.T) {
 
 func TestCancelOrder_RejectsMissingParticipantID(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	err := usecase.CancelOrder(
 		context.Background(),
@@ -1060,7 +1153,7 @@ func TestCancelOrder_RejectsMissingParticipantID(t *testing.T) {
 
 func TestCancelOrder_RejectsMissingOrderID(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	err := usecase.CancelOrder(
 		context.Background(),
@@ -1083,7 +1176,7 @@ func TestCancelOrder_PropagatesRepositoryError(t *testing.T) {
 	repo := &fakeRepo{
 		cancelErr: wantErr,
 	}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	err := usecase.CancelOrder(
 		context.Background(),
@@ -1099,7 +1192,7 @@ func TestCancelOrder_PropagatesRepositoryError(t *testing.T) {
 
 func TestCancelExpiredOrders_UsesTTLRelativeToNow(t *testing.T) {
 	repo := &fakeRepo{}
-	usecase := order.NewOrderUsecase(repo, fakeStorage{})
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
 	before := time.Now()
 	_, err := usecase.CancelExpiredOrders(context.Background())
@@ -1121,7 +1214,7 @@ func TestCancelExpiredOrders_UsesTTLRelativeToNow(t *testing.T) {
 
 func TestCancelExpiredOrders_ReturnsCancelledIDs(t *testing.T) {
 	ids := []uuid.UUID{uuid.New(), uuid.New()}
-	usecase := order.NewOrderUsecase(&fakeRepo{expireIDs: ids}, fakeStorage{})
+	usecase := newTestOrderUsecase(&fakeRepo{expireIDs: ids}, fakeStorage{})
 
 	got, err := usecase.CancelExpiredOrders(context.Background())
 	if err != nil {
@@ -1134,7 +1227,7 @@ func TestCancelExpiredOrders_ReturnsCancelledIDs(t *testing.T) {
 
 func TestCancelExpiredOrders_PropagatesRepositoryError(t *testing.T) {
 	wantErr := errors.New("db down")
-	usecase := order.NewOrderUsecase(&fakeRepo{expireErr: wantErr}, fakeStorage{})
+	usecase := newTestOrderUsecase(&fakeRepo{expireErr: wantErr}, fakeStorage{})
 
 	if _, err := usecase.CancelExpiredOrders(context.Background()); !errors.Is(err, wantErr) {
 		t.Fatalf("err = %v, want %v", err, wantErr)

@@ -16,6 +16,6 @@ var (
 	ErrInvalidDeliverableImage           = apperror.InvalidInput("deliverable image must be a JPEG, PNG, or WebP image", nil)
 	ErrDeliverableImageTooLarge          = apperror.InvalidInput(fmt.Sprintf("deliverable image exceeds the %d MiB limit", MaxDeliverableImageSize/(1024*1024)), nil)
 	ErrMaxDeliverableVersionsReached     = apperror.Conflict("maximum number of deliverable versions reached")
-	ErrArtistGetterUnavailable           = apperror.Internal("artist identity provider is not configured", nil)
 	ErrArtistNotFound                    = apperror.NotFound("artist not found")
+	ErrDeliverablePending                = apperror.Conflict("an unreviewed deliverable already exists for this order")
 )

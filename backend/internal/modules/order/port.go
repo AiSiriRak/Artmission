@@ -85,7 +85,16 @@ type OrderRepository interface {
 		ctx context.Context,
 		artistID uuid.UUID,
 		orderID uuid.UUID,
-		orderDeliverable *Deliverable,
+		item *Deliverable,
+	) (*Deliverable, error)
+
+	// ValidateOrderForDeliverable verifies that the order exists, belongs to the
+	// specified artist, and is in a valid state for creating a deliverable.
+	// It should be called before processing and uploading deliverable images.
+	ValidateOrderForDeliverable(
+		ctx context.Context,
+		artistID uuid.UUID,
+		orderID uuid.UUID,
 	) error
 }
 

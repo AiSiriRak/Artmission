@@ -628,18 +628,20 @@ func (r *orderRepository) CreateDeliverable(
 	artistID uuid.UUID,
 	orderID uuid.UUID,
 	item *order.Deliverable,
-) error {
+) (*order.Deliverable, error) {
 	if item == nil {
-		return apperror.InvalidInput("deliverable must not be nil", nil)
+		return nil, apperror.InvalidInput("deliverable must not be nil", nil)
 	}
 
 	if artistID == uuid.Nil {
-		return order.ErrArtistNotFound
+		return nil, order.ErrArtistNotFound
 	}
 
 	if orderID == uuid.Nil {
-		return order.ErrOrderNotFound
+		return nil, order.ErrOrderNotFound
 	}
+
+	var created order.Deliverable
 
 	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
 		return r.exec.Run(ctx, func(idb bun.IDB) error {
@@ -672,6 +674,21 @@ func (r *orderRepository) CreateDeliverable(
 				Where("order_id = ?", orderID).
 				Scan(ctx, &maxVersion); err != nil {
 				return err
+			}
+
+			var pendingExists bool
+
+			pendingExists, err := idb.NewSelect().
+				Model((*pgmodel.OrderDeliverable)(nil)).
+				Where("order_id = ?", orderID).
+				Where("decision = ?", string(order.DeliverableDecisionWait)).
+				Exists(ctx)
+			if err != nil {
+				return err
+			}
+
+			if pendingExists {
+				return order.ErrDeliverablePending
 			}
 
 			if maxVersion >= order.MaxDeliverableVersions {
@@ -708,6 +725,7 @@ func (r *orderRepository) CreateDeliverable(
 				if _, err := idb.NewUpdate().
 					Model((*pgmodel.Order)(nil)).
 					Set("status = ?", string(order.StatusSuccess)).
+					Set("completed_at = NOW()").
 					Set("updated_at = NOW()").
 					Where("id = ?", orderID).
 					Exec(ctx); err != nil {
@@ -716,8 +734,9 @@ func (r *orderRepository) CreateDeliverable(
 			}
 
 			// Return the version assigned by the repository.
-			item.Version = model.Version
-			item.Decision = order.DeliverableDecision(model.Decision)
+			created = *item
+			created.Version = model.Version
+			created.Decision = order.DeliverableDecision(model.Decision)
 
 			return nil
 		})
@@ -725,10 +744,49 @@ func (r *orderRepository) CreateDeliverable(
 
 	if err != nil {
 		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return nil, err
+		}
+
+		return nil, apperror.Internal("failed to create deliverable", err)
+	}
+
+	return &created, nil
+}
+
+// ValidateOrderForDeliverable verifies that the order exists, belongs to the
+// specified artist, and is in the IN_PROCESS state before processing images.
+func (r *orderRepository) ValidateOrderForDeliverable(
+	ctx context.Context,
+	artistID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		existing := new(pgmodel.Order)
+
+		if err := idb.NewSelect().
+			Model(existing).
+			Column("id", "status").
+			Where("id = ?", orderID).
+			Where("artist_id = ?", artistID).
+			Scan(ctx); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return order.ErrOrderNotFound
+			}
 			return err
 		}
 
-		return apperror.Internal("failed to create deliverable", err)
+		if existing.Status != string(order.StatusInProcess) {
+			return order.ErrInvalidOrderStatus
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return err
+		}
+		return apperror.Internal("failed to validate order for deliverable", err)
 	}
 
 	return nil
