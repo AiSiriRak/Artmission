@@ -9,35 +9,58 @@ backend/
 ├── main.go                         entry point, delegates to cmd/
 ├── cmd/                            cobra CLI commands — wiring only, no business logic
 │   ├── cmd_root.go                   root command, --env-file flag, config loading
-│   ├── cmd_serve.go                  `serve`: builds every adapter/usecase/handler and starts the HTTP server
-│   └── cmd_migrate.go                `migrate up|down|reset|create`: goose wrapper
+│   ├── cmd_serve.go                  `serve`: builds the app and starts the HTTP server
+│   ├── cmd_migrate.go                `migrate up|down|reset|create`: goose wrapper
+│   └── cmd_seed.go                   seed fixtures / catalog data
 │
 ├── internal/
-│   ├── wiring/                      the composition root — Wire() builds every adapter/usecase/handler, called by both cmd_serve.go and tests/internal/apptest
+│   ├── wiring/                      the composition root — Wire() builds every adapter/usecase/handler
+│   │                                  and is used by cmd_serve.go and tests/internal/apptest
 │   │
-│   ├── modules/                    the domain — one directory per bounded concern, see below
-│   │   ├── user/                     account identity + credentials
+│   ├── modules/                    the domain — one bounded concern per directory
+│   │   ├── artist/                   artist profile and public profile retrieval
+│   │   ├── artwork/                  artwork catalog and artwork upload state
 │   │   ├── auth/                     session/token lifecycle (login, refresh, logout)
-│   │   └── order/                    commission orders, view orders
-│   │                                 (snapshot, not exhaustive — more land as features ship; check the directory itself for the current list)
+│   │   ├── order/                    commission orders, workflow actions, deliverables
+│   │   └── user/                     account identity, bank account, deletion, role-aware account operations
 │   │
 │   ├── adapters/                   implements each module's ports against real technology
-│   │   ├── postgres/                 every module's repository, via bun — grouped by technology
-│   │   └── token/                    JWT implementation of auth.TokenIssuer
+│   │   ├── postgres/                 every repository, grouped by technology and storage model
+│   │   │   ├── model/                  bun row models used by repository CRUD
+│   │   │   └── ...                    repository implementations
+│   │   ├── token/                    JWT implementation of auth.TokenIssuer
+│   │   └── ...
 │   │
 │   ├── handler/rest/               HTTP entry point — huma operations, DTOs, auth/role middleware
 │   │
+│   ├── worker/                     background workers, currently order expiry processing
+│   │
 │   └── pkg/                        cross-cutting, domain-agnostic — importable from anywhere
+│       ├── apperror/                 the error taxonomy (see architecture.md)
+│       ├── baserepo/                 generic CRUD + transaction plumbing shared by adapters
 │       ├── config/                   YAML + env config loader
 │       ├── database/                 Postgres/bun connection setup
 │       ├── httpserver/               huma server, request-id/logging/recover/CORS middleware, /livez /readyz
-│       ├── baserepo/                 generic CRUD + transaction plumbing shared by adapters
-│       ├── apperror/                 the error taxonomy (see architecture.md)
-│       ├── security/                 password hashing
 │       ├── logger/                   slog setup
-│       └── migrations/               embedded SQL migration files, applied via goose
+│       ├── migrations/               embedded SQL migration files, applied via goose
+│       ├── objectstorage/            S3-backed object storage client
+│       ├── security/                 password hashing
+│       └── seed/                     seed data generators for local/test environments
 │
-└── docs/                           you are here
+├── tests/                          BDD/integration tests grouped by feature
+├── bruno/                          Bruno API collections for manual endpoint checks
+├── docs/                           you are here
+├── scripts/                        helper scripts (migration checks, report generation)
+├── reports/                        generated test reports / JSON outputs
+├── docker-compose.yaml            local Postgres + infra stack
+├── Dockerfile                     backend image
+├── Taskfile.yml                   shorthand commands for dev tasks
+├── .env.example                   local env defaults
+├── go.mod / go.sum                Go module definition and dependencies
+├── package.json                   local tooling for report generation / helper scripts
+├── package-lock.json              npm lockfile for local tooling
+├── .air.toml                      hot-reload config
+└── tmp/                           runtime/build artifacts
 ```
 
 ## Anatomy of one module: `internal/modules/user/`
@@ -86,4 +109,6 @@ Not one file per module like the other layers — instead:
 | Request-id/logging/CORS/panic-recovery | `internal/pkg/httpserver/{middleware,cors}.go` |
 | Auth/role guards on a specific route | `internal/handler/rest/middleware.go`, then that route's `huma.Operation.Middlewares` |
 | App wiring / "how does it all connect" | `internal/wiring/wiring.go` — read top to bottom |
+| Object storage client behavior | `internal/pkg/objectstorage/` |
+| Background jobs | `internal/worker/` |
 | Error codes / how a domain error becomes an HTTP status | `internal/pkg/apperror`, `mapAppError` in `internal/handler/rest/httperror.go` |
