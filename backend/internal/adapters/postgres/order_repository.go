@@ -904,3 +904,118 @@ func (r *orderRepository) CreateDelayRequest(
 
 	return &created, nil
 }
+
+// ConfirmDelayRequest updates the customer's decision on a delay request
+// and returns the order's deadline after the transaction is completed.
+func (r *orderRepository) ConfirmDelayRequest(
+	ctx context.Context,
+	customerID uuid.UUID,
+	orderID uuid.UUID,
+	delayRequestID uuid.UUID,
+	delayRequestDecision order.DelayRequestDecision,
+) (time.Time, error) {
+	if customerID == uuid.Nil {
+		return time.Time{}, order.ErrArtistNotFound
+	}
+
+	if orderID == uuid.Nil {
+		return time.Time{}, order.ErrOrderNotFound
+	}
+
+	if delayRequestID == uuid.Nil {
+		return time.Time{}, order.ErrDelayRequestNotFound
+	}
+
+	switch delayRequestDecision {
+	case order.DelayDecisionApproved, order.DelayDecisionRejected:
+	default:
+		return time.Time{}, apperror.InvalidInput("invalid delay request decision", nil)
+	}
+
+	var deadlineAt time.Time
+
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			existing := new(pgmodel.Order)
+
+			if err := idb.NewSelect().
+				Model(existing).
+				Column("id", "status", "deadline_at").
+				Where("id = ?", orderID).
+				Where("customer_id = ?", customerID).
+				For("UPDATE").
+				Scan(ctx); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return order.ErrOrderNotFound
+				}
+				return err
+			}
+
+			if existing.Status != string(order.StatusInProcess) {
+				return order.ErrInvalidOrderStatus
+			}
+
+			pending := new(pgmodel.OrderDelayRequest)
+
+			if err := idb.NewSelect().
+				Model(pending).
+				Column("id", "original_deadline_at", "deadline_request_at", "customer_decision").
+				Where("id = ?", delayRequestID).
+				Where("order_id = ?", orderID).
+				For("UPDATE").
+				Scan(ctx); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return order.ErrDelayRequestNotFound
+				}
+				return err
+			}
+
+			if pending.CustomerDecision != string(order.DelayDecisionWait) {
+				return order.ErrInvalidrDelayRequestStatus
+			}
+
+			switch delayRequestDecision {
+			case order.DelayDecisionApproved:
+				deadlineAt = pending.DeadlineRequestAt
+			case order.DelayDecisionRejected:
+				deadlineAt = existing.DeadlineAt
+			}
+
+			_, err := idb.NewUpdate().
+				Model((*pgmodel.OrderDelayRequest)(nil)).
+				Set("customer_decision = ?", string(delayRequestDecision)).
+				Set("updated_at = NOW()").
+				Where("id = ?", delayRequestID).
+				Where("order_id = ?", orderID).
+				Where("customer_decision = ?", string(order.DelayDecisionWait)).
+				Exec(ctx)
+			if err != nil {
+				return err
+			}
+
+			if delayRequestDecision == order.DelayDecisionApproved {
+				_, err := idb.NewUpdate().
+					Model((*pgmodel.Order)(nil)).
+					Set("deadline_at = ?", deadlineAt).
+					Set("updated_at = NOW()").
+					Where("id = ?", orderID).
+					Where("customer_id = ?", customerID).
+					Exec(ctx)
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+		})
+	})
+
+	if err != nil {
+		if _, ok := errors.AsType[*apperror.Error](err); ok {
+			return time.Time{}, err
+		}
+		return time.Time{}, apperror.Internal("failed to confirm delay request", err)
+	}
+
+	return deadlineAt, nil
+}

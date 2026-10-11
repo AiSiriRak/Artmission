@@ -111,14 +111,29 @@ func (h *OrderHandler) Register(api huma.API) {
 	huma.Post(api, "/orders/{order_id}/delay-requests", h.createDelayRequest,
 		huma.OperationTags("orders"),
 		func(o *huma.Operation) {
-			o.OperationID = "create-order-delay-request"
-			o.Summary = "CreateOrderDelayRequest"
+			o.OperationID = "create-delay-request"
+			o.Summary = "CreateDelayRequest"
 			o.Description = "Request a deadline extension for an order by the authenticated artist."
 			o.DefaultStatus = http.StatusCreated
 			o.Middlewares = append(
 				o.Middlewares,
 				requireAuth(api, h.authUsecase),
 				requireRole(api, user.RoleArtist),
+			)
+		},
+	)
+
+	huma.Put(api, "/orders/{order_id}/delay-requests/{delay_request_id}", h.confirmDelayRequest,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "confirm-delay-request"
+			o.Summary = "ConfirmDelayRequest"
+			o.Description = "Approve or reject a delay request for an order by the authenticated customer."
+			o.DefaultStatus = http.StatusOK
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireRole(api, user.RoleCustomer),
 			)
 		},
 	)
@@ -209,6 +224,26 @@ type CreateDelayRequestInput struct {
 // CreateDelayRequestOutput contains the newly created delay request.
 type CreateDelayRequestOutput struct {
 	Body delayRequestView
+}
+
+// ConfirmDelayRequestInput contains the order ID, delay request ID,
+// and the customer's decision to approve or reject the delay request.
+type ConfirmDelayRequestInput struct {
+	OrderID        uuid.UUID `path:"order_id"`
+	DelayRequestID uuid.UUID `path:"delay_request_id"`
+	Body           struct {
+		Accept bool `json:"accept"`
+	}
+}
+
+// ConfirmDelayRequestOutput contains a confirmation message,
+// the customer's decision, and the order's deadline after processing.
+type ConfirmDelayRequestOutput struct {
+	Body struct {
+		Message          string    `json:"message"`
+		CustomerDecision string    `json:"customer_decision"`
+		DeadlineAt       time.Time `json:"deadline_at"`
+	}
 }
 
 // delayRequestView represents a delay request exposed by the API.
@@ -647,4 +682,44 @@ func toDelayRequestView(item *order.OrderDelayRequest) delayRequestView {
 		CreatedAt:          item.CreatedAt,
 		UpdatedAt:          item.UpdatedAt,
 	}
+}
+
+// confirmDelayRequest processes the customer's decision on an order delay request
+// and returns the decision result and the updated order deadline.
+func (h *OrderHandler) confirmDelayRequest(
+	ctx context.Context,
+	input *ConfirmDelayRequestInput,
+) (*ConfirmDelayRequestOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	output, err := h.orderUsecase.ConfirmDelayRequest(
+		ctx,
+		info.UserID,
+		input.OrderID,
+		order.ConfirmDelayRequestInput{
+			DelayRequestID: input.DelayRequestID,
+			Accept:         input.Body.Accept,
+		},
+	)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	var message string
+	switch input.Body.Accept {
+	case true:
+		message = "Delay request approved"
+	case false:
+		message = "Delay request rejected"
+	}
+
+	out := &ConfirmDelayRequestOutput{}
+	out.Body.Message = message
+	out.Body.CustomerDecision = string(output.CustomerDecision)
+	out.Body.DeadlineAt = output.DeadlineAt
+
+	return out, nil
 }

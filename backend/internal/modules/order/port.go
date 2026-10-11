@@ -56,6 +56,15 @@ type OrderUsecase interface {
 		artistID uuid.UUID,
 		input CreateDelayRequestInput,
 	) (*OrderDelayRequest, error)
+
+	// ConfirmDelayRequest confirms or rejects a customer's decision on an order delay request
+	// and returns the decision and the updated order deadline.
+	ConfirmDelayRequest(
+		ctx context.Context,
+		customerID uuid.UUID,
+		orderID uuid.UUID,
+		input ConfirmDelayRequestInput,
+	) (*ConfirmDelayRequestOutput, error)
 }
 
 type OrderRepository interface {
@@ -113,6 +122,16 @@ type OrderRepository interface {
 		orderID uuid.UUID,
 		item *OrderDelayRequest,
 	) (*OrderDelayRequest, error)
+
+	// ConfirmDelayRequest updates the customer's decision on an order delay request
+	// and returns the order's deadline after the update.
+	ConfirmDelayRequest(
+		ctx context.Context,
+		customerID uuid.UUID,
+		orderID uuid.UUID,
+		delayRequestID uuid.UUID,
+		delayRequestDecision DelayRequestDecision,
+	) (time.Time, error)
 }
 
 type ObjectStorage interface {

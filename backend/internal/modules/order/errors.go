@@ -19,4 +19,7 @@ var (
 	ErrArtistNotFound                    = apperror.NotFound("artist not found")
 	ErrDeliverablePending                = apperror.Conflict("an unreviewed deliverable already exists for this order")
 	ErrDelayRequestPending               = apperror.Conflict("an undecided delay request already exists for this order")
+	ErrMissingDelayRequestID             = apperror.InvalidInput("missing delay request id", nil)
+	ErrDelayRequestNotFound              = apperror.NotFound("delay request not found")
+	ErrInvalidrDelayRequestStatus        = apperror.Conflict("this delay request already solve")
 )

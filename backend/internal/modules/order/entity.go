@@ -326,3 +326,16 @@ type CreateDelayRequestInput struct {
 	Reason            DelayRequestReason
 	Explanation       string
 }
+
+// ConfirmDelayRequestInput contains the delay request ID and the customer's decision
+// to accept or reject the requested deadline extension.
+type ConfirmDelayRequestInput struct {
+	DelayRequestID uuid.UUID
+	Accept         bool
+}
+
+// ConfirmDelayRequestOutput contains the customer's decision and the order's deadline after processing the delay request.
+type ConfirmDelayRequestOutput struct {
+	CustomerDecision DelayRequestDecision
+	DeadlineAt       time.Time
+}

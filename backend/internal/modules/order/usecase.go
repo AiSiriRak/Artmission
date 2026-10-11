@@ -755,3 +755,48 @@ func (u *orderUsecase) CreateDelayRequest(
 
 	return created, nil
 }
+
+// ConfirmDelayRequest confirms or rejects a delay request on behalf of the customer
+// and returns the decision and the order's deadline after processing.
+func (u *orderUsecase) ConfirmDelayRequest(
+	ctx context.Context,
+	customerID uuid.UUID,
+	orderID uuid.UUID,
+	input ConfirmDelayRequestInput,
+) (*ConfirmDelayRequestOutput, error) {
+	if customerID == uuid.Nil {
+		return nil, ErrMissingParticipantID
+	}
+
+	if orderID == uuid.Nil {
+		return nil, ErrMissingOrderID
+	}
+
+	if input.DelayRequestID == uuid.Nil {
+		return nil, ErrMissingDelayRequestID
+	}
+
+	var decision DelayRequestDecision
+	switch input.Accept {
+	case true:
+		decision = DelayDecisionApproved
+	case false:
+		decision = DelayDecisionRejected
+	}
+
+	deadlineAt, err := u.repo.ConfirmDelayRequest(
+		ctx,
+		customerID,
+		orderID,
+		input.DelayRequestID,
+		decision,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConfirmDelayRequestOutput{
+		CustomerDecision: decision,
+		DeadlineAt:       deadlineAt,
+	}, nil
+}
