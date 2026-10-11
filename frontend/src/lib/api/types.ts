@@ -47,6 +47,13 @@ export type UpdateArtistInput = RequestBody<"/artists/me", "put">;
 // Artwork
 export type Artwork = components["schemas"]["ArtworkView"];
 export type ArtworkSample = components["schemas"]["ArtworkSampleView"];
+export type SearchArtwork = components["schemas"]["SearchArtworkView"];
+export type SearchArtworksOutput =
+  components["schemas"]["SearchArtworksOutputBody"];
+export type SearchArtworksQuery = NonNullable<
+  paths["/artworks"]["get"]["parameters"]["query"]
+>;
+export type SearchArtworksSort = NonNullable<SearchArtworksQuery["sort"]>;
 
 // Type from multipart/form-data from path
 export type CreateArtworkInput = RequestBody<"/artworks", "post">;

@@ -1,7 +1,6 @@
 //go:build integration
 
-// Package orders contains the BDD suite for the orders domain
-// (view orders).
+// Package orders contains the BDD suite for the orders read endpoints.
 package orders
 
 import (

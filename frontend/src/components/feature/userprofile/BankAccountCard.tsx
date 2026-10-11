@@ -105,6 +105,7 @@ export function BankAccountCard({
           <div>
             <label className="text-small text-primary-500">Name</label>
             <SelectInput
+              buttonClassName="mt-1"
               value={bankName}
               onChange={(value) => setBankName(value)}
               options={bankOptions}

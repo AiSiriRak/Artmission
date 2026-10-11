@@ -64,12 +64,12 @@ func findArtwork(key string) artworkSeed {
 type deliverableSeed struct {
 	OrderKey string
 	Version  int
-	Decision *string // nil | "APPROVED" | "REJECTED"
+	Decision string // "WAIT" | "APPROVED" | "REJECTED"
 }
 
 var deliverables = []deliverableSeed{
-	{OrderKey: "order-3", Version: 1, Decision: nil},
-	{OrderKey: "order-4", Version: 1, Decision: new("APPROVED")},
+	{OrderKey: "order-3", Version: 1, Decision: "WAIT"},
+	{OrderKey: "order-4", Version: 1, Decision: "APPROVED"},
 }
 
 func deliverableImageKeys(orderKey string, version int) (original, preview string) {

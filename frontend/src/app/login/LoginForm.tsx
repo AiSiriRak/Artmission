@@ -87,7 +87,7 @@ export function LoginForm() {
 
           <label className="text-small text-primary-500">
             Password
-            <div className="relative mt-1 [&_input]:mt-0 [&_input]:pr-12">
+            <div className="relative mt-1 [&_input]:mt-0 [&_input]:pr-12 [&_input::-ms-reveal]:hidden">
               <TextInput
                 type={showPassword ? "text" : "password"}
                 value={password}

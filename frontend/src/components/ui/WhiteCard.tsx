@@ -1,3 +1,5 @@
+import { cn } from "@/lib/cn";
+
 interface WhiteCard {
   children: React.ReactNode;
   margin?: string;
@@ -15,7 +17,13 @@ export function WhiteCard({
 }: WhiteCard) {
   return (
     <div
-      className={`${margin} ${roundsize} ${padding} ${className} w-full max-w-md bg-white shadow-card`}
+      className={cn(
+        margin,
+        roundsize,
+        padding,
+        "w-full max-w-md bg-white shadow-card",
+        className,
+      )}
     >
       {children}
     </div>

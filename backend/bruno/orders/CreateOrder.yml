@@ -1,0 +1,95 @@
+info:
+  name: CreateOrder
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{api_url}}/orders"
+  body:
+    type: json
+    data: |-
+      {
+        "artwork_id": "{{ArtworkID}}",
+        "customer_description": "descriptionnnnn",
+        "deadline_at": "2026-10-25T17:33:55.937Z",
+        "name": "order01"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: 201 Response
+    description: Created
+    request:
+      url: "{{api_url}}/orders"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "artwork_id": "",
+            "customer_description": "",
+            "deadline_at": "",
+            "name": ""
+          }
+    response:
+      status: 201
+      statusText: Created
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "id": "",
+            "customer_id": "",
+            "artist_id": "",
+            "name": "",
+            "price_satang": 0,
+            "deadline_at": "",
+            "status": "",
+            "deliverable_preview_url": null,
+            "created_at": "",
+            "updated_at": ""
+          }
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/orders"
+      method: POST
+      body:
+        type: json
+        data: |-
+          {
+            "artwork_id": "",
+            "customer_description": "",
+            "deadline_at": "",
+            "name": ""
+          }
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: Create a new order

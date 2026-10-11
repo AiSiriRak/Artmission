@@ -58,7 +58,7 @@ func Wire(cfg Config) *httpserver.Server {
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
-	orderHandler := rest.NewOrderHandler(orderUsecase, authUsecase)
+	orderHandler := rest.NewOrderHandler(orderUsecase, artworkUsecase, authUsecase)
 	artistHandler := rest.NewArtistHandler(artistUsecase, authUsecase)
 	artworkHandler := rest.NewArtworkHandler(artworkUsecase, authUsecase)
 

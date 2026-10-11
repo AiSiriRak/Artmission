@@ -18,6 +18,7 @@ type AuthInfo struct {
 
 type authInfoKey struct{}
 
+// withAuthInfo stores the authenticated user's identity, role, and session in a derived context.
 func withAuthInfo(ctx context.Context, info AuthInfo) context.Context {
 	return context.WithValue(ctx, authInfoKey{}, info)
 }

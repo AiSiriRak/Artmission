@@ -1,0 +1,57 @@
+info:
+  name: SearchArtworks
+  type: http
+  seq: 5
+  tags:
+    - artworks
+
+http:
+  method: GET
+  url: "{{api_url}}/artworks"
+  params:
+    - name: q
+      value: Ada
+      type: query
+      disabled: true
+    - name: category
+      value: Portrait
+      type: query
+      disabled: true
+    - name: style
+      value: Realism
+      type: query
+      disabled: true
+    - name: min_price_satang
+      value: "1000"
+      type: query
+      disabled: true
+    - name: max_price_satang
+      value: "90000"
+      type: query
+      disabled: true
+    - name: min_review_score
+      value: "4"
+      type: query
+      disabled: true
+    - name: sort
+      value: name_asc
+      type: query
+    - name: page
+      value: "1"
+      type: query
+  auth: bearer
+  token: "{{access_token}}"
+
+runtime:
+  variables:
+    - name: access_token
+      value: ""
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: Search artworks for the logged-in home page by artist name, optional filters, sort, and page. Empty matches return an empty array.

@@ -35,26 +35,32 @@ type jwtIssuer struct {
 
 var _ auth.TokenIssuer = (*jwtIssuer)(nil)
 
+// NewJWTIssuer returns a JWT-backed issuer that signs and validates access and refresh tokens with the supplied secret.
 func NewJWTIssuer(secret string) auth.TokenIssuer {
 	return &jwtIssuer{secret: []byte(secret)}
 }
 
+// GenerateAccessToken signs a new access JWT with the given claims and expiry.
 func (i *jwtIssuer) GenerateAccessToken(claims auth.TokenClaims, expiresAt time.Time) (string, error) {
 	return i.sign(claims, kindAccess, expiresAt)
 }
 
+// GenerateRefreshToken signs a new refresh JWT with the given claims and expiry.
 func (i *jwtIssuer) GenerateRefreshToken(claims auth.TokenClaims, expiresAt time.Time) (string, error) {
 	return i.sign(claims, kindRefresh, expiresAt)
 }
 
+// ParseAccessToken validates an access token and returns the embedded claims.
 func (i *jwtIssuer) ParseAccessToken(tokenString string) (*auth.TokenClaims, error) {
 	return i.parse(tokenString, kindAccess)
 }
 
+// ParseRefreshToken validates a refresh token and returns the embedded claims.
 func (i *jwtIssuer) ParseRefreshToken(tokenString string) (*auth.TokenClaims, error) {
 	return i.parse(tokenString, kindRefresh)
 }
 
+// sign creates a JWT carrying the token kind, user data, and expiry.
 func (i *jwtIssuer) sign(claims auth.TokenClaims, kind tokenKind, expiresAt time.Time) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwtClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -68,6 +74,7 @@ func (i *jwtIssuer) sign(claims auth.TokenClaims, kind tokenKind, expiresAt time
 	return token.SignedString(i.secret)
 }
 
+// parse verifies the JWT signature and expected kind, then decodes the claims.
 func (i *jwtIssuer) parse(tokenString string, want tokenKind) (*auth.TokenClaims, error) {
 	claims := &jwtClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {

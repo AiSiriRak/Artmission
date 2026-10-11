@@ -21,6 +21,7 @@ type authUsecase struct {
 	now             func() time.Time
 }
 
+// NewAuthUsecase configures token issuance, session storage, and token lifetimes.
 func NewAuthUsecase(
 	users UserIdentity,
 	sessionRepo SessionRepository,
@@ -38,6 +39,7 @@ func NewAuthUsecase(
 	}
 }
 
+// Login verifies credentials and creates a persisted session with access and refresh tokens.
 func (u *authUsecase) Login(ctx context.Context, email, password string) (*AuthResult, error) {
 	found, err := u.users.Authenticate(ctx, email, password)
 	if err != nil {
@@ -54,6 +56,7 @@ func (u *authUsecase) Login(ctx context.Context, email, password string) (*AuthR
 	return result, err
 }
 
+// Refresh validates and rotates a refresh token, issuing a new token pair and session.
 func (u *authUsecase) Refresh(ctx context.Context, refreshToken string) (*AuthResult, error) {
 	claims, err := u.tokenIssuer.ParseRefreshToken(refreshToken)
 	if err != nil {
@@ -81,10 +84,12 @@ func (u *authUsecase) Refresh(ctx context.Context, refreshToken string) (*AuthRe
 	return u.issueSession(ctx, found)
 }
 
+// Logout revokes a session by deleting its server-side record.
 func (u *authUsecase) Logout(ctx context.Context, sessionID uuid.UUID) error {
 	return u.sessionRepo.DeleteByID(ctx, sessionID)
 }
 
+// Authenticate parses an access token and confirms its user and session are still valid.
 func (u *authUsecase) Authenticate(ctx context.Context, accessToken string) (*TokenClaims, error) {
 	claims, err := u.tokenIssuer.ParseAccessToken(accessToken)
 	if err != nil {
@@ -104,6 +109,7 @@ func (u *authUsecase) Authenticate(ctx context.Context, accessToken string) (*To
 	return claims, nil
 }
 
+// validateSession checks the owner, expiry, and constant-time refresh-token hash match.
 func (u *authUsecase) validateSession(session *Session, userID uuid.UUID, refreshToken string) error {
 	if session.UserID != userID {
 		return ErrSessionNotFound
@@ -117,6 +123,7 @@ func (u *authUsecase) validateSession(session *Session, userID uuid.UUID, refres
 	return nil
 }
 
+// issueSession generates both tokens and persists the session using only the refresh-token hash.
 func (u *authUsecase) issueSession(ctx context.Context, found *user.User) (*AuthResult, error) {
 	now := u.now()
 	sessionID := uuid.New()
@@ -154,6 +161,7 @@ func (u *authUsecase) issueSession(ctx context.Context, found *user.User) (*Auth
 	}, nil
 }
 
+// hashToken returns the hexadecimal SHA-256 digest used to store refresh tokens.
 func hashToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])

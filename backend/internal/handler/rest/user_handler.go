@@ -19,6 +19,7 @@ type UserHandler struct {
 	cookieDomain string
 }
 
+// NewUserHandler configures account endpoints with their use cases and refresh-cookie settings.
 func NewUserHandler(
 	userUsecase user.UserUsecase,
 	authUsecase auth.AuthUsecase,
@@ -35,6 +36,7 @@ func NewUserHandler(
 	}
 }
 
+// Register adds the authenticated account, bank-account, deletion, and profile-image routes.
 func (h *UserHandler) Register(api huma.API) {
 	huma.Get(api, "/users/me", h.getAccount,
 		huma.OperationTags("users"),
@@ -104,6 +106,7 @@ type DeleteAccountOutput struct {
 	SetCookie string `header:"Set-Cookie"`
 }
 
+// deleteAccount soft-deletes the authenticated user's account and expires the refresh cookie.
 func (h *UserHandler) deleteAccount(
 	ctx context.Context,
 	_ *DeleteAccountInput,
@@ -136,6 +139,7 @@ type GetAccountOutput struct {
 	Body accountView
 }
 
+// getAccount loads the authenticated user's account and converts it to the response view.
 func (h *UserHandler) getAccount(ctx context.Context, _ *GetAccountInput) (*GetAccountOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
@@ -161,6 +165,7 @@ type UpdateAccountOutput struct {
 	Body accountView
 }
 
+// updateAccount applies the submitted username and optional password change for the current user.
 func (h *UserHandler) updateAccount(ctx context.Context, in *updateAccountInput) (*UpdateAccountOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
@@ -178,6 +183,7 @@ func (h *UserHandler) updateAccount(ctx context.Context, in *updateAccountInput)
 	return &UpdateAccountOutput{Body: newAccountView(account)}, nil
 }
 
+// newAccountView exposes the account fields returned by the account endpoints.
 func newAccountView(account *user.User) accountView {
 	return accountView{
 		ID:              account.ID,
@@ -238,6 +244,7 @@ func (h *UserHandler) updateBankAccount(ctx context.Context, in *updateBankAccou
 	}}, nil
 }
 
+// getBankAccount returns the authenticated user's bank details with only the last four digits visible.
 func (h *UserHandler) getBankAccount(ctx context.Context, _ *getBankAccountInput) (*GetBankAccountOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
@@ -255,6 +262,7 @@ func (h *UserHandler) getBankAccount(ctx context.Context, _ *getBankAccountInput
 	}}, nil
 }
 
+// maskAccountNumber hides all but the final four runes of an account number.
 func maskAccountNumber(accountNumber string) string {
 	const visibleCharacters = 4
 
@@ -279,6 +287,7 @@ type UpdateProfileImageOutput struct {
 	Body accountView
 }
 
+// updateProfileImage validates multipart fields and updates or removes the current user's image.
 func (h *UserHandler) updateProfileImage(ctx context.Context, in *updateProfileImageInput) (*UpdateProfileImageOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {

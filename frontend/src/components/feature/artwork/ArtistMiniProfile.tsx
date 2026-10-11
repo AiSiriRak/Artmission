@@ -1,26 +1,27 @@
-const mockArtistData = {
-  name: "Artist Name",
-  bio: "Artist Bio or Description",
-  avatarUrl: "/default-avatar.png",
-  review_score: 4.5,
-};
+import type { ArtistProfile } from "@/lib/api/types";
 
-export function ArtistMiniProfile() {
+interface ArtistMiniProfileProps {
+  artist: Pick<ArtistProfile, "artist_name" | "profile_url" | "review_score">;
+}
+
+export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
   return (
     <div className="flex items-center gap-4">
-      <div className="w-40 h-40 rounded-full overflow-hidden">
+      <div className="w-20 h-20 rounded-full overflow-hidden">
         <img
-          src={mockArtistData.avatarUrl}
+          src={artist.profile_url || "/default-avatar.png"}
           alt="Artist Avatar"
           className="w-full h-full object-cover"
         />
       </div>
       <div className="flex flex-col gap-2">
         <h3 className="text-h3">Artist Profile</h3>
-        <span className="text-body">{mockArtistData.name}</span>
+        <span className="text-body">{artist.artist_name}</span>
         <div className="flex items-center gap-1">
           <span className="text-h3">
-            {mockArtistData.review_score}/5
+            {artist.review_score !== null
+              ? `${artist.review_score.toFixed(1)}/5`
+              : "No reviews"}
           </span>
         </div>
       </div>

@@ -20,6 +20,7 @@ type AuthHandler struct {
 	cookieDomain string
 }
 
+// NewAuthHandler configures authentication endpoints and their refresh-cookie settings.
 func NewAuthHandler(userUsecase user.UserUsecase, authUsecase auth.AuthUsecase, basePath string, isProduction bool, cookieDomain string) *AuthHandler {
 	return &AuthHandler{
 		userUsecase:  userUsecase,
@@ -30,6 +31,7 @@ func NewAuthHandler(userUsecase user.UserUsecase, authUsecase auth.AuthUsecase, 
 	}
 }
 
+// Register adds the account registration, login, refresh, and logout routes.
 func (h *AuthHandler) Register(api huma.API) {
 	huma.Post(api, "/auth/register", h.register,
 		huma.OperationTags("auth"),
@@ -97,6 +99,7 @@ type RegisterInput struct {
 
 type RegisterOutput struct{}
 
+// register maps the request body to account creation and returns an empty success response.
 func (h *AuthHandler) register(ctx context.Context, in *RegisterInput) (*RegisterOutput, error) {
 	input := user.RegisterInput{
 		Username: in.Body.Username,
@@ -138,6 +141,7 @@ type LoginOutput struct {
 	Body      authResultBody
 }
 
+// login returns an access token and sets the issued refresh token in a cookie.
 func (h *AuthHandler) login(ctx context.Context, in *LoginInput) (*LoginOutput, error) {
 	result, err := h.authUsecase.Login(ctx, in.Body.Email, in.Body.Password)
 	if err != nil {
@@ -161,6 +165,7 @@ type RefreshOutput struct {
 	Body      authResultBody
 }
 
+// refresh exchanges the supplied refresh cookie for a new access token and refresh cookie.
 func (h *AuthHandler) refresh(ctx context.Context, in *RefreshInput) (*RefreshOutput, error) {
 	if in.RefreshToken == "" {
 		return nil, huma.Error401Unauthorized("missing refresh token cookie")
@@ -185,6 +190,7 @@ type LogoutOutput struct {
 	SetCookie string `header:"Set-Cookie"`
 }
 
+// logout revokes the authenticated session and clears its refresh cookie.
 func (h *AuthHandler) logout(ctx context.Context, _ *LogoutInput) (*LogoutOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
@@ -202,6 +208,7 @@ func (h *AuthHandler) logout(ctx context.Context, _ *LogoutInput) (*LogoutOutput
 
 // --- helpers ---
 
+// refreshCookie serializes a scoped, HTTP-only refresh cookie with the configured security settings.
 func (h *AuthHandler) refreshCookie(value string, expiresAt time.Time) string {
 	c := &http.Cookie{
 		Name:     refreshCookieName,
@@ -216,10 +223,12 @@ func (h *AuthHandler) refreshCookie(value string, expiresAt time.Time) string {
 	return c.String()
 }
 
+// clearRefreshCookie serializes an expired refresh cookie using this handler's configuration.
 func (h *AuthHandler) clearRefreshCookie() string {
 	return clearRefreshCookie(h.basePath, h.isProduction, h.cookieDomain)
 }
 
+// clearRefreshCookie builds a cookie with the refresh-token path and a negative max age.
 func clearRefreshCookie(basePath string, isProduction bool, cookieDomain string) string {
 	c := &http.Cookie{
 		Name:     refreshCookieName,

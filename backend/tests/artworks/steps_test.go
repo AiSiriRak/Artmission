@@ -22,14 +22,23 @@ type artworkSampleBody struct {
 	ImageURL string `json:"image_url"`
 }
 
+var (
+	catalogBookID       = uuid.MustParse("11111111-1111-4111-8111-111111111111")
+	catalogPixelID      = uuid.MustParse("22222222-2222-4222-8222-222222222222")
+	catalogCartoonID    = uuid.MustParse("33333333-3333-4333-8333-333333333333")
+	catalogWatercolorID = uuid.MustParse("44444444-4444-4444-8444-444444444444")
+)
+
 type createArtworkBody struct {
-	Name                string              `json:"name"`
-	Category            string              `json:"category"`
-	Styles              []string            `json:"styles"`
-	Description         string              `json:"description"`
-	ArtworkSamples      []artworkSampleBody `json:"artwork_samples"`
-	MinimumDeadlineDays int                 `json:"minimum_deadline_days"`
-	PriceSatang         int64               `json:"price_satang"`
+	Name                string
+	CategoryID          uuid.UUID
+	Category            string
+	StyleIDs            []uuid.UUID
+	Styles              []string
+	Description         string
+	ArtworkSamples      []artworkSampleBody
+	MinimumDeadlineDays int
+	PriceSatang         int64
 }
 
 type artworkResponse struct {
@@ -180,6 +189,19 @@ func (a *artworkContext) updateArtwork(id, token string, body createArtworkBody,
 		}
 	}
 	a.uploadedSampleCount = len(body.ArtworkSamples)
+	return nil
+}
+
+func (a *artworkContext) getArtwork(id, token string) error {
+	headers := map[string]string{}
+	if token != "" {
+		headers["Authorization"] = "Bearer " + token
+	}
+	response, err := a.client.Do(http.MethodGet, "/artworks/"+id, nil, headers)
+	if err != nil {
+		return err
+	}
+	a.response = response
 	return nil
 }
 
@@ -401,10 +423,37 @@ func (a *artworkContext) assertInvalidSampleDeletion() error {
 	return nil
 }
 
+func (a *artworkContext) assertFetchedArtwork() error {
+	if a.response.StatusCode != http.StatusOK {
+		return fmt.Errorf("expected 200, got %d: %s", a.response.StatusCode, a.response.Body)
+	}
+	var got artworkResponse
+	if err := a.response.JSON(&got); err != nil {
+		return fmt.Errorf("decode artwork response: %w", err)
+	}
+
+	if got.ID != a.artworkID || got.Name != a.requestedBody.Name || got.Category != a.requestedBody.Category {
+		return fmt.Errorf("fetched artwork mismatch: got %+v, want category %q", got, a.requestedBody.Category)
+	}
+	gotStyles := append([]string{}, got.Styles...)
+	wantStyles := append([]string{}, a.requestedBody.Styles...)
+	sort.Strings(gotStyles)
+	sort.Strings(wantStyles)
+	if !reflect.DeepEqual(gotStyles, wantStyles) {
+		return fmt.Errorf("fetched styles = %v, want %v", got.Styles, a.requestedBody.Styles)
+	}
+	if len(got.ArtworkSamples) != len(a.currentSampleURLs) {
+		return fmt.Errorf("fetched samples count = %d, want %d", len(got.ArtworkSamples), len(a.currentSampleURLs))
+	}
+	return nil
+}
+
 func newArtworkBody() createArtworkBody {
 	return createArtworkBody{
 		Name:        "Book Cover",
+		CategoryID:  catalogBookID,
 		Category:    "Book",
+		StyleIDs:    []uuid.UUID{catalogPixelID, catalogCartoonID},
 		Styles:      []string{"Pixel Art", "Cartoon"},
 		Description: "A colorful book-cover commission",
 		ArtworkSamples: []artworkSampleBody{
@@ -419,7 +468,9 @@ func newArtworkBody() createArtworkBody {
 func newUpdatedArtworkBody() createArtworkBody {
 	return createArtworkBody{
 		Name:        "Updated Book Cover",
+		CategoryID:  catalogBookID,
 		Category:    "Book",
+		StyleIDs:    []uuid.UUID{catalogCartoonID, catalogWatercolorID},
 		Styles:      []string{"Cartoon", "Watercolor"},
 		Description: "An updated colorful book-cover commission",
 		ArtworkSamples: []artworkSampleBody{
@@ -433,20 +484,43 @@ func newUpdatedArtworkBody() createArtworkBody {
 func newClearedArtworkBody() createArtworkBody {
 	body := newUpdatedArtworkBody()
 	body.Styles = []string{}
+	body.StyleIDs = []uuid.UUID{}
 	body.ArtworkSamples = []artworkSampleBody{}
 	return body
 }
 
 func artworkFields(body createArtworkBody) map[string]string {
-	styles, _ := json.Marshal(body.Styles)
+	styleIDs, _ := json.Marshal(body.StyleIDs)
 	return map[string]string{
 		"name":                  body.Name,
-		"category":              body.Category,
-		"styles":                string(styles),
+		"category_id":           body.CategoryID.String(),
+		"style_ids":             string(styleIDs),
 		"description":           body.Description,
 		"minimum_deadline_days": strconv.Itoa(body.MinimumDeadlineDays),
 		"price_satang":          strconv.FormatInt(body.PriceSatang, 10),
 	}
+}
+
+func seedArtworkCatalog(ctx context.Context) error {
+	rows := []struct {
+		table string
+		id    uuid.UUID
+		label string
+	}{
+		{table: "categories", id: catalogBookID, label: "Book"},
+		{table: "styles", id: catalogPixelID, label: "Pixel Art"},
+		{table: "styles", id: catalogCartoonID, label: "Cartoon"},
+		{table: "styles", id: catalogWatercolorID, label: "Watercolor"},
+	}
+	for _, row := range rows {
+		if _, err := app.DB.NewRaw(
+			"INSERT INTO "+row.table+" (id, label) VALUES (?, ?) ON CONFLICT (label) DO NOTHING",
+			row.id, row.label,
+		).Exec(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func artworkFiles(fieldName string, count int) []apptest.MultipartFile {
@@ -467,7 +541,7 @@ func InitializeScenario(scenario *godog.ScenarioContext) {
 
 	scenario.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 		state = &artworkContext{client: apptest.NewClient(app.BaseURL())}
-		return ctx, nil
+		return ctx, seedArtworkCatalog(ctx)
 	})
 
 	scenario.Step(`^an artist is registered and logged in$`, func() error {
@@ -561,5 +635,18 @@ func InitializeScenario(scenario *godog.ScenarioContext) {
 			return fmt.Errorf("expected 403, got %d: %s", state.response.StatusCode, state.response.Body)
 		}
 		return nil
+	})
+
+	scenario.Step(`^a user fetches the artwork$`, func() error {
+		return state.getArtwork(state.artworkID, state.accessToken)
+	})
+	scenario.Step(`^a user fetches a missing artwork$`, func() error {
+		return state.getArtwork(uuid.NewString(), state.accessToken)
+	})
+	scenario.Step(`^an unauthenticated caller fetches the artwork$`, func() error {
+		return state.getArtwork(state.artworkID, "")
+	})
+	scenario.Step(`^the system returns the artwork with category and style names$`, func() error {
+		return state.assertFetchedArtwork()
 	})
 }

@@ -3,4 +3,11 @@ info:
   type: folder
   seq: 1
 
-request: {}
+request:
+  variables:
+    - name: OrderID
+      value: 88f74cd2-76c9-4440-968d-b8eb0bd887ce
+    - name: ArtworkID
+      value: 4d35dcb2-c0c7-444c-904c-396bcb7ba26a
+    - name: deliverable_image_path
+      value: ""

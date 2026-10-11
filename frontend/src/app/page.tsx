@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { UserAccount } from "@/lib/api/types";
@@ -33,5 +33,14 @@ export default function Home() {
   if (!user) {
     return <Loading />;
   }
-  return user.role == "customer" ? <HomePage /> : <OrderArtistPage />;
+
+  if (user.role !== "customer") {
+    return <OrderArtistPage />;
+  }
+
+  return (
+    <Suspense fallback={<Loading />}>
+      <HomePage />
+    </Suspense>
+  );
 }
