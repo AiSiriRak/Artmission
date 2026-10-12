@@ -7,6 +7,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// Category represents an artwork category.
 type Category struct {
 	bun.BaseModel `bun:"table:categories,alias:cat"`
 
@@ -15,6 +16,7 @@ type Category struct {
 	CreatedAt time.Time `bun:"created_at,nullzero"`
 }
 
+// Style represents an art style or technique.
 type Style struct {
 	bun.BaseModel `bun:"table:styles,alias:sty"`
 
@@ -23,6 +25,7 @@ type Style struct {
 	CreatedAt time.Time `bun:"created_at,nullzero"`
 }
 
+// Artwork represents an artwork or commission listing created by an artist.
 type Artwork struct {
 	bun.BaseModel `bun:"table:artworks,alias:art"`
 
@@ -38,6 +41,7 @@ type Artwork struct {
 	UpdatedAt           time.Time `bun:"updated_at,nullzero"`
 }
 
+// ArtworkImage represents a showcase image associated with an artwork.
 type ArtworkImage struct {
 	bun.BaseModel `bun:"table:artwork_images,alias:ai"`
 
@@ -48,6 +52,7 @@ type ArtworkImage struct {
 	CreatedAt time.Time `bun:"created_at,nullzero"`
 }
 
+// ArtworkStyle represents the many-to-many relationship between artworks and styles.
 type ArtworkStyle struct {
 	bun.BaseModel `bun:"table:artwork_styles,alias:aws"`
 
