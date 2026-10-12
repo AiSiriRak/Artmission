@@ -856,3 +856,21 @@ func (u *orderUsecase) CancelExpiredDelayRequest(
 
 	return ids, nil
 }
+
+// AutoApproveExpiredDeliverables approves deliverables whose customer review window has elapsed.
+func (u *orderUsecase) AutoApproveExpiredDeliverables(
+	ctx context.Context,
+) ([]uuid.UUID, error) {
+	now := time.Now()
+
+	ids, err := u.repo.AutoApproveExpiredDeliverables(
+		ctx,
+		now.Add(-DeliverableDecisionTTL),
+		now,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return ids, nil
+}

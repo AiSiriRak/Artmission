@@ -33,6 +33,9 @@ const (
 	// PendingConfirmationTTL is how long an artist has to confirm a PENDING order before it is auto-cancelled.
 	PendingConfirmationTTL = 72 * time.Hour
 
+	// DeliverableDecisionTTL is how long a customer has to review a deliverable before it is auto-approved.
+	DeliverableDecisionTTL = 72 * time.Hour
+
 	// DelayRequestTTL is how long a customer has to accept or reject
 	// a deadline delay request from an artist.
 	DelayRequestTTL = 48 * time.Hour

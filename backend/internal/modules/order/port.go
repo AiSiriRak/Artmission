@@ -73,6 +73,11 @@ type OrderUsecase interface {
 	CancelExpiredDelayRequest(
 		ctx context.Context,
 	) ([]uuid.UUID, error)
+
+	// AutoApproveExpiredDeliverables approves pending deliverables past their review window.
+	AutoApproveExpiredDeliverables(
+		ctx context.Context,
+	) ([]uuid.UUID, error)
 }
 
 type OrderRepository interface {
@@ -146,6 +151,13 @@ type OrderRepository interface {
 
 	// CancelExpiredRequest rejects pending delay requests created before expiringCutoff.
 	CancelExpiredRequest(ctx context.Context,
+		expiringCutoff time.Time,
+		now time.Time,
+	) ([]uuid.UUID, error)
+
+	// AutoApproveExpiredDeliverables approves pending deliverables for in-process orders.
+	AutoApproveExpiredDeliverables(
+		ctx context.Context,
 		expiringCutoff time.Time,
 		now time.Time,
 	) ([]uuid.UUID, error)

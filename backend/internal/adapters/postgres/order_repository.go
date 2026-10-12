@@ -1183,3 +1183,70 @@ func (r *orderRepository) CancelExpiredRequest(
 
 	return ids, nil
 }
+
+// AutoApproveExpiredDeliverables approves expired pending deliverables and completes their orders.
+func (r *orderRepository) AutoApproveExpiredDeliverables(
+	ctx context.Context,
+	expiringCutoff time.Time,
+	now time.Time,
+) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			type expiredDeliverable struct {
+				ID      uuid.UUID `bun:"id"`
+				OrderID uuid.UUID `bun:"order_id"`
+			}
+			var expired []expiredDeliverable
+
+			if err := idb.NewSelect().
+				TableExpr("order_deliverables AS od").
+				ColumnExpr("od.id").
+				ColumnExpr("od.order_id").
+				Join("JOIN orders AS o ON o.id = od.order_id").
+				Where("od.decision = ?", string(order.DeliverableDecisionWait)).
+				Where("od.created_at <= ?", expiringCutoff).
+				Where("o.status = ?", string(order.StatusInProcess)).
+				For("UPDATE OF od, o SKIP LOCKED").
+				Scan(ctx, &expired); err != nil {
+				return err
+			}
+			if len(expired) == 0 {
+				return nil
+			}
+
+			orderIDs := make([]uuid.UUID, 0, len(expired))
+			ids = make([]uuid.UUID, 0, len(expired))
+			for _, item := range expired {
+				orderIDs = append(orderIDs, item.OrderID)
+				ids = append(ids, item.ID)
+			}
+
+			if _, err := idb.NewUpdate().
+				Model((*pgmodel.OrderDeliverable)(nil)).
+				Set("decision = ?", string(order.DeliverableDecisionApproved)).
+				Set("updated_at = ?", now).
+				Where("id IN (?)", bun.List(ids)).
+				Where("decision = ?", string(order.DeliverableDecisionWait)).
+				Exec(ctx); err != nil {
+				return err
+			}
+
+			_, err := idb.NewUpdate().
+				Model((*pgmodel.Order)(nil)).
+				Set("status = ?", string(order.StatusSuccess)).
+				Set("completed_at = ?", now).
+				Set("updated_at = ?", now).
+				Where("id IN (?)", bun.List(orderIDs)).
+				Where("status = ?", string(order.StatusInProcess)).
+				Exec(ctx)
+			return err
+		})
+	})
+	if err != nil {
+		return nil, apperror.Internal("failed to approve expired deliverables", err)
+	}
+
+	return ids, nil
+}
