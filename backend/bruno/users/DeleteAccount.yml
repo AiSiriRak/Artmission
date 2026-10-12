@@ -1,7 +1,7 @@
 info:
   name: DeleteAccount
   type: http
-  seq: 4
+  seq: 5
   tags:
     - users
 
@@ -20,5 +20,37 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 204 Response
+    description: No Content
+    request:
+      url: "{{api_url}}/users/me"
+      method: DELETE
+    response:
+      status: 204
+      statusText: No Content
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/users/me"
+      method: DELETE
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
 
 docs: Soft-delete the authenticated account, remove its bank account, and invalidate all sessions. Accounts with pending, unpaid, or in-progress orders cannot be deleted.

@@ -8,6 +8,7 @@ package wiring
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres"
 	"github.com/AiSiriRak/Artmission/backend/internal/adapters/token"
@@ -21,6 +22,7 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/config"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/httpserver"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/objectstorage"
+	"github.com/AiSiriRak/Artmission/backend/internal/worker"
 	"github.com/uptrace/bun"
 )
 
@@ -54,7 +56,7 @@ func Wire(cfg Config) *httpserver.Server {
 	artworkUsecase := artwork.NewUsecase(artworkRepo, tx, cfg.ObjectStorage.Public)
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx, cfg.ObjectStorage.Public)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
-	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private)
+	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private, userUsecase)
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
@@ -70,4 +72,33 @@ func Wire(cfg Config) *httpserver.Server {
 	artworkHandler.Register(api)
 
 	return server
+}
+
+const orderExpiryInterval = time.Minute
+
+// WireWorkers builds the background workers. It is separate from Wire so
+// the BDD suite's in-process server doesn't start timers it can't control;
+// cmd_serve.go is the only caller.
+func WireWorkers(cfg Config) []worker.Worker {
+	orderRepo := postgres.NewOrderRepository(cfg.DB)
+	userRepo := postgres.NewUserRepository(cfg.DB)
+	bankRepo := postgres.NewBankAccountRepository(cfg.DB)
+	artistRepo := postgres.NewArtistRepository(cfg.DB)
+	accountDeletionRepo := postgres.NewAccountDeletionRepository(cfg.DB)
+	tx := baserepo.NewTransactioner(cfg.DB)
+
+	artistUsecase := artist.NewProfileUsecase(artistRepo, cfg.ObjectStorage.Public)
+	userUsecase := user.NewUserUsecase(
+		userRepo,
+		bankRepo,
+		artistUsecase,
+		accountDeletionRepo,
+		tx,
+		cfg.ObjectStorage.Public,
+	)
+	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private, userUsecase)
+
+	return []worker.Worker{
+		worker.NewOrderExpiryWorker(orderUsecase, orderExpiryInterval, cfg.Logger),
+	}
 }

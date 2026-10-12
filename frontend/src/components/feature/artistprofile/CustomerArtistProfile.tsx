@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react";
 
-import MainLayout from "@/components/feature/main/MainLayout";
-import ProfileImage from "./ProfileImage";
-import TagList from "./TagList";
-import { Loading } from "@/components/ui/Loading";
+import { useRouter } from "next/navigation";
 
-import { getArtistProfile } from "@/lib/api/artists";
+import MainLayout from "@/components/feature/main/MainLayout";
+import ArtistProfileView from "./ArtistProfileView";
+import { Loading } from "@/components/ui/Loading";
+import { Button } from "@/components/ui/Button";
+
+import { getArtistProfile, getArtistArtworks } from "@/lib/api/artists";
 import { isApiError } from "@/lib/api/error";
-import type { ArtistProfile } from "@/lib/api/types";
+import type { ArtistProfile, Artwork } from "@/lib/api/types";
+import type { ReviewData } from "@/app/artist-profile/types";
 
 
 interface CustomerArtistProfileProps {
@@ -18,12 +21,15 @@ interface CustomerArtistProfileProps {
 
 type ProfileState =
   | { status: "loading" }
-  | { status: "success"; profile: ArtistProfile }
+  | { status: "success"; profile: ArtistProfile; artworks: Artwork[];}
   | { status: "error"; message: string };
 
 export default function CustomerArtistProfile({
   artistId,
 }: CustomerArtistProfileProps) {
+
+  const router = useRouter();
+
   const [state, setState] = useState<ProfileState>({
     status: "loading",
   });
@@ -33,10 +39,13 @@ export default function CustomerArtistProfile({
 
     async function loadProfile() {
       try {
-        const profile = await getArtistProfile(artistId);
+        const [profile, artworks] = await Promise.all([
+          getArtistProfile(artistId),
+          getArtistArtworks(artistId),
+        ]);
 
         if (active) {
-          setState({ status: "success", profile });
+          setState({ status: "success", profile, artworks});
         }
       } catch (error: unknown) {
         if (!active) return;
@@ -75,53 +84,48 @@ export default function CustomerArtistProfile({
     );
   }
 
-  const { profile } = state;
+  const { profile, artworks } = state;
 
-  const categories = (profile.categories ?? []).map(
-    (category) => category.label,
-  );
-
-  const styles = (profile.styles ?? []).map(
-    (style) => style.label,
+  const reviews: ReviewData[] = (profile.reviews ?? []).map(
+    (review, index) => ({
+      id: `${artistId}-${index}`,
+      reviewerName: review.username,
+      orderName: review.order,
+      rating: review.rating,
+      timeAgo: "",
+      comment: "",
+    }),
   );
 
   return (
     <MainLayout usertype="customer">
       <div className="w-full bg-white text-primary-500">
-        <div className="h-48 bg-secondary-300 border border-neutral" />
-
-        <div className="relative mx-auto max-w-5xl px-8 pb-12">
-          <div className="relative z-10 -mt-16 mb-6 sm:-mt-20">
-            <ProfileImage
-              imageUrl={profile.profile_url}
-              className="w-36 h-36 md:w-44 md:h-44"
-            />
-          </div>
-
-          <h1 className="mb-6 text-h2 font-bold break-words">
-            {profile.artist_name}
-          </h1>
-
-          <p className="mb-8 whitespace-pre-wrap break-words text-body text-primary-400">
-            {profile.description?.trim() || "ยังไม่มีคำอธิบาย"}
-          </p>
-
-          <div className="flex flex-wrap gap-x-16 gap-y-6">
-            <div>
-              <h2 className="mb-3 text-body font-bold">
-                Category:
-              </h2>
-              <TagList items={categories} variant="category" />
-            </div>
-
-            <div>
-              <h2 className="mb-3 text-body font-bold">
-                Style:
-              </h2>
-              <TagList items={styles} variant="style" />
-            </div>
-          </div>
-        </div>
+        <ArtistProfileView
+          profile={profile}
+          artworks={artworks}
+          reviews={reviews}
+          reviewScore={profile.review_score}
+          onArtworkClick={(artwork) => {
+            // TODO: เชื่อม Artwork Details page ตรงนี้จ้า
+          }}
+          actions={
+            <Button
+              type="button"
+              variant="light"
+              className="!border w-24"
+              onClick={() => router.back()}
+              icon={
+                <img
+                    src="/icons/Arrow_left.svg"
+                    alt=""
+                    className="w-4 h-4 object-contain"
+                  />
+              }
+            >
+              Back
+            </Button>
+          }
+        />
       </div>
     </MainLayout>
   );

@@ -2,6 +2,7 @@
 package order
 
 import (
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,6 +26,15 @@ func (s Status) IsValid() bool {
 	default:
 		return false
 	}
+}
+
+// PendingConfirmationTTL is how long an artist has to confirm a PENDING order before it is auto-cancelled.
+const PendingConfirmationTTL = 72 * time.Hour
+
+// AutoCancellableStatuses returns the statuses the expiry sweep may move to
+// CANCEL once the order's deadline has passed.
+func AutoCancellableStatuses() []Status {
+	return []Status{StatusPending, StatusNotPaid, StatusInProcess}
 }
 
 // ArtworkSnapshot contains the artwork information captured when the order
@@ -221,3 +231,18 @@ type CreateInput struct {
 	CustomerDescription string
 	DeadlineAt          time.Time
 }
+
+// CreateDeliverableInput represents the input for CreateDeliverable,
+// submitted by the authenticated artist who owns the order.
+type CreateDeliverableInput struct {
+	OrderID          uuid.UUID
+	DeliverableImage io.Reader
+}
+
+// MaxDeliverableImageSize is assigned to be 20 MB
+const (
+	MaxDeliverableVersions    = 3
+	MaxDeliverableImageSize   = 20 * 1024 * 1024
+	deliverablePreviewSize    = 1800
+	deliverablePreviewQuality = 88
+)
