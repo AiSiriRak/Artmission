@@ -2,6 +2,8 @@ info:
   name: CancelOrder
   type: http
   seq: 7
+  tags:
+    - orders
 
 http:
   method: PUT
@@ -11,6 +13,13 @@ http:
       value: "{{OrderID}}"
       type: path
       description: Order ID
+  body:
+    type: json
+    data: |-
+      {
+        "reason": "PLACED_ORDER_BY_MISTAKE",
+        "explanation": "i didn't mean to."
+      }
   auth: inherit
 
 settings:
@@ -18,7 +27,7 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
-  forwardAuthorizationHeader: false
+  forwardAuthorizationHeader: true
 
 examples:
   - name: 200 Response
@@ -31,6 +40,13 @@ examples:
           value: ""
           type: path
           description: Order ID
+      body:
+        type: json
+        data: |-
+          {
+            "reason": "PLACED_ORDER_BY_MISTAKE",
+            "explanation": "i didn't mean to."
+          }
     response:
       status: 200
       statusText: OK
@@ -55,6 +71,13 @@ examples:
           value: ""
           type: path
           description: Order ID
+      body:
+        type: json
+        data: |-
+          {
+            "reason": "PLACED_ORDER_BY_MISTAKE",
+            "explanation": "i didn't mean to."
+          }
     response:
       headers:
         - name: Content-Type
