@@ -14,6 +14,7 @@ CREATE TABLE
         ),
         created_at              timestamptz NOT NULL    DEFAULT now (),
         updated_at              timestamptz NOT NULL    DEFAULT now (),
+        expire_at               timestamptz NOT NULL    DEFAULT (now() + interval '48 hours'),
 
         CONSTRAINT chk_deadline_request_after_original CHECK (deadline_request_at > original_deadline_at)
     );

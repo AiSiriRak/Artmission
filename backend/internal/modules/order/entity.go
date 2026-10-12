@@ -233,6 +233,7 @@ type OrderDelayRequest struct {
 	CustomerDecision   DelayRequestDecision
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+	ExpireAt           time.Time
 }
 
 // ListQuery is ViewOrders input

@@ -911,6 +911,7 @@ func (r *orderRepository) CreateDelayRequest(
 				CustomerDecision:   string(item.CustomerDecision),
 				CreatedAt:          item.CreatedAt,
 				UpdatedAt:          item.UpdatedAt,
+				ExpireAt:           item.ExpireAt,
 			}
 
 			// Insert the delay request into the database.

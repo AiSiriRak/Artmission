@@ -89,4 +89,5 @@ type OrderDelayRequest struct {
 	CustomerDecision   string    `bun:"customer_decision"`
 	CreatedAt          time.Time `bun:"created_at"`
 	UpdatedAt          time.Time `bun:"updated_at"`
+	ExpireAt           time.Time `bun:"expire_at"`
 }

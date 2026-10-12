@@ -742,6 +742,7 @@ func (u *orderUsecase) CreateDelayRequest(
 		CustomerDecision:  DelayDecisionWait,
 		CreatedAt:         now,
 		UpdatedAt:         now,
+		ExpireAt:          now.Add(48 * time.Hour),
 	}
 
 	created, err := u.repo.CreateDelayRequest(
