@@ -177,6 +177,10 @@ func (f *fakeOrderUsecase) CancelExpiredDelayRequest(context.Context) ([]uuid.UU
 	return nil, nil
 }
 
+func (f *fakeOrderUsecase) AutoApproveExpiredDeliverables(context.Context) ([]uuid.UUID, error) {
+	return nil, nil
+}
+
 func (f *fakeOrderUsecase) CreateDeliverable(
 	ctx context.Context,
 	artistID uuid.UUID,

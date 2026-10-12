@@ -45,6 +45,7 @@ type ordersContext struct {
 	lastDeliverableID         string
 	otherDeliverableID        string
 	lastDeliverablePreviewKey string // most recently seeded deliverable version's preview_image_key
+	autoApprovedDeliverables  []uuid.UUID
 	delayRequestDeadline      time.Time
 	lastDelayRequestID        string
 	targetArtworkID           string
@@ -1462,6 +1463,78 @@ func (o *ordersContext) theSystemCancelsExpiredOrders() error {
 	return err
 }
 
+func (o *ordersContext) thePendingDeliverableWasSubmittedMoreThanThreeDaysAgo() error {
+	_, err := app.DB.NewUpdate().
+		Table("order_deliverables").
+		Set("created_at = ?", time.Now().Add(-ordermod.DeliverableDecisionTTL-time.Hour)).
+		Where("id = ?", uuid.MustParse(o.lastDeliverableID)).
+		Exec(context.Background())
+	return err
+}
+
+func (o *ordersContext) theSystemAutoApprovesExpiredDeliverables() error {
+	usecase := ordermod.NewOrderUsecase(postgres.NewOrderRepository(app.DB), nil, nil)
+	ids, err := usecase.AutoApproveExpiredDeliverables(context.Background())
+	if err != nil {
+		return err
+	}
+	o.autoApprovedDeliverables = ids
+	return nil
+}
+
+func (o *ordersContext) theSystemShowsTheDeliverableApprovedAndOrderSuccessful() error {
+	found := false
+	for _, id := range o.autoApprovedDeliverables {
+		if id == uuid.MustParse(o.lastDeliverableID) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("expired deliverable %s was not auto-approved", o.lastDeliverableID)
+	}
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if o.resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("get order: status %d (body: %s)", o.resp.StatusCode, o.resp.Body)
+	}
+	if o.orderDetail.Status != string(ordermod.StatusSuccess) {
+		return fmt.Errorf("order status = %q, want %q", o.orderDetail.Status, ordermod.StatusSuccess)
+	}
+	for _, deliverable := range o.orderDetail.Deliverables {
+		if deliverable.ID == o.lastDeliverableID &&
+			deliverable.Decision == string(ordermod.DeliverableDecisionApproved) {
+			return nil
+		}
+	}
+	return fmt.Errorf("order detail does not show deliverable %s as APPROVED", o.lastDeliverableID)
+}
+
+func (o *ordersContext) theSystemLeavesTheDeliverablePendingAndOrderUnchanged() error {
+	for _, id := range o.autoApprovedDeliverables {
+		if id == uuid.MustParse(o.lastDeliverableID) {
+			return fmt.Errorf("deliverable %s was unexpectedly auto-approved", id)
+		}
+	}
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if o.resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("get order: status %d (body: %s)", o.resp.StatusCode, o.resp.Body)
+	}
+	if o.orderDetail.Status != string(ordermod.StatusPending) {
+		return fmt.Errorf("order status = %q, want %q", o.orderDetail.Status, ordermod.StatusPending)
+	}
+	for _, deliverable := range o.orderDetail.Deliverables {
+		if deliverable.ID == o.lastDeliverableID &&
+			deliverable.Decision == string(ordermod.DeliverableDecisionWait) {
+			return nil
+		}
+	}
+	return fmt.Errorf("order detail does not show deliverable %s as WAIT", o.lastDeliverableID)
+}
+
 // theSystemShowsTheOrderWithStatus reads the order back through the real API,
 // so the assertion is what the user would actually see.
 func (o *ordersContext) theSystemShowsTheOrderWithStatus(want string) error {
@@ -1503,6 +1576,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the user has an order with a pending deliverable$`, func() error {
 		return o.theUserHasAnOrderWithPendingDeliverable()
+	})
+	sc.Step(`^the pending deliverable was submitted more than 3 days ago$`, func() error {
+		return o.thePendingDeliverableWasSubmittedMoreThanThreeDaysAgo()
 	})
 	sc.Step(`^the user has an order with status "([^"]*)" and a pending deliverable$`, func(status string) error {
 		return o.theUserHasAnOrderWithStatusAndPendingDeliverable(status)
@@ -1597,6 +1673,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the user submits a new order without logging in$`, func() error { return o.theUserSubmitsANewOrderWithoutLoggingIn() })
 	sc.Step(`^the system cancels expired orders$`, func() error { return o.theSystemCancelsExpiredOrders() })
+	sc.Step(`^the system auto-approves expired deliverables$`, func() error {
+		return o.theSystemAutoApprovesExpiredDeliverables()
+	})
 
 	// then
 	sc.Step(`^the system shows all of the user's orders with their current status$`, func() error {
@@ -1697,5 +1776,17 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system shows the order with status \"([^\"]*)\"$`, func(status string) error {
 		return o.theSystemShowsTheOrderWithStatus(status)
+	})
+	sc.Step(`^the system shows the deliverable as approved and the order as "([^"]*)"$`, func(status string) error {
+		if err := o.theSystemShowsTheDeliverableApprovedAndOrderSuccessful(); err != nil {
+			return err
+		}
+		if o.orderDetail.Status != status {
+			return fmt.Errorf("order status = %q, want %q", o.orderDetail.Status, status)
+		}
+		return nil
+	})
+	sc.Step(`^the system leaves the deliverable pending and the order unchanged$`, func() error {
+		return o.theSystemLeavesTheDeliverablePendingAndOrderUnchanged()
 	})
 }

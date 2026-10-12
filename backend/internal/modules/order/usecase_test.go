@@ -62,6 +62,12 @@ type fakeRepo struct {
 	expireDelayRequestIDs    []uuid.UUID
 	expireDelayRequestErr    error
 
+	expireDeliverablesCalled bool
+	expireDeliverablesNow    time.Time
+	expireDeliverablesCutoff time.Time
+	expireDeliverablesIDs    []uuid.UUID
+	expireDeliverablesErr    error
+
 	created              *order.Order
 	createdDeliverable   *order.Deliverable
 	deliverableArtistID  uuid.UUID
@@ -168,6 +174,17 @@ func (f *fakeRepo) CancelExpiredRequest(
 	f.expireDelayRequestNow = now
 	f.expireDelayRequestCutoff = expiringCutoff
 	return f.expireDelayRequestIDs, f.expireDelayRequestErr
+}
+
+func (f *fakeRepo) AutoApproveExpiredDeliverables(
+	_ context.Context,
+	expiringCutoff time.Time,
+	now time.Time,
+) ([]uuid.UUID, error) {
+	f.expireDeliverablesCalled = true
+	f.expireDeliverablesCutoff = expiringCutoff
+	f.expireDeliverablesNow = now
+	return f.expireDeliverablesIDs, f.expireDeliverablesErr
 }
 
 func (repo *fakeRepo) Create(ctx context.Context, item *order.Order) error {
@@ -1643,6 +1660,50 @@ func TestCancelExpiredDelayRequest_PropagatesRepositoryError(t *testing.T) {
 	usecase := newTestOrderUsecase(&fakeRepo{expireDelayRequestErr: wantErr}, fakeStorage{})
 
 	if _, err := usecase.CancelExpiredDelayRequest(context.Background()); !errors.Is(err, wantErr) {
+		t.Fatalf("err = %v, want %v", err, wantErr)
+	}
+}
+
+func TestAutoApproveExpiredDeliverables_UsesTTLRelativeToNow(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+	before := time.Now()
+	_, err := usecase.AutoApproveExpiredDeliverables(context.Background())
+	after := time.Now()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !repo.expireDeliverablesCalled {
+		t.Fatal("expected repository AutoApproveExpiredDeliverables to be called")
+	}
+	if repo.expireDeliverablesNow.Before(before) || repo.expireDeliverablesNow.After(after) {
+		t.Fatalf("now %v not within [%v, %v]", repo.expireDeliverablesNow, before, after)
+	}
+	if want := repo.expireDeliverablesNow.Add(-order.DeliverableDecisionTTL); !repo.expireDeliverablesCutoff.Equal(want) {
+		t.Fatalf("expiring cutoff = %v, want %v", repo.expireDeliverablesCutoff, want)
+	}
+}
+
+func TestAutoApproveExpiredDeliverables_ReturnsApprovedIDs(t *testing.T) {
+	ids := []uuid.UUID{uuid.New(), uuid.New()}
+	usecase := newTestOrderUsecase(&fakeRepo{expireDeliverablesIDs: ids}, fakeStorage{})
+
+	got, err := usecase.AutoApproveExpiredDeliverables(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != len(ids) || got[0] != ids[0] || got[1] != ids[1] {
+		t.Fatalf("got %v, want %v", got, ids)
+	}
+}
+
+func TestAutoApproveExpiredDeliverables_PropagatesRepositoryError(t *testing.T) {
+	wantErr := errors.New("database unavailable")
+	usecase := newTestOrderUsecase(&fakeRepo{expireDeliverablesErr: wantErr}, fakeStorage{})
+
+	if _, err := usecase.AutoApproveExpiredDeliverables(context.Background()); !errors.Is(err, wantErr) {
 		t.Fatalf("err = %v, want %v", err, wantErr)
 	}
 }
