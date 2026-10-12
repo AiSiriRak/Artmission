@@ -472,7 +472,7 @@ func (o *ordersContext) theUserAttemptsToAcceptTheirLastOrder() error {
 func (o *ordersContext) confirmDeliverable(orderID, deliverableID string) error {
 	resp, err := o.client.Do(
 		http.MethodPut,
-		"/orders/"+orderID+"/deliverable/"+deliverableID+"/confirm",
+		"/orders/"+orderID+"/deliverables/"+deliverableID+"/confirm",
 		map[string]any{"accept": true},
 		map[string]string{"Authorization": "Bearer " + o.accessToken},
 	)

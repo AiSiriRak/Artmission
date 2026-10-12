@@ -544,7 +544,7 @@ func TestOrderHandlerConfirmDeliverableAcceptsOrRejectsDeliverable(t *testing.T)
 			rec := serveOrderRequest(
 				handler,
 				http.MethodPut,
-				"/orders/"+orderID+"/deliverable/"+deliverableID+"/confirm",
+				"/orders/"+orderID+"/deliverables/"+deliverableID+"/confirm",
 				true,
 				tt.body,
 			)
@@ -592,7 +592,7 @@ func TestOrderHandlerConfirmDeliverablePropagatesUsecaseError(t *testing.T) {
 	rec := serveOrderRequest(
 		handler,
 		http.MethodPut,
-		"/orders/00000000-0000-0000-0000-000000000010/deliverable/00000000-0000-0000-0000-000000000020/confirm",
+		"/orders/00000000-0000-0000-0000-000000000010/deliverables/00000000-0000-0000-0000-000000000020/confirm",
 		true,
 		`{"accept":true}`,
 	)
@@ -631,7 +631,7 @@ func TestOrderHandlerConfirmDeliverableMapsUsecaseErrors(t *testing.T) {
 			rec := serveOrderRequest(
 				handler,
 				http.MethodPut,
-				"/orders/00000000-0000-0000-0000-000000000010/deliverable/00000000-0000-0000-0000-000000000020/confirm",
+				"/orders/00000000-0000-0000-0000-000000000010/deliverables/00000000-0000-0000-0000-000000000020/confirm",
 				true,
 				`{"accept":true}`,
 			)
@@ -676,7 +676,7 @@ func TestOrderHandlerConfirmDeliverableRequiresCustomerRole(t *testing.T) {
 	rec := serveOrderRequest(
 		handler,
 		http.MethodPut,
-		"/orders/00000000-0000-0000-0000-000000000010/deliverable/00000000-0000-0000-0000-000000000020/confirm",
+		"/orders/00000000-0000-0000-0000-000000000010/deliverables/00000000-0000-0000-0000-000000000020/confirm",
 		true,
 		`{"accept":true}`,
 	)
@@ -695,7 +695,7 @@ func TestOrderHandlerConfirmDeliverableRequiresAuthentication(t *testing.T) {
 	rec := serveOrderRequest(
 		handler,
 		http.MethodPut,
-		"/orders/00000000-0000-0000-0000-000000000010/deliverable/00000000-0000-0000-0000-000000000020/confirm",
+		"/orders/00000000-0000-0000-0000-000000000010/deliverables/00000000-0000-0000-0000-000000000020/confirm",
 		false,
 		`{"accept":true}`,
 	)
@@ -714,7 +714,7 @@ func TestOrderHandlerConfirmDeliverableRejectsInvalidDeliverableID(t *testing.T)
 	rec := serveOrderRequest(
 		handler,
 		http.MethodPut,
-		"/orders/00000000-0000-0000-0000-000000000010/deliverable/not-a-uuid/confirm",
+		"/orders/00000000-0000-0000-0000-000000000010/deliverables/not-a-uuid/confirm",
 		true,
 		`{"accept":true}`,
 	)
@@ -733,7 +733,7 @@ func TestOrderHandlerConfirmDeliverableRejectsInvalidOrderID(t *testing.T) {
 	rec := serveOrderRequest(
 		handler,
 		http.MethodPut,
-		"/orders/not-a-uuid/deliverable/00000000-0000-0000-0000-000000000020/confirm",
+		"/orders/not-a-uuid/deliverables/00000000-0000-0000-0000-000000000020/confirm",
 		true,
 		`{"accept":true}`,
 	)
@@ -752,7 +752,7 @@ func TestOrderHandlerConfirmDeliverableRejectsMalformedBody(t *testing.T) {
 	rec := serveOrderRequest(
 		handler,
 		http.MethodPut,
-		"/orders/00000000-0000-0000-0000-000000000010/deliverable/00000000-0000-0000-0000-000000000020/confirm",
+		"/orders/00000000-0000-0000-0000-000000000010/deliverables/00000000-0000-0000-0000-000000000020/confirm",
 		true,
 		`{"accept":`,
 	)
