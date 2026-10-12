@@ -1641,7 +1641,6 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system rejects the deliverable because the order status does not allow it$`, func() error {
 		return o.theSystemRejectsDeliverableForInvalidOrderStatus()
 	})
-<<<<<<< HEAD
 	sc.Step(`^the system creates the delay request successfully$`, func() error {
 		return o.theSystemCreatesTheDelayRequestSuccessfully()
 	})
@@ -1666,15 +1665,12 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system rejects the delay request decision because the order status does not allow it$`, func() error {
 		return o.theSystemRejectsTheDelayRequestDecisionBecauseTheOrderStatusDoesNotAllowIt()
 	})
-||||||| ce0804a
-=======
 	sc.Step(`^the system confirms the deliverable and marks the order as "([^"]*)"$`, func(status string) error {
 		return o.theSystemConfirmsTheDeliverableAndMarksOrderWithStatus(status)
 	})
 	sc.Step(`^the system hides the deliverable from the user$`, func() error {
 		return o.theSystemHidesTheDeliverableFromTheUser()
 	})
->>>>>>> origin
 	sc.Step(`^the system cancels the order$`, func() error { return o.theSystemCancelsTheOrder() })
 	sc.Step(`^the system rejects cancellation because the order status does not allow it$`, func() error {
 		return o.theSystemRejectsCancellationBecauseTheOrderStatusDoesNotAllowIt()

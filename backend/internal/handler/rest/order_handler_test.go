@@ -173,6 +173,10 @@ func (f *fakeOrderUsecase) CancelExpiredOrders(ctx context.Context) ([]uuid.UUID
 	return nil, nil
 }
 
+func (f *fakeOrderUsecase) CancelExpiredDelayRequest(context.Context) ([]uuid.UUID, error) {
+	return nil, nil
+}
+
 func (f *fakeOrderUsecase) CreateDeliverable(
 	ctx context.Context,
 	artistID uuid.UUID,
@@ -962,6 +966,13 @@ func TestOrderHandlerCreateDelayRequest(t *testing.T) {
 
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	var responseFields map[string]json.RawMessage
+	if err := json.Unmarshal(rec.Body.Bytes(), &responseFields); err != nil {
+		t.Fatalf("decode response fields: %v", err)
+	}
+	if _, ok := responseFields["expire_at"]; ok {
+		t.Error("response should not include the removed expire_at field")
 	}
 	if usecase.delayRequestCalls != 1 ||
 		usecase.gotDelayRequestArtist != uuid.MustParse(artistID) ||
