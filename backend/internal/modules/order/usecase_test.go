@@ -31,11 +31,18 @@ type fakeRepo struct {
 	orderErr         error
 	getOrderCalled   bool
 
-	confirmArtistID uuid.UUID
-	confirmOrderID  uuid.UUID
-	confirmStatus   order.Status
-	confirmErr      error
-	confirmCalled   bool
+	confirmArtistID              uuid.UUID
+	confirmOrderID               uuid.UUID
+	confirmStatus                order.Status
+	confirmErr                   error
+	confirmCalled                bool
+	confirmDeliverableCustomerID uuid.UUID
+	confirmDeliverableOrderID    uuid.UUID
+	confirmDeliverableID         uuid.UUID
+	confirmDeliverableDecision   order.DeliverableDecision
+	confirmDeliverableComment    string
+	confirmDeliverableErr        error
+	confirmDeliverableCalled     bool
 
 	cancelParticipant   order.Participant
 	cancelParticipantID uuid.UUID
@@ -92,6 +99,23 @@ func (f *fakeRepo) ConfirmOrder(
 	f.confirmStatus = status
 
 	return f.confirmErr
+}
+
+func (f *fakeRepo) ConfirmDeliverable(
+	_ context.Context,
+	customerID uuid.UUID,
+	orderID uuid.UUID,
+	deliverableID uuid.UUID,
+	decision order.DeliverableDecision,
+	comment string,
+) error {
+	f.confirmDeliverableCalled = true
+	f.confirmDeliverableCustomerID = customerID
+	f.confirmDeliverableOrderID = orderID
+	f.confirmDeliverableID = deliverableID
+	f.confirmDeliverableDecision = decision
+	f.confirmDeliverableComment = comment
+	return f.confirmDeliverableErr
 }
 
 func (f *fakeRepo) CancelOrder(
@@ -899,6 +923,176 @@ func TestConfirmOrder_PropagatesRepositoryError(t *testing.T) {
 	}
 	if !errors.Is(err, wantErr) {
 		t.Errorf("ConfirmOrder() error = %v, want %v", err, wantErr)
+	}
+}
+
+func TestConfirmDeliverable_AcceptsDeliverable(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
+	customerID, orderID, deliverableID := uuid.New(), uuid.New(), uuid.New()
+
+	got, err := usecase.ConfirmDeliverable(context.Background(), customerID, order.ConfirmDeliverableInput{
+		OrderID:       orderID,
+		DeliverableID: deliverableID,
+		Accept:        true,
+	})
+	if err != nil {
+		t.Fatalf("ConfirmDeliverable() error = %v, want nil", err)
+	}
+	if got != order.DeliverableDecisionApproved {
+		t.Errorf("ConfirmDeliverable() decision = %q, want %q", got, order.DeliverableDecisionApproved)
+	}
+	if !repo.confirmDeliverableCalled {
+		t.Fatal("ConfirmDeliverable() repository method was not called")
+	}
+	if repo.confirmDeliverableCustomerID != customerID ||
+		repo.confirmDeliverableOrderID != orderID ||
+		repo.confirmDeliverableID != deliverableID ||
+		repo.confirmDeliverableDecision != order.DeliverableDecisionApproved ||
+		repo.confirmDeliverableComment != "" {
+		t.Errorf(
+			"repository input = customer %s, order %s, deliverable %s, decision %s, comment %q",
+			repo.confirmDeliverableCustomerID,
+			repo.confirmDeliverableOrderID,
+			repo.confirmDeliverableID,
+			repo.confirmDeliverableDecision,
+			repo.confirmDeliverableComment,
+		)
+	}
+}
+
+func TestConfirmDeliverable_RejectsDeliverable(t *testing.T) {
+	repo := &fakeRepo{}
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
+	customerID, orderID, deliverableID := uuid.New(), uuid.New(), uuid.New()
+	comment := "  Please revise the colors.  "
+	wantComment := "Please revise the colors."
+
+	got, err := usecase.ConfirmDeliverable(context.Background(), customerID, order.ConfirmDeliverableInput{
+		OrderID:       orderID,
+		DeliverableID: deliverableID,
+		Comment:       comment,
+	})
+	if err != nil {
+		t.Fatalf("ConfirmDeliverable() error = %v, want nil", err)
+	}
+	if got != order.DeliverableDecisionRejected {
+		t.Errorf("ConfirmDeliverable() decision = %q, want %q", got, order.DeliverableDecisionRejected)
+	}
+	if !repo.confirmDeliverableCalled {
+		t.Fatal("ConfirmDeliverable() repository method was not called")
+	}
+	if repo.confirmDeliverableCustomerID != customerID ||
+		repo.confirmDeliverableOrderID != orderID ||
+		repo.confirmDeliverableID != deliverableID ||
+		repo.confirmDeliverableDecision != order.DeliverableDecisionRejected ||
+		repo.confirmDeliverableComment != wantComment {
+		t.Errorf(
+			"repository input = customer %s, order %s, deliverable %s, decision %s, comment %q",
+			repo.confirmDeliverableCustomerID,
+			repo.confirmDeliverableOrderID,
+			repo.confirmDeliverableID,
+			repo.confirmDeliverableDecision,
+			repo.confirmDeliverableComment,
+		)
+	}
+}
+
+func TestConfirmDeliverable_RejectsMissingIDs(t *testing.T) {
+	tests := []struct {
+		name       string
+		customerID uuid.UUID
+		input      order.ConfirmDeliverableInput
+		wantErr    error
+	}{
+		{
+			name:       "customer ID",
+			customerID: uuid.Nil,
+			input: order.ConfirmDeliverableInput{
+				OrderID:       uuid.New(),
+				DeliverableID: uuid.New(),
+				Accept:        true,
+			},
+			wantErr: order.ErrMissingParticipantID,
+		},
+		{
+			name:       "order ID",
+			customerID: uuid.New(),
+			input: order.ConfirmDeliverableInput{
+				DeliverableID: uuid.New(),
+				Accept:        true,
+			},
+			wantErr: order.ErrMissingOrderID,
+		},
+		{
+			name:       "deliverable ID",
+			customerID: uuid.New(),
+			input: order.ConfirmDeliverableInput{
+				OrderID: uuid.New(),
+				Accept:  true,
+			},
+			wantErr: order.ErrMissingDeliverableID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &fakeRepo{}
+			usecase := newTestOrderUsecase(repo, fakeStorage{})
+			_, err := usecase.ConfirmDeliverable(context.Background(), tt.customerID, tt.input)
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("ConfirmDeliverable() error = %v, want %v", err, tt.wantErr)
+			}
+			if repo.confirmDeliverableCalled {
+				t.Error("ConfirmDeliverable() repository method should not be called for missing IDs")
+			}
+		})
+	}
+}
+
+func TestConfirmDeliverable_RequiresCommentOnlyForRejection(t *testing.T) {
+	tests := []struct {
+		name    string
+		accept  bool
+		comment string
+	}{
+		{name: "accepted with comment", accept: true, comment: "unexpected comment"},
+		{name: "rejected with blank comment", accept: false, comment: " \t "},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &fakeRepo{}
+			usecase := newTestOrderUsecase(repo, fakeStorage{})
+			_, err := usecase.ConfirmDeliverable(context.Background(), uuid.New(), order.ConfirmDeliverableInput{
+				OrderID:       uuid.New(),
+				DeliverableID: uuid.New(),
+				Accept:        tt.accept,
+				Comment:       tt.comment,
+			})
+			wantInvalidInput(t, err)
+			if repo.confirmDeliverableCalled {
+				t.Error("ConfirmDeliverable() repository method should not be called for invalid comment")
+			}
+		})
+	}
+}
+
+func TestConfirmDeliverable_PropagatesRepositoryError(t *testing.T) {
+	wantErr := apperror.Internal("failed to save decision", nil)
+	repo := &fakeRepo{confirmDeliverableErr: wantErr}
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+	got, err := usecase.ConfirmDeliverable(context.Background(), uuid.New(), order.ConfirmDeliverableInput{
+		OrderID:       uuid.New(),
+		DeliverableID: uuid.New(),
+		Accept:        true,
+	})
+	if got != "" {
+		t.Errorf("ConfirmDeliverable() decision = %q, want empty decision", got)
+	}
+	if !errors.Is(err, wantErr) {
+		t.Errorf("ConfirmDeliverable() error = %v, want %v", err, wantErr)
 	}
 }
 

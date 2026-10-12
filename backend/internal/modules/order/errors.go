@@ -11,6 +11,7 @@ var (
 	ErrUnsupportedParticipantRole        = apperror.Forbidden("unsupported participant role")
 	ErrMissingParticipantID              = apperror.InvalidInput("missing participant id", nil)
 	ErrMissingOrderID                    = apperror.InvalidInput("missing order id", nil)
+	ErrMissingDeliverableID              = apperror.InvalidInput("missing deliverable id", nil)
 	ErrInvalidOrderStatus                = apperror.Conflict("order status does not allow this operation")
 	ErrFailedToPresignDeliverablePreview = apperror.Internal("failed to presign deliverable preview image", nil)
 	ErrInvalidDeliverableImage           = apperror.InvalidInput("deliverable image must be a JPEG, PNG, or WebP image", nil)
@@ -18,4 +19,5 @@ var (
 	ErrMaxDeliverableVersionsReached     = apperror.Conflict("maximum number of deliverable versions reached")
 	ErrArtistNotFound                    = apperror.NotFound("artist not found")
 	ErrDeliverablePending                = apperror.Conflict("an unreviewed deliverable already exists for this order")
+	ErrInvalidDeliverableStatus          = apperror.Conflict("deliverable status does not allow this operation")
 )

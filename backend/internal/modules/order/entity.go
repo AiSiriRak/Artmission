@@ -246,3 +246,10 @@ const (
 	deliverablePreviewSize    = 1800
 	deliverablePreviewQuality = 88
 )
+
+type ConfirmDeliverableInput struct {
+	OrderID       uuid.UUID
+	DeliverableID uuid.UUID
+	Accept        bool
+	Comment       string
+}
