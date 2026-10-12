@@ -16,5 +16,9 @@ request:
       description: |-
         image path ใช้รูปในเครื่องได้เลยนะครับ 
         (เพิ่ม \ ใน path ให้เป็น 2 ตัวทุกอัน, ไม่ต้องมี "")
+    - name: DeliverableID
+      value: 00000000-0000-0000-0000-000000000000
+      description: order deliverable id
     - name: DelayRequestID
       value: 00000000-0000-0000-0000-000000000000
+      description: order delay request id
