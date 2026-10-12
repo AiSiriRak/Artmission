@@ -36,7 +36,7 @@ type OrderUsecase interface {
 	// ConfirmDeliverable accepts or rejects a deliverable belonging to the customer's order.
 	ConfirmDeliverable(ctx context.Context, customerID uuid.UUID, input ConfirmDeliverableInput) (DeliverableDecision, error)
 
-	CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, orderID uuid.UUID) error
+	CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, input CancelInput) (*OrderCancellation, error)
 	// CancelExpiredOrders cancels every order whose artist-confirmation window
 	// or deadline has passed, and returns the IDs it cancelled.
 	CancelExpiredOrders(ctx context.Context) ([]uuid.UUID, error)
@@ -104,7 +104,12 @@ type OrderRepository interface {
 	// ConfirmDeliverable accepts or rejects a deliverable on an order owned by the customer.
 	ConfirmDeliverable(ctx context.Context, customerID uuid.UUID, orderID uuid.UUID, deliverableID uuid.UUID, decision DeliverableDecision, comment string) error
 
-	CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, orderID uuid.UUID) error
+	CancelOrder(
+		ctx context.Context,
+		participant Participant,
+		participantID uuid.UUID,
+		item *OrderCancellation,
+	) error
 	// CancelExpired atomically moves to CANCEL every order that is either
 	// PENDING with created_at <= pendingCutoff, or in an auto-cancellable status
 	// with deadline_at <= now. It returns the IDs it changed.

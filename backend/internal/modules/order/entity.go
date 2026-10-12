@@ -145,6 +145,62 @@ func (p Participant) IsValid() bool {
 	}
 }
 
+type CancelReason string
+
+const (
+	// For System
+	CancelReasonArtistDidNotConfirmInTime  CancelReason = "ARTIST_DID_NOT_CONFIRM_IN_TIME"
+	CancelReasonNotSubmittedWithinDeadline CancelReason = "NOT_SUBMITTED_WITHIN_DEADLINE"
+
+	// For both Customer and Artist
+	CancelReasonMutualAgreement CancelReason = "MUTUAL_AGREEMENT"
+	CancelReasonOther           CancelReason = "OTHER"
+
+	// For Artist
+	CancelReasonUnableToComplete            CancelReason = "UNABLE_TO_COMPLETE"
+	CancelReasonUnableToMeetDeadline        CancelReason = "UNABLE_TO_MEET_DEADLINE"
+	CancelReasonCustomerChangedRequirements CancelReason = "CUSTOMER_CHANGED_REQUIREMENTS"
+	CancelReasonCustomerUnresponsive        CancelReason = "CUSTOMER_UNRESPONSIVE"
+	CancelReasonPersonalOrTechnicalIssue    CancelReason = "PERSONAL_OR_TECHNICAL_ISSUE"
+
+	// For Customer
+	CancelReasonPlacedOrderByMistake              CancelReason = "PLACED_ORDER_BY_MISTAKE"
+	CancelReasonNoLongerNeeded                    CancelReason = "NO_LONGER_NEEDED"
+	CancelReasonArtistUnableToMeetNewRequirements CancelReason = "ARTIST_UNABLE_TO_MEET_NEW_REQUIREMENTS"
+	CancelReasonArtistUnresponsive                CancelReason = "ARTIST_UNRESPONSIVE"
+	CancelReasonTakingTooLong                     CancelReason = "TAKING_TOO_LONG"
+)
+
+func (p CancelReason) IsValid(role Participant) bool {
+	if role == ParticipantCustomer {
+		switch p {
+		case CancelReasonMutualAgreement,
+			CancelReasonPlacedOrderByMistake, CancelReasonNoLongerNeeded, CancelReasonArtistUnableToMeetNewRequirements, CancelReasonArtistUnresponsive, CancelReasonTakingTooLong,
+			CancelReasonOther:
+			return true
+		default:
+			return false
+		}
+	}
+	if role == ParticipantArtist {
+		switch p {
+		case CancelReasonMutualAgreement,
+			CancelReasonUnableToComplete, CancelReasonUnableToMeetDeadline, CancelReasonCustomerChangedRequirements, CancelReasonCustomerUnresponsive, CancelReasonPersonalOrTechnicalIssue,
+			CancelReasonOther:
+			return true
+		default:
+			return false
+		}
+	}
+
+	switch p {
+	case CancelReasonArtistDidNotConfirmInTime, CancelReasonNotSubmittedWithinDeadline:
+		return true
+	}
+
+	return false
+}
+
 // SortField is a ViewOrders-selectable sort key.
 type SortField string
 
@@ -242,6 +298,14 @@ type OrderDelayRequest struct {
 	CustomerDecision   DelayRequestDecision
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+}
+
+type OrderCancellation struct {
+	ID          uuid.UUID
+	OrderID     uuid.UUID
+	Reason      string
+	Explanation string
+	CreatedAt   time.Time
 }
 
 // ListQuery is ViewOrders input
@@ -356,4 +420,11 @@ type ConfirmDeliverableInput struct {
 	DeliverableID uuid.UUID
 	Accept        bool
 	Comment       string
+}
+
+// CancelInput contains the information an orderID, reason, explanation of cancellation
+type CancelInput struct {
+	OrderID     uuid.UUID
+	Reason      CancelReason
+	Explanation string
 }

@@ -44,9 +44,9 @@ type fakeRepo struct {
 	confirmDeliverableErr        error
 	confirmDeliverableCalled     bool
 
+	cancellation        *order.OrderCancellation
 	cancelParticipant   order.Participant
 	cancelParticipantID uuid.UUID
-	cancelOrderID       uuid.UUID
 	cancelErr           error
 	cancelCalled        bool
 
@@ -148,12 +148,12 @@ func (f *fakeRepo) CancelOrder(
 	_ context.Context,
 	participant order.Participant,
 	participantID uuid.UUID,
-	orderID uuid.UUID,
+	item *order.OrderCancellation,
 ) error {
 	f.cancelCalled = true
 	f.cancelParticipant = participant
 	f.cancelParticipantID = participantID
-	f.cancelOrderID = orderID
+	f.cancellation = item
 
 	return f.cancelErr
 }
@@ -1469,31 +1469,56 @@ func TestCancelOrder_Success(t *testing.T) {
 	participant := order.ParticipantCustomer
 	participantID := uuid.New()
 	orderID := uuid.New()
+	input := order.CancelInput{
+		OrderID:     orderID,
+		Reason:      order.CancelReasonNoLongerNeeded,
+		Explanation: "  I no longer need this order.  ",
+	}
 
-	err := usecase.CancelOrder(
+	got, err := usecase.CancelOrder(
 		context.Background(),
 		participant,
 		participantID,
-		orderID,
+		input,
 	)
 	if err != nil {
 		t.Fatalf("CancelOrder() error = %v, want nil", err)
+	}
+	if got == nil {
+		t.Fatal("CancelOrder() result = nil, want cancellation")
 	}
 
 	if !repo.cancelCalled {
 		t.Fatal("CancelOrder() repository method was not called")
 	}
-
+	if repo.cancellation == nil {
+		t.Fatal("repository cancellation = nil, want cancellation")
+	}
 	if repo.cancelParticipant != participant {
-		t.Errorf("Participant = %v, want %v", repo.cancelParticipant, participant)
+		t.Errorf("repository participant = %q, want %q", repo.cancelParticipant, participant)
 	}
-
 	if repo.cancelParticipantID != participantID {
-		t.Errorf("ParticipantID = %v, want %v", repo.cancelParticipantID, participantID)
+		t.Errorf("repository participant ID = %s, want %s", repo.cancelParticipantID, participantID)
 	}
-
-	if repo.cancelOrderID != orderID {
-		t.Errorf("OrderID = %v, want %v", repo.cancelOrderID, orderID)
+	for name, cancellation := range map[string]*order.OrderCancellation{
+		"result":     got,
+		"repository": repo.cancellation,
+	} {
+		if cancellation.OrderID != orderID {
+			t.Errorf("%s OrderID = %v, want %v", name, cancellation.OrderID, orderID)
+		}
+		if cancellation.Reason != string(input.Reason) {
+			t.Errorf("%s Reason = %q, want %q", name, cancellation.Reason, input.Reason)
+		}
+		if cancellation.Explanation != "I no longer need this order." {
+			t.Errorf("%s Explanation = %q, want trimmed explanation", name, cancellation.Explanation)
+		}
+		if cancellation.ID == uuid.Nil {
+			t.Errorf("%s ID = nil UUID, want generated ID", name)
+		}
+		if cancellation.CreatedAt.IsZero() {
+			t.Errorf("%s CreatedAt is zero, want timestamp", name)
+		}
 	}
 }
 
@@ -1501,11 +1526,15 @@ func TestCancelOrder_RejectsInvalidParticipant(t *testing.T) {
 	repo := &fakeRepo{}
 	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
-	err := usecase.CancelOrder(
+	_, err := usecase.CancelOrder(
 		context.Background(),
 		order.Participant("invalid_role"),
 		uuid.New(),
-		uuid.New(),
+		order.CancelInput{
+			OrderID:     uuid.New(),
+			Reason:      order.CancelReasonOther,
+			Explanation: "Other",
+		},
 	)
 
 	if !errors.Is(err, order.ErrUnsupportedParticipantRole) {
@@ -1521,11 +1550,15 @@ func TestCancelOrder_RejectsMissingParticipantID(t *testing.T) {
 	repo := &fakeRepo{}
 	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
-	err := usecase.CancelOrder(
+	_, err := usecase.CancelOrder(
 		context.Background(),
 		order.ParticipantCustomer,
 		uuid.Nil,
-		uuid.New(),
+		order.CancelInput{
+			OrderID:     uuid.New(),
+			Reason:      order.CancelReasonOther,
+			Explanation: "Other",
+		},
 	)
 
 	if !errors.Is(err, order.ErrMissingParticipantID) {
@@ -1541,11 +1574,14 @@ func TestCancelOrder_RejectsMissingOrderID(t *testing.T) {
 	repo := &fakeRepo{}
 	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
-	err := usecase.CancelOrder(
+	_, err := usecase.CancelOrder(
 		context.Background(),
 		order.ParticipantCustomer,
 		uuid.New(),
-		uuid.Nil,
+		order.CancelInput{
+			Reason:      order.CancelReasonOther,
+			Explanation: "Other",
+		},
 	)
 
 	if !errors.Is(err, order.ErrMissingOrderID) {
@@ -1557,6 +1593,105 @@ func TestCancelOrder_RejectsMissingOrderID(t *testing.T) {
 	}
 }
 
+func TestCancelOrder_RejectsInvalidReasonForParticipant(t *testing.T) {
+	tests := []struct {
+		name        string
+		participant order.Participant
+		reason      order.CancelReason
+	}{
+		{
+			name:        "customer reason is not available to artist",
+			participant: order.ParticipantArtist,
+			reason:      order.CancelReasonNoLongerNeeded,
+		},
+		{
+			name:        "artist reason is not available to customer",
+			participant: order.ParticipantCustomer,
+			reason:      order.CancelReasonUnableToComplete,
+		},
+		{
+			name:        "system reason is not available to participant",
+			participant: order.ParticipantCustomer,
+			reason:      order.CancelReasonArtistDidNotConfirmInTime,
+		},
+		{
+			name:        "unknown reason",
+			participant: order.ParticipantCustomer,
+			reason:      order.CancelReason("UNKNOWN"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &fakeRepo{}
+			usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+			_, err := usecase.CancelOrder(
+				context.Background(),
+				tt.participant,
+				uuid.New(),
+				order.CancelInput{
+					OrderID:     uuid.New(),
+					Reason:      tt.reason,
+					Explanation: "Valid explanation",
+				},
+			)
+			wantInvalidInput(t, err)
+			if repo.cancelCalled {
+				t.Error("repository CancelOrder() should not be called for invalid reason")
+			}
+		})
+	}
+}
+
+func TestCancelOrder_RejectsMissingReasonOrExplanation(t *testing.T) {
+	tests := []struct {
+		name  string
+		input order.CancelInput
+	}{
+		{
+			name: "missing reason",
+			input: order.CancelInput{
+				OrderID:     uuid.New(),
+				Explanation: "Valid explanation",
+			},
+		},
+		{
+			name: "missing explanation",
+			input: order.CancelInput{
+				OrderID: uuid.New(),
+				Reason:  order.CancelReasonOther,
+			},
+		},
+		{
+			name: "whitespace explanation",
+			input: order.CancelInput{
+				OrderID:     uuid.New(),
+				Reason:      order.CancelReasonOther,
+				Explanation: " \t\n ",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &fakeRepo{}
+			usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+			_, err := usecase.CancelOrder(
+				context.Background(),
+				order.ParticipantCustomer,
+				uuid.New(),
+				tt.input,
+			)
+			wantInvalidInput(t, err)
+			if repo.cancelCalled {
+				t.Error("repository CancelOrder() should not be called for invalid input")
+			}
+		})
+	}
+}
+
 func TestCancelOrder_PropagatesRepositoryError(t *testing.T) {
 	wantErr := errors.New("database connection error")
 	repo := &fakeRepo{
@@ -1564,15 +1699,25 @@ func TestCancelOrder_PropagatesRepositoryError(t *testing.T) {
 	}
 	usecase := newTestOrderUsecase(repo, fakeStorage{})
 
-	err := usecase.CancelOrder(
+	got, err := usecase.CancelOrder(
 		context.Background(),
 		order.ParticipantCustomer,
 		uuid.New(),
-		uuid.New(),
+		order.CancelInput{
+			OrderID:     uuid.New(),
+			Reason:      order.CancelReasonOther,
+			Explanation: "Other reason",
+		},
 	)
 
+	if got != nil {
+		t.Errorf("CancelOrder() result = %+v, want nil on repository error", got)
+	}
 	if !errors.Is(err, wantErr) {
 		t.Errorf("CancelOrder() error = %v, want %v", err, wantErr)
+	}
+	if !repo.cancelCalled {
+		t.Error("repository CancelOrder() was not called")
 	}
 }
 

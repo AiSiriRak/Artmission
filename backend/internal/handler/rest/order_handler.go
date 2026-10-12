@@ -624,12 +624,16 @@ func (h *OrderHandler) confirmDeliverable(ctx context.Context, input *confirmDel
 
 type CancelOrderInput struct {
 	OrderID uuid.UUID `path:"order_id"`
+	Body    struct {
+		Reason      order.CancelReason `json:"reason"`
+		Explanation string             `json:"explanation"`
+	}
 }
-
 type CancelOrderOutput struct {
 	Body struct {
-		Message string `json:"message"`
-		Status  string `json:"status"`
+		OrderID     uuid.UUID `json:"order_id"`
+		Reason      string    `json:"reason"`
+		Explanation string    `json:"explanation"`
 	}
 }
 
@@ -645,19 +649,26 @@ func (h *OrderHandler) cancelOrder(
 
 	participant := participantForRole(info.Role)
 
-	err := h.orderUsecase.CancelOrder(
+	data := order.CancelInput{
+		OrderID:     input.OrderID,
+		Reason:      input.Body.Reason,
+		Explanation: input.Body.Explanation,
+	}
+
+	result, err := h.orderUsecase.CancelOrder(
 		ctx,
 		participant,
 		info.UserID,
-		input.OrderID,
+		data,
 	)
 	if err != nil {
 		return nil, mapAppError(err)
 	}
 
 	out := &CancelOrderOutput{}
-	out.Body.Message = "Order cancelled successfully"
-	out.Body.Status = string(order.StatusCancel)
+	out.Body.OrderID = result.OrderID
+	out.Body.Reason = string(result.Reason)
+	out.Body.Explanation = result.Explanation
 
 	return out, nil
 }

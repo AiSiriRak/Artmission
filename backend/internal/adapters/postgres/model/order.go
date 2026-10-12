@@ -90,3 +90,14 @@ type OrderDelayRequest struct {
 	CreatedAt          time.Time `bun:"created_at"`
 	UpdatedAt          time.Time `bun:"updated_at"`
 }
+
+// OrderCancellationReason represents an order cancellation reason entry in the database.
+type OrderCancellation struct {
+	bun.BaseModel `bun:"table:order_cancellations,alias:ocr"`
+
+	ID          uuid.UUID `bun:"id,pk"`
+	OrderID     uuid.UUID `bun:"order_id"`
+	Reason      string    `bun:"reason,default:'OTHER'"`
+	Explanation string    `bun:"explanation"`
+	CreatedAt   time.Time `bun:"created_at,nullzero"`
+}

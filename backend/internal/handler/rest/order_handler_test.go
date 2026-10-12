@@ -30,7 +30,7 @@ type fakeOrderUsecase struct {
 	getOrderFunc            func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error)
 	confirmOrderFunc        func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmOrderInput) (order.Status, error)
 	confirmDeliverableFunc  func(context.Context, uuid.UUID, order.ConfirmDeliverableInput) (order.DeliverableDecision, error)
-	cancelOrderFunc         func(context.Context, order.Participant, uuid.UUID, uuid.UUID) error
+	cancelOrderFunc         func(context.Context, order.Participant, uuid.UUID, order.CancelInput) (*order.OrderCancellation, error)
 	cancelExpiredOrdersFunc func(context.Context) ([]uuid.UUID, error)
 	createOrderFunc         func(context.Context, uuid.UUID, order.CreateInput) (*order.Order, error)
 	createDeliverableFunc   func(context.Context, uuid.UUID, order.CreateDeliverableInput) (*order.Deliverable, error)
@@ -43,6 +43,7 @@ type fakeOrderUsecase struct {
 	gotOrderID                 uuid.UUID
 	gotConfirmInput            order.ConfirmOrderInput
 	gotConfirmDeliverableInput order.ConfirmDeliverableInput
+	gotCancelInput             order.CancelInput
 	confirmDeliverableCalls    int
 	confirmCalls               int
 	cancelCalls                int
@@ -153,16 +154,23 @@ func (f *fakeOrderUsecase) CancelOrder(
 	ctx context.Context,
 	participant order.Participant,
 	participantID uuid.UUID,
-	orderID uuid.UUID,
-) error {
+	input order.CancelInput,
+) (*order.OrderCancellation, error) {
 	f.cancelCalls++
 	f.gotParticipant = participant
 	f.gotUserID = participantID
-	f.gotOrderID = orderID
+	f.gotOrderID = input.OrderID
+	f.gotCancelInput = input
 	if f.cancelOrderFunc != nil {
-		return f.cancelOrderFunc(ctx, participant, participantID, orderID)
+		return f.cancelOrderFunc(ctx, participant, participantID, input)
 	}
-	return nil
+	return &order.OrderCancellation{
+		ID:          uuid.New(),
+		OrderID:     input.OrderID,
+		Reason:      string(input.Reason),
+		Explanation: input.Explanation,
+		CreatedAt:   time.Now(),
+	}, nil
 }
 
 func (f *fakeOrderUsecase) CancelExpiredOrders(ctx context.Context) ([]uuid.UUID, error) {
@@ -1226,6 +1234,7 @@ func TestOrderHandlerCancelOrder(t *testing.T) {
 				http.MethodPut,
 				"/orders/"+orderID+"/cancel",
 				true,
+				`{"reason":"OTHER","explanation":"Circumstances changed"}`,
 			)
 
 			if rec.Code != http.StatusOK {
@@ -1233,31 +1242,39 @@ func TestOrderHandlerCancelOrder(t *testing.T) {
 			}
 
 			var got struct {
-				Message string `json:"message"`
-				Status  string `json:"status"`
+				OrderID     uuid.UUID `json:"order_id"`
+				Reason      string    `json:"reason"`
+				Explanation string    `json:"explanation"`
 			}
 			if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
 				t.Fatalf("decode response: %v", err)
 			}
-			if got.Message != "Order cancelled successfully" {
-				t.Errorf("response message = %q, want %q", got.Message, "Order cancelled successfully")
+			if got.OrderID != uuid.MustParse(orderID) {
+				t.Errorf("response order_id = %s, want %s", got.OrderID, orderID)
 			}
-			if got.Status != string(order.StatusCancel) {
-				t.Errorf("response status = %q, want %q", got.Status, order.StatusCancel)
+			if got.Reason != string(order.CancelReasonOther) {
+				t.Errorf("response reason = %q, want %q", got.Reason, order.CancelReasonOther)
+			}
+			if got.Explanation != "Circumstances changed" {
+				t.Errorf("response explanation = %q, want %q", got.Explanation, "Circumstances changed")
 			}
 			if usecase.cancelCalls != 1 ||
 				usecase.gotParticipant != tt.participant ||
 				usecase.gotUserID != uuid.MustParse(userID) ||
-				usecase.gotOrderID != uuid.MustParse(orderID) {
+				usecase.gotOrderID != uuid.MustParse(orderID) ||
+				usecase.gotCancelInput != (order.CancelInput{
+					OrderID:     uuid.MustParse(orderID),
+					Reason:      order.CancelReasonOther,
+					Explanation: "Circumstances changed",
+				}) {
 				t.Errorf(
-					"cancel input = calls %d, participant %q, userID %s, orderID %s; want 1, %q, %s, %s",
+					"cancel input = calls %d, participant %q, userID %s, input %+v; want 1, %q, %s, expected cancellation input",
 					usecase.cancelCalls,
 					usecase.gotParticipant,
 					usecase.gotUserID,
-					usecase.gotOrderID,
+					usecase.gotCancelInput,
 					tt.participant,
 					userID,
-					orderID,
 				)
 			}
 		})
@@ -1302,8 +1319,8 @@ func TestOrderHandlerCancelOrderRequiresCustomerOrArtistRole(t *testing.T) {
 
 func TestOrderHandlerCancelOrderPropagatesUsecaseError(t *testing.T) {
 	usecase := &fakeOrderUsecase{
-		cancelOrderFunc: func(context.Context, order.Participant, uuid.UUID, uuid.UUID) error {
-			return order.ErrInvalidOrderStatus
+		cancelOrderFunc: func(context.Context, order.Participant, uuid.UUID, order.CancelInput) (*order.OrderCancellation, error) {
+			return nil, order.ErrInvalidOrderStatus
 		},
 	}
 	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
@@ -1312,6 +1329,7 @@ func TestOrderHandlerCancelOrderPropagatesUsecaseError(t *testing.T) {
 		http.MethodPut,
 		"/orders/00000000-0000-0000-0000-000000000010/cancel",
 		true,
+		`{"reason":"OTHER","explanation":"Circumstances changed"}`,
 	)
 
 	if rec.Code != http.StatusConflict {
@@ -1330,6 +1348,7 @@ func TestOrderHandlerCancelOrderRejectsInvalidOrderID(t *testing.T) {
 		http.MethodPut,
 		"/orders/not-a-uuid/cancel",
 		true,
+		`{"reason":"OTHER","explanation":"Circumstances changed"}`,
 	)
 
 	if rec.Code != http.StatusUnprocessableEntity {

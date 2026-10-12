@@ -542,25 +542,31 @@ func (r *orderRepository) ConfirmDeliverable(
 	return nil
 }
 
-// CancelOrder transitions an order to the given status,
+// CancelOrder transitions an order to CANCEL when it belongs to the participant.
 func (r *orderRepository) CancelOrder(
 	ctx context.Context,
 	participant order.Participant,
 	participantID uuid.UUID,
-	orderID uuid.UUID,
+	item *order.OrderCancellation,
 ) error {
-	if participant != order.ParticipantCustomer && participant != order.ParticipantArtist {
-		return apperror.Internal("unsupported participant", nil)
+	if item == nil {
+		return apperror.InvalidInput("cancellation request must not be nil", nil)
 	}
+	if !participant.IsValid() {
+		return order.ErrUnsupportedParticipantRole
+	}
+	if participantID == uuid.Nil {
+		return order.ErrMissingParticipantID
+	}
+
 	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
 		return r.exec.Run(ctx, func(idb bun.IDB) error {
 			existing := new(pgmodel.Order)
 
 			q := idb.NewSelect().
 				Model(existing).
-				Column("id", "status").
-				Where("id = ?", orderID)
-
+				Column("id", "customer_id", "artist_id", "status").
+				Where("id = ?", item.OrderID)
 			if participant == order.ParticipantCustomer {
 				q = q.Where("customer_id = ?", participantID)
 			} else {
@@ -581,20 +587,17 @@ func (r *orderRepository) CancelOrder(
 			// TODO: Process payment refund/transaction here before updating order status
 			// e.g., if err := r.paymentService.Refund(...); err != nil { return err }
 
-			updateQ := idb.NewUpdate().
+			// Update Order status to cancel
+			updateOrder := idb.NewUpdate().
 				Model((*pgmodel.Order)(nil)).
 				Set("status = ?", string(order.StatusCancel)).
 				Set("updated_at = NOW()").
-				Where("id = ?", orderID).
+				Where("id = ?", item.OrderID).
+				Where("customer_id = ?", existing.CustomerID).
+				Where("artist_id = ?", existing.ArtistID).
 				Where("status = ?", existing.Status)
 
-			if participant == order.ParticipantCustomer {
-				updateQ = updateQ.Where("customer_id = ?", participantID)
-			} else {
-				updateQ = updateQ.Where("artist_id = ?", participantID)
-			}
-
-			result, err := updateQ.Exec(ctx)
+			result, err := updateOrder.Exec(ctx)
 			if err != nil {
 				return err
 			}
@@ -606,6 +609,45 @@ func (r *orderRepository) CancelOrder(
 
 			if rows == 0 {
 				return order.ErrInvalidOrderStatus
+			}
+
+			// Reject any deliverable still waiting for the customer's decision.
+			if _, err := idb.NewUpdate().
+				Model((*pgmodel.OrderDeliverable)(nil)).
+				Set("decision = ?", string(order.DeliverableDecisionRejected)).
+				Set("updated_at = NOW()").
+				Set("comment = ?", "order cancelled").
+				Where("order_id = ?", item.OrderID).
+				Where("decision = ?", string(order.DeliverableDecisionWait)).
+				Exec(ctx); err != nil {
+				return err
+			}
+
+			// Reject any delay request still waiting for the customer's decision.
+			if _, err := idb.NewUpdate().
+				Model((*pgmodel.OrderDelayRequest)(nil)).
+				Set("customer_decision = ?", string(order.DelayDecisionRejected)).
+				Set("updated_at = NOW()").
+				Where("order_id = ?", item.OrderID).
+				Where("customer_decision = ?", string(order.DelayDecisionWait)).
+				Exec(ctx); err != nil {
+				return err
+			}
+
+			// Build the database model using the original deadline retrieved from the order.
+			model := &pgmodel.OrderCancellation{
+				ID:          item.ID,
+				OrderID:     item.OrderID,
+				Reason:      item.Reason,
+				Explanation: item.Explanation,
+				CreatedAt:   item.CreatedAt,
+			}
+
+			// Insert the delay request into the database.
+			if _, err := idb.NewInsert().
+				Model(model).
+				Exec(ctx); err != nil {
+				return err
 			}
 
 			return nil
@@ -639,40 +681,103 @@ func (r *orderRepository) CancelExpired(
 	var ids []uuid.UUID
 	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
 		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			// PENDING orders the artist did not confirm in time.
+			var unconfirmedIDs []uuid.UUID
+			if err := idb.NewUpdate().
+				Model((*pgmodel.Order)(nil)).
+				Set("status = ?", string(order.StatusCancel)).
+				Set("updated_at = NOW()").
+				Where("status = ?", string(order.StatusPending)).
+				Where("created_at <= ?", pendingCutoff).
+				Returning("id").
+				Scan(ctx, &unconfirmedIDs); err != nil {
+				return err
+			}
 
-			err := idb.NewUpdate().
+			// Remaining auto-cancellable orders that passed their deadline.
+			// Orders from step 1 are already CANCEL, so they are not matched again.
+			var overdueIDs []uuid.UUID
+			if err := idb.NewUpdate().
 				Model((*pgmodel.Order)(nil)).
 				Set("status = ?", string(order.StatusCancel)).
 				Set("updated_at = NOW()").
 				Where("status IN (?)", bun.List(statuses)).
-				WhereGroup(" AND ", func(q *bun.UpdateQuery) *bun.UpdateQuery {
-					return q.
-						Where("deadline_at <= ?", now).
-						WhereOr("(status = ? AND created_at <= ?)", string(order.StatusPending), pendingCutoff)
-				}).
+				Where("deadline_at <= ?", now).
 				Returning("id").
-				Scan(ctx, &ids)
-			if err != nil {
+				Scan(ctx, &overdueIDs); err != nil {
 				return err
 			}
 
+			if len(unconfirmedIDs)+len(overdueIDs) == 0 {
+				return nil
+			}
+
+			ids = make([]uuid.UUID, 0, len(unconfirmedIDs)+len(overdueIDs))
+			ids = append(ids, unconfirmedIDs...)
+			ids = append(ids, overdueIDs...)
+
 			// TODO (Payment): If payment integration is added, process refund or void transactions for all canceled order IDs here.
 			// Example:
-			// if len(ids) > 0 {
-			//     for _, orderID := range ids {
-			//         if err := r.paymentService.ProcessRefund(ctx, idb, orderID); err != nil {
-			//             return fmt.Errorf("failed to process refund for order %s: %w", orderID, err)
-			//         }
+			// for _, orderID := range ids {
+			//     if err := r.paymentService.ProcessRefund(ctx, idb, orderID); err != nil {
+			//         return fmt.Errorf("failed to process refund for order %s: %w", orderID, err)
 			//     }
 			// }
+
+			// Reject any deliverable still waiting for the customer's decision.
+			if _, err := idb.NewUpdate().
+				Model((*pgmodel.OrderDeliverable)(nil)).
+				Set("decision = ?", string(order.DeliverableDecisionRejected)).
+				Set("comment = ?", "order cancelled").
+				Set("updated_at = NOW()").
+				Where("order_id IN (?)", bun.List(ids)).
+				Where("decision = ?", string(order.DeliverableDecisionWait)).
+				Exec(ctx); err != nil {
+				return err
+			}
+
+			// Reject any delay request still waiting for the customer's decision.
+			if _, err := idb.NewUpdate().
+				Model((*pgmodel.OrderDelayRequest)(nil)).
+				Set("customer_decision = ?", string(order.DelayDecisionRejected)).
+				Set("updated_at = NOW()").
+				Where("order_id IN (?)", bun.List(ids)).
+				Where("customer_decision = ?", string(order.DelayDecisionWait)).
+				Exec(ctx); err != nil {
+				return err
+			}
+
+			// Record a system cancellation reason for every cancelled order.
+			cancellations := make([]pgmodel.OrderCancellation, 0, len(ids))
+			for _, id := range unconfirmedIDs {
+				cancellations = append(cancellations, pgmodel.OrderCancellation{
+					ID:          uuid.New(),
+					OrderID:     id,
+					Reason:      string(order.CancelReasonArtistDidNotConfirmInTime),
+					Explanation: "Automatically cancelled: the artist did not confirm the order in time.",
+					CreatedAt:   now,
+				})
+			}
+			for _, id := range overdueIDs {
+				cancellations = append(cancellations, pgmodel.OrderCancellation{
+					ID:          uuid.New(),
+					OrderID:     id,
+					Reason:      string(order.CancelReasonNotSubmittedWithinDeadline),
+					Explanation: "Automatically cancelled: the deliverable was not submitted within the deadline.",
+					CreatedAt:   now,
+				})
+			}
+
+			if _, err := idb.NewInsert().
+				Model(&cancellations).
+				Exec(ctx); err != nil {
+				return err
+			}
 
 			return nil
 		})
 	})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil // nothing expired
-		}
 		if _, ok := errors.AsType[*apperror.Error](err); ok {
 			return nil, err
 		}

@@ -287,22 +287,45 @@ func (u *orderUsecase) ConfirmDeliverable(ctx context.Context, customerID uuid.U
 }
 
 // CancelOrder cancels an order for the specified participant.
-func (u *orderUsecase) CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, orderID uuid.UUID) error {
+func (u *orderUsecase) CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, input CancelInput) (*OrderCancellation, error) {
 	if !participant.IsValid() {
-		return ErrUnsupportedParticipantRole
+		return nil, ErrUnsupportedParticipantRole
 	}
 	if participantID == uuid.Nil {
-		return ErrMissingParticipantID
+		return nil, ErrMissingParticipantID
 	}
-	if orderID == uuid.Nil {
-		return ErrMissingOrderID
-	}
-
-	if err := u.repo.CancelOrder(ctx, participant, participantID, orderID); err != nil {
-		return err
+	if input.OrderID == uuid.Nil {
+		return nil, ErrMissingOrderID
 	}
 
-	return nil
+	if input.Reason == "" {
+		return nil, apperror.InvalidInput("cancellation reason must not be empty", nil)
+	}
+
+	if !input.Reason.IsValid(participant) {
+		return nil, apperror.InvalidInput("invalid cancellation reason", nil)
+	}
+
+	explanation := strings.TrimSpace(input.Explanation)
+	if explanation == "" {
+		return nil, apperror.InvalidInput("cancellation explanation must not be empty", nil)
+	}
+
+	now := time.Now()
+
+	item := &OrderCancellation{
+		ID:          uuid.New(),
+		OrderID:     input.OrderID,
+		Reason:      string(input.Reason),
+		Explanation: explanation,
+		CreatedAt:   now,
+	}
+
+	if err := u.repo.CancelOrder(ctx, participant, participantID, item); err != nil {
+		return nil, err
+	}
+
+	return item, nil
 }
 
 // CancelExpiredOrders cancels orders whose confirmation window or deadline has passed.

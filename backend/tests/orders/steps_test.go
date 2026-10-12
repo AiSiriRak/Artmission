@@ -536,7 +536,33 @@ func (o *ordersContext) theUserHasAnOrderWithStatusAndPendingDelayRequest(status
 		return err
 	}
 
-	deadline, err := o.orderDeadline(o.lastOrderID)
+	return o.seedPendingDelayRequest(o.lastOrderID)
+}
+
+func (o *ordersContext) theUserHasAnOrderWithPendingDeliverableAndDelayRequest() error {
+	if err := o.theUserHasAnOrderWithPendingDeliverable(); err != nil {
+		return err
+	}
+	return o.seedPendingDelayRequest(o.lastOrderID)
+}
+
+func (o *ordersContext) theUserHasAnExpiredOrderWithPendingDeliverableAndDelayRequest() error {
+	if err := o.theUserHasAnOrderWithPendingDeliverable(); err != nil {
+		return err
+	}
+	_, err := app.DB.NewUpdate().
+		Table("orders").
+		Set("deadline_at = ?", time.Now().Add(-time.Minute)).
+		Where("id = ?", uuid.MustParse(o.lastOrderID)).
+		Exec(context.Background())
+	if err != nil {
+		return err
+	}
+	return o.seedPendingDelayRequest(o.lastOrderID)
+}
+
+func (o *ordersContext) seedPendingDelayRequest(orderID string) error {
+	deadline, err := o.orderDeadline(orderID)
 	if err != nil {
 		return err
 	}
@@ -547,7 +573,7 @@ func (o *ordersContext) theUserHasAnOrderWithStatusAndPendingDelayRequest(status
 			id, order_id, original_deadline_at, deadline_request_at,
 			reason, explanation, customer_decision, created_at, updated_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, delayRequestID, uuid.MustParse(o.lastOrderID), deadline, deadline.AddDate(0, 0, 7),
+	`, delayRequestID, uuid.MustParse(orderID), deadline, deadline.AddDate(0, 0, 7),
 		string(ordermod.DelayReasonOther), "Existing pending request",
 		string(ordermod.DelayDecisionWait), now, now)
 	if err == nil {
@@ -650,7 +676,11 @@ func (o *ordersContext) cancelOrder(orderID string, authenticated bool) error {
 	if authenticated {
 		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
 	}
-	resp, err := o.client.Do(http.MethodPut, "/orders/"+orderID+"/cancel", nil, headers)
+	body := map[string]string{
+		"reason":      "OTHER",
+		"explanation": "Circumstances changed",
+	}
+	resp, err := o.client.Do(http.MethodPut, "/orders/"+orderID+"/cancel", body, headers)
 	if err != nil {
 		return err
 	}
@@ -798,8 +828,9 @@ type delayRequestOutput struct {
 }
 
 type cancelOrderOutput struct {
-	Message string `json:"message"`
-	Status  string `json:"status"`
+	OrderID     string `json:"order_id"`
+	Reason      string `json:"reason"`
+	Explanation string `json:"explanation"`
 }
 
 type artworkSnapshotOutput struct {
@@ -1354,11 +1385,14 @@ func (o *ordersContext) theSystemCancelsTheOrder() error {
 	if err := o.resp.JSON(&cancellation); err != nil {
 		return fmt.Errorf("decode cancellation response: %w (body: %s)", err, o.resp.Body)
 	}
-	if cancellation.Message != "Order cancelled successfully" {
-		return fmt.Errorf("cancellation message = %q, want %q", cancellation.Message, "Order cancelled successfully")
+	if cancellation.OrderID != o.lastOrderID {
+		return fmt.Errorf("cancellation order_id = %q, want %q", cancellation.OrderID, o.lastOrderID)
 	}
-	if cancellation.Status != "CANCEL" {
-		return fmt.Errorf("cancellation status = %q, want CANCEL", cancellation.Status)
+	if cancellation.Reason != "OTHER" {
+		return fmt.Errorf("cancellation reason = %q, want OTHER", cancellation.Reason)
+	}
+	if cancellation.Explanation != "Circumstances changed" {
+		return fmt.Errorf("cancellation explanation = %q, want %q", cancellation.Explanation, "Circumstances changed")
 	}
 
 	if err := o.getOrder(o.lastOrderID, true); err != nil {
@@ -1369,6 +1403,40 @@ func (o *ordersContext) theSystemCancelsTheOrder() error {
 	}
 	if o.orderDetail.Status != "CANCEL" {
 		return fmt.Errorf("persisted order status = %q, want CANCEL", o.orderDetail.Status)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemCancelsTheOrderAndRejectsPendingWork() error {
+	if err := o.theSystemCancelsTheOrder(); err != nil {
+		return err
+	}
+	return o.assertCancellationRejectedPendingWork()
+}
+
+func (o *ordersContext) assertCancellationRejectedPendingWork() error {
+	var deliverableDecision string
+	if err := app.DB.NewSelect().
+		Table("order_deliverables").
+		Column("decision").
+		Where("id = ?", uuid.MustParse(o.lastDeliverableID)).
+		Scan(context.Background(), &deliverableDecision); err != nil {
+		return fmt.Errorf("read cancelled order deliverable decision: %w", err)
+	}
+	if deliverableDecision != string(ordermod.DeliverableDecisionRejected) {
+		return fmt.Errorf("deliverable decision = %q, want %q", deliverableDecision, ordermod.DeliverableDecisionRejected)
+	}
+
+	var delayDecision string
+	if err := app.DB.NewSelect().
+		Table("order_delay_requests").
+		Column("customer_decision").
+		Where("id = ?", uuid.MustParse(o.lastDelayRequestID)).
+		Scan(context.Background(), &delayDecision); err != nil {
+		return fmt.Errorf("read cancelled order delay decision: %w", err)
+	}
+	if delayDecision != string(ordermod.DelayDecisionRejected) {
+		return fmt.Errorf("delay request decision = %q, want %q", delayDecision, ordermod.DelayDecisionRejected)
 	}
 	return nil
 }
@@ -1461,6 +1529,24 @@ func (o *ordersContext) theSystemCancelsExpiredOrders() error {
 	usecase := ordermod.NewOrderUsecase(postgres.NewOrderRepository(app.DB), nil, nil)
 	_, err := usecase.CancelExpiredOrders(context.Background())
 	return err
+}
+
+func (o *ordersContext) theSystemCancelsExpiredOrderAndRejectsPendingWork() error {
+	if err := o.theSystemCancelsExpiredOrders(); err != nil {
+		return err
+	}
+	var status string
+	if err := app.DB.NewSelect().
+		Table("orders").
+		Column("status").
+		Where("id = ?", uuid.MustParse(o.lastOrderID)).
+		Scan(context.Background(), &status); err != nil {
+		return fmt.Errorf("read expired order status: %w", err)
+	}
+	if status != string(ordermod.StatusCancel) {
+		return fmt.Errorf("expired order status = %q, want %q", status, ordermod.StatusCancel)
+	}
+	return o.assertCancellationRejectedPendingWork()
 }
 
 func (o *ordersContext) thePendingDeliverableWasSubmittedMoreThanThreeDaysAgo() error {
@@ -1622,6 +1708,12 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user has an order with status "([^"]*)" and a pending delay request$`, func(status string) error {
 		return o.theUserHasAnOrderWithStatusAndPendingDelayRequest(status)
 	})
+	sc.Step(`^the user has an order with a pending deliverable and delay request$`, func() error {
+		return o.theUserHasAnOrderWithPendingDeliverableAndDelayRequest()
+	})
+	sc.Step(`^the user has an expired order with a pending deliverable and delay request$`, func() error {
+		return o.theUserHasAnExpiredOrderWithPendingDeliverableAndDelayRequest()
+	})
 	sc.Step(`^the customer approves the pending delay request for their last order$`, func() error {
 		return o.theCustomerApprovesThePendingDelayRequestForTheirLastOrder()
 	})
@@ -1673,6 +1765,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the user submits a new order without logging in$`, func() error { return o.theUserSubmitsANewOrderWithoutLoggingIn() })
 	sc.Step(`^the system cancels expired orders$`, func() error { return o.theSystemCancelsExpiredOrders() })
+	sc.Step(`^the system cancels the expired order and rejects its pending deliverable and delay request$`, func() error {
+		return o.theSystemCancelsExpiredOrderAndRejectsPendingWork()
+	})
 	sc.Step(`^the system auto-approves expired deliverables$`, func() error {
 		return o.theSystemAutoApprovesExpiredDeliverables()
 	})
@@ -1751,6 +1846,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		return o.theSystemHidesTheDeliverableFromTheUser()
 	})
 	sc.Step(`^the system cancels the order$`, func() error { return o.theSystemCancelsTheOrder() })
+	sc.Step(`^the system cancels the order and rejects its pending deliverable and delay request$`, func() error {
+		return o.theSystemCancelsTheOrderAndRejectsPendingWork()
+	})
 	sc.Step(`^the system rejects cancellation because the order status does not allow it$`, func() error {
 		return o.theSystemRejectsCancellationBecauseTheOrderStatusDoesNotAllowIt()
 	})
