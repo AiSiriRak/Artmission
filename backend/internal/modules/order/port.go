@@ -68,6 +68,11 @@ type OrderUsecase interface {
 		orderID uuid.UUID,
 		input ConfirmDelayRequestInput,
 	) (*ConfirmDelayRequestOutput, error)
+
+	// CancelExpiredDelayRequest rejects delay requests that have exceeded their response window.
+	CancelExpiredDelayRequest(
+		ctx context.Context,
+	) ([]uuid.UUID, error)
 }
 
 type OrderRepository interface {
@@ -138,6 +143,12 @@ type OrderRepository interface {
 		delayRequestID uuid.UUID,
 		delayRequestDecision DelayRequestDecision,
 	) (time.Time, error)
+
+	// CancelExpiredRequest rejects pending delay requests created before expiringCutoff.
+	CancelExpiredRequest(ctx context.Context,
+		expiringCutoff time.Time,
+		now time.Time,
+	) ([]uuid.UUID, error)
 }
 
 type ObjectStorage interface {

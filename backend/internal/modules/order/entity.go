@@ -29,8 +29,14 @@ func (s Status) IsValid() bool {
 	}
 }
 
-// PendingConfirmationTTL is how long an artist has to confirm a PENDING order before it is auto-cancelled.
-const PendingConfirmationTTL = 72 * time.Hour
+const (
+	// PendingConfirmationTTL is how long an artist has to confirm a PENDING order before it is auto-cancelled.
+	PendingConfirmationTTL = 72 * time.Hour
+
+	// DelayRequestTTL is how long a customer has to accept or reject
+	// a deadline delay request from an artist.
+	DelayRequestTTL = 48 * time.Hour
+)
 
 // AutoCancellableStatuses returns the statuses the expiry sweep may move to
 // CANCEL once the order's deadline has passed.
@@ -233,7 +239,6 @@ type OrderDelayRequest struct {
 	CustomerDecision   DelayRequestDecision
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
-	ExpireAt           time.Time
 }
 
 // ListQuery is ViewOrders input

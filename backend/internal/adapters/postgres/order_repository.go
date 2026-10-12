@@ -1018,7 +1018,6 @@ func (r *orderRepository) CreateDelayRequest(
 				CustomerDecision:   string(item.CustomerDecision),
 				CreatedAt:          item.CreatedAt,
 				UpdatedAt:          item.UpdatedAt,
-				ExpireAt:           item.ExpireAt,
 			}
 
 			// Insert the delay request into the database.
@@ -1158,4 +1157,29 @@ func (r *orderRepository) ConfirmDelayRequest(
 	}
 
 	return deadlineAt, nil
+}
+
+// CancelExpiredRequest rejects pending delay requests created before expiringCutoff.
+func (r *orderRepository) CancelExpiredRequest(
+	ctx context.Context,
+	expiringCutoff time.Time,
+	now time.Time,
+) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		return idb.NewUpdate().
+			Model((*pgmodel.OrderDelayRequest)(nil)).
+			Set("customer_decision = ?", string(order.DelayDecisionRejected)).
+			Set("updated_at = ?", now).
+			Where("customer_decision = ?", string(order.DelayDecisionWait)).
+			Where("created_at <= ?", expiringCutoff).
+			Returning("id").
+			Scan(ctx, &ids)
+	})
+	if err != nil {
+		return nil, apperror.Internal("failed to cancel expired delay requests", err)
+	}
+
+	return ids, nil
 }

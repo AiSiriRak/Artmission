@@ -779,7 +779,6 @@ func (u *orderUsecase) CreateDelayRequest(
 		CustomerDecision:  DelayDecisionWait,
 		CreatedAt:         now,
 		UpdatedAt:         now,
-		ExpireAt:          now.Add(48 * time.Hour),
 	}
 
 	created, err := u.repo.CreateDelayRequest(
@@ -838,4 +837,22 @@ func (u *orderUsecase) ConfirmDelayRequest(
 		CustomerDecision: decision,
 		DeadlineAt:       deadlineAt,
 	}, nil
+}
+
+// CancelExpiredDelayRequest rejects delay requests whose customer response window has elapsed.
+func (u *orderUsecase) CancelExpiredDelayRequest(
+	ctx context.Context,
+) ([]uuid.UUID, error) {
+	now := time.Now()
+
+	ids, err := u.repo.CancelExpiredRequest(
+		ctx,
+		now.Add(-DelayRequestTTL),
+		now,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return ids, nil
 }
