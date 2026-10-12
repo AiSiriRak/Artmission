@@ -41,6 +41,9 @@ type ordersContext struct {
 
 	lastOrderID               string // most recently seeded order's ID, for single-order deliverable-preview assertions
 	otherOrderID              string // order ID seeded for an account other than o.account
+	anotherOwnedOrderID       string
+	lastDeliverableID         string
+	otherDeliverableID        string
 	lastDeliverablePreviewKey string // most recently seeded deliverable version's preview_image_key
 	delayRequestDeadline      time.Time
 	lastDelayRequestID        string
@@ -125,6 +128,64 @@ func (o *ordersContext) theUserHasAnOrderWithStatus(status string) error {
 	o.seededOrders[id] = status
 	o.lastOrderID = id
 	return nil
+}
+
+func (o *ordersContext) theUserHasAnOrderWithPendingDeliverable() error {
+	return o.theUserHasAnOrderWithStatusAndPendingDeliverable("IN_PROCESS")
+}
+
+func (o *ordersContext) theUserHasAnOrderWithStatusAndPendingDeliverable(status string) error {
+	counterpart, err := o.sharedCounterpart()
+	if err != nil {
+		return err
+	}
+	orderID, err := o.seedForAccount(orderSeed{Status: status}, counterpart)
+	if err != nil {
+		return err
+	}
+	o.lastOrderID = orderID
+	o.lastDeliverableID, err = seedDeliverableWithID(
+		orderID,
+		1,
+		"orders/"+orderID+"/v1/preview.png",
+		"WAIT",
+	)
+	return err
+}
+
+func (o *ordersContext) theUserHasAnotherOrder() error {
+	counterpart, err := o.sharedCounterpart()
+	if err != nil {
+		return err
+	}
+	o.anotherOwnedOrderID, err = o.seedForAccount(orderSeed{Status: "IN_PROCESS"}, counterpart)
+	return err
+}
+
+func (o *ordersContext) anotherCustomerHasAnOrderWithPendingDeliverable() error {
+	other, err := apptest.RegisterCustomer(app, apptest.NewClient(app.BaseURL()))
+	if err != nil {
+		return err
+	}
+	artist, err := o.sharedCounterpart()
+	if err != nil {
+		return err
+	}
+	o.otherOrderID, err = seedOrder(orderSeed{
+		CustomerID: other.ID,
+		ArtistID:   artist.ID,
+		Status:     "IN_PROCESS",
+	})
+	if err != nil {
+		return err
+	}
+	o.otherDeliverableID, err = seedDeliverableWithID(
+		o.otherOrderID,
+		1,
+		"orders/"+o.otherOrderID+"/v1/preview.png",
+		"WAIT",
+	)
+	return err
 }
 
 // theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersions seeds one
@@ -409,6 +470,32 @@ func (o *ordersContext) theArtistRejectsTheirLastOrder() error {
 
 func (o *ordersContext) theUserAttemptsToAcceptTheirLastOrder() error {
 	return o.confirmLastOrder(true)
+}
+
+func (o *ordersContext) confirmDeliverable(orderID, deliverableID string) error {
+	resp, err := o.client.Do(
+		http.MethodPut,
+		"/orders/"+orderID+"/deliverables/"+deliverableID+"/confirm",
+		map[string]any{"accept": true},
+		map[string]string{"Authorization": "Bearer " + o.accessToken},
+	)
+	if err != nil {
+		return err
+	}
+	o.resp = resp
+	return nil
+}
+
+func (o *ordersContext) theCustomerAcceptsTheirLastDeliverable() error {
+	return o.confirmDeliverable(o.lastOrderID, o.lastDeliverableID)
+}
+
+func (o *ordersContext) theUserConfirmsTheirLastDeliverableThroughAnotherOrder() error {
+	return o.confirmDeliverable(o.anotherOwnedOrderID, o.lastDeliverableID)
+}
+
+func (o *ordersContext) theUserConfirmsAnotherCustomersDeliverable() error {
+	return o.confirmDeliverable(o.otherOrderID, o.otherDeliverableID)
 }
 func (o *ordersContext) theArtistSubmitsADeliverableForTheirLastOrder(authenticated bool) error {
 	var imageData bytes.Buffer
@@ -1220,6 +1307,44 @@ func (o *ordersContext) theSystemRejectsTheDelayRequestDecisionBecauseTheOrderSt
 	return o.expectStatus(http.StatusConflict)
 }
 
+func (o *ordersContext) theSystemConfirmsTheDeliverableAndMarksOrderWithStatus(status string) error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+
+	var confirmation struct {
+		Message string `json:"message"`
+		Status  string `json:"status"`
+	}
+	if err := o.resp.JSON(&confirmation); err != nil {
+		return fmt.Errorf("decode deliverable confirmation: %w (body: %s)", err, o.resp.Body)
+	}
+	if confirmation.Message != "Deliverable accepted" ||
+		confirmation.Status != "APPROVED" {
+		return fmt.Errorf("deliverable confirmation = %+v, want accepted APPROVED", confirmation)
+	}
+
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if o.orderDetail.Status != status {
+		return fmt.Errorf("order status = %q, want %q", o.orderDetail.Status, status)
+	}
+	for _, deliverable := range o.orderDetail.Deliverables {
+		if deliverable.ID == o.lastDeliverableID && deliverable.Decision == "APPROVED" {
+			return nil
+		}
+	}
+	return fmt.Errorf("order detail does not show deliverable %s as APPROVED", o.lastDeliverableID)
+}
+
+func (o *ordersContext) theSystemHidesTheDeliverableFromTheUser() error {
+	return o.expectStatus(http.StatusNotFound)
+}
+
 func (o *ordersContext) theSystemCancelsTheOrder() error {
 	if err := o.expectStatus(http.StatusOK); err != nil {
 		return err
@@ -1376,6 +1501,16 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user has an order with status "([^"]*)" and (\d+) submitted deliverable versions$`, func(status string, n int) error {
 		return o.theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersions(status, n)
 	})
+	sc.Step(`^the user has an order with a pending deliverable$`, func() error {
+		return o.theUserHasAnOrderWithPendingDeliverable()
+	})
+	sc.Step(`^the user has an order with status "([^"]*)" and a pending deliverable$`, func(status string) error {
+		return o.theUserHasAnOrderWithStatusAndPendingDeliverable(status)
+	})
+	sc.Step(`^the user has another order$`, func() error { return o.theUserHasAnotherOrder() })
+	sc.Step(`^another customer has an order with a pending deliverable$`, func() error {
+		return o.anotherCustomerHasAnOrderWithPendingDeliverable()
+	})
 	sc.Step(`^the user has an order with deadline "([^"]*)"$`, func(deadline string) error { return o.theUserHasAnOrderWithDeadline(deadline) })
 	sc.Step(`^the user has an order with no deadline$`, func() error { return o.theUserHasAnOrderWithDeadline("") })
 	sc.Step(`^the user has (\d+) orders$`, func(n int) error { return o.theUserHasNOrders(n) })
@@ -1395,6 +1530,13 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the artist accepts their last order$`, func() error { return o.theArtistAcceptsTheirLastOrder() })
 	sc.Step(`^the artist rejects their last order$`, func() error { return o.theArtistRejectsTheirLastOrder() })
 	sc.Step(`^the user attempts to accept their last order$`, func() error { return o.theUserAttemptsToAcceptTheirLastOrder() })
+	sc.Step(`^the customer accepts their last deliverable$`, func() error { return o.theCustomerAcceptsTheirLastDeliverable() })
+	sc.Step(`^the user confirms their last deliverable through another order$`, func() error {
+		return o.theUserConfirmsTheirLastDeliverableThroughAnotherOrder()
+	})
+	sc.Step(`^the user confirms another customer's deliverable$`, func() error {
+		return o.theUserConfirmsAnotherCustomersDeliverable()
+	})
 	sc.Step(`^the user submits a deliverable for their last order$`, func() error {
 		return o.theArtistSubmitsADeliverableForTheirLastOrderWithAuthentication()
 	})
@@ -1499,6 +1641,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system rejects the deliverable because the order status does not allow it$`, func() error {
 		return o.theSystemRejectsDeliverableForInvalidOrderStatus()
 	})
+<<<<<<< HEAD
 	sc.Step(`^the system creates the delay request successfully$`, func() error {
 		return o.theSystemCreatesTheDelayRequestSuccessfully()
 	})
@@ -1523,6 +1666,15 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system rejects the delay request decision because the order status does not allow it$`, func() error {
 		return o.theSystemRejectsTheDelayRequestDecisionBecauseTheOrderStatusDoesNotAllowIt()
 	})
+||||||| ce0804a
+=======
+	sc.Step(`^the system confirms the deliverable and marks the order as "([^"]*)"$`, func(status string) error {
+		return o.theSystemConfirmsTheDeliverableAndMarksOrderWithStatus(status)
+	})
+	sc.Step(`^the system hides the deliverable from the user$`, func() error {
+		return o.theSystemHidesTheDeliverableFromTheUser()
+	})
+>>>>>>> origin
 	sc.Step(`^the system cancels the order$`, func() error { return o.theSystemCancelsTheOrder() })
 	sc.Step(`^the system rejects cancellation because the order status does not allow it$`, func() error {
 		return o.theSystemRejectsCancellationBecauseTheOrderStatusDoesNotAllowIt()

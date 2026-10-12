@@ -11,6 +11,7 @@ var (
 	ErrUnsupportedParticipantRole        = apperror.Forbidden("unsupported participant role")
 	ErrMissingParticipantID              = apperror.InvalidInput("missing participant id", nil)
 	ErrMissingOrderID                    = apperror.InvalidInput("missing order id", nil)
+	ErrMissingDeliverableID              = apperror.InvalidInput("missing deliverable id", nil)
 	ErrInvalidOrderStatus                = apperror.Conflict("order status does not allow this operation")
 	ErrFailedToPresignDeliverablePreview = apperror.Internal("failed to presign deliverable preview image", nil)
 	ErrInvalidDeliverableImage           = apperror.InvalidInput("deliverable image must be a JPEG, PNG, or WebP image", nil)
@@ -22,4 +23,5 @@ var (
 	ErrMissingDelayRequestID             = apperror.InvalidInput("missing delay request id", nil)
 	ErrDelayRequestNotFound              = apperror.NotFound("delay request not found")
 	ErrInvalidrDelayRequestStatus        = apperror.Conflict("this delay request already solve")
+	ErrInvalidDeliverableStatus          = apperror.Conflict("deliverable status does not allow this operation")
 )

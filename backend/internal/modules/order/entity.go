@@ -342,3 +342,10 @@ type ConfirmDelayRequestOutput struct {
 	CustomerDecision DelayRequestDecision
 	DeadlineAt       time.Time
 }
+
+type ConfirmDeliverableInput struct {
+	OrderID       uuid.UUID
+	DeliverableID uuid.UUID
+	Accept        bool
+	Comment       string
+}
