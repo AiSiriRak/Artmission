@@ -100,41 +100,10 @@ func (h *UserHandler) Register(api huma.API) {
 	)
 }
 
-type DeleteAccountInput struct{}
-
-type DeleteAccountOutput struct {
-	SetCookie string `header:"Set-Cookie"`
-}
-
-// deleteAccount soft-deletes the authenticated user's account and expires the refresh cookie.
-func (h *UserHandler) deleteAccount(
-	ctx context.Context,
-	_ *DeleteAccountInput,
-) (*DeleteAccountOutput, error) {
-	info, ok := authInfoFromContext(ctx)
-	if !ok {
-		return nil, huma.Error401Unauthorized("missing authentication")
-	}
-
-	if err := h.userUsecase.DeleteAccount(ctx, info.UserID); err != nil {
-		return nil, mapAppError(err)
-	}
-
-	return &DeleteAccountOutput{
-		SetCookie: clearRefreshCookie(h.basePath, h.isProduction, h.cookieDomain),
-	}, nil
-}
-
-type accountView struct {
-	ID              uuid.UUID `json:"id"`
-	Username        string    `json:"username"`
-	Email           string    `json:"email"`
-	Role            user.Role `json:"role"`
-	ProfileImageURL *string   `json:"profile_image_url"`
-}
-
+// GetAccountInput contains the request parameters for retrieving the authenticated user's account.
 type GetAccountInput struct{}
 
+// GetAccountOutput contains the authenticated user's account information.
 type GetAccountOutput struct {
 	Body accountView
 }
@@ -153,6 +122,7 @@ func (h *UserHandler) getAccount(ctx context.Context, _ *GetAccountInput) (*GetA
 	return &GetAccountOutput{Body: newAccountView(account)}, nil
 }
 
+// updateAccountInput contains the username and optional password changes submitted by the user.
 type updateAccountInput struct {
 	Body struct {
 		Username    string  `json:"username" minLength:"3" maxLength:"20"`
@@ -161,6 +131,7 @@ type updateAccountInput struct {
 	}
 }
 
+// UpdateAccountOutput contains the updated account information.
 type UpdateAccountOutput struct {
 	Body accountView
 }
@@ -183,17 +154,33 @@ func (h *UserHandler) updateAccount(ctx context.Context, in *updateAccountInput)
 	return &UpdateAccountOutput{Body: newAccountView(account)}, nil
 }
 
-// newAccountView exposes the account fields returned by the account endpoints.
-func newAccountView(account *user.User) accountView {
-	return accountView{
-		ID:              account.ID,
-		Username:        account.Username,
-		Email:           account.Email,
-		Role:            account.Role,
-		ProfileImageURL: account.ProfileImageURL,
-	}
+// getBankAccountInput contains the request parameters for retrieving the authenticated user's bank account.
+type getBankAccountInput struct{}
+
+// GetBankAccountOutput contains the authenticated user's bank account details.
+type GetBankAccountOutput struct {
+	Body bankAccountView
 }
 
+// getBankAccount returns the authenticated user's bank details with only the last four digits visible.
+func (h *UserHandler) getBankAccount(ctx context.Context, _ *getBankAccountInput) (*GetBankAccountOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	bank, err := h.userUsecase.GetBankAccount(ctx, info.UserID, info.Role)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+	return &GetBankAccountOutput{Body: bankAccountView{
+		BankName:          bank.BankName,
+		AccountHolderName: bank.AccountHolderName,
+		AccountLast4:      maskAccountNumber(bank.AccountNumber),
+	}}, nil
+}
+
+// updateBankAccountInput contains the bank details submitted by the authenticated user.
 type updateBankAccountInput struct {
 	Body struct {
 		BankName          string `json:"bank_name" minLength:"1"`
@@ -202,19 +189,8 @@ type updateBankAccountInput struct {
 	}
 }
 
-type getBankAccountInput struct{}
-
-type bankAccountView struct {
-	BankName          string `json:"bank_name"`
-	AccountHolderName string `json:"account_holder_name"`
-	AccountLast4      string `json:"account_last4"`
-}
-
+// UpdateBankAccountOutput contains the updated bank account details.
 type UpdateBankAccountOutput struct {
-	Body bankAccountView
-}
-
-type GetBankAccountOutput struct {
 	Body bankAccountView
 }
 
@@ -244,45 +220,45 @@ func (h *UserHandler) updateBankAccount(ctx context.Context, in *updateBankAccou
 	}}, nil
 }
 
-// getBankAccount returns the authenticated user's bank details with only the last four digits visible.
-func (h *UserHandler) getBankAccount(ctx context.Context, _ *getBankAccountInput) (*GetBankAccountOutput, error) {
+// DeleteAccountInput contains the request parameters for deleting the authenticated user's account.
+type DeleteAccountInput struct{}
+
+// DeleteAccountOutput contains the response header used to expire the refresh cookie.
+type DeleteAccountOutput struct {
+	SetCookie string `header:"Set-Cookie"`
+}
+
+// deleteAccount soft-deletes the authenticated user's account and expires the refresh cookie.
+func (h *UserHandler) deleteAccount(
+	ctx context.Context,
+	_ *DeleteAccountInput,
+) (*DeleteAccountOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
 		return nil, huma.Error401Unauthorized("missing authentication")
 	}
 
-	bank, err := h.userUsecase.GetBankAccount(ctx, info.UserID, info.Role)
-	if err != nil {
+	if err := h.userUsecase.DeleteAccount(ctx, info.UserID); err != nil {
 		return nil, mapAppError(err)
 	}
-	return &GetBankAccountOutput{Body: bankAccountView{
-		BankName:          bank.BankName,
-		AccountHolderName: bank.AccountHolderName,
-		AccountLast4:      maskAccountNumber(bank.AccountNumber),
-	}}, nil
+
+	return &DeleteAccountOutput{
+		SetCookie: clearRefreshCookie(h.basePath, h.isProduction, h.cookieDomain),
+	}, nil
 }
 
-// maskAccountNumber hides all but the final four runes of an account number.
-func maskAccountNumber(accountNumber string) string {
-	const visibleCharacters = 4
-
-	characters := []rune(accountNumber)
-	if len(characters) <= visibleCharacters {
-		return "••••"
-	}
-
-	return "••••" + string(characters[len(characters)-visibleCharacters:])
-}
-
+// updateProfileImageForm contains the profile image upload and removal options.
 type updateProfileImageForm struct {
 	ProfileImage       huma.FormFile `form:"profile_image" contentType:"image/jpeg,image/png,image/webp" required:"false"`
 	RemoveProfileImage bool          `form:"remove_profile_image" required:"false"`
 }
 
+// updateProfileImageInput contains the multipart form data for updating the user's profile image.
 type updateProfileImageInput struct {
 	RawBody huma.MultipartFormFiles[updateProfileImageForm]
 }
 
+// UpdateProfileImageOutput contains the updated account information after the profile image change.
 type UpdateProfileImageOutput struct {
 	Body accountView
 }
@@ -320,4 +296,43 @@ func (h *UserHandler) updateProfileImage(ctx context.Context, in *updateProfileI
 	}
 
 	return &UpdateProfileImageOutput{Body: newAccountView(account)}, nil
+}
+
+// accountView represents the account information exposed by the user endpoints.
+type accountView struct {
+	ID              uuid.UUID `json:"id"`
+	Username        string    `json:"username"`
+	Email           string    `json:"email"`
+	Role            user.Role `json:"role"`
+	ProfileImageURL *string   `json:"profile_image_url"`
+}
+
+// bankAccountView represents the bank account information exposed by the API.
+type bankAccountView struct {
+	BankName          string `json:"bank_name"`
+	AccountHolderName string `json:"account_holder_name"`
+	AccountLast4      string `json:"account_last4"`
+}
+
+// newAccountView exposes the account fields returned by the account endpoints.
+func newAccountView(account *user.User) accountView {
+	return accountView{
+		ID:              account.ID,
+		Username:        account.Username,
+		Email:           account.Email,
+		Role:            account.Role,
+		ProfileImageURL: account.ProfileImageURL,
+	}
+}
+
+// maskAccountNumber hides all but the final four runes of an account number.
+func maskAccountNumber(accountNumber string) string {
+	const visibleCharacters = 4
+
+	characters := []rune(accountNumber)
+	if len(characters) <= visibleCharacters {
+		return "••••"
+	}
+
+	return "••••" + string(characters[len(characters)-visibleCharacters:])
 }

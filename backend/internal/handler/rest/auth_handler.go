@@ -21,7 +21,13 @@ type AuthHandler struct {
 }
 
 // NewAuthHandler configures authentication endpoints and their refresh-cookie settings.
-func NewAuthHandler(userUsecase user.UserUsecase, authUsecase auth.AuthUsecase, basePath string, isProduction bool, cookieDomain string) *AuthHandler {
+func NewAuthHandler(
+	userUsecase user.UserUsecase,
+	authUsecase auth.AuthUsecase,
+	basePath string,
+	isProduction bool,
+	cookieDomain string,
+) *AuthHandler {
 	return &AuthHandler{
 		userUsecase:  userUsecase,
 		authUsecase:  authUsecase,
@@ -74,16 +80,19 @@ func (h *AuthHandler) Register(api huma.API) {
 
 // --- register ---
 
+// registerBankAccountBody contains the bank account details submitted during registration.
 type registerBankAccountBody struct {
 	BankName          string `json:"bank_name" minLength:"1"`
 	AccountHolderName string `json:"account_holder_name" minLength:"1"`
 	AccountNumber     string `json:"account_number" minLength:"1"`
 }
 
+// registerArtistBody contains the optional artist profile details submitted during registration.
 type registerArtistBody struct {
 	Description *string `json:"description,omitempty"`
 }
 
+// registerInputBody contains the account registration request fields.
 type registerInputBody struct {
 	Username    string                  `json:"username" minLength:"3" maxLength:"20"`
 	Email       string                  `json:"email" format:"email"`
@@ -93,10 +102,12 @@ type registerInputBody struct {
 	Artist      *registerArtistBody     `json:"artist,omitempty"`
 }
 
+// RegisterInput contains the request body for registering a new account.
 type RegisterInput struct {
 	Body registerInputBody
 }
 
+// RegisterOutput represents the successful registration response.
 type RegisterOutput struct{}
 
 // register maps the request body to account creation and returns an empty success response.
@@ -125,6 +136,7 @@ func (h *AuthHandler) register(ctx context.Context, in *RegisterInput) (*Registe
 
 // --- login ---
 
+// LoginInput contains the email and password submitted for login.
 type LoginInput struct {
 	Body struct {
 		Email    string `json:"email" format:"email"`
@@ -132,10 +144,12 @@ type LoginInput struct {
 	}
 }
 
+// authResultBody contains the access token returned by authentication endpoints.
 type authResultBody struct {
 	AccessToken string `json:"access_token"`
 }
 
+// LoginOutput contains the login response and the refresh-token cookie.
 type LoginOutput struct {
 	SetCookie string `header:"Set-Cookie"`
 	Body      authResultBody
@@ -156,10 +170,12 @@ func (h *AuthHandler) login(ctx context.Context, in *LoginInput) (*LoginOutput, 
 
 // --- refresh ---
 
+// RefreshInput contains the refresh token supplied through a cookie.
 type RefreshInput struct {
 	RefreshToken string `cookie:"refresh_token"`
 }
 
+// RefreshOutput contains the refreshed access token and refresh-token cookie.
 type RefreshOutput struct {
 	SetCookie string `header:"Set-Cookie"`
 	Body      authResultBody
@@ -184,8 +200,10 @@ func (h *AuthHandler) refresh(ctx context.Context, in *RefreshInput) (*RefreshOu
 
 // --- logout ---
 
+// LogoutInput represents the logout request.
 type LogoutInput struct{}
 
+// LogoutOutput contains the cookie used to clear the refresh token.
 type LogoutOutput struct {
 	SetCookie string `header:"Set-Cookie"`
 }

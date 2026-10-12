@@ -14,43 +14,20 @@ import (
 	"github.com/google/uuid"
 )
 
-type artworkSampleView struct {
-	ImageURL string `json:"image_url" format:"uri"`
-}
-
-type artworkView struct {
-	ID                  uuid.UUID           `json:"id"`
-	ArtistID            uuid.UUID           `json:"artist_id"`
-	Name                string              `json:"name"`
-	Category            string              `json:"category"`
-	Styles              []string            `json:"styles"`
-	Description         string              `json:"description"`
-	ArtworkSamples      []artworkSampleView `json:"artwork_samples"`
-	MinimumDeadlineDays int                 `json:"minimum_deadline_days"`
-	PriceSatang         int64               `json:"price_satang"`
-	CreatedAt           time.Time           `json:"created_at"`
-	UpdatedAt           time.Time           `json:"updated_at"`
-}
-
-type artistArtworkView struct {
-	ArtworkID           uuid.UUID           `json:"artwork_id"`
-	Name                string              `json:"name"`
-	Category            string              `json:"category"`
-	Styles              []string            `json:"styles"`
-	Description         string              `json:"description"`
-	ArtworkSamples      []artworkSampleView `json:"artwork_samples"`
-	MinimumDeadlineDays int                 `json:"minimum_deadline_days"`
-	PriceSatang         int64               `json:"price_satang"`
-}
-
 type ArtworkHandler struct {
 	artworkUsecase artwork.Usecase
 	authUsecase    auth.AuthUsecase
 }
 
 // NewArtworkHandler wires the artwork and authentication use cases into a REST handler.
-func NewArtworkHandler(artworkUsecase artwork.Usecase, authUsecase auth.AuthUsecase) *ArtworkHandler {
-	return &ArtworkHandler{artworkUsecase: artworkUsecase, authUsecase: authUsecase}
+func NewArtworkHandler(
+	artworkUsecase artwork.Usecase,
+	authUsecase auth.AuthUsecase,
+) *ArtworkHandler {
+	return &ArtworkHandler{
+		artworkUsecase: artworkUsecase,
+		authUsecase:    authUsecase,
+	}
 }
 
 // Register adds the artwork search, portfolio, and lookup routes with their access rules.
@@ -139,6 +116,39 @@ func (h *ArtworkHandler) Register(api huma.API) {
 
 }
 
+// artworkSampleView represents an artwork sample image in the REST response.
+type artworkSampleView struct {
+	ImageURL string `json:"image_url" format:"uri"`
+}
+
+// artworkView represents an artwork detail in the REST response.
+type artworkView struct {
+	ID                  uuid.UUID           `json:"id"`
+	ArtistID            uuid.UUID           `json:"artist_id"`
+	Name                string              `json:"name"`
+	Category            string              `json:"category"`
+	Styles              []string            `json:"styles"`
+	Description         string              `json:"description"`
+	ArtworkSamples      []artworkSampleView `json:"artwork_samples"`
+	MinimumDeadlineDays int                 `json:"minimum_deadline_days"`
+	PriceSatang         int64               `json:"price_satang"`
+	CreatedAt           time.Time           `json:"created_at"`
+	UpdatedAt           time.Time           `json:"updated_at"`
+}
+
+// artistArtworkView represents an artwork in an artist's portfolio response.
+type artistArtworkView struct {
+	ArtworkID           uuid.UUID           `json:"artwork_id"`
+	Name                string              `json:"name"`
+	Category            string              `json:"category"`
+	Styles              []string            `json:"styles"`
+	Description         string              `json:"description"`
+	ArtworkSamples      []artworkSampleView `json:"artwork_samples"`
+	MinimumDeadlineDays int                 `json:"minimum_deadline_days"`
+	PriceSatang         int64               `json:"price_satang"`
+}
+
+// searchArtistView represents an artist's summary in artwork search results.
 type searchArtistView struct {
 	ArtistID    uuid.UUID `json:"artist_id"`
 	ArtistName  string    `json:"artist_name"`
@@ -146,6 +156,7 @@ type searchArtistView struct {
 	ReviewScore *float64  `json:"review_score" minimum:"1" maximum:"5"`
 }
 
+// searchArtworkView represents an artwork and its artist summary in search results.
 type searchArtworkView struct {
 	ID                  uuid.UUID           `json:"id"`
 	Name                string              `json:"name"`
@@ -160,6 +171,7 @@ type searchArtworkView struct {
 	Artist              searchArtistView    `json:"artist"`
 }
 
+// SearchArtworksInput contains the query parameters for searching artworks.
 type SearchArtworksInput struct {
 	Q              string   `query:"q" doc:"Partial match on artist name."`
 	Category       string   `query:"category" doc:"Filter by at most one artwork category."`
@@ -171,6 +183,7 @@ type SearchArtworksInput struct {
 	Page           int      `query:"page" minimum:"1" default:"1" doc:"1-based page of 20 artworks."`
 }
 
+// SearchArtworksOutput contains a page of artwork search results.
 type SearchArtworksOutput struct {
 	Body struct {
 		Artworks []searchArtworkView `json:"artworks"`
@@ -180,7 +193,10 @@ type SearchArtworksOutput struct {
 }
 
 // searchArtworks parses optional numeric filters, queries a page, and converts results to response views.
-func (h *ArtworkHandler) searchArtworks(ctx context.Context, input *SearchArtworksInput) (*SearchArtworksOutput, error) {
+func (h *ArtworkHandler) searchArtworks(
+	ctx context.Context,
+	input *SearchArtworksInput,
+) (*SearchArtworksOutput, error) {
 	if _, ok := authInfoFromContext(ctx); !ok {
 		return nil, huma.Error401Unauthorized("missing authentication")
 	}
@@ -220,6 +236,247 @@ func (h *ArtworkHandler) searchArtworks(ctx context.Context, input *SearchArtwor
 		output.Body.Artworks[index] = newSearchArtworkView(item)
 	}
 	return output, nil
+}
+
+// GetArtistArtworksInput contains the artist ID for retrieving portfolio artworks.
+type GetArtistArtworksInput struct {
+	ArtistID uuid.UUID `path:"artist_id"`
+}
+
+// GetArtistArtworksOutput contains the artist's portfolio artworks.
+type GetArtistArtworksOutput struct {
+	Body struct {
+		Artworks []artistArtworkView `json:"artworks"`
+	}
+}
+
+// getArtistArtworks lists an artist's portfolio and maps each sample URL into the response.
+func (h *ArtworkHandler) getArtistArtworks(
+	ctx context.Context,
+	input *GetArtistArtworksInput,
+) (*GetArtistArtworksOutput, error) {
+	artworks, err := h.artworkUsecase.ListByArtistID(ctx, input.ArtistID)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	output := new(GetArtistArtworksOutput)
+	output.Body.Artworks = make([]artistArtworkView, len(artworks))
+	for index, item := range artworks {
+		samples := make([]artworkSampleView, len(item.Samples))
+		for sampleIndex, sample := range item.Samples {
+			samples[sampleIndex] = artworkSampleView{ImageURL: sample.ImageURL}
+		}
+		output.Body.Artworks[index] = artistArtworkView{
+			ArtworkID:           item.ID,
+			Name:                item.Name,
+			Category:            item.Category,
+			Styles:              item.Styles,
+			Description:         item.Description,
+			ArtworkSamples:      samples,
+			MinimumDeadlineDays: item.MinimumDeadlineDays,
+			PriceSatang:         item.PriceSatang,
+		}
+	}
+	return output, nil
+}
+
+// GetArtworkInput contains the ID of the artwork to retrieve.
+type GetArtworkInput struct {
+	ArtworkID uuid.UUID `path:"artwork_id"`
+}
+
+// GetArtworkOutput contains the requested artwork detail.
+type GetArtworkOutput struct {
+	Body artworkView
+}
+
+// getArtwork loads an artwork by ID and returns its detail view.
+func (h *ArtworkHandler) getArtwork(
+	ctx context.Context,
+	input *GetArtworkInput,
+) (*GetArtworkOutput, error) {
+	detail, err := h.artworkUsecase.GetArtwork(ctx, input.ArtworkID)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	artwork := &artwork.Artwork{
+		ID:                  detail.ID,
+		ArtistID:            detail.ArtistID,
+		Name:                detail.Name,
+		Category:            detail.Category,
+		Styles:              detail.Styles,
+		Description:         detail.Description,
+		Samples:             detail.Samples,
+		MinimumDeadlineDays: detail.MinimumDeadlineDays,
+		PriceSatang:         detail.PriceSatang,
+		CreatedAt:           detail.CreatedAt,
+		UpdatedAt:           detail.UpdatedAt}
+
+	return &GetArtworkOutput{
+		Body: newArtworkView(artwork),
+	}, nil
+}
+
+// artworkForm defines the multipart fields for creating an artwork.
+type artworkForm struct {
+	Name                string          `form:"name" minLength:"1" required:"true"`
+	CategoryID          uuid.UUID       `form:"category_id" required:"true"`
+	StyleIDs            []uuid.UUID     `form:"style_ids" contentType:"application/json" required:"true"`
+	Description         string          `form:"description" minLength:"1" required:"true"`
+	ArtworkSamples      []huma.FormFile `form:"artwork_samples" contentType:"image/jpeg,image/png,image/webp" required:"false"`
+	MinimumDeadlineDays int             `form:"minimum_deadline_days" minimum:"1" required:"true"`
+	PriceSatang         int64           `form:"price_satang" minimum:"0" required:"true"`
+}
+
+// CreateArtworkInput contains the multipart form submitted to create an artwork.
+type CreateArtworkInput struct {
+	RawBody huma.MultipartFormFiles[artworkForm]
+}
+
+// CreateArtworkOutput contains the newly created artwork.
+type CreateArtworkOutput struct {
+	Body artworkView
+}
+
+// createArtwork associates the submitted artwork form with the authenticated artist and returns the created view.
+func (h *ArtworkHandler) createArtwork(
+	ctx context.Context,
+	input *CreateArtworkInput,
+) (*CreateArtworkOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	createInput := newArtworkCreateInput(input.RawBody.Data(), info.UserID)
+	created, err := h.artworkUsecase.Create(ctx, createInput)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+	return &CreateArtworkOutput{
+		Body: newArtworkView(created),
+	}, nil
+}
+
+// updateArtworkForm defines the multipart fields for updating an artwork.
+type updateArtworkForm struct {
+	Name                string          `form:"name" minLength:"1" required:"true"`
+	CategoryID          uuid.UUID       `form:"category_id" required:"true"`
+	StyleIDs            []uuid.UUID     `form:"style_ids" contentType:"application/json" required:"true"`
+	Description         string          `form:"description" minLength:"1" required:"true"`
+	UploadedSamples     []huma.FormFile `form:"uploaded_samples" contentType:"image/jpeg,image/png,image/webp" required:"false"`
+	DeletedSampleURLs   []string        `form:"deleted_sample_urls" contentType:"application/json" required:"false"`
+	MinimumDeadlineDays int             `form:"minimum_deadline_days" minimum:"1" required:"true"`
+	PriceSatang         int64           `form:"price_satang" minimum:"0" required:"true"`
+}
+
+// UpdateArtworkInput contains the artwork ID and multipart update form.
+type UpdateArtworkInput struct {
+	ArtworkID uuid.UUID `path:"artwork_id"`
+	RawBody   huma.MultipartFormFiles[updateArtworkForm]
+}
+
+// UpdateArtworkOutput contains the updated artwork.
+type UpdateArtworkOutput struct {
+	Body artworkView
+}
+
+// updateArtwork applies the submitted form to the authenticated artist's specified artwork.
+func (h *ArtworkHandler) updateArtwork(
+	ctx context.Context,
+	input *UpdateArtworkInput,
+) (*UpdateArtworkOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	updated, err := h.artworkUsecase.Update(ctx, newArtworkUpdateInput(input.RawBody.Data(), input.ArtworkID, info.UserID))
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+	return &UpdateArtworkOutput{
+		Body: newArtworkView(updated),
+	}, nil
+}
+
+// DeleteArtworkInput contains the ID of the artwork to delete.
+type DeleteArtworkInput struct {
+	ArtworkID uuid.UUID `path:"artwork_id"`
+}
+
+// DeleteArtworkOutput represents the empty response after deleting an artwork.
+type DeleteArtworkOutput struct{}
+
+// deleteArtwork removes the specified artwork for the authenticated artist.
+func (h *ArtworkHandler) deleteArtwork(
+	ctx context.Context,
+	input *DeleteArtworkInput,
+) (*DeleteArtworkOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+	if err := h.artworkUsecase.Delete(
+		ctx,
+		info.UserID,
+		input.ArtworkID,
+	); err != nil {
+		return nil, mapAppError(err)
+	}
+	return &DeleteArtworkOutput{}, nil
+}
+
+// ListCategoriesInput represents the request to list artwork categories.
+type ListCategoriesInput struct{}
+
+// ListCategoriesOutput contains the available artwork categories.
+type ListCategoriesOutput struct {
+	Body []artistReferenceView
+}
+
+// listCategories returns category IDs and labels for artwork forms.
+func (h *ArtworkHandler) listCategories(
+	ctx context.Context,
+	_ *ListCategoriesInput,
+) (*ListCategoriesOutput, error) {
+	categories, err := h.artworkUsecase.ListAllCategories(ctx)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	body := make([]artistReferenceView, len(categories))
+	for index, category := range categories {
+		body[index] = artistReferenceView{ID: category.ID, Label: category.Label}
+	}
+	return &ListCategoriesOutput{Body: body}, nil
+}
+
+// ListStylesInput represents the request to list artwork styles.
+type ListStylesInput struct{}
+
+// ListStylesOutput contains the available artwork styles.
+type ListStylesOutput struct {
+	Body []artistReferenceView
+}
+
+// listStyles returns style IDs and labels for artwork forms.
+func (h *ArtworkHandler) listStyles(
+	ctx context.Context,
+	_ *ListStylesInput,
+) (*ListStylesOutput, error) {
+	styles, err := h.artworkUsecase.ListAllStyles(ctx)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	body := make([]artistReferenceView, len(styles))
+	for index, style := range styles {
+		body[index] = artistReferenceView{ID: style.ID, Label: style.Label}
+	}
+	return &ListStylesOutput{Body: body}, nil
 }
 
 // parseOptionalInt64Query returns nil for an empty value or parses it as a 64-bit integer.
@@ -269,111 +526,6 @@ func newSearchArtworkView(item artwork.SearchItem) searchArtworkView {
 	}
 }
 
-type GetArtistArtworksInput struct {
-	ArtistID uuid.UUID `path:"artist_id"`
-}
-
-type GetArtistArtworksOutput struct {
-	Body struct {
-		Artworks []artistArtworkView `json:"artworks"`
-	}
-}
-
-// getArtistArtworks lists an artist's portfolio and maps each sample URL into the response.
-func (h *ArtworkHandler) getArtistArtworks(ctx context.Context, input *GetArtistArtworksInput) (*GetArtistArtworksOutput, error) {
-	artworks, err := h.artworkUsecase.ListByArtistID(ctx, input.ArtistID)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
-	output := new(GetArtistArtworksOutput)
-	output.Body.Artworks = make([]artistArtworkView, len(artworks))
-	for index, item := range artworks {
-		samples := make([]artworkSampleView, len(item.Samples))
-		for sampleIndex, sample := range item.Samples {
-			samples[sampleIndex] = artworkSampleView{ImageURL: sample.ImageURL}
-		}
-		output.Body.Artworks[index] = artistArtworkView{
-			ArtworkID:           item.ID,
-			Name:                item.Name,
-			Category:            item.Category,
-			Styles:              item.Styles,
-			Description:         item.Description,
-			ArtworkSamples:      samples,
-			MinimumDeadlineDays: item.MinimumDeadlineDays,
-			PriceSatang:         item.PriceSatang,
-		}
-	}
-	return output, nil
-}
-
-type artworkForm struct {
-	Name                string          `form:"name" minLength:"1" required:"true"`
-	CategoryID          uuid.UUID       `form:"category_id" required:"true"`
-	StyleIDs            []uuid.UUID     `form:"style_ids" contentType:"application/json" required:"true"`
-	Description         string          `form:"description" minLength:"1" required:"true"`
-	ArtworkSamples      []huma.FormFile `form:"artwork_samples" contentType:"image/jpeg,image/png,image/webp" required:"false"`
-	MinimumDeadlineDays int             `form:"minimum_deadline_days" minimum:"1" required:"true"`
-	PriceSatang         int64           `form:"price_satang" minimum:"0" required:"true"`
-}
-
-type updateArtworkForm struct {
-	Name                string          `form:"name" minLength:"1" required:"true"`
-	CategoryID          uuid.UUID       `form:"category_id" required:"true"`
-	StyleIDs            []uuid.UUID     `form:"style_ids" contentType:"application/json" required:"true"`
-	Description         string          `form:"description" minLength:"1" required:"true"`
-	UploadedSamples     []huma.FormFile `form:"uploaded_samples" contentType:"image/jpeg,image/png,image/webp" required:"false"`
-	DeletedSampleURLs   []string        `form:"deleted_sample_urls" contentType:"application/json" required:"false"`
-	MinimumDeadlineDays int             `form:"minimum_deadline_days" minimum:"1" required:"true"`
-	PriceSatang         int64           `form:"price_satang" minimum:"0" required:"true"`
-}
-
-type CreateArtworkInput struct {
-	RawBody huma.MultipartFormFiles[artworkForm]
-}
-
-type CreateArtworkOutput struct {
-	Body artworkView
-}
-
-// createArtwork associates the submitted artwork form with the authenticated artist and returns the created view.
-func (h *ArtworkHandler) createArtwork(ctx context.Context, input *CreateArtworkInput) (*CreateArtworkOutput, error) {
-	info, ok := authInfoFromContext(ctx)
-	if !ok {
-		return nil, huma.Error401Unauthorized("missing authentication")
-	}
-
-	createInput := newArtworkCreateInput(input.RawBody.Data(), info.UserID)
-	created, err := h.artworkUsecase.Create(ctx, createInput)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-	return &CreateArtworkOutput{Body: newArtworkView(created)}, nil
-}
-
-type UpdateArtworkInput struct {
-	ArtworkID uuid.UUID `path:"artwork_id"`
-	RawBody   huma.MultipartFormFiles[updateArtworkForm]
-}
-
-type UpdateArtworkOutput struct {
-	Body artworkView
-}
-
-// updateArtwork applies the submitted form to the authenticated artist's specified artwork.
-func (h *ArtworkHandler) updateArtwork(ctx context.Context, input *UpdateArtworkInput) (*UpdateArtworkOutput, error) {
-	info, ok := authInfoFromContext(ctx)
-	if !ok {
-		return nil, huma.Error401Unauthorized("missing authentication")
-	}
-
-	updated, err := h.artworkUsecase.Update(ctx, newArtworkUpdateInput(input.RawBody.Data(), input.ArtworkID, info.UserID))
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-	return &UpdateArtworkOutput{Body: newArtworkView(updated)}, nil
-}
-
 // newArtworkCreateInput maps form fields and uploaded sample readers to a use-case input.
 func newArtworkCreateInput(form *artworkForm, artistID uuid.UUID) artwork.CreateInput {
 	return artwork.CreateInput{
@@ -406,73 +558,6 @@ func newArtworkUpdateInput(form *updateArtworkForm, artworkID, artistID uuid.UUI
 	}
 }
 
-// artworkFileReaders extracts the readers from the multipart form files.
-func artworkFileReaders(files []huma.FormFile) []io.Reader {
-	readers := make([]io.Reader, len(files))
-	for index := range files {
-		readers[index] = files[index].File
-	}
-	return readers
-}
-
-type DeleteArtworkInput struct {
-	ArtworkID uuid.UUID `path:"artwork_id"`
-}
-
-type DeleteArtworkOutput struct{}
-
-// deleteArtwork removes the specified artwork for the authenticated artist.
-func (h *ArtworkHandler) deleteArtwork(ctx context.Context, input *DeleteArtworkInput) (*DeleteArtworkOutput, error) {
-	info, ok := authInfoFromContext(ctx)
-	if !ok {
-		return nil, huma.Error401Unauthorized("missing authentication")
-	}
-	if err := h.artworkUsecase.Delete(ctx, info.UserID, input.ArtworkID); err != nil {
-		return nil, mapAppError(err)
-	}
-	return &DeleteArtworkOutput{}, nil
-}
-
-type ListCategoriesInput struct{}
-
-type ListCategoriesOutput struct {
-	Body []artistReferenceView
-}
-
-type ListStylesInput struct{}
-
-type ListStylesOutput struct {
-	Body []artistReferenceView
-}
-
-// listCategories returns category IDs and labels for artwork forms.
-func (h *ArtworkHandler) listCategories(ctx context.Context, _ *ListCategoriesInput) (*ListCategoriesOutput, error) {
-	categories, err := h.artworkUsecase.ListAllCategories(ctx)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
-	body := make([]artistReferenceView, len(categories))
-	for index, category := range categories {
-		body[index] = artistReferenceView{ID: category.ID, Label: category.Label}
-	}
-	return &ListCategoriesOutput{Body: body}, nil
-}
-
-// listStyles returns style IDs and labels for artwork forms.
-func (h *ArtworkHandler) listStyles(ctx context.Context, _ *ListStylesInput) (*ListStylesOutput, error) {
-	styles, err := h.artworkUsecase.ListAllStyles(ctx)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
-	body := make([]artistReferenceView, len(styles))
-	for index, style := range styles {
-		body[index] = artistReferenceView{ID: style.ID, Label: style.Label}
-	}
-	return &ListStylesOutput{Body: body}, nil
-}
-
 // newArtworkView converts an artwork and its samples into the REST response shape.
 func newArtworkView(item *artwork.Artwork) artworkView {
 	samples := make([]artworkSampleView, len(item.Samples))
@@ -494,35 +579,11 @@ func newArtworkView(item *artwork.Artwork) artworkView {
 	}
 }
 
-type GetArtworkInput struct {
-	ArtworkID uuid.UUID `path:"artwork_id"`
-}
-
-type GetArtworkOutput struct {
-	Body artworkView
-}
-
-// getArtwork loads an artwork by ID and returns its detail view.
-func (h *ArtworkHandler) getArtwork(ctx context.Context, input *GetArtworkInput) (*GetArtworkOutput, error) {
-	detail, err := h.artworkUsecase.GetArtwork(ctx, input.ArtworkID)
-	if err != nil {
-		return nil, mapAppError(err)
+// artworkFileReaders extracts the readers from the multipart form files.
+func artworkFileReaders(files []huma.FormFile) []io.Reader {
+	readers := make([]io.Reader, len(files))
+	for index := range files {
+		readers[index] = files[index].File
 	}
-
-	artwork := &artwork.Artwork{
-		ID:                  detail.ID,
-		ArtistID:            detail.ArtistID,
-		Name:                detail.Name,
-		Category:            detail.Category,
-		Styles:              detail.Styles,
-		Description:         detail.Description,
-		Samples:             detail.Samples,
-		MinimumDeadlineDays: detail.MinimumDeadlineDays,
-		PriceSatang:         detail.PriceSatang,
-		CreatedAt:           detail.CreatedAt,
-		UpdatedAt:           detail.UpdatedAt}
-
-	return &GetArtworkOutput{
-		Body: newArtworkView(artwork),
-	}, nil
+	return readers
 }

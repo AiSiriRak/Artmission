@@ -20,8 +20,16 @@ type OrderHandler struct {
 }
 
 // NewOrderHandler creates a handler for order read endpoints.
-func NewOrderHandler(orderUsecase order.OrderUsecase, artworkUsecase artwork.Usecase, authUsecase auth.AuthUsecase) *OrderHandler {
-	return &OrderHandler{orderUsecase: orderUsecase, artworkUsecase: artworkUsecase, authUsecase: authUsecase}
+func NewOrderHandler(
+	orderUsecase order.OrderUsecase,
+	artworkUsecase artwork.Usecase,
+	authUsecase auth.AuthUsecase,
+) *OrderHandler {
+	return &OrderHandler{
+		orderUsecase:   orderUsecase,
+		artworkUsecase: artworkUsecase,
+		authUsecase:    authUsecase,
+	}
 }
 
 // Register adds the authenticated order endpoints to the API.
@@ -35,7 +43,8 @@ func (h *OrderHandler) Register(api huma.API) {
 				"sorted by deadline/price/updated_at, and paginated by limit/offset. " +
 				"deliverable_preview_url is the artist's most recently submitted deliverable preview, presigned and time-limited, regardless of order status; null if none has been submitted yet."
 			o.Middlewares = append(o.Middlewares, requireAuth(api, h.authUsecase), requireAnyRole(api, user.RoleCustomer, user.RoleArtist))
-		})
+		},
+	)
 
 	huma.Get(api, "/orders/{order_id}", h.getOrder,
 		huma.OperationTags("orders"),
@@ -48,14 +57,16 @@ func (h *OrderHandler) Register(api huma.API) {
 				requireAuth(api, h.authUsecase),
 				requireAnyRole(api, user.RoleCustomer, user.RoleArtist),
 			)
-		})
+		},
+	)
 
-	huma.Put(api, "/orders/{order_id}/deliverables/{deliverable_id}/confirm", h.confirmDeliverable,
+	huma.Post(api, "/orders", h.createOrder,
 		huma.OperationTags("orders"),
 		func(o *huma.Operation) {
-			o.OperationID = "confirm-deliverable"
-			o.Summary = "ConfirmOrderDeliverable"
-			o.Description = "Accept or reject a waiting deliverable as the authenticated customer."
+			o.OperationID = "create-order"
+			o.Summary = "CreateOrder"
+			o.Description = "Create a new order for the authenticated customer."
+			o.DefaultStatus = http.StatusCreated
 			o.Middlewares = append(
 				o.Middlewares,
 				requireAuth(api, h.authUsecase),
@@ -63,6 +74,7 @@ func (h *OrderHandler) Register(api huma.API) {
 			)
 		},
 	)
+
 	huma.Put(api, "/orders/{order_id}/confirm", h.confirmOrder,
 		huma.OperationTags("orders"),
 		func(o *huma.Operation) {
@@ -91,21 +103,6 @@ func (h *OrderHandler) Register(api huma.API) {
 		},
 	)
 
-	huma.Post(api, "/orders", h.createOrder,
-		huma.OperationTags("orders"),
-		func(o *huma.Operation) {
-			o.OperationID = "create-order"
-			o.Summary = "CreateOrder"
-			o.Description = "Create a new order for the authenticated customer."
-			o.DefaultStatus = http.StatusCreated
-			o.Middlewares = append(
-				o.Middlewares,
-				requireAuth(api, h.authUsecase),
-				requireRole(api, user.RoleCustomer),
-			)
-		},
-	)
-
 	huma.Post(api, "/orders/{order_id}/deliverables", h.createDeliverable,
 		huma.OperationTags("orders"),
 		func(o *huma.Operation) {
@@ -117,6 +114,20 @@ func (h *OrderHandler) Register(api huma.API) {
 				o.Middlewares,
 				requireAuth(api, h.authUsecase),
 				requireRole(api, user.RoleArtist),
+			)
+		},
+	)
+
+	huma.Put(api, "/orders/{order_id}/deliverables/{deliverable_id}/confirm", h.confirmDeliverable,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "confirm-deliverable"
+			o.Summary = "ConfirmOrderDeliverable"
+			o.Description = "Accept or reject a waiting deliverable as the authenticated customer."
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireRole(api, user.RoleCustomer),
 			)
 		},
 	)
@@ -152,6 +163,7 @@ func (h *OrderHandler) Register(api huma.API) {
 	)
 }
 
+// orderSummaryView represents an order summary in the REST response.
 type orderSummaryView struct {
 	ID                    string     `json:"id"`
 	CustomerID            string     `json:"customer_id"`
@@ -166,97 +178,30 @@ type orderSummaryView struct {
 	UpdatedAt             time.Time  `json:"updated_at"`
 }
 
-type ViewOrdersInput struct {
-	Status []string `query:"status,explode" enum:"PENDING,NOT_PAID,IN_PROCESS,SUCCESS,CANCEL" doc:"Filter by one or more order statuses. Repeated values are OR'd. Omit for every status."`
-	Sort   string   `query:"sort" enum:"deadline,price,updated_at" default:"updated_at" doc:"Field to sort by."`
-	Order  string   `query:"order" enum:"asc,desc" default:"desc" doc:"Sort direction."`
-	Limit  int      `query:"limit" minimum:"1" maximum:"100" default:"20" doc:"Maximum number of orders to return."`
-	Offset int      `query:"offset" minimum:"0" default:"0" doc:"Number of matching orders to skip before the first returned row."`
+// orderPartyView represents the participant on the opposite side of the authenticated user's order.
+type orderPartyView struct {
+	ID                string   `json:"id"`
+	Name              string   `json:"name"`
+	Email             string   `json:"email"`
+	ArtistReviewScore *float64 `json:"artist_review_score,omitempty"`
 }
 
-type ViewOrdersOutput struct {
-	Body struct {
-		Orders []orderSummaryView `json:"orders"`
-		Total  int                `json:"total"`
-	}
+// artworkSnapshotView represents the artwork information captured when the order was created.
+type artworkSnapshotView struct {
+	ArtworkName string   `json:"artwork_name"`
+	Category    string   `json:"category"`
+	Styles      []string `json:"styles"`
 }
 
-// GetOrderInput contains the order ID requested by the authenticated
-// participant.
-type GetOrderInput struct {
-	OrderID uuid.UUID `path:"order_id"`
-}
-
-// GetOrderOutput contains the detailed order information.
-type GetOrderOutput struct {
-	Body orderDetailView
-}
-
-// ConfirmOrderInput contains the order ID and the artist's decision.
-type ConfirmOrderInput struct {
-	OrderID uuid.UUID `path:"order_id"`
-	Body    struct {
-		Accept bool `json:"accept"`
-	}
-}
-
-// ConfirmOrderOutput is returned after the order confirmation is processed.
-type ConfirmOrderOutput struct {
-	Body struct {
-		Message string `json:"message"`
-		Status  string `json:"status"`
-	}
-}
-
-// createOrderDeliverableForm represents the multipart form data used to submit an order deliverable.
-type createOrderDeliverableForm struct {
-	DeliverableImage huma.FormFile `form:"deliverable_image" contentType:"image/jpeg,image/png,image/webp" required:"true"`
-}
-
-// CreateOrderDeliverableInput contains the order ID and the deliverable image uploaded by the artist.
-type CreateOrderDeliverableInput struct {
-	OrderID uuid.UUID `path:"order_id"`
-	RawBody huma.MultipartFormFiles[createOrderDeliverableForm]
-}
-
-// CreateOrderDeliverableOutput contains the created deliverable in the response body.
-type CreateOrderDeliverableOutput struct {
-	Body deliverableView
-}
-
-// CreateDelayRequestInput contains the order ID and the requested deadline extension details.
-type CreateDelayRequestInput struct {
-	OrderID uuid.UUID `path:"order_id"`
-	Body    struct {
-		DeadlineRequestAt time.Time                `json:"deadline_request_at" required:"true"`
-		Reason            order.DelayRequestReason `json:"reason" required:"true" enum:"NEED_MORE_TIME,WAITING_FOR_FEEDBACK,PERSONAL_REASON,HIGH_WORKLOAD,TECHNICAL_ISSUE,OTHER"`
-		Explanation       string                   `json:"explanation" required:"true"`
-	}
-}
-
-// CreateDelayRequestOutput contains the newly created delay request.
-type CreateDelayRequestOutput struct {
-	Body delayRequestView
-}
-
-// ConfirmDelayRequestInput contains the order ID, delay request ID,
-// and the customer's decision to approve or reject the delay request.
-type ConfirmDelayRequestInput struct {
-	OrderID        uuid.UUID `path:"order_id"`
-	DelayRequestID uuid.UUID `path:"delay_request_id"`
-	Body           struct {
-		Accept bool `json:"accept"`
-	}
-}
-
-// ConfirmDelayRequestOutput contains a confirmation message,
-// the customer's decision, and the order's deadline after processing.
-type ConfirmDelayRequestOutput struct {
-	Body struct {
-		Message          string    `json:"message"`
-		CustomerDecision string    `json:"customer_decision"`
-		DeadlineAt       time.Time `json:"deadline_at"`
-	}
+// deliverableView represents a deliverable in an order response.
+type deliverableView struct {
+	ID              string                    `json:"id"`
+	Version         int                       `json:"version"`
+	Decision        order.DeliverableDecision `json:"decision"`
+	Comment         *string                   `json:"comment"`
+	PreviewImageURL string                    `json:"preview_image_url"`
+	CreatedAt       time.Time                 `json:"created_at"`
+	UpdatedAt       time.Time                 `json:"updated_at"`
 }
 
 // delayRequestView represents a delay request exposed by the API.
@@ -272,36 +217,7 @@ type delayRequestView struct {
 	UpdatedAt          time.Time                  `json:"updated_at"`
 }
 
-// orderPartyView represents the participant on the opposite side of the
-// authenticated user's order.
-type orderPartyView struct {
-	ID                string   `json:"id"`
-	Name              string   `json:"name"`
-	Email             string   `json:"email"`
-	ArtistReviewScore *float64 `json:"artist_review_score,omitempty"`
-}
-
-// artworkSnapshotView represents the artwork information captured when the
-// order was created.
-type artworkSnapshotView struct {
-	ArtworkName string   `json:"artwork_name"`
-	Category    string   `json:"category"`
-	Styles      []string `json:"styles"`
-}
-
-// deliverableView is the deliverable data exposed in an order detail response.
-type deliverableView struct {
-	ID              string                    `json:"id"`
-	Version         int                       `json:"version"`
-	Decision        order.DeliverableDecision `json:"decision"`
-	Comment         *string                   `json:"comment"`
-	PreviewImageURL string                    `json:"preview_image_url"`
-	CreatedAt       time.Time                 `json:"created_at"`
-	UpdatedAt       time.Time                 `json:"updated_at"`
-}
-
-// orderDetailView represents the complete order detail returned to the
-// authenticated participant.
+// orderDetailView represents the complete order detail returned to the authenticated participant.
 type orderDetailView struct {
 	ID                  string              `json:"id"`
 	CustomerID          string              `json:"customer_id"`
@@ -321,19 +237,21 @@ type orderDetailView struct {
 	ActiveDelayRequest  *delayRequestView   `json:"active_delay_request"`
 }
 
-// CreateOrderInput contains the artwork and order details submitted by the customer.
-type CreateOrderInput struct {
-	Body struct {
-		ArtworkID           uuid.UUID `json:"artwork_id"`
-		Name                string    `json:"name"`
-		CustomerDescription string    `json:"customer_description"`
-		DeadlineAt          time.Time `json:"deadline_at"`
-	}
+// ViewOrdersInput contains the filters, sorting options, and pagination parameters for listing orders.
+type ViewOrdersInput struct {
+	Status []string `query:"status,explode" enum:"PENDING,NOT_PAID,IN_PROCESS,SUCCESS,CANCEL" doc:"Filter by one or more order statuses. Repeated values are OR'd. Omit for every status."`
+	Sort   string   `query:"sort" enum:"deadline,price,updated_at" default:"updated_at" doc:"Field to sort by."`
+	Order  string   `query:"order" enum:"asc,desc" default:"desc" doc:"Sort direction."`
+	Limit  int      `query:"limit" minimum:"1" maximum:"100" default:"20" doc:"Maximum number of orders to return."`
+	Offset int      `query:"offset" minimum:"0" default:"0" doc:"Number of matching orders to skip before the first returned row."`
 }
 
-// CreateOrderOutput contains the summary of the newly created order.
-type CreateOrderOutput struct {
-	Body orderSummaryView
+// ViewOrdersOutput contains the paginated list of orders.
+type ViewOrdersOutput struct {
+	Body struct {
+		Orders []orderSummaryView `json:"orders"`
+		Total  int                `json:"total"`
+	}
 }
 
 // viewOrders lists orders scoped to the authenticated customer or artist.
@@ -370,6 +288,16 @@ func (h *OrderHandler) viewOrders(ctx context.Context, in *ViewOrdersInput) (*Vi
 	}
 	out.Body.Total = page.Total
 	return out, nil
+}
+
+// GetOrderInput contains the order ID requested by the authenticated participant.
+type GetOrderInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+}
+
+// GetOrderOutput contains the detailed order information.
+type GetOrderOutput struct {
+	Body orderDetailView
 }
 
 // getOrder returns the order detail for the authenticated participant.
@@ -431,6 +359,352 @@ func (h *OrderHandler) getOrder(
 	}, nil
 }
 
+// CreateOrderInput contains the artwork and order details submitted by the customer.
+type CreateOrderInput struct {
+	Body struct {
+		ArtworkID           uuid.UUID `json:"artwork_id"`
+		Name                string    `json:"name"`
+		CustomerDescription string    `json:"customer_description"`
+		DeadlineAt          time.Time `json:"deadline_at"`
+	}
+}
+
+// CreateOrderOutput contains the summary of the newly created order.
+type CreateOrderOutput struct {
+	Body orderSummaryView
+}
+
+// createOrder creates an order for the authenticated customer and returns its summary.
+func (h *OrderHandler) createOrder(ctx context.Context, input *CreateOrderInput) (*CreateOrderOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	req := order.CreateInput{
+		Name:                input.Body.Name,
+		ArtworkID:           input.Body.ArtworkID,
+		CustomerDescription: input.Body.CustomerDescription,
+		DeadlineAt:          input.Body.DeadlineAt,
+	}
+
+	createdOrder, err := h.orderUsecase.CreateOrder(ctx, info.UserID, req)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	return &CreateOrderOutput{Body: toOrderSummaryView(createdOrder)}, nil
+
+}
+
+// ConfirmOrderInput contains the order ID and the artist's decision.
+type ConfirmOrderInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+	Body    struct {
+		Accept bool `json:"accept"`
+	}
+}
+
+// ConfirmOrderOutput is returned after the order confirmation is processed.
+type ConfirmOrderOutput struct {
+	Body struct {
+		Message string `json:"message"`
+		Status  string `json:"status"`
+	}
+}
+
+// confirmOrder accepts or rejects a pending order on behalf of the authenticated artist.
+func (h *OrderHandler) confirmOrder(
+	ctx context.Context,
+	input *ConfirmOrderInput,
+) (*ConfirmOrderOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	status, err := h.orderUsecase.ConfirmOrder(
+		ctx,
+		info.UserID,
+		input.OrderID,
+		order.ConfirmOrderInput{
+			Accept: input.Body.Accept,
+		},
+	)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	var message string
+	switch input.Body.Accept {
+	case true:
+		message = "Order accepted"
+	case false:
+		message = "Order rejected"
+	}
+
+	out := &ConfirmOrderOutput{}
+	out.Body.Message = message
+	out.Body.Status = string(status)
+
+	return out, nil
+}
+
+// CancelOrderInput contains the order ID and cancellation details.
+type CancelOrderInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+	Body    struct {
+		Reason      order.CancelReason `json:"reason"`
+		Explanation string             `json:"explanation"`
+	}
+}
+
+// CancelOrderOutput contains the result of the order cancellation.
+type CancelOrderOutput struct {
+	Body struct {
+		OrderID     uuid.UUID `json:"order_id"`
+		Reason      string    `json:"reason"`
+		Explanation string    `json:"explanation"`
+	}
+}
+
+// cancelOrder cancel an order if the user is authenticated
+func (h *OrderHandler) cancelOrder(
+	ctx context.Context,
+	input *CancelOrderInput,
+) (*CancelOrderOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	participant := participantForRole(info.Role)
+
+	data := order.CancelInput{
+		OrderID:     input.OrderID,
+		Reason:      input.Body.Reason,
+		Explanation: input.Body.Explanation,
+	}
+
+	result, err := h.orderUsecase.CancelOrder(
+		ctx,
+		participant,
+		info.UserID,
+		data,
+	)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	out := &CancelOrderOutput{}
+	out.Body.OrderID = result.OrderID
+	out.Body.Reason = string(result.Reason)
+	out.Body.Explanation = result.Explanation
+
+	return out, nil
+}
+
+// createOrderDeliverableForm contains the uploaded deliverable image.
+type createOrderDeliverableForm struct {
+	DeliverableImage huma.FormFile `form:"deliverable_image" contentType:"image/jpeg,image/png,image/webp" required:"true"`
+}
+
+// CreateOrderDeliverableInput contains the order ID and the deliverable image uploaded by the artist.
+type CreateOrderDeliverableInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+	RawBody huma.MultipartFormFiles[createOrderDeliverableForm]
+}
+
+// CreateOrderDeliverableOutput contains the created deliverable in the response body.
+type CreateOrderDeliverableOutput struct {
+	Body deliverableView
+}
+
+// createDeliverable creates a deliverable for an order on behalf of the authenticated user.
+// It extracts the user's authentication information, passes the request to the usecase,
+// and returns the created deliverable or a mapped application error.
+func (h *OrderHandler) createDeliverable(
+	ctx context.Context,
+	input *CreateOrderDeliverableInput,
+) (*CreateOrderDeliverableOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	req := order.CreateDeliverableInput{
+		OrderID:          input.OrderID,
+		DeliverableImage: input.RawBody.Data().DeliverableImage.File,
+	}
+
+	createdOrderDeliverable, err := h.orderUsecase.CreateDeliverable(ctx, info.UserID, req)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	return &CreateOrderDeliverableOutput{
+		Body: toDeliverableView(createdOrderDeliverable),
+	}, nil
+}
+
+// confirmDeliverableInput contains the order ID, deliverable ID, and customer's decision.
+type confirmDeliverableInput struct {
+	OrderID       uuid.UUID `path:"order_id"`
+	DeliverableID uuid.UUID `path:"deliverable_id"`
+	Body          struct {
+		Accept  bool
+		Comment string `json:"comment,omitempty"`
+	}
+}
+
+// confirmDeliverableOutput contains the confirmation message and resulting deliverable status.
+type confirmDeliverableOutput struct {
+	Body struct {
+		Message string `json:"message"`
+		Status  string `json:"status"`
+	}
+}
+
+// confirmDeliverable accepts or rejects a submitted deliverable on behalf of the authenticated customer.
+func (h *OrderHandler) confirmDeliverable(ctx context.Context, input *confirmDeliverableInput) (*confirmDeliverableOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	decision, err := h.orderUsecase.ConfirmDeliverable(
+		ctx,
+		info.UserID,
+		order.ConfirmDeliverableInput{
+			OrderID:       input.OrderID,
+			DeliverableID: input.DeliverableID,
+			Accept:        input.Body.Accept,
+			Comment:       input.Body.Comment,
+		},
+	)
+
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	var message string
+	switch input.Body.Accept {
+	case true:
+		message = "Deliverable accepted"
+	case false:
+		message = "Deliverable rejected"
+	}
+
+	out := &confirmDeliverableOutput{}
+	out.Body.Message = message
+	out.Body.Status = string(decision)
+
+	return out, nil
+}
+
+// CreateDelayRequestInput contains the order ID and the requested deadline extension details.
+type CreateDelayRequestInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+	Body    struct {
+		DeadlineRequestAt time.Time                `json:"deadline_request_at" required:"true"`
+		Reason            order.DelayRequestReason `json:"reason" required:"true" enum:"NEED_MORE_TIME,WAITING_FOR_FEEDBACK,PERSONAL_REASON,HIGH_WORKLOAD,TECHNICAL_ISSUE,OTHER"`
+		Explanation       string                   `json:"explanation" required:"true"`
+	}
+}
+
+// CreateDelayRequestOutput contains the newly created delay request.
+type CreateDelayRequestOutput struct {
+	Body delayRequestView
+}
+
+// createDelayRequest creates a deadline-extension request for an order
+// on behalf of the authenticated artist.
+func (h *OrderHandler) createDelayRequest(
+	ctx context.Context,
+	input *CreateDelayRequestInput,
+) (*CreateDelayRequestOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	req := order.CreateDelayRequestInput{
+		OrderID:           input.OrderID,
+		DeadlineRequestAt: input.Body.DeadlineRequestAt,
+		Reason:            input.Body.Reason,
+		Explanation:       input.Body.Explanation,
+	}
+
+	created, err := h.orderUsecase.CreateDelayRequest(ctx, info.UserID, req)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	return &CreateDelayRequestOutput{
+		Body: toDelayRequestView(created),
+	}, nil
+}
+
+// ConfirmDelayRequestInput contains the order ID, delay request ID,
+// and the customer's decision to approve or reject the delay request.
+type ConfirmDelayRequestInput struct {
+	OrderID        uuid.UUID `path:"order_id"`
+	DelayRequestID uuid.UUID `path:"delay_request_id"`
+	Body           struct {
+		Accept bool `json:"accept"`
+	}
+}
+
+// ConfirmDelayRequestOutput contains a confirmation message,
+// the customer's decision, and the order's deadline after processing.
+type ConfirmDelayRequestOutput struct {
+	Body struct {
+		Message          string    `json:"message"`
+		CustomerDecision string    `json:"customer_decision"`
+		DeadlineAt       time.Time `json:"deadline_at"`
+	}
+}
+
+// confirmDelayRequest processes the customer's decision on an order delay request
+// and returns the decision result and the updated order deadline.
+func (h *OrderHandler) confirmDelayRequest(
+	ctx context.Context,
+	input *ConfirmDelayRequestInput,
+) (*ConfirmDelayRequestOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	output, err := h.orderUsecase.ConfirmDelayRequest(
+		ctx,
+		info.UserID,
+		input.OrderID,
+		order.ConfirmDelayRequestInput{
+			DelayRequestID: input.DelayRequestID,
+			Accept:         input.Body.Accept,
+		},
+	)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	var message string
+	switch input.Body.Accept {
+	case true:
+		message = "Delay request approved"
+	case false:
+		message = "Delay request rejected"
+	}
+
+	out := &ConfirmDelayRequestOutput{}
+	out.Body.Message = message
+	out.Body.CustomerDecision = string(output.CustomerDecision)
+	out.Body.DeadlineAt = output.DeadlineAt
+
+	return out, nil
+}
+
 // participantForRole converts an authenticated account role to its order scope.
 func participantForRole(role user.Role) order.Participant {
 	switch role {
@@ -463,7 +737,8 @@ func toOrderSummaryView(o *order.Order) orderSummaryView {
 // toOrderDetailView converts the domain order detail into the HTTP response
 // representation. UUIDs are converted to strings to keep the API response
 // consistent with the other order views.
-func toOrderDetailView(o *order.OrderDetail,
+func toOrderDetailView(
+	o *order.OrderDetail,
 	categoryName string,
 	styleNames []string,
 ) orderDetailView {
@@ -531,198 +806,6 @@ func toOrderDetailView(o *order.OrderDetail,
 	}
 }
 
-// confirmOrder accepts or rejects a pending order on behalf of the
-// authenticated artist.
-func (h *OrderHandler) confirmOrder(
-	ctx context.Context,
-	input *ConfirmOrderInput,
-) (*ConfirmOrderOutput, error) {
-	info, ok := authInfoFromContext(ctx)
-	if !ok {
-		return nil, huma.Error401Unauthorized("missing authentication")
-	}
-
-	status, err := h.orderUsecase.ConfirmOrder(
-		ctx,
-		info.UserID,
-		input.OrderID,
-		order.ConfirmOrderInput{
-			Accept: input.Body.Accept,
-		},
-	)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
-	var message string
-	switch input.Body.Accept {
-	case true:
-		message = "Order accepted"
-	case false:
-		message = "Order rejected"
-	}
-
-	out := &ConfirmOrderOutput{}
-	out.Body.Message = message
-	out.Body.Status = string(status)
-
-	return out, nil
-}
-
-type confirmDeliverableInput struct {
-	OrderID       uuid.UUID `path:"order_id"`
-	DeliverableID uuid.UUID `path:"deliverable_id"`
-	Body          struct {
-		Accept  bool
-		Comment string `json:"comment,omitempty"`
-	}
-}
-
-type confirmDeliverableOutput struct {
-	Body struct {
-		Message string `json:"message"`
-		Status  string `json:"status"`
-	}
-}
-
-// confirmDeliverable accepts or rejects a submitted deliverable on behalf of the authenticated customer.
-func (h *OrderHandler) confirmDeliverable(ctx context.Context, input *confirmDeliverableInput) (*confirmDeliverableOutput, error) {
-	info, ok := authInfoFromContext(ctx)
-	if !ok {
-		return nil, huma.Error401Unauthorized("missing authentication")
-	}
-
-	decision, err := h.orderUsecase.ConfirmDeliverable(
-		ctx,
-		info.UserID,
-		order.ConfirmDeliverableInput{
-			OrderID:       input.OrderID,
-			DeliverableID: input.DeliverableID,
-			Accept:        input.Body.Accept,
-			Comment:       input.Body.Comment,
-		},
-	)
-
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
-	var message string
-	switch input.Body.Accept {
-	case true:
-		message = "Deliverable accepted"
-	case false:
-		message = "Deliverable rejected"
-	}
-
-	out := &confirmDeliverableOutput{}
-	out.Body.Message = message
-	out.Body.Status = string(decision)
-
-	return out, nil
-}
-
-type CancelOrderInput struct {
-	OrderID uuid.UUID `path:"order_id"`
-	Body    struct {
-		Reason      order.CancelReason `json:"reason"`
-		Explanation string             `json:"explanation"`
-	}
-}
-type CancelOrderOutput struct {
-	Body struct {
-		OrderID     uuid.UUID `json:"order_id"`
-		Reason      string    `json:"reason"`
-		Explanation string    `json:"explanation"`
-	}
-}
-
-// cancelOrder cancel an order if the user is authenticated
-func (h *OrderHandler) cancelOrder(
-	ctx context.Context,
-	input *CancelOrderInput,
-) (*CancelOrderOutput, error) {
-	info, ok := authInfoFromContext(ctx)
-	if !ok {
-		return nil, huma.Error401Unauthorized("missing authentication")
-	}
-
-	participant := participantForRole(info.Role)
-
-	data := order.CancelInput{
-		OrderID:     input.OrderID,
-		Reason:      input.Body.Reason,
-		Explanation: input.Body.Explanation,
-	}
-
-	result, err := h.orderUsecase.CancelOrder(
-		ctx,
-		participant,
-		info.UserID,
-		data,
-	)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
-	out := &CancelOrderOutput{}
-	out.Body.OrderID = result.OrderID
-	out.Body.Reason = string(result.Reason)
-	out.Body.Explanation = result.Explanation
-
-	return out, nil
-}
-
-// createOrder creates an order for the authenticated customer and returns its summary.
-func (h *OrderHandler) createOrder(ctx context.Context, input *CreateOrderInput) (*CreateOrderOutput, error) {
-	info, ok := authInfoFromContext(ctx)
-	if !ok {
-		return nil, huma.Error401Unauthorized("missing authentication")
-	}
-
-	req := order.CreateInput{
-		Name:                input.Body.Name,
-		ArtworkID:           input.Body.ArtworkID,
-		CustomerDescription: input.Body.CustomerDescription,
-		DeadlineAt:          input.Body.DeadlineAt,
-	}
-
-	createdOrder, err := h.orderUsecase.CreateOrder(ctx, info.UserID, req)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
-	return &CreateOrderOutput{Body: toOrderSummaryView(createdOrder)}, nil
-
-}
-
-// createDeliverable creates a deliverable for an order on behalf of the authenticated user.
-// It extracts the user's authentication information, passes the request to the usecase,
-// and returns the created deliverable or a mapped application error.
-func (h *OrderHandler) createDeliverable(
-	ctx context.Context,
-	input *CreateOrderDeliverableInput,
-) (*CreateOrderDeliverableOutput, error) {
-	info, ok := authInfoFromContext(ctx)
-	if !ok {
-		return nil, huma.Error401Unauthorized("missing authentication")
-	}
-
-	req := order.CreateDeliverableInput{
-		OrderID:          input.OrderID,
-		DeliverableImage: input.RawBody.Data().DeliverableImage.File,
-	}
-
-	createdOrderDeliverable, err := h.orderUsecase.CreateDeliverable(ctx, info.UserID, req)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
-	return &CreateOrderDeliverableOutput{
-		Body: toDeliverableView(createdOrderDeliverable),
-	}, nil
-}
-
 // toDeliverableView converts a deliverable entity into its API response representation.
 func toDeliverableView(deliverable *order.Deliverable) deliverableView {
 	return deliverableView{
@@ -734,34 +817,6 @@ func toDeliverableView(deliverable *order.Deliverable) deliverableView {
 		CreatedAt:       deliverable.CreatedAt,
 		UpdatedAt:       deliverable.UpdatedAt,
 	}
-}
-
-// createDelayRequest creates a deadline-extension request for an order
-// on behalf of the authenticated artist.
-func (h *OrderHandler) createDelayRequest(
-	ctx context.Context,
-	input *CreateDelayRequestInput,
-) (*CreateDelayRequestOutput, error) {
-	info, ok := authInfoFromContext(ctx)
-	if !ok {
-		return nil, huma.Error401Unauthorized("missing authentication")
-	}
-
-	req := order.CreateDelayRequestInput{
-		OrderID:           input.OrderID,
-		DeadlineRequestAt: input.Body.DeadlineRequestAt,
-		Reason:            input.Body.Reason,
-		Explanation:       input.Body.Explanation,
-	}
-
-	created, err := h.orderUsecase.CreateDelayRequest(ctx, info.UserID, req)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
-	return &CreateDelayRequestOutput{
-		Body: toDelayRequestView(created),
-	}, nil
 }
 
 // toDelayRequestView converts a delay request entity into its API response representation.
@@ -777,44 +832,4 @@ func toDelayRequestView(item *order.OrderDelayRequest) delayRequestView {
 		CreatedAt:          item.CreatedAt,
 		UpdatedAt:          item.UpdatedAt,
 	}
-}
-
-// confirmDelayRequest processes the customer's decision on an order delay request
-// and returns the decision result and the updated order deadline.
-func (h *OrderHandler) confirmDelayRequest(
-	ctx context.Context,
-	input *ConfirmDelayRequestInput,
-) (*ConfirmDelayRequestOutput, error) {
-	info, ok := authInfoFromContext(ctx)
-	if !ok {
-		return nil, huma.Error401Unauthorized("missing authentication")
-	}
-
-	output, err := h.orderUsecase.ConfirmDelayRequest(
-		ctx,
-		info.UserID,
-		input.OrderID,
-		order.ConfirmDelayRequestInput{
-			DelayRequestID: input.DelayRequestID,
-			Accept:         input.Body.Accept,
-		},
-	)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
-	var message string
-	switch input.Body.Accept {
-	case true:
-		message = "Delay request approved"
-	case false:
-		message = "Delay request rejected"
-	}
-
-	out := &ConfirmDelayRequestOutput{}
-	out.Body.Message = message
-	out.Body.CustomerDecision = string(output.CustomerDecision)
-	out.Body.DeadlineAt = output.DeadlineAt
-
-	return out, nil
 }

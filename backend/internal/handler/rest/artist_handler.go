@@ -17,8 +17,14 @@ type ArtistHandler struct {
 }
 
 // NewArtistHandler wires the artist profile and authentication use cases into a REST handler.
-func NewArtistHandler(profileUsecase artist.ProfileUsecase, authUsecase auth.AuthUsecase) *ArtistHandler {
-	return &ArtistHandler{profileUsecase: profileUsecase, authUsecase: authUsecase}
+func NewArtistHandler(
+	profileUsecase artist.ProfileUsecase,
+	authUsecase auth.AuthUsecase,
+) *ArtistHandler {
+	return &ArtistHandler{
+		profileUsecase: profileUsecase,
+		authUsecase:    authUsecase,
+	}
 }
 
 // Register exposes public artist profiles and authenticated artist profile updates.
@@ -43,17 +49,20 @@ func (h *ArtistHandler) Register(api huma.API) {
 	)
 }
 
+// artistReferenceView represents a referenced artist category or style in the REST response.
 type artistReferenceView struct {
 	ID    uuid.UUID `json:"id"`
 	Label string    `json:"label"`
 }
 
+// artistReviewView represents a customer review displayed on an artist's public profile.
 type artistReviewView struct {
 	Username string `json:"username"`
 	Order    string `json:"order"`
 	Rating   int    `json:"rating" minimum:"1" maximum:"5"`
 }
 
+// artistProfileView represents the public artist profile response, including categories, styles, pricing, and reviews.
 type artistProfileView struct {
 	ArtistID       uuid.UUID             `json:"artist_id"`
 	ArtistName     string                `json:"artist_name"`
@@ -68,41 +77,60 @@ type artistProfileView struct {
 	Total          int                   `json:"total" minimum:"0"`
 }
 
+// GetArtistProfileInput contains the path and query parameters for retrieving an artist profile.
 type GetArtistProfileInput struct {
 	ArtistID uuid.UUID `path:"artist_id"`
 	Limit    int       `query:"limit" minimum:"1" maximum:"100" default:"20" doc:"Maximum number of reviews to return."`
 	Offset   int       `query:"offset" minimum:"0" default:"0" doc:"Number of reviews to skip."`
 }
 
+// GetArtistProfileOutput contains the public artist profile response.
 type GetArtistProfileOutput struct {
 	Body artistProfileView
 }
 
 // getArtistProfile loads a paginated profile and converts it to the public response shape.
-func (h *ArtistHandler) getArtistProfile(ctx context.Context, in *GetArtistProfileInput) (*GetArtistProfileOutput, error) {
-	profile, err := h.profileUsecase.GetProfile(ctx, in.ArtistID, artist.ProfileQuery{Limit: in.Limit, Offset: in.Offset})
+func (h *ArtistHandler) getArtistProfile(
+	ctx context.Context,
+	in *GetArtistProfileInput,
+) (*GetArtistProfileOutput, error) {
+	profile, err := h.profileUsecase.GetProfile(
+		ctx,
+		in.ArtistID,
+		artist.ProfileQuery{
+			Limit:  in.Limit,
+			Offset: in.Offset,
+		})
 	if err != nil {
 		return nil, mapAppError(err)
 	}
-	return &GetArtistProfileOutput{Body: newArtistProfileView(profile)}, nil
+	return &GetArtistProfileOutput{
+		Body: newArtistProfileView(profile),
+	}, nil
 }
 
+// updateMyArtistProfileForm defines the multipart form fields for updating an artist's profile.
 type updateMyArtistProfileForm struct {
 	Description        string        `form:"description" required:"false"`
 	ProfileImage       huma.FormFile `form:"profile_image" contentType:"image/jpeg,image/png,image/webp" required:"false"`
 	RemoveProfileImage bool          `form:"remove_profile_image" required:"false"`
 }
 
+// updateMyArtistProfileInput contains the multipart form data submitted when updating an artist's profile.
 type updateMyArtistProfileInput struct {
 	RawBody huma.MultipartFormFiles[updateMyArtistProfileForm]
 }
 
+// UpdateMyArtistProfileOutput contains the updated artist profile response.
 type UpdateMyArtistProfileOutput struct {
 	Body artistProfileView
 }
 
 // updateMyArtistProfile validates the multipart fields and applies the authenticated artist's profile changes.
-func (h *ArtistHandler) updateMyArtistProfile(ctx context.Context, in *updateMyArtistProfileInput) (*UpdateMyArtistProfileOutput, error) {
+func (h *ArtistHandler) updateMyArtistProfile(
+	ctx context.Context,
+	in *updateMyArtistProfileInput,
+) (*UpdateMyArtistProfileOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
 		return nil, huma.Error401Unauthorized("missing authentication")
@@ -135,11 +163,15 @@ func (h *ArtistHandler) updateMyArtistProfile(ctx context.Context, in *updateMyA
 	if err != nil {
 		return nil, mapAppError(err)
 	}
-	return &UpdateMyArtistProfileOutput{Body: newArtistProfileView(profile)}, nil
+	return &UpdateMyArtistProfileOutput{
+		Body: newArtistProfileView(profile),
+	}, nil
 }
 
 // newArtistProfileView copies the profile and its nested references and reviews into the REST view.
-func newArtistProfileView(profile *artist.Profile) artistProfileView {
+func newArtistProfileView(
+	profile *artist.Profile,
+) artistProfileView {
 	categories := make([]artistReferenceView, len(profile.Categories))
 	for i, category := range profile.Categories {
 		categories[i] = artistReferenceView{ID: category.ID, Label: category.Label}
