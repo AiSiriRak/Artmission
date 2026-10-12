@@ -415,20 +415,26 @@ func (r *orderRepository) ConfirmDeliverable(
 	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
 		return r.exec.Run(ctx, func(idb bun.IDB) error {
 			existing := new(pgmodel.OrderDeliverable)
+			var orderStatus string
 			err := idb.NewSelect().
 				Model(existing).
 				Column("od.id", "od.decision").
+				ColumnExpr("o.status AS order_status").
 				Join("JOIN orders AS o ON o.id = od.order_id").
 				Where("od.id = ?", deliverableID).
 				Where("od.order_id = ?", orderID).
 				Where("o.customer_id = ?", customerID).
-				Scan(ctx)
+				Scan(ctx, &existing.ID, &existing.Decision, &orderStatus)
 
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					return order.ErrOrderNotFound
 				}
 				return err
+			}
+
+			if orderStatus != string(order.StatusInProcess) {
+				return order.ErrInvalidOrderStatus
 			}
 
 			if existing.Decision != string(order.DeliverableDecisionWait) {
@@ -449,10 +455,10 @@ func (r *orderRepository) ConfirmDeliverable(
 				Where("od.order_id = ?", orderID).
 				Where("od.decision = ?", string(order.DeliverableDecisionWait)).
 				Where(`EXISTS (
-				SELECT 1
-				FROM orders AS o
-				WHERE o.id = od.order_id AND o.customer_id = ?
-			)`, customerID).
+						SELECT 1
+						FROM orders AS o
+						WHERE o.id = od.order_id AND o.customer_id = ? AND o.status = ?
+					)`, customerID, string(order.StatusInProcess)).
 				Exec(ctx)
 
 			if err != nil {
@@ -476,6 +482,7 @@ func (r *orderRepository) ConfirmDeliverable(
 					Set("updated_at = NOW()").
 					Where("id = ?", orderID).
 					Where("customer_id = ?", customerID).
+					Where("status = ?", string(order.StatusInProcess)).
 					Exec(ctx)
 
 				if err != nil {

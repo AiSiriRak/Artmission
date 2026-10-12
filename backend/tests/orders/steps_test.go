@@ -128,11 +128,15 @@ func (o *ordersContext) theUserHasAnOrderWithStatus(status string) error {
 }
 
 func (o *ordersContext) theUserHasAnOrderWithPendingDeliverable() error {
+	return o.theUserHasAnOrderWithStatusAndPendingDeliverable("IN_PROCESS")
+}
+
+func (o *ordersContext) theUserHasAnOrderWithStatusAndPendingDeliverable(status string) error {
 	counterpart, err := o.sharedCounterpart()
 	if err != nil {
 		return err
 	}
-	orderID, err := o.seedForAccount(orderSeed{Status: "IN_PROCESS"}, counterpart)
+	orderID, err := o.seedForAccount(orderSeed{Status: status}, counterpart)
 	if err != nil {
 		return err
 	}
@@ -468,7 +472,7 @@ func (o *ordersContext) theUserAttemptsToAcceptTheirLastOrder() error {
 func (o *ordersContext) confirmDeliverable(orderID, deliverableID string) error {
 	resp, err := o.client.Do(
 		http.MethodPut,
-		"/orders/"+orderID+"/deliverable/"+deliverableID,
+		"/orders/"+orderID+"/deliverable/"+deliverableID+"/confirm",
 		map[string]any{"accept": true},
 		map[string]string{"Authorization": "Bearer " + o.accessToken},
 	)
@@ -1223,6 +1227,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the user has an order with a pending deliverable$`, func() error {
 		return o.theUserHasAnOrderWithPendingDeliverable()
+	})
+	sc.Step(`^the user has an order with status "([^"]*)" and a pending deliverable$`, func(status string) error {
+		return o.theUserHasAnOrderWithStatusAndPendingDeliverable(status)
 	})
 	sc.Step(`^the user has another order$`, func() error { return o.theUserHasAnotherOrder() })
 	sc.Step(`^another customer has an order with a pending deliverable$`, func() error {

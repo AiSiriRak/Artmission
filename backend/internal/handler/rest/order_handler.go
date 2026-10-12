@@ -50,7 +50,7 @@ func (h *OrderHandler) Register(api huma.API) {
 			)
 		})
 
-	huma.Put(api, "/orders/{order_id}/deliverable/{deliverable_id}", h.confirmDeliverable,
+	huma.Put(api, "/orders/{order_id}/deliverable/{deliverable_id}/confirm", h.confirmDeliverable,
 		huma.OperationTags("orders"),
 		func(o *huma.Operation) {
 			o.OperationID = "confirm-deliverable"

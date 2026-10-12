@@ -267,7 +267,7 @@ func (u *orderUsecase) ConfirmDeliverable(ctx context.Context, customerID uuid.U
 		return "", apperror.InvalidInput("accepted request comment must be empty", nil)
 	}
 	if !input.Accept && comment == "" {
-		return "", apperror.InvalidInput("rejected request must not be blank", nil)
+		return "", apperror.InvalidInput("rejected request comment must not be blank", nil)
 	}
 
 	var decision DeliverableDecision
@@ -278,7 +278,7 @@ func (u *orderUsecase) ConfirmDeliverable(ctx context.Context, customerID uuid.U
 		decision = DeliverableDecisionRejected
 	}
 
-	if err := u.repo.ConfirmDeliverable(ctx, customerID, input.OrderID, input.DeliverableID, decision, input.Comment); err != nil {
+	if err := u.repo.ConfirmDeliverable(ctx, customerID, input.OrderID, input.DeliverableID, decision, comment); err != nil {
 		return "", err
 	}
 

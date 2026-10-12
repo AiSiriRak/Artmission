@@ -965,7 +965,8 @@ func TestConfirmDeliverable_RejectsDeliverable(t *testing.T) {
 	repo := &fakeRepo{}
 	usecase := newTestOrderUsecase(repo, fakeStorage{})
 	customerID, orderID, deliverableID := uuid.New(), uuid.New(), uuid.New()
-	comment := "Please revise the colors."
+	comment := "  Please revise the colors.  "
+	wantComment := "Please revise the colors."
 
 	got, err := usecase.ConfirmDeliverable(context.Background(), customerID, order.ConfirmDeliverableInput{
 		OrderID:       orderID,
@@ -985,7 +986,7 @@ func TestConfirmDeliverable_RejectsDeliverable(t *testing.T) {
 		repo.confirmDeliverableOrderID != orderID ||
 		repo.confirmDeliverableID != deliverableID ||
 		repo.confirmDeliverableDecision != order.DeliverableDecisionRejected ||
-		repo.confirmDeliverableComment != comment {
+		repo.confirmDeliverableComment != wantComment {
 		t.Errorf(
 			"repository input = customer %s, order %s, deliverable %s, decision %s, comment %q",
 			repo.confirmDeliverableCustomerID,
