@@ -123,7 +123,7 @@ func (h *OrderHandler) Register(api huma.API) {
 		},
 	)
 
-	huma.Put(api, "/orders/{order_id}/delay-requests/{delay_request_id}", h.confirmDelayRequest,
+	huma.Put(api, "/orders/{order_id}/delay-requests/{delay_request_id}/confirm", h.confirmDelayRequest,
 		huma.OperationTags("orders"),
 		func(o *huma.Operation) {
 			o.OperationID = "confirm-delay-request"

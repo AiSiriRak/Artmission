@@ -518,7 +518,7 @@ func (o *ordersContext) confirmPendingDelayRequest(accept, authenticated bool) e
 	}
 	resp, err := o.client.Do(
 		http.MethodPut,
-		"/orders/"+o.lastOrderID+"/delay-requests/"+o.lastDelayRequestID,
+		"/orders/"+o.lastOrderID+"/delay-requests/"+o.lastDelayRequestID+"/confirm",
 		map[string]bool{"accept": accept},
 		headers,
 	)

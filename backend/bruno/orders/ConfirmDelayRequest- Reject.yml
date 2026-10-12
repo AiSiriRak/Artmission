@@ -7,7 +7,7 @@ info:
 
 http:
   method: PUT
-  url: "{{api_url}}/orders/:id/delay-requests/:delay_request_id"
+  url: "{{api_url}}/orders/:id/delay-requests/:delay_request_id/confirm"
   params:
     - name: id
       value: "{{OrderID}}"

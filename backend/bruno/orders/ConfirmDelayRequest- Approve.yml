@@ -7,16 +7,15 @@ info:
 
 http:
   method: PUT
-  url: "{{api_url}}/orders/:id/delay-requests/:delay_request_id"
+  url: "{{api_url}}/orders/:id/delay-requests/:delay_request_id/confirm"
   params:
+    - name: delay_request_id
+      value: ""
+      type: path
     - name: id
       value: "{{OrderID}}"
       type: path
       description: Order ID
-    - name: delay_request_id
-      value: "{{DelayRequestID}}"
-      type: path
-      description: Delay Request ID
   body:
     type: json
     data: |-
