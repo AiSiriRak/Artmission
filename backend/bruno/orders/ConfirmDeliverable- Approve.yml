@@ -1,0 +1,107 @@
+info:
+  name: "ConfirmDeliverable: Approve"
+  type: http
+  seq: 9
+  tags:
+    - orders
+
+http:
+  method: PUT
+  url: "{{api_url}}/orders/:id/deliverables/:deliverables_id/confirm"
+  params:
+    - name: id
+      value: "{{OrderID}}"
+      type: path
+      description: Order ID
+    - name: deliverables_id
+      value: "{{DeliverableID}}"
+      type: path
+      description: Deliverable ID
+  body:
+    type: json
+    data: |-
+      {
+        "accept": true
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: OK
+    request:
+      url: "{{api_url}}/orders/:id/deliverables/:deliverables_id/confirm"
+      method: PUT
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Order ID
+        - name: deliverables_id
+          value: ""
+          type: path
+          description: Deliverable ID
+      body:
+        type: json
+        data: |-
+          {
+            "accept": true
+          }
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "message": "",
+            "status": ""
+          }
+  - name: default Response
+    description: Error
+    request:
+      url: "{{api_url}}/orders/:id/deliverables/:deliverables_id/confirm"
+      method: PUT
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Order ID
+        - name: deliverables_id
+          value: ""
+          type: path
+          description: Deliverable ID
+      body:
+        type: json
+        data: |-
+          {
+            "accept": true
+          }
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: Confirm or reject an order deliverable as the customer.
