@@ -20,7 +20,7 @@ export default function ArtistOrderActions({ status }: ArtistOrderActionsProps) 
     case "IN_PROCESS":
       return (
         <>
-          <Button type="button" className="!border min-w-32">Postpone Order</Button>
+          <Button type="button" variant="transparent" className="min-w-32">Postpone Order</Button>
           <Button type="button" variant="red" className="min-w-32">Cancel Order</Button>
         </>
       );
