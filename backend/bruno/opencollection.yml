@@ -23,16 +23,6 @@ request:
       value: http://localhost:8080
     - name: api_url
       value: "{{base_url}}/api/v1"
-    - name: artist_username
-      value: testartist
-    - name: artist_email
-      value: artist@example.com
-    - name: customer_email
-      value: customer@example.com
-    - name: customer_username
-      value: testcustomer
-    - name: password
-      value: password123
 bundled: false
 extensions:
   bruno:

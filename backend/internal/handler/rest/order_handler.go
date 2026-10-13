@@ -63,6 +63,21 @@ func (h *OrderHandler) Register(api huma.API) {
 			)
 		},
 	)
+
+	huma.Put(api, "/orders/{order_id}/cancel", h.cancelOrder,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "cancel-order"
+			o.Summary = "CancelOrder"
+			o.Description = "Cancel an order as the authenticated user."
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireAnyRole(api, user.RoleCustomer, user.RoleArtist),
+			)
+		},
+	)
+
 	huma.Post(api, "/orders", h.createOrder,
 		huma.OperationTags("orders"),
 		func(o *huma.Operation) {
@@ -74,6 +89,21 @@ func (h *OrderHandler) Register(api huma.API) {
 				o.Middlewares,
 				requireAuth(api, h.authUsecase),
 				requireRole(api, user.RoleCustomer),
+			)
+		},
+	)
+
+	huma.Post(api, "/orders/{order_id}/deliverables", h.createDeliverable,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "create-order-deliverable"
+			o.Summary = "CreateOrderDeliverable"
+			o.Description = "Create a new deliverable version of a specific order by the authenticated owner artist."
+			o.DefaultStatus = http.StatusCreated
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireRole(api, user.RoleArtist),
 			)
 		},
 	)
@@ -133,6 +163,19 @@ type ConfirmOrderOutput struct {
 		Message string `json:"message"`
 		Status  string `json:"status"`
 	}
+}
+
+type createOrderDeliverableForm struct {
+	DeliverableImage huma.FormFile `form:"deliverable_image" contentType:"image/jpeg,image/png,image/webp" required:"true"`
+}
+
+type CreateOrderDeliverableInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+	RawBody huma.MultipartFormFiles[createOrderDeliverableForm]
+}
+
+type CreateOrderDeliverableOutput struct {
+	Body deliverableView
 }
 
 // orderPartyView represents the participant on the opposite side of the
@@ -411,6 +454,46 @@ func (h *OrderHandler) confirmOrder(
 	return out, nil
 }
 
+type CancelOrderInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+}
+
+type CancelOrderOutput struct {
+	Body struct {
+		Message string `json:"message"`
+		Status  string `json:"status"`
+	}
+}
+
+// cancelOrder cancel an order if the user is authenticated
+func (h *OrderHandler) cancelOrder(
+	ctx context.Context,
+	input *CancelOrderInput,
+) (*CancelOrderOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	participant := participantForRole(info.Role)
+
+	err := h.orderUsecase.CancelOrder(
+		ctx,
+		participant,
+		info.UserID,
+		input.OrderID,
+	)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	out := &CancelOrderOutput{}
+	out.Body.Message = "Order cancelled successfully"
+	out.Body.Status = string(order.StatusCancel)
+
+	return out, nil
+}
+
 // createOrder creates an order for the authenticated customer and returns its summary.
 func (h *OrderHandler) createOrder(ctx context.Context, input *CreateOrderInput) (*CreateOrderOutput, error) {
 	info, ok := authInfoFromContext(ctx)
@@ -432,4 +515,38 @@ func (h *OrderHandler) createOrder(ctx context.Context, input *CreateOrderInput)
 
 	return &CreateOrderOutput{Body: toOrderSummaryView(createdOrder)}, nil
 
+}
+
+func (h *OrderHandler) createDeliverable(
+	ctx context.Context,
+	input *CreateOrderDeliverableInput,
+) (*CreateOrderDeliverableOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	req := order.CreateDeliverableInput{
+		OrderID:          input.OrderID,
+		DeliverableImage: input.RawBody.Data().DeliverableImage.File,
+	}
+
+	createdOrderDeliverable, err := h.orderUsecase.CreateDeliverable(ctx, info.UserID, req)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	return &CreateOrderDeliverableOutput{Body: toDeliverableView(createdOrderDeliverable)}, nil
+}
+
+func toDeliverableView(deliverable *order.Deliverable) deliverableView {
+	return deliverableView{
+		ID:              deliverable.ID.String(),
+		Version:         deliverable.Version,
+		Decision:        deliverable.Decision,
+		Comment:         deliverable.Comment,
+		PreviewImageURL: deliverable.PreviewImageURL,
+		CreatedAt:       deliverable.CreatedAt,
+		UpdatedAt:       deliverable.UpdatedAt,
+	}
 }
