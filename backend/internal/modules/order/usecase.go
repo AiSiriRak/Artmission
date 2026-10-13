@@ -242,6 +242,10 @@ func (u *orderUsecase) CreateOrder(
 		return nil, err
 	}
 
+	// TODO(notify): Notify the artist that a new order has been created.
+	// The order status is PENDING and requires the artist's confirmation.
+	// Status: PENDING
+
 	return order, nil
 }
 
@@ -321,6 +325,10 @@ func (u *orderUsecase) ConfirmOrder(
 		return "", err
 	}
 
+	// TODO: Notify the customer that the order was accepted or rejected.
+	// Call the notification usecase/service here.
+	// Status: NOT_PAID or CANCEL
+
 	return status, nil
 }
 
@@ -369,16 +377,35 @@ func (u *orderUsecase) CancelOrder(
 		return nil, err
 	}
 
+	// TODO(notify): Notify the other participant that the order was cancelled.
+	// Include the cancellation reason and explanation in the notification.
+	// Status: CANCEL
+
 	return item, nil
 }
 
 // CancelExpiredOrders cancels orders whose artist-confirmation window
 // or order deadline has expired, and returns the IDs of the cancelled orders.
+//
+// TODO(notify): Notify the relevant participants for each order cancelled
+// by the expiration process.
 func (u *orderUsecase) CancelExpiredOrders(
 	ctx context.Context,
 ) ([]uuid.UUID, error) {
 	now := time.Now()
-	return u.repo.CancelExpired(ctx, now.Add(-PendingConfirmationTTL), now)
+	cancelledOrderIDs, err := u.repo.CancelExpired(
+		ctx,
+		now.Add(-PendingConfirmationTTL),
+		now,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO(notify): Notify the relevant participants for each cancelled order.
+	// Status: CANCEL
+
+	return cancelledOrderIDs, nil
 }
 
 // CreateDeliverable creates a new deliverable version for an order owned
@@ -481,6 +508,10 @@ func (u *orderUsecase) CreateDeliverable(
 	}
 
 	created.PreviewImageURL = previewURL
+
+	// TODO(notify): Notify the customer that a new deliverable is available.
+	// Include the order ID and deliverable details in the notification.
+
 	return created, nil
 }
 
@@ -798,6 +829,10 @@ func (u *orderUsecase) ConfirmDeliverable(
 		return "", err
 	}
 
+	// TODO(notify): Notify the artist about the customer's deliverable decision.
+	// If approved, notify that the order status has changed to SUCCESS.
+	// If rejected, notify that the customer requests another draft.
+
 	return decision, nil
 }
 
@@ -816,6 +851,11 @@ func (u *orderUsecase) AutoApproveExpiredDeliverables(
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO(notify): Notify the artist and customer about auto-approved deliverables.
+	// The deliverable review window has expired, so the deliverable is approved
+	// automatically and the order status changed to SUCCESS.
+	// Use the returned deliverable IDs to identify the affected deliverables.
 
 	return ids, nil
 }
@@ -866,6 +906,8 @@ func (u *orderUsecase) CreateDelayRequest(
 		return nil, err
 	}
 
+	// TODO(notify): Notify the customer that the artist has requested a deadline extension.
+
 	return created, nil
 }
 
@@ -908,6 +950,11 @@ func (u *orderUsecase) ConfirmDelayRequest(
 		return nil, err
 	}
 
+	// TODO(notify): Notify the artist about the customer's deadline-extension decision.
+	// If approved, notify that the deadline extension was accepted and include the updated deadline.
+	// If rejected, notify that the deadline extension was rejected.
+	// Include the order ID and delay request ID in the notification.
+
 	return &ConfirmDelayRequestOutput{
 		CustomerDecision: decision,
 		DeadlineAt:       deadlineAt,
@@ -929,6 +976,11 @@ func (u *orderUsecase) CancelExpiredDelayRequest(
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO(notify): Notify the artist and customer about expired delay requests.
+	// The customer did not respond within the allowed time window,
+	// so the delay request was automatically rejected.
+	// Use the returned delay request IDs to identify the affected requests.
 
 	return ids, nil
 }
