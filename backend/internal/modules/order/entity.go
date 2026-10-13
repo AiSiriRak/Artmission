@@ -279,12 +279,6 @@ func (p CancelReason) IsValid(role Participant) bool {
 		}
 	}
 
-	switch p {
-	case CancelReasonArtistDidNotConfirmInTime,
-		CancelReasonNotSubmittedWithinDeadline:
-		return true
-	}
-
 	return false
 }
 

@@ -750,31 +750,13 @@ func toOrderDetailView(
 
 	deliverables := make([]deliverableView, len(o.Deliverables))
 	for i, deliverable := range o.Deliverables {
-		deliverables[i] = deliverableView{
-			ID:              deliverable.ID.String(),
-			Version:         deliverable.Version,
-			Decision:        deliverable.Decision,
-			Comment:         deliverable.Comment,
-			PreviewImageURL: deliverable.PreviewImageURL,
-			CreatedAt:       deliverable.CreatedAt,
-			UpdatedAt:       deliverable.UpdatedAt,
-		}
+		deliverables[i] = toDeliverableView(&deliverable)
 	}
 
 	var activeDelayRequest *delayRequestView
 
-	if req := o.ActiveDelayRequest; req != nil {
-		activeDelayRequest = &delayRequestView{
-			ID:                 req.ID.String(),
-			OrderID:            req.OrderID.String(),
-			OriginalDeadlineAt: req.OriginalDeadlineAt,
-			DeadlineRequestAt:  req.DeadlineRequestAt,
-			Reason:             req.Reason,
-			Explanation:        req.Explanation,
-			CustomerDecision:   req.CustomerDecision,
-			CreatedAt:          req.CreatedAt,
-			UpdatedAt:          req.UpdatedAt,
-		}
+	if o.ActiveDelayRequest != nil {
+		activeDelayRequest = new(toDelayRequestView(o.ActiveDelayRequest))
 	}
 
 	return orderDetailView{
