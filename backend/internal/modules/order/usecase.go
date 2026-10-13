@@ -36,8 +36,8 @@ type orderUsecase struct {
 	artistGetter ArtistGetter
 }
 
-// NewOrderUsecase creates the order use case with its repository,
-// storage, and artist lookup dependencies.
+// NewOrderUsecase creates an order use case with its repository,
+// object storage, and artist lookup dependencies.
 func NewOrderUsecase(
 	repo OrderRepository,
 	storage ObjectStorage,
@@ -53,8 +53,12 @@ func NewOrderUsecase(
 
 const orderDeliverableTTL = 15 * time.Minute
 
-// ViewOrders validates the query, retrieves its page, and resolves preview keys to URLs.
-func (u *orderUsecase) ViewOrders(ctx context.Context, query ListQuery) (Page, error) {
+// ViewOrders validates the query, retrieves a page of orders,
+// and resolves available deliverable preview keys into presigned URLs.
+func (u *orderUsecase) ViewOrders(
+	ctx context.Context,
+	query ListQuery,
+) (Page, error) {
 	normalized, err := normalizeListQuery(query)
 	if err != nil {
 		return Page{}, err
@@ -80,7 +84,8 @@ func (u *orderUsecase) ViewOrders(ctx context.Context, query ListQuery) (Page, e
 	return page, nil
 }
 
-// normalizeListQuery validates query and defaults every optional field.
+// normalizeListQuery validates the participant scope, filters, sorting,
+// and pagination parameters, applying defaults to optional fields.
 func normalizeListQuery(q ListQuery) (ListQuery, error) {
 	if !q.Participant.IsValid() {
 		return ListQuery{}, ErrUnsupportedParticipantRole
@@ -147,9 +152,9 @@ func normalizeStatuses(in []Status) ([]Status, error) {
 	return out, nil
 }
 
-// GetOrder returns an order detail if the authenticated user is a participant
-// in the order. The other party is selected based on the authenticated
-// participant's role.
+// GetOrder returns the details of an order accessible to the specified
+// participant, including the other party, deliverables, and active delay
+// request. It also resolves deliverable preview keys into presigned URLs.
 func (u *orderUsecase) GetOrder(
 	ctx context.Context,
 	participant Participant,
@@ -216,6 +221,76 @@ func (u *orderUsecase) GetOrder(
 	return detail, nil
 }
 
+// CreateOrder validates the input, initializes a new PENDING order,
+// and persists it through the repository.
+func (u *orderUsecase) CreateOrder(
+	ctx context.Context,
+	customerID uuid.UUID,
+	input CreateInput,
+) (*Order, error) {
+	if input.ArtworkID == uuid.Nil {
+		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
+	}
+
+	order, err := normalizeOrder(uuid.New(), customerID, input)
+	if err != nil {
+		return nil, err
+	}
+
+	err = u.repo.Create(ctx, order)
+	if err != nil {
+		return nil, err
+	}
+
+	return order, nil
+}
+
+// normalizeOrder validates customer-provided fields and initializes
+// a new PENDING order with its ID and timestamps.
+func normalizeOrder(
+	id uuid.UUID,
+	customerID uuid.UUID,
+	input CreateInput,
+) (*Order, error) {
+	if customerID == uuid.Nil {
+		return nil, apperror.InvalidInput("customer id must not be empty", nil)
+	}
+	name, err := requiredText("name", input.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	description, err := requiredText("customer description", input.CustomerDescription)
+	if err != nil {
+		return nil, err
+	}
+	if input.DeadlineAt.IsZero() {
+		return nil, apperror.InvalidInput("deadline must not be empty", nil)
+	}
+
+	now := time.Now()
+	return &Order{
+		ID:                  id,
+		CustomerID:          customerID,
+		ArtworkID:           &input.ArtworkID,
+		Name:                name,
+		CustomerDescription: description,
+		DeadlineAt:          input.DeadlineAt,
+		Status:              StatusPending,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}, nil
+}
+
+// requiredText trims surrounding whitespace and rejects values that become empty.
+func requiredText(field string, value string) (string, error) {
+	normalized := strings.TrimSpace(value)
+	if normalized == "" {
+		return "", apperror.InvalidInput(field+" must not be blank", nil)
+	}
+	return normalized, nil
+}
+
 // ConfirmOrder accepts or rejects an order on behalf of its artist.
 // The order must belong to the artist and currently be PENDING.
 // Accept = true transitions the order's status to NOT_PAID.
@@ -249,45 +324,14 @@ func (u *orderUsecase) ConfirmOrder(
 	return status, nil
 }
 
-func (u *orderUsecase) ConfirmDeliverable(ctx context.Context, customerID uuid.UUID, input ConfirmDeliverableInput) (DeliverableDecision, error) {
-	if customerID == uuid.Nil {
-		return "", ErrMissingParticipantID
-	}
-
-	if input.OrderID == uuid.Nil {
-		return "", ErrMissingOrderID
-	}
-
-	if input.DeliverableID == uuid.Nil {
-		return "", ErrMissingDeliverableID
-	}
-
-	comment := strings.TrimSpace(input.Comment)
-
-	if input.Accept && comment != "" {
-		return "", apperror.InvalidInput("accepted request comment must be empty", nil)
-	}
-	if !input.Accept && comment == "" {
-		return "", apperror.InvalidInput("rejected request comment must not be blank", nil)
-	}
-
-	var decision DeliverableDecision
-	switch input.Accept {
-	case true:
-		decision = DeliverableDecisionApproved
-	case false:
-		decision = DeliverableDecisionRejected
-	}
-
-	if err := u.repo.ConfirmDeliverable(ctx, customerID, input.OrderID, input.DeliverableID, decision, comment); err != nil {
-		return "", err
-	}
-
-	return decision, nil
-}
-
-// CancelOrder cancels an order for the specified participant.
-func (u *orderUsecase) CancelOrder(ctx context.Context, participant Participant, participantID uuid.UUID, input CancelInput) (*OrderCancellation, error) {
+// CancelOrder validates the cancellation input and records the cancellation
+// for the specified participant.
+func (u *orderUsecase) CancelOrder(
+	ctx context.Context,
+	participant Participant,
+	participantID uuid.UUID,
+	input CancelInput,
+) (*OrderCancellation, error) {
 	if !participant.IsValid() {
 		return nil, ErrUnsupportedParticipantRole
 	}
@@ -328,70 +372,13 @@ func (u *orderUsecase) CancelOrder(ctx context.Context, participant Participant,
 	return item, nil
 }
 
-// CancelExpiredOrders cancels orders whose confirmation window or deadline has passed.
-func (u *orderUsecase) CancelExpiredOrders(ctx context.Context) ([]uuid.UUID, error) {
+// CancelExpiredOrders cancels orders whose artist-confirmation window
+// or order deadline has expired, and returns the IDs of the cancelled orders.
+func (u *orderUsecase) CancelExpiredOrders(
+	ctx context.Context,
+) ([]uuid.UUID, error) {
 	now := time.Now()
 	return u.repo.CancelExpired(ctx, now.Add(-PendingConfirmationTTL), now)
-}
-
-// CreateOrder validates the artwork reference, builds a pending order, and persists it.
-func (u *orderUsecase) CreateOrder(ctx context.Context, customerID uuid.UUID, input CreateInput) (*Order, error) {
-	if input.ArtworkID == uuid.Nil {
-		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
-	}
-
-	order, err := normalizeOrder(uuid.New(), customerID, input)
-	if err != nil {
-		return nil, err
-	}
-
-	err = u.repo.Create(ctx, order)
-	if err != nil {
-		return nil, err
-	}
-
-	return order, nil
-}
-
-// normalizeOrder validates customer-provided fields and builds a timestamped pending order.
-func normalizeOrder(id uuid.UUID, customerID uuid.UUID, input CreateInput) (*Order, error) {
-	if customerID == uuid.Nil {
-		return nil, apperror.InvalidInput("customer id must not be empty", nil)
-	}
-	name, err := requiredText("name", input.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	description, err := requiredText("customer description", input.CustomerDescription)
-	if err != nil {
-		return nil, err
-	}
-	if input.DeadlineAt.IsZero() {
-		return nil, apperror.InvalidInput("deadline must not be empty", nil)
-	}
-
-	now := time.Now()
-	return &Order{
-		ID:                  id,
-		CustomerID:          customerID,
-		ArtworkID:           &input.ArtworkID,
-		Name:                name,
-		CustomerDescription: description,
-		DeadlineAt:          input.DeadlineAt,
-		Status:              StatusPending,
-		CreatedAt:           now,
-		UpdatedAt:           now,
-	}, nil
-}
-
-// requiredText trims surrounding whitespace and rejects values that become empty.
-func requiredText(field, value string) (string, error) {
-	normalized := strings.TrimSpace(value)
-	if normalized == "" {
-		return "", apperror.InvalidInput(field+" must not be blank", nil)
-	}
-	return normalized, nil
 }
 
 // CreateDeliverable creates a new deliverable version for an order owned
@@ -747,6 +734,9 @@ func createDeliverablePreview(
 	return output.Bytes(), nil
 }
 
+// ValidateOrderForDeliverable verifies that the specified artist can create
+// a deliverable for the given order. It rejects missing IDs before delegating
+// order ownership and status validation to the repository.
 func (u *orderUsecase) ValidateOrderForDeliverable(
 	ctx context.Context,
 	artistID uuid.UUID,
@@ -767,8 +757,70 @@ func (u *orderUsecase) ValidateOrderForDeliverable(
 	)
 }
 
-// CreateDelayRequest creates a deadline-extension request for an order owned
-// by the authenticated artist. It validates the input, initializes the
+// ConfirmDeliverable accepts or rejects a deliverable on behalf of the customer
+// who owns the order. It validates the decision and comment before persisting
+// the customer's response.
+func (u *orderUsecase) ConfirmDeliverable(
+	ctx context.Context,
+	customerID uuid.UUID,
+	input ConfirmDeliverableInput,
+) (DeliverableDecision, error) {
+	if customerID == uuid.Nil {
+		return "", ErrMissingParticipantID
+	}
+
+	if input.OrderID == uuid.Nil {
+		return "", ErrMissingOrderID
+	}
+
+	if input.DeliverableID == uuid.Nil {
+		return "", ErrMissingDeliverableID
+	}
+
+	comment := strings.TrimSpace(input.Comment)
+
+	if input.Accept && comment != "" {
+		return "", apperror.InvalidInput("accepted request comment must be empty", nil)
+	}
+	if !input.Accept && comment == "" {
+		return "", apperror.InvalidInput("rejected request comment must not be blank", nil)
+	}
+
+	var decision DeliverableDecision
+	switch input.Accept {
+	case true:
+		decision = DeliverableDecisionApproved
+	case false:
+		decision = DeliverableDecisionRejected
+	}
+
+	if err := u.repo.ConfirmDeliverable(ctx, customerID, input.OrderID, input.DeliverableID, decision, comment); err != nil {
+		return "", err
+	}
+
+	return decision, nil
+}
+
+// AutoApproveExpiredDeliverables approves deliverables whose customer review
+// window has elapsed and returns the IDs of the approved deliverables.
+func (u *orderUsecase) AutoApproveExpiredDeliverables(
+	ctx context.Context,
+) ([]uuid.UUID, error) {
+	now := time.Now()
+
+	ids, err := u.repo.AutoApproveExpiredDeliverables(
+		ctx,
+		now.Add(-DeliverableDecisionTTL),
+		now,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return ids, nil
+}
+
+// CreateDelayRequest validates the input, initializes a deadline-extension
 // request with a WAIT decision, and persists it through the repository.
 func (u *orderUsecase) CreateDelayRequest(
 	ctx context.Context,
@@ -817,8 +869,8 @@ func (u *orderUsecase) CreateDelayRequest(
 	return created, nil
 }
 
-// ConfirmDelayRequest confirms or rejects a delay request on behalf of the customer
-// and returns the decision and the order's deadline after processing.
+// ConfirmDelayRequest records the customer's decision on a deadline-extension
+// request and returns the decision and updated order deadline.
 func (u *orderUsecase) ConfirmDelayRequest(
 	ctx context.Context,
 	customerID uuid.UUID,
@@ -862,7 +914,8 @@ func (u *orderUsecase) ConfirmDelayRequest(
 	}, nil
 }
 
-// CancelExpiredDelayRequest rejects delay requests whose customer response window has elapsed.
+// CancelExpiredDelayRequest rejects delay requests whose customer response
+// window has elapsed and returns the IDs of the affected requests.
 func (u *orderUsecase) CancelExpiredDelayRequest(
 	ctx context.Context,
 ) ([]uuid.UUID, error) {
@@ -871,24 +924,6 @@ func (u *orderUsecase) CancelExpiredDelayRequest(
 	ids, err := u.repo.CancelExpiredRequest(
 		ctx,
 		now.Add(-DelayRequestTTL),
-		now,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return ids, nil
-}
-
-// AutoApproveExpiredDeliverables approves deliverables whose customer review window has elapsed.
-func (u *orderUsecase) AutoApproveExpiredDeliverables(
-	ctx context.Context,
-) ([]uuid.UUID, error) {
-	now := time.Now()
-
-	ids, err := u.repo.AutoApproveExpiredDeliverables(
-		ctx,
-		now.Add(-DeliverableDecisionTTL),
 		now,
 	)
 	if err != nil {

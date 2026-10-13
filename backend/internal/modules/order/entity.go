@@ -22,7 +22,11 @@ const (
 // IsValid reports whether s is a supported order status.
 func (s Status) IsValid() bool {
 	switch s {
-	case StatusPending, StatusNotPaid, StatusInProcess, StatusSuccess, StatusCancel:
+	case StatusPending,
+		StatusNotPaid,
+		StatusInProcess,
+		StatusSuccess,
+		StatusCancel:
 		return true
 	default:
 		return false
@@ -45,6 +49,33 @@ const (
 // CANCEL once the order's deadline has passed.
 func AutoCancellableStatuses() []Status {
 	return []Status{StatusPending, StatusNotPaid, StatusInProcess}
+}
+
+// Order represents a commission order and its current lifecycle state.
+// It also contains the latest deliverable preview information when populated
+// by the repository and usecase.
+type Order struct {
+	ID                  uuid.UUID
+	CustomerID          uuid.UUID
+	ArtistID            uuid.UUID
+	ArtworkID           *uuid.UUID
+	ArtworkSnapshot     ArtworkSnapshot
+	Name                string
+	PriceSatangOrder    int64
+	CustomerDescription string
+	DeadlineAt          time.Time
+	Status              Status
+	// DeliverablePreviewKey is the private-bucket object key of the most
+	// recently submitted deliverable version, regardless of order status;
+	// nil if the artist hasn't submitted one yet. Populated by
+	// OrderRepository.ListOrders.
+	DeliverablePreviewKey *string
+	// DeliverablePreviewURL is DeliverablePreviewKey resolved to a
+	// short-lived presigned GET URL by ViewOrders.
+	DeliverablePreviewURL *string
+	CompletedAt           *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 // ArtworkSnapshot contains the artwork information captured when the order
@@ -76,6 +107,27 @@ func (d DeliverableDecision) IsValid() bool {
 		return false
 	}
 }
+
+// Deliverable represents a version of an order's submitted artwork.
+type Deliverable struct {
+	ID               uuid.UUID
+	Version          int
+	Decision         DeliverableDecision
+	Comment          *string
+	OriginalImageKey string
+	PreviewImageKey  string
+	PreviewImageURL  string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+// Deliverable limits and image-processing settings.
+const (
+	MaxDeliverableVersions    = 3
+	MaxDeliverableImageSize   = 20 * 1024 * 1024
+	deliverablePreviewSize    = 1800
+	deliverablePreviewQuality = 88
+)
 
 // DelayRequestReason represents the reason for requesting a deadline extension.
 type DelayRequestReason string
@@ -125,6 +177,19 @@ func (dd DelayRequestDecision) IsValid() bool {
 	}
 }
 
+// OrderDelayRequest represents an artist's request to extend an order deadline.
+type OrderDelayRequest struct {
+	ID                 uuid.UUID
+	OrderID            uuid.UUID
+	OriginalDeadlineAt time.Time
+	DeadlineRequestAt  time.Time
+	Reason             DelayRequestReason
+	Explanation        string
+	CustomerDecision   DelayRequestDecision
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
 // Participant is the caller's relationship to an order. It is derived
 // from the authenticated user's role and is used to scope order access.
 // It is never accepted as a request field.
@@ -145,25 +210,36 @@ func (p Participant) IsValid() bool {
 	}
 }
 
+// OrderParty contains the public information of the other participant
+// in an order. ArtistReviewScore is populated when the other participant
+// is an artist and is nil when the other participant is a customer.
+type OrderParty struct {
+	ID                uuid.UUID
+	Name              string
+	Email             string
+	ArtistReviewScore *float64
+}
+
+// CancelReason represents the reason an order is cancelled.
 type CancelReason string
 
 const (
-	// For System
+	// System cancellation reasons.
 	CancelReasonArtistDidNotConfirmInTime  CancelReason = "ARTIST_DID_NOT_CONFIRM_IN_TIME"
 	CancelReasonNotSubmittedWithinDeadline CancelReason = "NOT_SUBMITTED_WITHIN_DEADLINE"
 
-	// For both Customer and Artist
+	// Cancellation reasons available to both customers and artists.
 	CancelReasonMutualAgreement CancelReason = "MUTUAL_AGREEMENT"
 	CancelReasonOther           CancelReason = "OTHER"
 
-	// For Artist
+	// Cancellation reasons available to artists.
 	CancelReasonUnableToComplete            CancelReason = "UNABLE_TO_COMPLETE"
 	CancelReasonUnableToMeetDeadline        CancelReason = "UNABLE_TO_MEET_DEADLINE"
 	CancelReasonCustomerChangedRequirements CancelReason = "CUSTOMER_CHANGED_REQUIREMENTS"
 	CancelReasonCustomerUnresponsive        CancelReason = "CUSTOMER_UNRESPONSIVE"
 	CancelReasonPersonalOrTechnicalIssue    CancelReason = "PERSONAL_OR_TECHNICAL_ISSUE"
 
-	// For Customer
+	// Cancellation reasons available to customers.
 	CancelReasonPlacedOrderByMistake              CancelReason = "PLACED_ORDER_BY_MISTAKE"
 	CancelReasonNoLongerNeeded                    CancelReason = "NO_LONGER_NEEDED"
 	CancelReasonArtistUnableToMeetNewRequirements CancelReason = "ARTIST_UNABLE_TO_MEET_NEW_REQUIREMENTS"
@@ -171,21 +247,31 @@ const (
 	CancelReasonTakingTooLong                     CancelReason = "TAKING_TOO_LONG"
 )
 
+// IsValid reports whether p is a supported cancellation reason for the given participant.
 func (p CancelReason) IsValid(role Participant) bool {
 	if role == ParticipantCustomer {
 		switch p {
 		case CancelReasonMutualAgreement,
-			CancelReasonPlacedOrderByMistake, CancelReasonNoLongerNeeded, CancelReasonArtistUnableToMeetNewRequirements, CancelReasonArtistUnresponsive, CancelReasonTakingTooLong,
+			CancelReasonPlacedOrderByMistake,
+			CancelReasonNoLongerNeeded,
+			CancelReasonArtistUnableToMeetNewRequirements,
+			CancelReasonArtistUnresponsive,
+			CancelReasonTakingTooLong,
 			CancelReasonOther:
 			return true
 		default:
 			return false
 		}
 	}
+
 	if role == ParticipantArtist {
 		switch p {
 		case CancelReasonMutualAgreement,
-			CancelReasonUnableToComplete, CancelReasonUnableToMeetDeadline, CancelReasonCustomerChangedRequirements, CancelReasonCustomerUnresponsive, CancelReasonPersonalOrTechnicalIssue,
+			CancelReasonUnableToComplete,
+			CancelReasonUnableToMeetDeadline,
+			CancelReasonCustomerChangedRequirements,
+			CancelReasonCustomerUnresponsive,
+			CancelReasonPersonalOrTechnicalIssue,
 			CancelReasonOther:
 			return true
 		default:
@@ -194,11 +280,28 @@ func (p CancelReason) IsValid(role Participant) bool {
 	}
 
 	switch p {
-	case CancelReasonArtistDidNotConfirmInTime, CancelReasonNotSubmittedWithinDeadline:
+	case CancelReasonArtistDidNotConfirmInTime,
+		CancelReasonNotSubmittedWithinDeadline:
 		return true
 	}
 
 	return false
+}
+
+// OrderCancellation records the reason and details of an order cancellation.
+type OrderCancellation struct {
+	ID          uuid.UUID
+	OrderID     uuid.UUID
+	Reason      string
+	Explanation string
+	CreatedAt   time.Time
+}
+
+// CancelInput contains the order ID and the reason and explanation for cancellation.
+type CancelInput struct {
+	OrderID     uuid.UUID
+	Reason      CancelReason
+	Explanation string
 }
 
 // SortField is a ViewOrders-selectable sort key.
@@ -213,7 +316,9 @@ const (
 // IsValid reports whether f is a supported ViewOrders sort field.
 func (f SortField) IsValid() bool {
 	switch f {
-	case SortFieldDeadline, SortFieldPrice, SortFieldUpdatedAt:
+	case SortFieldDeadline,
+		SortFieldPrice,
+		SortFieldUpdatedAt:
 		return true
 	default:
 		return false
@@ -247,68 +352,7 @@ const (
 	MaxLimit     = 100
 )
 
-// Order represents a commission order and its current lifecycle state.
-// It also contains the latest deliverable preview information when populated
-// by the repository and usecase.
-type Order struct {
-	ID                  uuid.UUID
-	CustomerID          uuid.UUID
-	ArtistID            uuid.UUID
-	ArtworkID           *uuid.UUID
-	ArtworkSnapshot     ArtworkSnapshot
-	Name                string
-	PriceSatangOrder    int64
-	CustomerDescription string
-	DeadlineAt          time.Time
-	Status              Status
-	// DeliverablePreviewKey is the private-bucket object key of the most
-	// recently submitted deliverable version, regardless of order status;
-	// nil if the artist hasn't submitted one yet. Populated by
-	// OrderRepository.ListOrders.
-	DeliverablePreviewKey *string
-	// DeliverablePreviewURL is DeliverablePreviewKey resolved to a
-	// short-lived presigned GET URL by ViewOrders.
-	DeliverablePreviewURL *string
-	CompletedAt           *time.Time
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
-}
-
-// Deliverable represents a version of an order's submitted artwork.
-type Deliverable struct {
-	ID               uuid.UUID
-	Version          int
-	Decision         DeliverableDecision
-	Comment          *string
-	OriginalImageKey string
-	PreviewImageKey  string
-	PreviewImageURL  string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-}
-
-// OrderDelayRequest represents an artist's request to extend an order deadline.
-type OrderDelayRequest struct {
-	ID                 uuid.UUID
-	OrderID            uuid.UUID
-	OriginalDeadlineAt time.Time
-	DeadlineRequestAt  time.Time
-	Reason             DelayRequestReason
-	Explanation        string
-	CustomerDecision   DelayRequestDecision
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
-}
-
-type OrderCancellation struct {
-	ID          uuid.UUID
-	OrderID     uuid.UUID
-	Reason      string
-	Explanation string
-	CreatedAt   time.Time
-}
-
-// ListQuery is ViewOrders input
+// ListQuery contains the filters, sorting options, and pagination parameters for listing orders.
 //
 // Participant and ParticipantID are always derived from the authenticated
 // caller, never accepted as a request field, so the participant scope
@@ -328,16 +372,6 @@ type ListQuery struct {
 type Page struct {
 	Orders []Order
 	Total  int
-}
-
-// OrderParty contains the public information of the other participant
-// in an order. ArtistReviewScore is populated when the other participant
-// is an artist and is nil when the other participant is a customer.
-type OrderParty struct {
-	ID                uuid.UUID
-	Name              string
-	Email             string
-	ArtistReviewScore *float64
 }
 
 // OrderDetailData contains all data required to build an OrderDetail.
@@ -365,17 +399,17 @@ type OrderDetail struct {
 	ActiveDelayRequest *OrderDelayRequest
 }
 
-// ConfirmOrderInput represents an artist's decision to accept or reject an order.
-type ConfirmOrderInput struct {
-	Accept bool
-}
-
 // CreateInput contains the customer-provided information required to create an order.
 type CreateInput struct {
 	Name                string
 	ArtworkID           uuid.UUID
 	CustomerDescription string
 	DeadlineAt          time.Time
+}
+
+// ConfirmOrderInput represents an artist's decision to accept or reject an order.
+type ConfirmOrderInput struct {
+	Accept bool
 }
 
 // CreateDeliverableInput represents the input for CreateDeliverable,
@@ -385,13 +419,13 @@ type CreateDeliverableInput struct {
 	DeliverableImage io.Reader
 }
 
-// Deliverable limits and image-processing settings.
-const (
-	MaxDeliverableVersions    = 3
-	MaxDeliverableImageSize   = 20 * 1024 * 1024
-	deliverablePreviewSize    = 1800
-	deliverablePreviewQuality = 88
-)
+// ConfirmDeliverableInput contains the customer's decision on a submitted deliverable.
+type ConfirmDeliverableInput struct {
+	OrderID       uuid.UUID
+	DeliverableID uuid.UUID
+	Accept        bool
+	Comment       string
+}
 
 // CreateDelayRequestInput contains the information an artist submits
 // to request an extension of an order's deadline.
@@ -413,18 +447,4 @@ type ConfirmDelayRequestInput struct {
 type ConfirmDelayRequestOutput struct {
 	CustomerDecision DelayRequestDecision
 	DeadlineAt       time.Time
-}
-
-type ConfirmDeliverableInput struct {
-	OrderID       uuid.UUID
-	DeliverableID uuid.UUID
-	Accept        bool
-	Comment       string
-}
-
-// CancelInput contains the information an orderID, reason, explanation of cancellation
-type CancelInput struct {
-	OrderID     uuid.UUID
-	Reason      CancelReason
-	Explanation string
 }
