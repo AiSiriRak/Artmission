@@ -18,12 +18,22 @@ type profileUsecase struct {
 }
 
 // NewProfileUsecase combines profile persistence with public image URL and upload handling.
-func NewProfileUsecase(repo ProfileRepository, storage ObjectStorage) ProfileUsecase {
-	return &profileUsecase{repo: repo, storage: storage}
+func NewProfileUsecase(
+	repo ProfileRepository,
+	storage ObjectStorage,
+) ProfileUsecase {
+	return &profileUsecase{
+		repo:    repo,
+		storage: storage,
+	}
 }
 
 // CreateProfile stores a new artist profile with a trimmed optional description and timestamps.
-func (u *profileUsecase) CreateProfile(ctx context.Context, userID uuid.UUID, description *string) error {
+func (u *profileUsecase) CreateProfile(
+	ctx context.Context,
+	userID uuid.UUID,
+	description *string,
+) error {
 	now := time.Now()
 	return u.repo.Create(ctx, &Profile{
 		UserID:      userID,
@@ -34,7 +44,11 @@ func (u *profileUsecase) CreateProfile(ctx context.Context, userID uuid.UUID, de
 }
 
 // GetProfile validates pagination, loads a profile, and adds its public image URL.
-func (u *profileUsecase) GetProfile(ctx context.Context, userID uuid.UUID, query ProfileQuery) (*Profile, error) {
+func (u *profileUsecase) GetProfile(
+	ctx context.Context,
+	userID uuid.UUID,
+	query ProfileQuery,
+) (*Profile, error) {
 	normalized, err := normalizeProfileQuery(query)
 	if err != nil {
 		return nil, err
@@ -48,7 +62,11 @@ func (u *profileUsecase) GetProfile(ctx context.Context, userID uuid.UUID, query
 }
 
 // UpdateProfile validates requested changes, replaces or removes the image, and returns the updated profile.
-func (u *profileUsecase) UpdateProfile(ctx context.Context, userID uuid.UUID, in UpdateProfileInput) (*Profile, error) {
+func (u *profileUsecase) UpdateProfile(
+	ctx context.Context,
+	userID uuid.UUID,
+	in UpdateProfileInput,
+) (*Profile, error) {
 	if in.Description == nil && in.ProfileImage == nil && !in.RemoveProfileImage {
 		return nil, ErrNoProfileChanges
 	}

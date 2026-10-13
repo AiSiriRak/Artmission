@@ -1,7 +1,7 @@
 info:
-  name: "Confirm Order: Accept"
+  name: "ConfirmOrder: Reject"
   type: http
-  seq: 5
+  seq: 6
 
 http:
   method: PUT
@@ -15,7 +15,7 @@ http:
     type: json
     data: |-
       {
-        "accept": true
+        "accept": false
       }
   auth: inherit
 
@@ -41,7 +41,7 @@ examples:
         type: json
         data: |-
           {
-            "accept": true
+            "accept": false
           }
     response:
       status: 200
@@ -71,7 +71,7 @@ examples:
         type: json
         data: |-
           {
-            "accept": true
+            "accept": false
           }
     response:
       headers:
@@ -90,4 +90,4 @@ examples:
             "type": ""
           }
 
-docs: Confirm or accept order
+docs: Reject order

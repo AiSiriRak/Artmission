@@ -13,6 +13,18 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// artistRepository provides database operations for managing artist profiles and related data.
+type artistRepository struct {
+	exec baserepo.Executor
+}
+
+var _ artist.ProfileRepository = (*artistRepository)(nil)
+
+// NewArtistRepository returns a Postgres-backed artist profile repository.
+func NewArtistRepository(db *bun.DB) artist.ProfileRepository {
+	return &artistRepository{exec: baserepo.NewExecutor(db)}
+}
+
 // newArtistProfileModel converts a domain artist profile into the database row used for inserts.
 func newArtistProfileModel(profile *artist.Profile) *pgmodel.ArtistProfile {
 	return &pgmodel.ArtistProfile{
@@ -36,43 +48,6 @@ func artistProfileToDomain(model *pgmodel.ArtistProfile) *artist.Profile {
 		CreatedAt:       model.CreatedAt,
 		UpdatedAt:       model.UpdatedAt,
 	}
-}
-
-type referenceModel struct {
-	ID    uuid.UUID `bun:"id"`
-	Label string    `bun:"label"`
-}
-
-type artistReviewModel struct {
-	Username string `bun:"username"`
-	Order    string `bun:"order_name"`
-	Rating   int    `bun:"rating"`
-}
-
-type artistRepository struct {
-	exec baserepo.Executor
-}
-
-var _ artist.ProfileRepository = (*artistRepository)(nil)
-
-// NewArtistRepository returns a Postgres-backed artist profile repository.
-func NewArtistRepository(db *bun.DB) artist.ProfileRepository {
-	return &artistRepository{exec: baserepo.NewExecutor(db)}
-}
-
-// Create inserts a new artist profile and returns any DB errors wrapped as application errors.
-func (r *artistRepository) Create(
-	ctx context.Context,
-	profile *artist.Profile,
-) error {
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		_, err := idb.NewInsert().Model(newArtistProfileModel(profile)).Exec(ctx)
-		return err
-	})
-	if err != nil {
-		return apperror.Internal("failed to create artist profile", err)
-	}
-	return nil
 }
 
 // GetByUserID loads a profile and its categories, styles, reviews, and pagination totals for one user.
@@ -177,6 +152,21 @@ func (r *artistRepository) GetByUserID(
 	return profile, nil
 }
 
+// Create inserts a new artist profile and returns any DB errors wrapped as application errors.
+func (r *artistRepository) Create(
+	ctx context.Context,
+	profile *artist.Profile,
+) error {
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		_, err := idb.NewInsert().Model(newArtistProfileModel(profile)).Exec(ctx)
+		return err
+	})
+	if err != nil {
+		return apperror.Internal("failed to create artist profile", err)
+	}
+	return nil
+}
+
 // UpdateByUserID updates a profile description and/or image key after verifying the profile exists.
 func (r *artistRepository) UpdateByUserID(
 	ctx context.Context,
@@ -251,4 +241,17 @@ func (r *artistRepository) UpdateByUserID(
 	}
 
 	return nil
+}
+
+// referenceModel represents an auxiliary lookup model containing an ID and a label.
+type referenceModel struct {
+	ID    uuid.UUID `bun:"id"`
+	Label string    `bun:"label"`
+}
+
+// artistReviewModel represents a review entry for an artist, including reviewer details, order name, and rating.
+type artistReviewModel struct {
+	Username string `bun:"username"`
+	Order    string `bun:"order_name"`
+	Rating   int    `bun:"rating"`
 }

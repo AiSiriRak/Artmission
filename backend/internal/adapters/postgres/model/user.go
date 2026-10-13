@@ -7,6 +7,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// User represents a system user account, including authentication credentials and profile information.
 type User struct {
 	bun.BaseModel `bun:"table:users,alias:u"`
 
@@ -21,6 +22,7 @@ type User struct {
 	DeletedAt       *time.Time `bun:"deleted_at,soft_delete,nullzero"`
 }
 
+// BankAccount represents financial payout account details associated with a user.
 type BankAccount struct {
 	bun.BaseModel `bun:"table:bank_accounts,alias:ba"`
 
@@ -32,6 +34,7 @@ type BankAccount struct {
 	UpdatedAt         time.Time `bun:"updated_at,nullzero"`
 }
 
+// ArtistProfile represents extended profile details, showcase stats, and metadata for artist accounts.
 type ArtistProfile struct {
 	bun.BaseModel `bun:"table:artist_profiles,alias:ap"`
 

@@ -7,6 +7,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// Notification represents a user notification for order updates, system messages, or activities.
 type Notification struct {
 	bun.BaseModel `bun:"table:notifications,alias:n"`
 

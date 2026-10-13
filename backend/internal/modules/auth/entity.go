@@ -27,3 +27,13 @@ type TokenClaims struct {
 	SessionID uuid.UUID
 	Role      user.Role
 }
+
+// AuthResult contains the authenticated user's information and the access
+// and refresh tokens issued during login or refresh.
+type AuthResult struct {
+	User                  *user.User
+	AccessToken           string
+	AccessTokenExpiresAt  time.Time
+	RefreshToken          string
+	RefreshTokenExpiresAt time.Time
+}

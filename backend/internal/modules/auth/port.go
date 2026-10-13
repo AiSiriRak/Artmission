@@ -8,15 +8,18 @@ import (
 	"github.com/google/uuid"
 )
 
+// AuthUsecase defines the authentication operations available to other modules.
 type AuthUsecase interface {
-	Login(ctx context.Context, email, password string) (*AuthResult, error)
+	Login(ctx context.Context, email string, password string) (*AuthResult, error)
 	Refresh(ctx context.Context, refreshToken string) (*AuthResult, error)
 	Logout(ctx context.Context, sessionID uuid.UUID) error
+
 	// Authenticate is used only by the HTTP auth middleware to validate
 	// an incoming request; it is not part of any user-facing feature.
 	Authenticate(ctx context.Context, accessToken string) (*TokenClaims, error)
 }
 
+// SessionRepository defines persistence operations for authentication sessions.
 type SessionRepository interface {
 	Create(ctx context.Context, s *Session) error
 	FindByID(ctx context.Context, id uuid.UUID) (*Session, error)
@@ -36,14 +39,6 @@ type TokenIssuer interface {
 // UserIdentity is the subset of user operations auth needs: credential
 // check on login, and rehydration on refresh.
 type UserIdentity interface {
-	Authenticate(ctx context.Context, email, password string) (*user.User, error)
+	Authenticate(ctx context.Context, email string, password string) (*user.User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*user.User, error)
-}
-
-type AuthResult struct {
-	User                  *user.User
-	AccessToken           string
-	AccessTokenExpiresAt  time.Time
-	RefreshToken          string
-	RefreshTokenExpiresAt time.Time
 }

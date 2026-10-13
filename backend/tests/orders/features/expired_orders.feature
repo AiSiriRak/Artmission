@@ -19,3 +19,8 @@ Feature: Expired orders are cancelled automatically
       | CANCEL     | just now             | has passed     | CANCEL   |
       | PENDING    | just now             | is still ahead | PENDING  |
       | NOT_PAID   | just now             | is still ahead | NOT_PAID |
+
+  Scenario: cancelling an expired order rejects its pending deliverable and delay request
+    Given the user has an expired order with a pending deliverable and delay request
+    When the system cancels expired orders
+    Then the system cancels the expired order and rejects its pending deliverable and delay request

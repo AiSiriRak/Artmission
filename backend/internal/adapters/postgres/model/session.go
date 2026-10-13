@@ -7,6 +7,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// Session represents a user authentication session and its associated refresh token.
 type Session struct {
 	bun.BaseModel `bun:"table:sessions,alias:s"`
 
