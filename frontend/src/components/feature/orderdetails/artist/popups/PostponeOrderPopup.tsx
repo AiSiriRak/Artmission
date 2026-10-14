@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { SelectInput } from "@/components/ui/SelectInput";
 import ArtistOrderPopup from "./ArtistOrderPopup";
@@ -39,9 +40,7 @@ export default function PostponeOrderPopup({ orderSummary, currentDeadline, curr
 
   return (
     <ArtistOrderPopup title="Request to Postpone Order?" form onClose={onClose} icon={
-      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-500 text-white">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M16 5V24H27" stroke="currentColor" strokeWidth="2" /></svg>
-      </span>
+      <Image src="/icons/clock.svg" alt="" width={64} height={64} className="h-16 w-16" />
     }>
       <p className="mx-auto mt-4 max-w-sm text-center text-small">This will send a request to extend the deadline. The new date must be approved by the customer.</p>
       <div className="my-4 rounded-xl bg-neutral-400 px-4 py-3 text-small"><p>{orderSummary}</p><p>Current Deadline · {currentDeadlineLabel}</p></div>
@@ -61,7 +60,7 @@ export default function PostponeOrderPopup({ orderSummary, currentDeadline, curr
         <textarea id={fieldId + "-description"} required maxLength={300} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Briefly explain why you need more time..." className="h-[104px] w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small" />
         <p className="mt-2 text-right text-small text-neutral">{description.length}/300</p>
         <div className="mt-3 flex items-center gap-4 rounded-xl bg-neutral-400 p-4 text-small">
-          <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white">i</span>
+          <Image src="/icons/Info.svg" alt="" width={32} height={32} className="h-8 w-8 shrink-0" />
           <p>The customer has 48 hours to respond. If no response, the request will be automatically declined and the original deadline will remain.</p>
         </div>
         {error && <p role="alert" className="mt-3 text-small text-error">{error}</p>}

@@ -13,7 +13,7 @@ import ConfirmOrderPopup from "./popups/ConfirmOrderPopup";
 import CancelOrderPopup from "./popups/CancelOrderPopup";
 import PostponeOrderPopup, { type PostponeRequest } from "./popups/PostponeOrderPopup";
 
-const mockStatus: OrderStatus = "PENDING";
+const mockStatus: OrderStatus = "IN_PROCESS";
 const mockRequestDetail =
   "Turn your favorite memories of your companion into a timeless piece of fine digital art. This custom pet portrait combines the precise detail of realism with the raw, evocative charm of traditional pencil sketching. Every stroke is tailored to highlight what makes your pet one-of-a-kind—from the subtle glint of life in their eyes and the exact contour of their snout to the natural flow, depth, and softness of their fur. " +
   "The composition bridges two distinct worlds: an intricately rendered focal point across the face that captures lifelike texture, which then fades organically into loose, expressive graphite-style line work toward the chest and shoulders. Set against a warm, neutral textured canvas, the final result feels less like a sterile photo copy and more like a handcrafted, intimate study found in an artist’s sketchbook. Delivered as a 300 DPI, print-ready digital file, this piece is fully prepared for high-end giclée printing, canvas mounting, or framing as an enduring tribute to your pet's place in your life.";

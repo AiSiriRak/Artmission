@@ -49,7 +49,7 @@ export default function CancelOrderPopup({ orderSummary, onClose, onConfirm }: C
         <textarea id={descriptionId} required maxLength={300} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Briefly explain why you're cancelling..." className="h-[104px] w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small" />
         <p className="mt-2 text-right text-small text-neutral">{description.length}/300</p>
         <div className="mt-3 flex items-center gap-4 rounded-xl bg-accent-200 p-4 text-small text-error">
-          <Image src="/icons/Pink_Error_Triangle.svg" alt="" width={30} height={27} className="shrink-0" />
+          <Image src="/icons/pink-error-triangle.svg" alt="" width={30} height={27} className="shrink-0" />
           <p>The client will be notified immediately. Any refund will be handled according to the order policy.</p>
         </div>
         {error && <p role="alert" className="mt-3 text-small text-error">{error}</p>}
