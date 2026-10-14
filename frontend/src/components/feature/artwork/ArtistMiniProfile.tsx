@@ -20,9 +20,38 @@ export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
         />
       </div>
       <div className="flex flex-col gap-2">
-        <h3 className="text-h3">Artist Profile</h3>
+        <div className="flex flex-row gap-4 items-center">
+            <h3 className="text-h3">Artist Profile</h3>
+            <Link
+              href={`/artists/${artist.artist_id}`}
+              className="items-start ml-auto"
+            >
+              <Button
+                variant="light"
+                className="text-button flex items-center gap-2 !border"
+              >
+                <img
+                  src="/icons/external-link-icon.svg"
+                  alt="external link icon"
+                  className="w-4 h-4"
+                />{" "}
+                View Profile
+              </Button>
+            </Link>
+          </div>
         <span className="text-body">{artist.artist_name}</span>
         <div className="flex items-center gap-1">
+          <span
+            role="img"
+            aria-label="star icon"
+            className="inline-block w-6 h-6 bg-accent-500"
+            style={{
+              maskImage: "url('/icons/star.svg')",
+              maskRepeat: "no-repeat",
+              maskPosition: "center",
+              maskSize: "contain",
+            }}
+          />
           <span className="text-h3">
             {artist.review_score !== null
               ? `${artist.review_score.toFixed(1)}/5`
@@ -31,7 +60,7 @@ export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
         </div>
       </div>
 
-      <Link href={`/artists/${artist.artist_id}`}>
+      {/* <Link href={`/artists/${artist.artist_id}`}>
         <Button
           variant="light"
           className="text-button mb-10 flex items-center gap-2 !border"
@@ -43,7 +72,7 @@ export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
           />{" "}
           View Profile
         </Button>
-      </Link>
+      </Link> */}
     </div>
   );
 }
