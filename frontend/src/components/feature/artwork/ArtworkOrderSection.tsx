@@ -4,14 +4,12 @@ interface ArtworkOrderSectionProps {
   minimumDeadlineDays: number;
   priceSatang: number;
   artworkId: string;
-  artistId: string;
 }
 
 export default function ArtworkOrderSection({
   minimumDeadlineDays,
   priceSatang,
   artworkId,
-  artistId,
 }: ArtworkOrderSectionProps) {
   return (
     <div className="w-100 border border-primary-500 rounded-3xl p-10 bg-secondary-200 shadow-sm">
@@ -28,7 +26,7 @@ export default function ArtworkOrderSection({
             </div>
             {/* Additional order details can be added here */}
             {/* link to order placement page */}
-            <a href={`/artworks/${artworkId}/order?artistId=${artistId}`} className="w-full">
+            <a href={`/artworks/${artworkId}/order`} className="w-full">
               <Button variant="accent-500" className="text-h3 shadow-md w-full">
                   Request to Order
               </Button>

@@ -23,7 +23,7 @@ export function SearchArtworkCard({ item }: SearchArtworkCardProps) {
 
   return (
     <Link
-      href={`/artworks/${item.id}?artistId=${item.artist.artist_id}`}
+      href={`/artworks/${item.id}`}
       className="relative block w-full min-w-0 hover:brightness-95 transition-[filter]"
     >
       <WhiteCard

@@ -120,6 +120,14 @@ export async function searchArtworks(
 }
 
 /**
+ * ดึงรายละเอียดผลงานศิลปะตาม ID
+ * GET /artworks/{artwork_id}
+ */
+export async function getArtworkById(artworkId: string): Promise<Artwork> {
+  return apiFetch<Artwork>(`/artworks/${artworkId}`);
+}
+
+/**
  * สร้างรายการผลงานศิลปะชิ้นใหม่ พร้อมแนบไฟล์รูป
  * POST /artworks
  */

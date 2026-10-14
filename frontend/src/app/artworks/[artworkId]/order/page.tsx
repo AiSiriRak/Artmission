@@ -1,36 +1,27 @@
 "use client"
 
 import { Suspense, useEffect, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 import MainLayout from "@/components/feature/main/MainLayout";
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
 import { OrderRequestSection } from "@/components/feature/order-placement/OrderRequestSection";
-import { getArtistArtworks } from "@/lib/api/artists";
+import { getArtworkById } from "@/lib/api/artworks";
 import type { Artwork } from "@/lib/api/types";
 
 function OrderPlacementContent() {
   const router = useRouter();
   const { artworkId } = useParams<{ artworkId: string }>();
-  const artistId = useSearchParams().get("artistId");
 
   const [artwork, setArtwork] = useState<Artwork | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!artistId) {
-      setError("Missing artist for this artwork.");
-      return;
-    }
-
     let cancelled = false;
-    getArtistArtworks(artistId)
-      .then((artworks) => {
-        if (cancelled) return;
-        const found = artworks.find((item) => item.id === artworkId);
-        if (found) setArtwork(found);
-        else setError("Artwork not found.");
+    getArtworkById(artworkId)
+      .then((found) => {
+        if (!cancelled) setArtwork(found);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -41,7 +32,7 @@ function OrderPlacementContent() {
     return () => {
       cancelled = true;
     };
-  }, [artworkId, artistId]);
+  }, [artworkId]);
 
   return (
     <MainLayout usertype="customer">
