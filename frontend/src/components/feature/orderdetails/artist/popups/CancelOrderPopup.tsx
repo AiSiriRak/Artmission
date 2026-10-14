@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { SelectInput } from "@/components/ui/SelectInput";
 import ArtistOrderPopup from "./ArtistOrderPopup";
@@ -33,7 +34,7 @@ export default function CancelOrderPopup({ orderSummary, onClose, onConfirm }: C
       title="Cancel this order?"
       form
       onClose={onClose}
-      icon={<span className="flex h-16 w-16 items-center justify-center rounded-full bg-error text-h1 text-white">!</span>}
+      icon={<Image src="/icons/Error_Circle.svg" alt="" width={64} height={64} className="h-16 w-16" />}
     >
       <p className="mx-auto mt-6 max-w-sm text-center text-small">Canceling will end this project and notify the client. This action cannot be undone.</p>
       <div className="my-6 rounded-xl bg-neutral-400 px-4 py-3 text-small">{orderSummary}</div>
@@ -48,7 +49,7 @@ export default function CancelOrderPopup({ orderSummary, onClose, onConfirm }: C
         <textarea id={descriptionId} required maxLength={300} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Briefly explain why you're cancelling..." className="h-[104px] w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small" />
         <p className="mt-2 text-right text-small text-neutral">{description.length}/300</p>
         <div className="mt-3 flex items-center gap-4 rounded-xl bg-accent-200 p-4 text-small text-error">
-          <span aria-hidden="true" className="text-h3">⚠</span>
+          <Image src="/icons/Pink_Error_Triangle.svg" alt="" width={30} height={27} className="shrink-0" />
           <p>The client will be notified immediately. Any refund will be handled according to the order policy.</p>
         </div>
         {error && <p role="alert" className="mt-3 text-small text-error">{error}</p>}
