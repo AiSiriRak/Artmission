@@ -36,24 +36,27 @@ export default function CancelOrderPopup({ orderSummary, onClose, onConfirm }: C
       onClose={onClose}
       icon={<Image src="/icons/Error_Circle.svg" alt="" width={64} height={64} className="h-16 w-16" />}
     >
-      <p className="mx-auto mt-6 max-w-sm text-center text-small">Canceling will end this project and notify the client. This action cannot be undone.</p>
-      <div className="my-6 rounded-xl bg-neutral-400 px-4 py-3 text-small">{orderSummary}</div>
+      <p className="mx-auto mt-3 text-center text-small">
+        Canceling will end this project and notify the client.<br />
+        This action cannot be undone.
+      </p>
+      <div className="my-3 rounded-xl bg-neutral-400 px-4 py-2 text-small">{orderSummary}</div>
       <form onSubmit={(event) => {
         event.preventDefault();
         if (!reason || !description.trim()) { setError("กรุณาเลือกเหตุผลและกรอกคำอธิบาย"); return; }
         onConfirm({ reason, description: description.trim() });
       }}>
-        <p className="mb-3 text-caption">Reason for cancellation <span className="text-error">*</span></p>
+        <p className="mb-2 text-caption">Reason for cancellation <span className="text-error">*</span></p>
         <SelectInput options={reasons} value={reason} onChange={setReason} formatSelectedLabel={(label) => reason ? label : "Select reason for cancellation"} buttonClassName="rounded-lg border-neutral-400" />
-        <label htmlFor={descriptionId} className="mb-3 mt-6 block text-caption">Please explain your reason <span className="text-error">*</span></label>
-        <textarea id={descriptionId} required maxLength={300} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Briefly explain why you're cancelling..." className="h-[104px] w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small" />
-        <p className="mt-2 text-right text-small text-neutral">{description.length}/300</p>
-        <div className="mt-3 flex items-center gap-4 rounded-xl bg-accent-200 p-4 text-small text-error">
+        <label htmlFor={descriptionId} className="mb-2 mt-3 block text-caption">Please explain your reason <span className="text-error">*</span></label>
+        <textarea id={descriptionId} required maxLength={300} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Briefly explain why you're cancelling..." className="h-20 w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small" />
+        <p className="mt-1 text-right text-small text-neutral">{description.length}/300</p>
+        <div className="mt-3 flex items-center gap-3 rounded-xl bg-accent-200 px-4 py-3 text-small text-error">
           <Image src="/icons/pink-error-triangle.svg" alt="" width={30} height={27} className="shrink-0" />
           <p>The client will be notified immediately. Any refund will be handled according to the order policy.</p>
         </div>
         {error && <p role="alert" className="mt-3 text-small text-error">{error}</p>}
-        <div className="mt-6 flex justify-end gap-6">
+        <div className="mt-4 flex justify-end gap-6">
           <Button type="button" variant="transparent" className="w-[135px] rounded-xl" onClick={onClose}>Keep order</Button>
           <Button type="submit" variant="error" className="w-[135px] rounded-xl">Cancel order</Button>
         </div>
