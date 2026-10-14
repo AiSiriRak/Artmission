@@ -12,8 +12,8 @@ http:
     type: json
     data: |-
       {
-        "email": "{{artist_email}}",
-        "password": "{{password}}"
+        "email": "maidavinci@mail.com",
+        "password": "123456789"
       }
   auth: inherit
 

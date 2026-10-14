@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import { Button } from "@/components/ui/Button";
+import ConfirmOrderPopup from "./popups/ConfirmOrderPopup";
 
 export default function SubmitDraft() {
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [draft, setDraft] = useState<{
     file: File;
     previewUrl: string;
@@ -96,12 +98,22 @@ export default function SubmitDraft() {
         {draft && (
           <div className="mt-1 flex justify-center">
             {/* TODO: Connect Submit to the draft API when Backend is ready. */}
-            <Button type="button" variant="dark">
+            <Button type="button" variant="dark" onClick={() => setIsConfirmOpen(true)}>
               Submit
             </Button>
           </div>
         )}
       </WhiteCard>
+      {isConfirmOpen && draft && (
+        <ConfirmOrderPopup
+          action="submit"
+          onClose={() => setIsConfirmOpen(false)}
+          onConfirm={() => {
+            // TODO: Submit draft.file to the API before clearing the selected image.
+            setIsConfirmOpen(false);
+          }}
+        />
+      )}
     </section>
   );
 }

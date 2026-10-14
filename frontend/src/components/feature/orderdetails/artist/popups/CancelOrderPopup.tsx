@@ -1,0 +1,62 @@
+"use client";
+
+import { useId, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { SelectInput } from "@/components/ui/SelectInput";
+import ArtistOrderPopup from "./ArtistOrderPopup";
+
+interface CancelOrderPopupProps {
+  orderSummary: string;
+  onClose: () => void;
+  onConfirm: (value: { reason: string; description: string }) => void;
+}
+
+// TODO: Map these UI values to Backend reason codes when the API is connected.
+const reasons = [
+  { value: "cannot_complete", label: "I’m unable to complete the project" },
+  { value: "cannot_meet_deadline", label: "I’m unable to meet the deadline" },
+  { value: "requirements_changed", label: "The project requirements have changed" },
+  { value: "client_unresponsive", label: "The client is unresponsive" },
+  { value: "mutual_agreement", label: "The client and I agreed to cancel" },
+  { value: "personal_or_technical", label: "I have a personal or technical issue" },
+  { value: "other", label: "Other" },
+];
+
+export default function CancelOrderPopup({ orderSummary, onClose, onConfirm }: CancelOrderPopupProps) {
+  const [reason, setReason] = useState("");
+  const [description, setDescription] = useState("");
+  const [error, setError] = useState("");
+  const descriptionId = useId();
+
+  return (
+    <ArtistOrderPopup
+      title="Cancel this order?"
+      form
+      onClose={onClose}
+      icon={<span className="flex h-16 w-16 items-center justify-center rounded-full bg-error text-h1 text-white">!</span>}
+    >
+      <p className="mx-auto mt-6 max-w-sm text-center text-small">Canceling will end this project and notify the client. This action cannot be undone.</p>
+      <div className="my-6 rounded-xl bg-neutral-400 px-4 py-3 text-small">{orderSummary}</div>
+      <form onSubmit={(event) => {
+        event.preventDefault();
+        if (!reason || !description.trim()) { setError("กรุณาเลือกเหตุผลและกรอกคำอธิบาย"); return; }
+        onConfirm({ reason, description: description.trim() });
+      }}>
+        <p className="mb-3 text-caption">Reason for cancellation <span className="text-error">*</span></p>
+        <SelectInput options={reasons} value={reason} onChange={setReason} formatSelectedLabel={(label) => reason ? label : "Select reason for cancellation"} buttonClassName="rounded-lg border-neutral-400" />
+        <label htmlFor={descriptionId} className="mb-3 mt-6 block text-caption">Please explain your reason <span className="text-error">*</span></label>
+        <textarea id={descriptionId} required maxLength={300} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Briefly explain why you're cancelling..." className="h-[104px] w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small" />
+        <p className="mt-2 text-right text-small text-neutral">{description.length}/300</p>
+        <div className="mt-3 flex items-center gap-4 rounded-xl bg-accent-200 p-4 text-small text-error">
+          <span aria-hidden="true" className="text-h3">⚠</span>
+          <p>The client will be notified immediately. Any refund will be handled according to the order policy.</p>
+        </div>
+        {error && <p role="alert" className="mt-3 text-small text-error">{error}</p>}
+        <div className="mt-6 flex justify-end gap-6">
+          <Button type="button" variant="transparent" className="w-[135px] rounded-xl" onClick={onClose}>Keep order</Button>
+          <Button type="submit" variant="error" className="w-[135px] rounded-xl">Cancel order</Button>
+        </div>
+      </form>
+    </ArtistOrderPopup>
+  );
+}
