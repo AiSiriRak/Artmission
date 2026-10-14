@@ -55,7 +55,7 @@ function HistoryCard({ children }: { children: ReactNode }) {
 function DateLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-4">
-      <dt className="text-body font-bold">{label}</dt>
+      <dt className="text-h3">{label}</dt>
       <dd className="text-body">{value}</dd>
     </div>
   );
@@ -63,7 +63,7 @@ function DateLine({ label, value }: { label: string; value: string }) {
 
 function ArtworkPreview({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="mx-auto mt-8 w-full max-w-56 border border-primary-500 bg-white p-3">
+    <div className="mx-auto mt-8 w-full max-w-56 border border-neutral bg-white p-3">
       <img src={src} alt={alt} className="aspect-square w-full object-contain" />
     </div>
   );
@@ -73,11 +73,11 @@ function DraftStatusBadge({ status }: { status: DraftStatus }) {
   const view = statusView[status];
 
   return (
-    <span
-      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-4 py-1 text-caption ${view.className}`}
+    <div
+      className={`${view.className} flex w-[252px] max-w-full shrink-0 justify-center rounded-full border border-primary-500 p-1.5`}
     >
-      {view.label}
-    </span>
+      <p className="text-center text-caption text-primary-500">{view.label}</p>
+    </div>
   );
 }
 
@@ -104,7 +104,7 @@ export default function DraftHistory({ drafts }: DraftHistoryProps) {
       )}
 
       <section>
-        <h2 className="mb-8 rounded-r-md border-l-4 border-accent-500 bg-secondary-300 px-4 py-2.5 text-h3 font-bold">
+        <h2 className="mb-8 rounded-r-md border-l-4 border-accent-500 bg-secondary-300 px-4 py-2.5 text-h3">
           Draft History
         </h2>
 
@@ -134,8 +134,8 @@ export default function DraftHistory({ drafts }: DraftHistoryProps) {
                   />
                   {customerReview && (
                     <div className="mt-8">
-                      <p className="mb-2 text-body font-bold">Customer Review</p>
-                      <p className="whitespace-pre-wrap break-words text-small">
+                      <p className="mb-2 text-h3">Customer Review</p>
+                      <p className="whitespace-pre-wrap break-words text-caption">
                         {customerReview}
                       </p>
                     </div>

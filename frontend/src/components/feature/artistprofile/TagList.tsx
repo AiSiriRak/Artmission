@@ -20,7 +20,7 @@ export default function TagList({ items, variant = "category" }: TagListProps) {
       {items.map((item, index) => (
         <span
           key={index}
-          className={`px-3 py-1 ${tagStyle} text-sm rounded-full font-medium`}
+          className={`px-3 py-1 ${tagStyle} text-caption rounded-[46px]`}
         >
           {item.trim()}
         </span>
