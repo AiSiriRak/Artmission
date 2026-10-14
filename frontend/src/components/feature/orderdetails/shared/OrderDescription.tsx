@@ -3,18 +3,18 @@ import TagList from "@/components/feature/artistprofile/TagList";
 
 interface OrderDescriptionProps {
   orderNumber: string;
+  orderName: string;
   artworkName: string;
-  categoryName: string;
-  categories: string[];
+  category: string;
   styles: string[];
   requestDetail: string;
 }
 
 export default function OrderDescription({
   orderNumber,
+  orderName,
   artworkName,
-  categoryName,
-  categories,
+  category,
   styles,
   requestDetail,
 }: OrderDescriptionProps) {
@@ -27,10 +27,10 @@ export default function OrderDescription({
         roundsize="rounded-3xl"
         className="max-w-none border border-primary-500 bg-secondary-200 shadow-none"
       >
-        <h3 className="mb-4 break-words text-h1">{artworkName}</h3>
+        <h3 className="mb-4 break-words text-h1">{orderName}</h3>
         <div className="mb-8 flex flex-wrap items-center gap-3">
-          <span className="text-h3">{categoryName}</span>
-          <TagList items={categories} variant="category" />
+          <span className="text-h3">{artworkName}</span>
+          <TagList items={[category]} variant="category" />
           <TagList items={styles} variant="style" />
         </div>
         <h4 className="mb-3 text-h3">Request Detail</h4>
