@@ -24,7 +24,7 @@ export default function OrderDetails({
 
   return (
     <MainLayout usertype={usertype}>
-      <div className="mx-auto max-w-[1920px] px-6 py-10 sm:px-12 lg:px-40 text-primary-500">
+      <div className="mx-auto max-w-[1920px] px-6 py-10 sm:px-12 lg:px-20 text-primary-500">
         <Button
           type="button"
           className="!border w-24"
@@ -40,9 +40,9 @@ export default function OrderDetails({
           Back
         </Button>
 
-        <h1 className="mt-6 mb-8 text-h2">Order Detail</h1>
+        <h1 className="mt-10 mb-8 text-h2">Order Detail</h1>
 
-        <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
           <section className="min-w-0">
             {description}
             {children}
