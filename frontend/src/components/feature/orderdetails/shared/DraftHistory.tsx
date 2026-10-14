@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 
 export type DraftStatus =
@@ -16,6 +17,7 @@ export interface Draft {
   imageUrl: string;
   imageAlt?: string;
   customerReview?: string;
+  reviewDeadline?: string;
 }
 
 interface DraftHistoryProps {
@@ -137,6 +139,12 @@ export default function DraftHistory({ drafts }: DraftHistoryProps) {
                         {customerReview}
                       </p>
                     </div>
+                  )}
+                  {draft.status === "WAITING_FOR_CUSTOMER_REVIEW" && draft.reviewDeadline && (
+                    <p className="mt-8 flex items-start justify-center gap-2 text-small">
+                      <Image src="/icons/clock.svg" alt="" width={16} height={16} className="shrink-0" />
+                      The customer has review until {draft.reviewDeadline}. If no response, the artwork will be automatically accepted.
+                    </p>
                   )}
                 </HistoryCard>
               </article>

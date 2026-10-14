@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import { Button } from "@/components/ui/Button";
 import ConfirmOrderPopup from "./popups/ConfirmOrderPopup";
 
-export default function SubmitDraft() {
+export default function SubmitDraft({ onSubmit, disabled = false }: { onSubmit: (file: File) => Promise<void>; disabled?: boolean }) {
+  const submitting = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [draft, setDraft] = useState<{
     file: File;
@@ -16,6 +19,23 @@ export default function SubmitDraft() {
     if (!draft) return;
     return () => URL.revokeObjectURL(draft.previewUrl);
   }, [draft]);
+
+  async function confirmSubmit() {
+    if (!draft || submitting.current || disabled) return;
+    submitting.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await onSubmit(draft.file);
+      setIsConfirmOpen(false);
+      setDraft(null);
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "ส่ง Draft ไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      submitting.current = false;
+      setBusy(false);
+    }
+  }
 
   return (
     <section className="mt-6">
@@ -33,6 +53,7 @@ export default function SubmitDraft() {
               <button
                 type="button"
                 aria-label="Remove draft image"
+                disabled={busy || disabled}
                 onClick={() => setDraft(null)}
                 className="absolute top-2 right-2 bg-white shadow-md rounded-full w-6 h-6 flex items-center justify-center text-gray-500 hover:text-red-500 text-xs cursor-pointer z-10"
               >
@@ -71,12 +92,18 @@ export default function SubmitDraft() {
 
             <input
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={busy || disabled}
               aria-label="Choose draft image"
               className="sr-only"
               onChange={(event) => {
                 const selectedFile = event.target.files?.[0];
-                if (!selectedFile || !selectedFile.type.startsWith("image/")) return;
+                if (!selectedFile) return;
+                if (!["image/jpeg", "image/png", "image/webp"].includes(selectedFile.type)) {
+                  setError("เลือกไฟล์ JPG, PNG หรือ WebP เท่านั้น");
+                  return;
+                }
+                setError("");
 
                 setDraft({
                   file: selectedFile,
@@ -98,20 +125,20 @@ export default function SubmitDraft() {
         {draft && (
           <div className="mt-1 flex justify-center">
             {/* TODO: Connect Submit to the draft API when Backend is ready. */}
-            <Button type="button" variant="dark" onClick={() => setIsConfirmOpen(true)}>
+            <Button type="button" variant="dark" disabled={busy || disabled} onClick={() => { setError(""); setIsConfirmOpen(true); }}>
               Submit
             </Button>
           </div>
         )}
       </WhiteCard>
+      {error && !isConfirmOpen && <p role="alert" className="mt-3 text-small text-error">{error}</p>}
       {isConfirmOpen && draft && (
         <ConfirmOrderPopup
           action="submit"
-          onClose={() => setIsConfirmOpen(false)}
-          onConfirm={() => {
-            // TODO: Submit draft.file to the API before clearing the selected image.
-            setIsConfirmOpen(false);
-          }}
+          busy={busy}
+          error={error}
+          onClose={() => { if (!busy) setIsConfirmOpen(false); }}
+          onConfirm={() => { void confirmSubmit(); }}
         />
       )}
     </section>

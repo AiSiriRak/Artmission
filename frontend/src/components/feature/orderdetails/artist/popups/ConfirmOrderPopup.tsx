@@ -25,16 +25,19 @@ interface ConfirmOrderPopupProps {
   action: ConfirmOrderAction;
   onClose: () => void;
   onConfirm: () => void;
+  busy?: boolean;
+  error?: string;
 }
 
-export default function ConfirmOrderPopup({ action, onClose, onConfirm }: ConfirmOrderPopupProps) {
+export default function ConfirmOrderPopup({ action, onClose, onConfirm, busy = false, error }: ConfirmOrderPopupProps) {
   const view = content[action];
   return (
     <ArtistOrderPopup title={view.title} onClose={onClose}>
       <p className="mx-auto my-6 max-w-[256px] text-center text-small">{view.description}</p>
+      {error && <p role="alert" className="mb-4 text-center text-small text-error">{error}</p>}
       <div className="flex justify-center gap-4">
-        <Button type="button" variant="transparent" className="w-[138px] rounded-xl" onClick={onClose}>Cancel</Button>
-        <Button type="button" variant="dark" className="w-[138px] rounded-xl" onClick={onConfirm}>{view.button}</Button>
+        <Button type="button" variant="transparent" className="w-[138px] rounded-xl" disabled={busy} onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="dark" className="w-[138px] rounded-xl" disabled={busy} onClick={onConfirm}>{busy ? "Please wait..." : view.button}</Button>
       </div>
     </ArtistOrderPopup>
   );

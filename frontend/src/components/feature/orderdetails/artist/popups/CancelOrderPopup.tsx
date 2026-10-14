@@ -10,6 +10,8 @@ interface CancelOrderPopupProps {
   orderSummary: string;
   onClose: () => void;
   onConfirm: (value: { reason: string; description: string }) => void;
+  busy?: boolean;
+  serverError?: string;
 }
 
 // TODO: Map these UI values to Backend reason codes when the API is connected.
@@ -23,7 +25,7 @@ const reasons = [
   { value: "other", label: "Other" },
 ];
 
-export default function CancelOrderPopup({ orderSummary, onClose, onConfirm }: CancelOrderPopupProps) {
+export default function CancelOrderPopup({ orderSummary, onClose, onConfirm, busy = false, serverError }: CancelOrderPopupProps) {
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
@@ -43,6 +45,7 @@ export default function CancelOrderPopup({ orderSummary, onClose, onConfirm }: C
       <div className="my-3 rounded-xl bg-neutral-400 px-4 py-2 text-small">{orderSummary}</div>
       <form onSubmit={(event) => {
         event.preventDefault();
+        if (busy) return;
         if (!reason || !description.trim()) { setError("กรุณาเลือกเหตุผลและกรอกคำอธิบาย"); return; }
         onConfirm({ reason, description: description.trim() });
       }}>
@@ -56,9 +59,11 @@ export default function CancelOrderPopup({ orderSummary, onClose, onConfirm }: C
           <p>The client will be notified immediately. Any refund will be handled according to the order policy.</p>
         </div>
         {error && <p role="alert" className="mt-3 text-small text-error">{error}</p>}
+        {serverError && <p role="alert" className="mt-3 text-small text-error">{serverError}</p>}
+        <p className="mt-2 text-small text-neutral">ขณะนี้ยกเลิกออร์เดอร์ได้ แต่เหตุผลและคำอธิบายยังไม่ถูกบันทึก</p>
         <div className="mt-4 flex justify-end gap-6">
-          <Button type="button" variant="transparent" className="w-[135px] rounded-xl" onClick={onClose}>Keep order</Button>
-          <Button type="submit" variant="error" className="w-[135px] rounded-xl">Cancel order</Button>
+          <Button type="button" variant="transparent" className="w-[135px] rounded-xl" disabled={busy} onClick={onClose}>Keep order</Button>
+          <Button type="submit" variant="error" className="w-[135px] rounded-xl" disabled={busy}>{busy ? "Please wait..." : "Cancel order"}</Button>
         </div>
       </form>
     </ArtistOrderPopup>

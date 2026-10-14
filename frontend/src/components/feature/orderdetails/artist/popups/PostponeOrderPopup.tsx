@@ -18,6 +18,7 @@ interface PostponeOrderPopupProps {
   currentDeadlineLabel: string;
   onClose: () => void;
   onConfirm: (request: PostponeRequest) => void;
+  unavailable?: boolean;
 }
 
 const reasons = [
@@ -28,7 +29,7 @@ const reasons = [
   { value: "other", label: "Other" },
 ];
 
-export default function PostponeOrderPopup({ orderSummary, currentDeadline, currentDeadlineLabel, onClose, onConfirm }: PostponeOrderPopupProps) {
+export default function PostponeOrderPopup({ orderSummary, currentDeadline, currentDeadlineLabel, onClose, onConfirm, unavailable = false }: PostponeOrderPopupProps) {
   const [deadline, setDeadline] = useState("");
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
@@ -46,9 +47,10 @@ export default function PostponeOrderPopup({ orderSummary, currentDeadline, curr
         This will send a request to extend the deadline.<br />
         The new date must be approved by the customer.
       </p>
-      <div className="my-2 rounded-xl bg-neutral-400 px-4 py-2 text-small"><p>{orderSummary}</p><p>Current Deadline · {currentDeadlineLabel}</p></div>
+      <div className="my-3 rounded-xl bg-neutral-400 px-4 py-2 text-small"><p>{orderSummary}</p><p>Current Deadline · {currentDeadlineLabel}</p></div>
       <form onSubmit={(event) => {
         event.preventDefault();
+        if (unavailable) return;
         if (!deadline || deadline <= currentDeadline || !reason || !description.trim()) {
           setError("กรุณาเลือกวันหลัง Deadline เดิม พร้อมเหตุผลและคำอธิบาย"); return;
         }
@@ -84,9 +86,10 @@ export default function PostponeOrderPopup({ orderSummary, currentDeadline, curr
           <p>The customer has 48 hours to respond. If no response, the request will be automatically declined and the original deadline will remain.</p>
         </div>
         {error && <p role="alert" className="mt-3 text-small text-error">{error}</p>}
+        {unavailable && <p className="mt-3 text-small text-neutral">การส่งคำขอเลื่อนกำหนดส่งยังไม่พร้อมใช้งาน</p>}
         <div className="mt-3 flex justify-end gap-6">
           <Button type="button" variant="transparent" className="w-[138px] rounded-xl" onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="dark" className="w-[138px] rounded-xl">Send Request</Button>
+          <Button type="submit" variant="dark" className="w-[138px] rounded-xl" disabled={unavailable}>Send Request</Button>
         </div>
       </form>
     </ArtistOrderPopup>
