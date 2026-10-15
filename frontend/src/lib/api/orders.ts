@@ -59,3 +59,60 @@ export async function getOrderHistory(
 
   return apiFetch<OrderHistory>(`/orders${query ? `?${query}` : ""}`);
 }
+
+/**
+ * ดึงรายละเอียดออเดอร์ตาม ID
+ * GET /orders/{orderId}
+ */
+export interface OrderDeliverable {
+  id: string;
+  version: number;
+  decision: "WAIT" | "APPROVED" | "REJECTED";
+  comment: string | null;
+  preview_image_url: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderDetail {
+  id: string;
+  customer_id: string;
+  artist_id: string;
+  name: string;
+  artwork_id?: string;
+  artwork_snapshot: {
+    artwork_name: string;
+    category: string;
+    styles: string[] | null;
+  };
+  price_satang: number;
+  customer_description: string;
+  deadline_at: string;
+  status: OrderStatus;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+  other_party: {
+    id: string;
+    name: string;
+    email: string;
+    artist_review_score?: number;
+  };
+  deliverables: OrderDeliverable[] | null;
+}
+
+export async function getOrderById(orderId: string): Promise<OrderDetail> {
+  return apiFetch<OrderDetail>(`/orders/${orderId}`);
+}
+
+/**
+ * ยกเลิกออเดอร์
+ * PUT /orders/{order_id}/cancel
+ */
+export async function cancelOrder(
+  orderId: string,
+): Promise<{ message: string; status: string }> {
+  return apiFetch(`/orders/${orderId}/cancel`, { method: "PUT" });
+}
+
+
