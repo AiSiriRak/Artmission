@@ -31,6 +31,13 @@ Feature: Cancel Order
     When the user cancels their last order
     Then the system cancels the order
 
+  Scenario: cancelling an order rejects its pending deliverable and delay request
+    Given the user has a registered customer account
+    And the user has logged in
+    And the user has an order with a pending deliverable and delay request
+    When the user cancels their last order
+    Then the system cancels the order and rejects its pending deliverable and delay request
+
   Scenario: a customer cannot cancel a completed order
     Given the user has a registered customer account
     And the user has logged in

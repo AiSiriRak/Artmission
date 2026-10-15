@@ -3,7 +3,6 @@ package artist
 import (
 	"context"
 	"io"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -24,18 +23,4 @@ type ObjectStorage interface {
 	Upload(ctx context.Context, key string, body io.Reader, contentType string) error
 	Delete(ctx context.Context, key string) error
 	PublicURL(key string) string
-}
-
-type UpdateProfileInput struct {
-	Description        *string
-	ProfileImage       io.Reader
-	RemoveProfileImage bool
-}
-
-type ProfileUpdate struct {
-	DescriptionSet     bool
-	Description        *string
-	ProfileImageKeySet bool
-	ProfileImageKey    *string
-	UpdatedAt          time.Time
 }

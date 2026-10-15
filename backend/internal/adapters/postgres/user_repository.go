@@ -20,6 +20,21 @@ import (
 	"github.com/uptrace/bun"
 )
 
+type userRepository struct {
+	base baserepo.BaseRepo[pgmodel.User]
+	exec baserepo.Executor
+}
+
+var _ user.UserRepository = (*userRepository)(nil)
+
+// NewUserRepository returns a Postgres-backed user repository.
+func NewUserRepository(db *bun.DB) user.UserRepository {
+	return &userRepository{
+		base: baserepo.NewBaseRepo[pgmodel.User](db, "user"),
+		exec: baserepo.NewExecutor(db),
+	}
+}
+
 // newUserModel converts a domain user into the Postgres row written by the repository.
 func newUserModel(u *user.User) *pgmodel.User {
 	return &pgmodel.User{
@@ -45,21 +60,6 @@ func userModelToDomain(m *pgmodel.User) *user.User {
 		ProfileImageKey: m.ProfileImageKey,
 		CreatedAt:       m.CreatedAt,
 		UpdatedAt:       m.UpdatedAt,
-	}
-}
-
-type userRepository struct {
-	base baserepo.BaseRepo[pgmodel.User]
-	exec baserepo.Executor
-}
-
-var _ user.UserRepository = (*userRepository)(nil)
-
-// NewUserRepository returns a Postgres-backed user repository.
-func NewUserRepository(db *bun.DB) user.UserRepository {
-	return &userRepository{
-		base: baserepo.NewBaseRepo[pgmodel.User](db, "user"),
-		exec: baserepo.NewExecutor(db),
 	}
 }
 

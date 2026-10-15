@@ -13,6 +13,18 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// bankAccountRepository provides database operations for user bank accounts.
+type bankAccountRepository struct {
+	exec baserepo.Executor
+}
+
+var _ user.BankAccountRepository = (*bankAccountRepository)(nil)
+
+// NewBankAccountRepository returns a Postgres-backed bank-account repository.
+func NewBankAccountRepository(db *bun.DB) user.BankAccountRepository {
+	return &bankAccountRepository{exec: baserepo.NewExecutor(db)}
+}
+
 // newBankAccountModel converts a domain bank account into the database row used for inserts.
 func newBankAccountModel(ba *user.BankAccount) *pgmodel.BankAccount {
 	return &pgmodel.BankAccount{
@@ -37,21 +49,15 @@ func bankAccountModelToDomain(m *pgmodel.BankAccount) *user.BankAccount {
 	}
 }
 
-type bankAccountRepository struct {
-	exec baserepo.Executor
-}
-
-var _ user.BankAccountRepository = (*bankAccountRepository)(nil)
-
-// NewBankAccountRepository returns a Postgres-backed bank-account repository.
-func NewBankAccountRepository(db *bun.DB) user.BankAccountRepository {
-	return &bankAccountRepository{exec: baserepo.NewExecutor(db)}
-}
-
 // Create inserts a bank account row for the user.
-func (r *bankAccountRepository) Create(ctx context.Context, ba *user.BankAccount) error {
+func (r *bankAccountRepository) Create(
+	ctx context.Context,
+	ba *user.BankAccount,
+) error {
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		_, err := idb.NewInsert().Model(newBankAccountModel(ba)).Exec(ctx)
+		_, err := idb.NewInsert().
+			Model(newBankAccountModel(ba)).
+			Exec(ctx)
 		return err
 	})
 	if err != nil {
@@ -61,10 +67,16 @@ func (r *bankAccountRepository) Create(ctx context.Context, ba *user.BankAccount
 }
 
 // GetByUserID loads the bank account linked to a user ID.
-func (r *bankAccountRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*user.BankAccount, error) {
+func (r *bankAccountRepository) GetByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*user.BankAccount, error) {
 	model := new(pgmodel.BankAccount)
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return idb.NewSelect().Model(model).Where("user_id = ?", userID).Scan(ctx)
+		return idb.NewSelect().
+			Model(model).
+			Where("user_id = ?", userID).
+			Scan(ctx)
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -76,7 +88,10 @@ func (r *bankAccountRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 }
 
 // UpsertByUserID inserts or updates a user's bank account in one conflict-safe operation.
-func (r *bankAccountRepository) UpsertByUserID(ctx context.Context, ba *user.BankAccount) (*user.BankAccount, error) {
+func (r *bankAccountRepository) UpsertByUserID(
+	ctx context.Context,
+	ba *user.BankAccount,
+) (*user.BankAccount, error) {
 	model := newBankAccountModel(ba)
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		_, err := idb.NewInsert().

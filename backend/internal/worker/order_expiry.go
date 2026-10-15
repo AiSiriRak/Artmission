@@ -39,10 +39,22 @@ func (w *OrderExpiryWorker) sweep(ctx context.Context) {
 	ids, err := w.usecase.CancelExpiredOrders(ctx)
 	if err != nil {
 		w.log.Error("order expiry sweep failed", "err", err)
-		return
-	}
-	if len(ids) > 0 {
+	} else if len(ids) > 0 {
 		w.log.Info("orders auto-cancelled", "count", len(ids))
+	}
+
+	deliverablesIDs, err := w.usecase.AutoApproveExpiredDeliverables(ctx)
+	if err != nil {
+		w.log.Error("deliverables expiry sweep failed", "err", err)
+	} else if len(deliverablesIDs) > 0 {
+		w.log.Info("deliverables auto-approved", "count", len(deliverablesIDs))
+	}
+
+	delayRequestIDs, err := w.usecase.CancelExpiredDelayRequest(ctx)
+	if err != nil {
+		w.log.Error("delay request expiry sweep failed", "err", err)
+	} else if len(delayRequestIDs) > 0 {
+		w.log.Info("delay requests auto-rejected", "count", len(delayRequestIDs))
 	}
 }
 

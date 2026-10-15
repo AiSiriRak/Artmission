@@ -3,7 +3,6 @@ package user
 import (
 	"context"
 	"io"
-	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/google/uuid"
@@ -68,41 +67,4 @@ type ArtistRegistrar interface {
 
 type Transactioner interface {
 	Transaction(ctx context.Context, fn func(ctx context.Context) error) error
-}
-
-type RegisterInput struct {
-	Username    string
-	Email       string
-	Password    string
-	Role        Role
-	BankAccount BankAccountInput
-	// Artist may be nil when Role is artist (description is optional); must be nil for a customer.
-	Artist *ArtistProfileInput
-}
-
-type BankAccountInput struct {
-	BankName          string
-	AccountHolderName string
-	AccountNumber     string
-}
-
-type UpdateAccountInput struct {
-	Username    string
-	OldPassword *string
-	NewPassword *string
-}
-
-type AccountUpdate struct {
-	Username     string
-	PasswordHash *string
-	UpdatedAt    time.Time
-}
-
-type ArtistProfileInput struct {
-	Description *string
-}
-
-type UpdateProfileImageInput struct {
-	ProfileImage       io.Reader
-	RemoveProfileImage bool
 }

@@ -12,17 +12,6 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// sessionModelToDomain converts a Postgres session row into the auth.Session domain type.
-func sessionModelToDomain(m *pgmodel.Session) *auth.Session {
-	return &auth.Session{
-		ID:               m.ID,
-		UserID:           m.UserID,
-		RefreshTokenHash: m.RefreshTokenHash,
-		ExpiresAt:        m.ExpiresAt,
-		CreatedAt:        m.CreatedAt,
-	}
-}
-
 // sessionRepository creates sessions only while a shared lock confirms the
 // account is live, so an account-deletion lock cannot race a new session in.
 type sessionRepository struct {
@@ -40,8 +29,22 @@ func NewSessionRepository(db *bun.DB) auth.SessionRepository {
 	}
 }
 
+// sessionModelToDomain converts a Postgres session row into the auth.Session domain type.
+func sessionModelToDomain(m *pgmodel.Session) *auth.Session {
+	return &auth.Session{
+		ID:               m.ID,
+		UserID:           m.UserID,
+		RefreshTokenHash: m.RefreshTokenHash,
+		ExpiresAt:        m.ExpiresAt,
+		CreatedAt:        m.CreatedAt,
+	}
+}
+
 // Create inserts a session only when the user still exists and is not soft-deleted.
-func (r *sessionRepository) Create(ctx context.Context, s *auth.Session) error {
+func (r *sessionRepository) Create(
+	ctx context.Context,
+	s *auth.Session,
+) error {
 	var rowsAffected int64
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		result, err := idb.NewRaw(`
@@ -66,7 +69,10 @@ func (r *sessionRepository) Create(ctx context.Context, s *auth.Session) error {
 }
 
 // FindByID fetches a session by ID and maps missing rows to ErrSessionNotFound.
-func (r *sessionRepository) FindByID(ctx context.Context, id uuid.UUID) (*auth.Session, error) {
+func (r *sessionRepository) FindByID(
+	ctx context.Context,
+	id uuid.UUID,
+) (*auth.Session, error) {
 	model, err := r.base.FindByID(ctx, id)
 	if err != nil {
 		if isNotFound(err) {
@@ -78,7 +84,10 @@ func (r *sessionRepository) FindByID(ctx context.Context, id uuid.UUID) (*auth.S
 }
 
 // DeleteByID removes a session and maps not-found rows to ErrSessionNotFound.
-func (r *sessionRepository) DeleteByID(ctx context.Context, id uuid.UUID) error {
+func (r *sessionRepository) DeleteByID(
+	ctx context.Context,
+	id uuid.UUID,
+) error {
 	if err := r.base.DeleteByID(ctx, id); err != nil {
 		if isNotFound(err) {
 			return auth.ErrSessionNotFound
