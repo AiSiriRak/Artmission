@@ -45,6 +45,7 @@ type ordersContext struct {
 	lastDeliverableID         string
 	otherDeliverableID        string
 	lastDeliverablePreviewKey string // most recently seeded deliverable version's preview_image_key
+	lastOriginalImageKey      string // most recently seeded deliverable version's original_image_key
 	autoApprovedDeliverables  []uuid.UUID
 	delayRequestDeadline      time.Time
 	lastDelayRequestID        string
@@ -195,8 +196,8 @@ func (o *ordersContext) anotherCustomerHasAnOrderWithPendingDeliverable() error 
 // highest version's preview regardless of the order's status (including
 // terminal ones like CANCEL). Every version before the last is seeded
 // REJECTED (the order_deliverables_order_id_pending_key unique index
-// allows at most one WAIT row per order); only the last version is
-// left pending (decision WAIT).
+// allows at most one WAIT row per order); only the last version is left
+// pending unless the order is successful, in which case it is approved.
 func (o *ordersContext) theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersions(status string, n int) error {
 	counterpart, err := o.sharedCounterpart()
 	if err != nil {
@@ -215,11 +216,14 @@ func (o *ordersContext) theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersi
 		decision := "WAIT"
 		if v < n {
 			decision = rejected
+		} else if status == "SUCCESS" {
+			decision = "APPROVED"
 		}
 		if err := seedDeliverable(id, v, key, decision); err != nil {
 			return err
 		}
 		o.lastDeliverablePreviewKey = key
+		o.lastOriginalImageKey = key + ".original"
 	}
 	return nil
 }
@@ -806,6 +810,7 @@ type orderDetailOutput struct {
 	OtherParty          orderPartyOutput      `json:"other_party"`
 	Deliverables        []deliverableOutput   `json:"deliverables"`
 	ActiveDelayRequest  *delayRequestOutput   `json:"active_delay_request"`
+	OriginalImageKey    *string               `json:"original_image_key"`
 }
 
 type deliverableOutput struct {
@@ -1104,6 +1109,32 @@ func (o *ordersContext) theSystemShowsTheOrderDetailsForTheUser() error {
 		got.OtherParty.Name != expectedParty.Username ||
 		got.OtherParty.Email != expectedParty.Email {
 		return fmt.Errorf("other_party = %+v; want account ID %q, username %q, email %q", got.OtherParty, expectedParty.ID, expectedParty.Username, expectedParty.Email)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemShowsTheLatestOriginalImageKeyForSuccessfulOrder() error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if o.orderDetail.Status != "SUCCESS" {
+		return fmt.Errorf("order status = %q, want SUCCESS", o.orderDetail.Status)
+	}
+	if o.orderDetail.OriginalImageKey == nil {
+		return fmt.Errorf("successful order has no original_image_key: %+v", o.orderDetail)
+	}
+	if *o.orderDetail.OriginalImageKey != o.lastOriginalImageKey {
+		return fmt.Errorf("original_image_key = %q, want latest key %q", *o.orderDetail.OriginalImageKey, o.lastOriginalImageKey)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemDoesNotIncludeAnOriginalImageKey() error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if o.orderDetail.OriginalImageKey != nil {
+		return fmt.Errorf("non-successful order returned original_image_key %q", *o.orderDetail.OriginalImageKey)
 	}
 	return nil
 }
@@ -1796,6 +1827,12 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system requires the user to log in$`, func() error { return o.theSystemRequiresTheUserToLogIn() })
 	sc.Step(`^the system shows the order details for the user$`, func() error {
 		return o.theSystemShowsTheOrderDetailsForTheUser()
+	})
+	sc.Step(`^the system shows the latest original image key for the successful order$`, func() error {
+		return o.theSystemShowsTheLatestOriginalImageKeyForSuccessfulOrder()
+	})
+	sc.Step(`^the system does not include an original image key$`, func() error {
+		return o.theSystemDoesNotIncludeAnOriginalImageKey()
 	})
 	sc.Step(`^the system confirms the order with status "([^"]*)"$`, func(status string) error {
 		return o.theSystemConfirmsTheOrderWithStatus(status)
