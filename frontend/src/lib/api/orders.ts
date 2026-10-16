@@ -1,13 +1,17 @@
 import { apiFetch } from "./client";
-import { Order, OrderHistory, OrderStatus } from "./types";
+import type {
+  CancelOrderInput,
+  CancelOrderResult,
+  ConfirmDeliverableInput,
+  ConfirmDeliverableResult,
+  CreateOrderInput,
+  Order,
+  OrderDetail,
+  OrderHistory,
+  OrderStatus,
+} from "./types";
 
-export interface CreateOrderInput {
-  artwork_id: string;
-  name: string;
-  customer_description: string;
-  /** ISO 8601 date-time */
-  deadline_at: string;
-}
+export type { OrderDeliverable, OrderDetail } from "./types";
 
 /**
  * สร้างออเดอร์ใหม่ของลูกค้า
@@ -64,55 +68,40 @@ export async function getOrderHistory(
  * ดึงรายละเอียดออเดอร์ตาม ID
  * GET /orders/{orderId}
  */
-export interface OrderDeliverable {
-  id: string;
-  version: number;
-  decision: "WAIT" | "APPROVED" | "REJECTED";
-  comment: string | null;
-  preview_image_url: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface OrderDetail {
-  id: string;
-  customer_id: string;
-  artist_id: string;
-  name: string;
-  artwork_id?: string;
-  artwork_snapshot: {
-    artwork_name: string;
-    category: string;
-    styles: string[] | null;
-  };
-  price_satang: number;
-  customer_description: string;
-  deadline_at: string;
-  status: OrderStatus;
-  completed_at?: string;
-  created_at: string;
-  updated_at: string;
-  other_party: {
-    id: string;
-    name: string;
-    email: string;
-    artist_review_score?: number;
-  };
-  deliverables: OrderDeliverable[] | null;
-}
-
 export async function getOrderById(orderId: string): Promise<OrderDetail> {
   return apiFetch<OrderDetail>(`/orders/${orderId}`);
 }
 
 /**
- * ยกเลิกออเดอร์
+ * ยกเลิกออเดอร์ (backend ต้องการ reason และ explanation)
  * PUT /orders/{order_id}/cancel
  */
 export async function cancelOrder(
   orderId: string,
-): Promise<{ message: string; status: string }> {
-  return apiFetch(`/orders/${orderId}/cancel`, { method: "PUT" });
+  input: CancelOrderInput = {
+    reason: "NO_LONGER_NEEDED",
+    explanation: "Cancelled by customer",
+  },
+): Promise<CancelOrderResult> {
+  return apiFetch<CancelOrderResult>(`/orders/${orderId}/cancel`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
 }
 
+/**
+ * ลูกค้าอนุมัติหรือปฏิเสธงานที่ส่งมอบ (ปฏิเสธต้องมี comment)
+ * PUT /orders/{order_id}/deliverables/{deliverable_id}/confirm
+ */
+export async function confirmDeliverable(
+  orderId: string,
+  deliverableId: string,
+  input: ConfirmDeliverableInput,
+): Promise<ConfirmDeliverableResult> {
+  return apiFetch<ConfirmDeliverableResult>(
+    `/orders/${orderId}/deliverables/${deliverableId}/confirm`,
+    { method: "PUT", body: JSON.stringify(input) },
+  );
+}
 
+// TODO: Implement customer comfirmDelayRequest (reject/approve)

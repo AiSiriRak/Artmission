@@ -48,11 +48,11 @@ export default function OrderInfo({
       >
         <div className="flex items-center justify-between gap-4 border-b border-primary-500 px-6 py-5">
           <span className="text-h3">Status</span>
-          <span className={`rounded-full border border-primary-500 px-6 py-1 text-caption ${statusColors[status]}`}>
-            {statusLabels[status]}
-          </span>
+          <div className={`${statusColors[status]} flex w-30 p-1.5 border rounded-full justify-center`}>
+            <p className="text-caption text-primary-500">{statusLabels[status]}</p>
+          </div>
         </div>
-        <dl className="space-y-3 px-6 py-6">
+        <dl className="space-y-3 px-6 pt-5 pb-2">
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-h3">Total Amount</dt>
             <dd className="text-body text-right">{(priceSatang / 100).toLocaleString("en-US")} THB</dd>
@@ -65,7 +65,7 @@ export default function OrderInfo({
             <dt className="text-h3">Deadline</dt>
             <dd className="text-right">
               <p className="text-body">{deadlineDate}</p>
-              {deadlineNote && <p className="text-small text-neutral">{deadlineNote}</p>}
+              {deadlineNote && <p className="mt-1 text-small text-neutral">{deadlineNote}</p>}
             </dd>
           </div>
         </dl>

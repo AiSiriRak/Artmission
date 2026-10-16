@@ -7,10 +7,7 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 
-export type CustomerConfirmKind =
-  | "request-changes"
-  | "accept"
-  | "cancel-order";
+export type CustomerConfirmKind = "request-changes" | "accept";
 
 interface CustomerCommentConfirmPopupProps {
   isOpen: boolean;
@@ -40,12 +37,6 @@ const copy: Record<
     success: "The commission has been accepted.",
     fail: "Unable to accept the commission.",
   },
-  "cancel-order": {
-    title: "Cancel Order",
-    confirm: "Cancel Order",
-    success: "Your order has been cancelled.",
-    fail: "Unable to cancel this order.",
-  },
 };
 
 export function CustomerCommentConfirmPopup({
@@ -73,14 +64,13 @@ export function CustomerCommentConfirmPopup({
   }
 
   const text = copy[kind];
+
   const description =
     kind === "request-changes"
       ? revisionNumber >= revisionLimit
         ? `This is your last available revision (${revisionNumber} of ${revisionLimit}). You will not be able to request further changes after this.`
         : `This will count as ${revisionNumber} of your ${revisionLimit} available revisions. The artist will be notified to revise the artwork.`
-      : kind === "accept"
-        ? "Once accepted, the order is completed and you can no longer request changes."
-        : "This action cannot be undone. The order will be cancelled.";
+      : "Once accepted, the order is completed and you can no longer request changes.";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25">
@@ -129,10 +119,10 @@ export function CustomerCommentConfirmPopup({
             </p>
             <div className="mt-8 flex w-full justify-between gap-4">
               <Button variant="light" onClick={onCancel}>
-                Back
+                Cancel
               </Button>
               <Button
-                variant={kind === "cancel-order" ? "red" : "dark"}
+                variant="dark"
                 onClick={onConfirm}
               >
                 {text.confirm}

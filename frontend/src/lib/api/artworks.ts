@@ -120,7 +120,6 @@ export async function searchArtworks(
 }
 
 /**
-<<<<<<< HEAD
  * ดึงรายละเอียดผลงานศิลปะตาม ID
  * GET /artworks/{artwork_id}
  */
@@ -129,8 +128,6 @@ export async function getArtworkById(artworkId: string): Promise<Artwork> {
 }
 
 /**
-=======
->>>>>>> 5032fb3c94669b87a7b2a5498d621795ad8e9f9d
  * สร้างรายการผลงานศิลปะชิ้นใหม่ พร้อมแนบไฟล์รูป
  * POST /artworks
  */

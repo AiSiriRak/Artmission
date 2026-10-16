@@ -32,6 +32,26 @@ export type OrderQuery = NonNullable<
 export type OrderStatus = NonNullable<OrderQuery["status"]>[number];
 export type OrderSortField = OrderQuery["sort"];
 export type OrderSortOrder = OrderQuery["order"];
+export type CreateOrderInput = components["schemas"]["CreateOrderInputBody"];
+export type CancelOrderInput = components["schemas"]["CancelOrderInputBody"];
+export type CancelOrderResult = components["schemas"]["CancelOrderOutputBody"];
+export type ConfirmDeliverableInput =
+  components["schemas"]["ConfirmDeliverableInputBody"];
+export type ConfirmDeliverableResult =
+  components["schemas"]["ConfirmDeliverableOutputBody"];
+export type DeliverableDecision = "WAIT" | "APPROVED" | "REJECTED";
+// The generated schema types these enums as plain strings, so narrow them here.
+export type OrderDeliverable = Omit<
+  components["schemas"]["DeliverableView"],
+  "decision"
+> & { decision: DeliverableDecision };
+export type OrderDetail = Omit<
+  components["schemas"]["OrderDetailView"],
+  "status" | "deliverables"
+> & {
+  status: OrderStatus;
+  deliverables: OrderDeliverable[] | null;
+};
 
 // Artist
 export type ArtistProfile = components["schemas"]["ArtistProfileView"];

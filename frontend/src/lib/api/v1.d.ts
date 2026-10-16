@@ -95,7 +95,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * GetArtwork
+         * @description Get the authenticated user artwork detail.
+         */
+        get: operations["get-artwork"];
         /**
          * UpdateArtwork
          * @description Update portfolio artwork owned by the authenticated artist
@@ -225,6 +229,150 @@ export interface paths {
          */
         get: operations["view-orders"];
         put?: never;
+        /**
+         * CreateOrder
+         * @description Create a new order for the authenticated customer.
+         */
+        post: operations["create-order"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{order_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetOrder
+         * @description Get the authenticated customer's or artist's order detail.
+         */
+        get: operations["get-order"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{order_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * CancelOrder
+         * @description Cancel an order as the authenticated user.
+         */
+        put: operations["cancel-order"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{order_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * ConfirmOrder
+         * @description Accept or reject a pending order as the authenticated artist.
+         */
+        put: operations["confirm-order"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{order_id}/delay-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * CreateDelayRequest
+         * @description Request a deadline extension for an order by the authenticated artist.
+         */
+        post: operations["create-delay-request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{order_id}/delay-requests/{delay_request_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * ConfirmDelayRequest
+         * @description Approve or reject a delay request for an order by the authenticated customer.
+         */
+        put: operations["confirm-delay-request"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{order_id}/deliverables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * CreateOrderDeliverable
+         * @description Create a new deliverable version of a specific order by the authenticated owner artist.
+         */
+        post: operations["create-order-deliverable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{order_id}/deliverables/{deliverable_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * ConfirmOrderDeliverable
+         * @description Accept or reject a waiting deliverable as the authenticated customer.
+         */
+        put: operations["confirm-deliverable"];
         post?: never;
         delete?: never;
         options?: never;
@@ -390,6 +538,11 @@ export interface components {
             /** Format: uri */
             image_url: string;
         };
+        ArtworkSnapshotView: {
+            artwork_name: string;
+            category: string;
+            styles: string[] | null;
+        };
         ArtworkView: {
             /**
              * Format: uri
@@ -432,6 +585,152 @@ export interface components {
             account_holder_name: string;
             account_last4: string;
             bank_name: string;
+        };
+        CancelOrderInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/CancelOrderInputBody.json
+             */
+            readonly $schema?: string;
+            explanation: string;
+            reason: string;
+        };
+        CancelOrderOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/CancelOrderOutputBody.json
+             */
+            readonly $schema?: string;
+            explanation: string;
+            order_id: string;
+            reason: string;
+        };
+        ConfirmDelayRequestInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ConfirmDelayRequestInputBody.json
+             */
+            readonly $schema?: string;
+            accept: boolean;
+        };
+        ConfirmDelayRequestOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ConfirmDelayRequestOutputBody.json
+             */
+            readonly $schema?: string;
+            customer_decision: string;
+            /** Format: date-time */
+            deadline_at: string;
+            message: string;
+        };
+        ConfirmDeliverableInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ConfirmDeliverableInputBody.json
+             */
+            readonly $schema?: string;
+            Accept: boolean;
+            comment?: string;
+        };
+        ConfirmDeliverableOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ConfirmDeliverableOutputBody.json
+             */
+            readonly $schema?: string;
+            message: string;
+            status: string;
+        };
+        ConfirmOrderInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ConfirmOrderInputBody.json
+             */
+            readonly $schema?: string;
+            accept: boolean;
+        };
+        ConfirmOrderOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ConfirmOrderOutputBody.json
+             */
+            readonly $schema?: string;
+            message: string;
+            status: string;
+        };
+        CreateDelayRequestInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/CreateDelayRequestInputBody.json
+             */
+            readonly $schema?: string;
+            /** Format: date-time */
+            deadline_request_at: string;
+            explanation: string;
+            /** @enum {string} */
+            reason: "NEED_MORE_TIME" | "WAITING_FOR_FEEDBACK" | "PERSONAL_REASON" | "HIGH_WORKLOAD" | "TECHNICAL_ISSUE" | "OTHER";
+        };
+        CreateOrderInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/CreateOrderInputBody.json
+             */
+            readonly $schema?: string;
+            artwork_id: string;
+            customer_description: string;
+            /** Format: date-time */
+            deadline_at: string;
+            name: string;
+        };
+        DelayRequestView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/DelayRequestView.json
+             */
+            readonly $schema?: string;
+            /** Format: date-time */
+            created_at: string;
+            customer_decision: string;
+            /** Format: date-time */
+            deadline_request_at: string;
+            explanation: string;
+            id: string;
+            order_id: string;
+            /** Format: date-time */
+            original_deadline_at: string;
+            reason: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        DeliverableView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/DeliverableView.json
+             */
+            readonly $schema?: string;
+            comment: string | null;
+            /** Format: date-time */
+            created_at: string;
+            decision: string;
+            id: string;
+            preview_image_url: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: int64 */
+            version: number;
         };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -500,7 +799,49 @@ export interface components {
             email: string;
             password: string;
         };
+        OrderDetailView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/OrderDetailView.json
+             */
+            readonly $schema?: string;
+            active_delay_request: components["schemas"]["DelayRequestView"];
+            artist_id: string;
+            artwork_id?: string;
+            artwork_snapshot: components["schemas"]["ArtworkSnapshotView"];
+            /** Format: date-time */
+            completed_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            customer_description: string;
+            customer_id: string;
+            /** Format: date-time */
+            deadline_at: string;
+            deliverables: components["schemas"]["DeliverableView"][] | null;
+            id: string;
+            name: string;
+            other_party: components["schemas"]["OrderPartyView"];
+            /** Format: int64 */
+            price_satang: number;
+            status: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        OrderPartyView: {
+            /** Format: double */
+            artist_review_score?: number;
+            email: string;
+            id: string;
+            name: string;
+        };
         OrderSummaryView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/OrderSummaryView.json
+             */
+            readonly $schema?: string;
             artist_id: string;
             /** Format: date-time */
             completed_at?: string;
@@ -816,6 +1157,37 @@ export interface operations {
             };
         };
     };
+    "get-artwork": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artwork_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtworkView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "update-artwork": {
         parameters: {
             query?: never;
@@ -1072,6 +1444,285 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ViewOrdersOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrderInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderSummaryView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetailView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "cancel-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelOrderInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancelOrderOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "confirm-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmOrderInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmOrderOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-delay-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDelayRequestInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DelayRequestView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "confirm-delay-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+                delay_request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmDelayRequestInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmDelayRequestOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-order-deliverable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    deliverable_image: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliverableView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "confirm-deliverable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+                deliverable_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmDeliverableInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmDeliverableOutputBody"];
                 };
             };
             /** @description Error */
