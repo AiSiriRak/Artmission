@@ -55,7 +55,7 @@ export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
           <span className="text-h3">
             {artist.review_score !== null
               ? `${artist.review_score.toFixed(1)}/5`
-              : "No reviews"}
+              : "-/5"}
           </span>
         </div>
       </div>

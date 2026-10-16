@@ -10,7 +10,7 @@ export interface ArtworkDetailCardProps {
 export default function ArtworkDetailCard({ artwork }: ArtworkDetailCardProps) {
   return (
     
-    <div className="w-full border border-primary-500 rounded-3xl p-10 bg-secondary-200 shadow-sm">
+    <div className="w-7/10 border border-primary-500 rounded-3xl p-10 bg-secondary-200 shadow-sm">
       <div className="">
           <div className="p-4 flex flex-col flex-1 gap-6">
             {/* Artwork Info section*/}
@@ -33,7 +33,7 @@ export default function ArtworkDetailCard({ artwork }: ArtworkDetailCardProps) {
 
             <div className="flex flex-col gap-2">
               <h3 className="text-h3">Description</h3>
-              <p className="text-body">{artwork.description}</p>
+              <p className="text-body break-words">{artwork.description}</p>
             </div>
 
             {/* Artwork Sample Gallery section */}
