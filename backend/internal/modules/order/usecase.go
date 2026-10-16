@@ -192,6 +192,13 @@ func (u *orderUsecase) GetOrder(
 		ActiveDelayRequest: data.ActiveDelayRequest,
 	}
 
+	if detail.Status == StatusSuccess && len(data.Deliverables) > 0 {
+		originalImageKey := data.Deliverables[0].OriginalImageKey
+		if originalImageKey != "" {
+			detail.OriginalImageKey = &originalImageKey
+		}
+	}
+
 	switch participant {
 	case ParticipantCustomer:
 		detail.OtherParty = data.Artist
