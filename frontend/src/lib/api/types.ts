@@ -45,12 +45,23 @@ export type OrderDeliverable = Omit<
   components["schemas"]["DeliverableView"],
   "decision"
 > & { decision: DeliverableDecision };
+export type DelayRequestDecision = "WAIT" | "APPROVED" | "REJECTED";
+export type DelayRequest = Omit<
+  components["schemas"]["DelayRequestView"],
+  "customer_decision"
+> & { customer_decision: DelayRequestDecision };
+export type ConfirmDelayRequestInput =
+  components["schemas"]["ConfirmDelayRequestInputBody"];
+export type ConfirmDelayRequestResult =
+  components["schemas"]["ConfirmDelayRequestOutputBody"];
+// The backend returns null when there is no active delay request.
 export type OrderDetail = Omit<
   components["schemas"]["OrderDetailView"],
-  "status" | "deliverables"
+  "status" | "deliverables" | "active_delay_request"
 > & {
   status: OrderStatus;
   deliverables: OrderDeliverable[] | null;
+  active_delay_request: DelayRequest | null;
 };
 
 // Artist

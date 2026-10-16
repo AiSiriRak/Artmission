@@ -10,11 +10,6 @@ interface OrderDescriptionProps {
   requestDetail: string;
 }
 
-function formatTagLabel(value: string) {
-  const label = value.trim().toLowerCase();
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
 export default function OrderDescription({
   orderNumber,
   orderName,

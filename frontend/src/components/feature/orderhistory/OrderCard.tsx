@@ -61,7 +61,7 @@ export function OrderCard({ status, order }: OrderCard) {
                 alt={""}
                 width={1000}
                 height={1000}
-                className="relative z-10"
+                className="relative z-10 aspect-square w-full object-contain"
               />
             </div>
           </div>

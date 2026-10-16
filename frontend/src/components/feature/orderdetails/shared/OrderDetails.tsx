@@ -9,6 +9,7 @@ interface OrderDetailsProps {
   usertype: "artist" | "customer";
   description: ReactNode;
   info: ReactNode;
+  postponeSection?: ReactNode; 
   userInfo?: ReactNode;
   children?: ReactNode;
 }
@@ -19,6 +20,7 @@ export default function OrderDetails({
   info,
   userInfo,
   children,
+  postponeSection,
 }: OrderDetailsProps) {
   const router = useRouter();
 
@@ -41,13 +43,12 @@ export default function OrderDetails({
         </Button>
 
         <h1 className="mt-6 mb-8 text-h2">Order Detail</h1>
-
+        {postponeSection}
         <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
           <section className="min-w-0">
             {description}
             {children}
           </section>
-
           <section className="min-w-0">
             {info}
             {userInfo && <div className="mt-10">{userInfo}</div>}

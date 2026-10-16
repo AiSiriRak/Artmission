@@ -5,14 +5,17 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 
-interface CommissionConfirmPopup {
+interface CustomerConfirmPopUp {
   isOpen: boolean;
-  status: string;
+  title: string;
+  description: string;
+  cancelText: string;
+  confirmText: string;
   onCancel: () => void;
   onConfirm: () => void;
 }
 
-export function CommissionConfirmPopup({ isOpen, onCancel, onConfirm }: CommissionConfirmPopup) {
+export function CustomerConfirmPopUp({ isOpen, title, description, cancelText, confirmText, onCancel, onConfirm }: CustomerConfirmPopUp) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -37,19 +40,19 @@ export function CommissionConfirmPopup({ isOpen, onCancel, onConfirm }: Commissi
           <div className="mt-6 space-y-1 flex flex-col items-center">
             {/* Title */}
             <p className="text-center text-h3 text-primary-500">
-              Accept this Commission?
+              {title}
             </p>
             {/* Description */}
             <p className="mt-8 text-center text-small text-primary-500 w-50">
-              Once accepted, this order will be marked as completed and payment will be released to the artist.
+              {description}
             </p>
             {/* Buttons */}
             <div className="mt-8 flex w-full justify-between">
               <Button variant="light" onClick={onCancel}>
-                Cancel
+                {cancelText}
               </Button>
               <Button variant="dark" onClick={onConfirm}>
-                Accept
+                {confirmText}
               </Button>
             </div>
           </div>

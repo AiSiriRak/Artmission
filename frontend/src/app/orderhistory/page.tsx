@@ -15,6 +15,7 @@ import { SelectInput } from "@/components/ui/SelectInput";
 import { CheckboxDropdown } from "@/components/ui/CheckboxDropdown";
 import { Loading } from "@/components/ui/Loading";
 import MainLayout from "@/components/feature/main/MainLayout";
+import Link from "next/dist/client/link";
 
 export default function HomePage() {
   const router = useRouter();
@@ -126,11 +127,13 @@ export default function HomePage() {
               {order.orders &&
                 order.orders.length > 0 &&
                 order.orders.map((option) => (
-                  <OrderCard
-                    key={option.id}
-                    order={option}
-                    status={status_list}
-                  />
+                  <Link href={`/orderhistory/${option.id}`} key={option.id}>
+                    <OrderCard
+                      key={option.id}
+                      order={option}
+                      status={status_list}
+                    />
+                  </Link>
                 ))}
             </div>
           </div>

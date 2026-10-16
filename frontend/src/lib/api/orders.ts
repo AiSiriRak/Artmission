@@ -2,6 +2,8 @@ import { apiFetch } from "./client";
 import type {
   CancelOrderInput,
   CancelOrderResult,
+  ConfirmDelayRequestInput,
+  ConfirmDelayRequestResult,
   ConfirmDeliverableInput,
   ConfirmDeliverableResult,
   CreateOrderInput,
@@ -104,4 +106,17 @@ export async function confirmDeliverable(
   );
 }
 
-// TODO: Implement customer comfirmDelayRequest (reject/approve)
+/**
+ * ลูกค้าอนุมัติหรือปฏิเสธคำขอเลื่อนเดดไลน์
+ * PUT /orders/{order_id}/delay-requests/{delay_request_id}/confirm
+ */
+export async function confirmDelayRequest(
+  orderId: string,
+  delayRequestId: string,
+  input: ConfirmDelayRequestInput,
+): Promise<ConfirmDelayRequestResult> {
+  return apiFetch<ConfirmDelayRequestResult>(
+    `/orders/${orderId}/delay-requests/${delayRequestId}/confirm`,
+    { method: "PUT", body: JSON.stringify(input) },
+  );
+}

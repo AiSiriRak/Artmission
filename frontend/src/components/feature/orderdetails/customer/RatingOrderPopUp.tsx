@@ -50,8 +50,8 @@ export function RatingOrderPopup({ isOpen, onConfirm }: RatingOrderPopup) {
                             key={index}
                             src={
                             index < rating
-                                ? "./icons/star_filled.svg"
-                                : "./icons/star_light.svg"
+                                ? "/icons/Star_filled.svg"
+                                : "/icons/Star_light.svg"
                             }
                             alt={index < rating ? "Filled Star" : "Light Star"}
                             className="cursor-pointer w-[40px] h-[40px] object-contain object-center transition-transform hover:scale-110"

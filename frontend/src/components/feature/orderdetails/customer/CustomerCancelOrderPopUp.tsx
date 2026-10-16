@@ -106,7 +106,7 @@ export function CustomerCancelOrderPopUp({
               height={64}
               className="mx-auto"
             />
-            <p className="text-center text-h3 text-primary-500">Success</p>
+            <p className="text-center text-h2 text-primary-500">Success</p>
             <p className="text-center text-small text-primary-500">
               Your order has been cancelled.
             </p>
@@ -123,7 +123,7 @@ export function CustomerCancelOrderPopUp({
               height={64}
               className="mx-auto"
             />
-            <p className="text-center text-h3 text-primary-500">
+            <p className="text-center text-h2 text-primary-500">
               Unable to cancel this order.
             </p>
             {errorMessage && (
@@ -137,7 +137,7 @@ export function CustomerCancelOrderPopUp({
           </div>
         ) : (
           <div className="mt-6 w-full space-y-4">
-            <span className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-subtle font-bold text-white">
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500 text-h3 font-bold text-white">
               i
             </span>
             <h2 className="text-center text-h2 text-primary-500">
@@ -148,9 +148,12 @@ export function CustomerCancelOrderPopUp({
             </p>
 
             <div>
-              <p className="mb-1 text-body font-bold">
-                Reason for cancellation *
-              </p>
+                <div className="flex items-center gap-1">
+                <p className="mb-1 text-h4 font-bold">
+                    Reason for cancellation 
+                </p>
+                <p className="text-body text-red-500">*</p>
+                </div>
               <SelectInput
                 value={reason}
                 onChange={(value) => {
@@ -165,9 +168,12 @@ export function CustomerCancelOrderPopUp({
             </div>
 
             <div>
-              <p className="mb-1 text-body font-bold">
-                Please explain your reason *
-              </p>
+              <div className="flex items-center gap-1">
+                <p className="flex mb-1 text-h4 font-bold">
+                  Please explain your reason
+                </p>
+                <p className="text-body text-red-500">*</p>
+              </div>
               <textarea
                 value={explanation}
                 onChange={(e) => {
@@ -183,9 +189,15 @@ export function CustomerCancelOrderPopUp({
               )}
             </div>
 
+            <div className="flex items-center gap-4 rounded-md bg-blue-50 p-3">
+                <div className="flex flex-col">
+                    <h4 className="text-h4 font-bold">Refund information</h4>
+                <p className="text-small">If you cancel this order now, you’ll receive a 50% refund of the order total.</p>
+                </div>
+            </div>
+
             <div className="rounded-md bg-red-50 p-3 text-small text-red-600">
-              The artist will be notified immediately after cancellation. This
-              action cannot be undone.
+              The artist will be notified immediately after cancellation.
             </div>
 
             <div className="flex w-full justify-between gap-4">

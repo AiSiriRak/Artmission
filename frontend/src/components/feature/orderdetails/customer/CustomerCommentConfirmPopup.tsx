@@ -9,7 +9,7 @@ import { WhiteCard } from "@/components/ui/WhiteCard";
 
 export type CustomerConfirmKind = "request-changes" | "accept";
 
-interface CustomerCommentConfirmPopupProps {
+interface CustomerCommentConfirmPopUpProps {
   isOpen: boolean;
   kind: CustomerConfirmKind;
   /** 1-based revision this request would use (request-changes only). */
@@ -39,7 +39,7 @@ const copy: Record<
   },
 };
 
-export function CustomerCommentConfirmPopup({
+export function CustomerCommentConfirmPopUp({
   isOpen,
   kind,
   revisionNumber = 1,
@@ -48,7 +48,7 @@ export function CustomerCommentConfirmPopup({
   errorMessage,
   onCancel,
   onConfirm,
-}: CustomerCommentConfirmPopupProps) {
+}: CustomerCommentConfirmPopUpProps) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";

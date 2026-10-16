@@ -37,7 +37,7 @@ export function ThankYouOrderPopup({ isOpen, onClose}: ThankYouOrderPopup) {
             {/* Success Icon */}
                 <div className="mt-[40px]">
                     <img 
-                        src="./icons/success_pink.svg" 
+                        src="/icons/success_pink.svg" 
                         alt="Success" 
                         className="w-[64px] h-[64px] object-contain" 
                     />
