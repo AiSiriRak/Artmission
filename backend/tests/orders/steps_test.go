@@ -810,7 +810,7 @@ type orderDetailOutput struct {
 	OtherParty          orderPartyOutput      `json:"other_party"`
 	Deliverables        []deliverableOutput   `json:"deliverables"`
 	ActiveDelayRequest  *delayRequestOutput   `json:"active_delay_request"`
-	OriginalImageKey    *string               `json:"original_image_key"`
+	OriginalImageURL    *string               `json:"original_image_url"`
 }
 
 type deliverableOutput struct {
@@ -1113,28 +1113,35 @@ func (o *ordersContext) theSystemShowsTheOrderDetailsForTheUser() error {
 	return nil
 }
 
-func (o *ordersContext) theSystemShowsTheLatestOriginalImageKeyForSuccessfulOrder() error {
+func (o *ordersContext) theSystemShowsTheLatestOriginalImageURLForSuccessfulOrder() error {
 	if err := o.expectStatus(http.StatusOK); err != nil {
 		return err
 	}
 	if o.orderDetail.Status != "SUCCESS" {
 		return fmt.Errorf("order status = %q, want SUCCESS", o.orderDetail.Status)
 	}
-	if o.orderDetail.OriginalImageKey == nil {
-		return fmt.Errorf("successful order has no original_image_key: %+v", o.orderDetail)
+	if o.orderDetail.OriginalImageURL == nil {
+		return fmt.Errorf("successful order has no original_image_url: %+v", o.orderDetail)
 	}
-	if *o.orderDetail.OriginalImageKey != o.lastOriginalImageKey {
-		return fmt.Errorf("original_image_key = %q, want latest key %q", *o.orderDetail.OriginalImageKey, o.lastOriginalImageKey)
+	originalURL, err := url.Parse(*o.orderDetail.OriginalImageURL)
+	if err != nil {
+		return fmt.Errorf("parse original_image_url: %w", err)
+	}
+	if !strings.HasSuffix(originalURL.Path, "/"+o.lastOriginalImageKey) {
+		return fmt.Errorf("original_image_url path = %q, want suffix %q", originalURL.Path, "/"+o.lastOriginalImageKey)
+	}
+	if originalURL.Query().Get("X-Amz-Signature") == "" {
+		return fmt.Errorf("original_image_url is not presigned: %q", originalURL)
 	}
 	return nil
 }
 
-func (o *ordersContext) theSystemDoesNotIncludeAnOriginalImageKey() error {
+func (o *ordersContext) theSystemDoesNotIncludeAnOriginalImageURL() error {
 	if err := o.expectStatus(http.StatusOK); err != nil {
 		return err
 	}
-	if o.orderDetail.OriginalImageKey != nil {
-		return fmt.Errorf("non-successful order returned original_image_key %q", *o.orderDetail.OriginalImageKey)
+	if o.orderDetail.OriginalImageURL != nil {
+		return fmt.Errorf("non-successful order returned original_image_url %q", *o.orderDetail.OriginalImageURL)
 	}
 	return nil
 }
@@ -1828,11 +1835,11 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system shows the order details for the user$`, func() error {
 		return o.theSystemShowsTheOrderDetailsForTheUser()
 	})
-	sc.Step(`^the system shows the latest original image key for the successful order$`, func() error {
-		return o.theSystemShowsTheLatestOriginalImageKeyForSuccessfulOrder()
+	sc.Step(`^the system shows the latest original image URL for the successful order$`, func() error {
+		return o.theSystemShowsTheLatestOriginalImageURLForSuccessfulOrder()
 	})
-	sc.Step(`^the system does not include an original image key$`, func() error {
-		return o.theSystemDoesNotIncludeAnOriginalImageKey()
+	sc.Step(`^the system does not include an original image URL$`, func() error {
+		return o.theSystemDoesNotIncludeAnOriginalImageURL()
 	})
 	sc.Step(`^the system confirms the order with status "([^"]*)"$`, func(status string) error {
 		return o.theSystemConfirmsTheOrderWithStatus(status)

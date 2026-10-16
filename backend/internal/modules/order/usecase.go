@@ -195,7 +195,11 @@ func (u *orderUsecase) GetOrder(
 	if detail.Status == StatusSuccess && len(data.Deliverables) > 0 {
 		originalImageKey := data.Deliverables[0].OriginalImageKey
 		if originalImageKey != "" {
-			detail.OriginalImageKey = &originalImageKey
+			url, err := u.storage.GetPresignedURL(ctx, originalImageKey, orderDeliverableTTL)
+			if err != nil {
+				return nil, ErrFailedToPresignOriginalImageURL
+			}
+			detail.OriginalImageURL = &url
 		}
 	}
 

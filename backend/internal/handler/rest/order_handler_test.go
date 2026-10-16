@@ -356,7 +356,7 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 	deliverableUpdatedAt := time.Date(2026, time.October, 2, 12, 0, 0, 0, time.UTC)
 	deliverableComment := "Please revise this version."
 	deliverablePreviewURL := "https://storage.example.com/orders/order-10/v1/preview.png"
-	originalImageKey := "orders/order-10/v1/original.png"
+	originalImageURL := "https://storage.example.com/orders/order-10/v1/original.png"
 	reviewScore := 4.5
 
 	for _, tt := range []struct {
@@ -421,7 +421,7 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 					UpdatedAt:       deliverableUpdatedAt,
 				}},
 				OtherParty:       otherParty,
-				OriginalImageKey: &originalImageKey,
+				OriginalImageURL: &originalImageURL,
 			}
 			usecase := &fakeOrderUsecase{
 				getOrderFunc: func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error) {
@@ -483,7 +483,7 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 					CreatedAt:       createdAt,
 					UpdatedAt:       deliverableUpdatedAt,
 				}},
-				OriginalImageKey: &originalImageKey,
+				OriginalImageURL: &originalImageURL,
 			}
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("response body = %+v, want %+v", got, want)

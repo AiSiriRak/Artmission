@@ -235,7 +235,7 @@ type orderDetailView struct {
 	OtherParty          orderPartyView      `json:"other_party"`
 	Deliverables        []deliverableView   `json:"deliverables"`
 	ActiveDelayRequest  *delayRequestView   `json:"active_delay_request"`
-	OriginalImageKey    *string             `json:"original_image_key,omitempty"`
+	OriginalImageURL    *string             `json:"original_image_url,omitempty"`
 }
 
 // ViewOrdersInput contains the filters, sorting options, and pagination parameters for listing orders.
@@ -786,7 +786,7 @@ func toOrderDetailView(
 		},
 		Deliverables:       deliverables,
 		ActiveDelayRequest: activeDelayRequest,
-		OriginalImageKey:   o.OriginalImageKey,
+		OriginalImageURL:   o.OriginalImageURL,
 	}
 }
 
