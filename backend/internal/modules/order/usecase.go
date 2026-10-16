@@ -995,3 +995,30 @@ func (u *orderUsecase) CancelExpiredDelayRequest(
 
 	return ids, nil
 }
+
+// for sprint 2
+// BypassOrderPayment transitions order status from NOT_PAID to IN_PROCESS for dev.
+func (u *orderUsecase) BypassOrderPayment(
+	ctx context.Context,
+	customerID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	if customerID == uuid.Nil {
+		return ErrMissingParticipantID
+	}
+
+	if orderID == uuid.Nil {
+		return ErrMissingOrderID
+	}
+
+	err := u.repo.BypassOrderPayment(
+		ctx,
+		customerID,
+		orderID,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

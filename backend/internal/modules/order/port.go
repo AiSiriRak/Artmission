@@ -103,6 +103,14 @@ type OrderUsecase interface {
 	CancelExpiredDelayRequest(
 		ctx context.Context,
 	) ([]uuid.UUID, error)
+
+	// for sprint 2
+	// BypassOrderPayment transitions order status from NOT_PAID to IN_PROCESS for dev.
+	BypassOrderPayment(
+		ctx context.Context,
+		customerID uuid.UUID,
+		orderID uuid.UUID,
+	) error
 }
 
 type OrderRepository interface {
@@ -215,6 +223,14 @@ type OrderRepository interface {
 		expiringCutoff time.Time,
 		now time.Time,
 	) ([]uuid.UUID, error)
+
+	// for sprint 2
+	// BypassOrderPayment transitions order status from NOT_PAID to IN_PROCESS for dev.
+	BypassOrderPayment(
+		ctx context.Context,
+		customerID uuid.UUID,
+		orderID uuid.UUID,
+	) error
 }
 
 type ObjectStorage interface {

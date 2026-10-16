@@ -36,6 +36,8 @@ type fakeOrderUsecase struct {
 	createDeliverableFunc   func(context.Context, uuid.UUID, order.CreateDeliverableInput) (*order.Deliverable, error)
 	createDelayRequestFunc  func(context.Context, uuid.UUID, order.CreateDelayRequestInput) (*order.OrderDelayRequest, error)
 	confirmDelayRequestFunc func(context.Context, uuid.UUID, uuid.UUID, order.ConfirmDelayRequestInput) (*order.ConfirmDelayRequestOutput, error)
+	// for sprint 2
+	bypassOrderPaymentFunc func(context.Context, uuid.UUID, uuid.UUID) error
 
 	gotListQuery               order.ListQuery
 	gotParticipant             order.Participant
@@ -56,6 +58,10 @@ type fakeOrderUsecase struct {
 	gotConfirmDelayUserID      uuid.UUID
 	gotConfirmDelayOrderID     uuid.UUID
 	confirmDelayCalls          int
+	// for sprint 2
+	bypassOrderPaymentCustomerID uuid.UUID
+	bypassOrderPaymentOrderID    uuid.UUID
+	bypassOrderPaymentCalls      int
 }
 
 type fakeArtworkUsecase struct {
@@ -230,6 +236,21 @@ func (f *fakeOrderUsecase) ConfirmDelayRequest(
 		return f.confirmDelayRequestFunc(ctx, customerID, orderID, input)
 	}
 	return nil, nil
+}
+
+// for sprint 2
+func (f *fakeOrderUsecase) BypassOrderPayment(
+	ctx context.Context,
+	customerID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	f.bypassOrderPaymentCalls++
+	f.bypassOrderPaymentCustomerID = customerID
+	f.bypassOrderPaymentOrderID = orderID
+	if f.bypassOrderPaymentFunc != nil {
+		return f.bypassOrderPaymentFunc(ctx, customerID, orderID)
+	}
+	return nil
 }
 
 type orderAuthStub struct {
@@ -1360,6 +1381,121 @@ func TestOrderHandlerCancelOrderRejectsInvalidOrderID(t *testing.T) {
 	if usecase.cancelCalls != 0 {
 		t.Errorf("CancelOrder() calls = %d, want 0", usecase.cancelCalls)
 	}
+}
+
+// for sprint 2
+func TestOrderHandlerBypassOrderPayment(t *testing.T) {
+	const (
+		userID  = "00000000-0000-0000-0000-000000000001"
+		orderID = "00000000-0000-0000-0000-000000000010"
+	)
+
+	t.Run("returns success and passes authenticated customer and order IDs", func(t *testing.T) {
+		usecase := &fakeOrderUsecase{}
+		handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+		rec := serveOrderRequest(
+			handler,
+			http.MethodPut,
+			"/orders/"+orderID+"/bypass-payment",
+			true,
+		)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+		var got struct {
+			Message string `json:"message"`
+		}
+		if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if got.Message != "Payment bypassed successfully" {
+			t.Errorf("message = %q, want success message", got.Message)
+		}
+		if usecase.bypassOrderPaymentCalls != 1 ||
+			usecase.bypassOrderPaymentCustomerID != uuid.MustParse(userID) ||
+			usecase.bypassOrderPaymentOrderID != uuid.MustParse(orderID) {
+			t.Errorf(
+				"bypass calls = %d, customer = %s, order = %s",
+				usecase.bypassOrderPaymentCalls,
+				usecase.bypassOrderPaymentCustomerID,
+				usecase.bypassOrderPaymentOrderID,
+			)
+		}
+	})
+
+	t.Run("maps order status conflict", func(t *testing.T) {
+		usecase := &fakeOrderUsecase{
+			bypassOrderPaymentFunc: func(context.Context, uuid.UUID, uuid.UUID) error {
+				return apperror.Conflict("order status does not allow this operation")
+			},
+		}
+		handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+		rec := serveOrderRequest(
+			handler,
+			http.MethodPut,
+			"/orders/"+orderID+"/bypass-payment",
+			true,
+		)
+
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+		}
+	})
+
+	t.Run("requires customer role", func(t *testing.T) {
+		usecase := &fakeOrderUsecase{}
+		handler := newOrderTestHandler(t, user.RoleArtist, usecase)
+		rec := serveOrderRequest(
+			handler,
+			http.MethodPut,
+			"/orders/"+orderID+"/bypass-payment",
+			true,
+		)
+
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusForbidden, rec.Body.String())
+		}
+		if usecase.bypassOrderPaymentCalls != 0 {
+			t.Errorf("BypassOrderPayment() calls = %d, want 0", usecase.bypassOrderPaymentCalls)
+		}
+	})
+
+	t.Run("requires authentication", func(t *testing.T) {
+		usecase := &fakeOrderUsecase{}
+		handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+		rec := serveOrderRequest(
+			handler,
+			http.MethodPut,
+			"/orders/"+orderID+"/bypass-payment",
+			false,
+		)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusUnauthorized, rec.Body.String())
+		}
+		if usecase.bypassOrderPaymentCalls != 0 {
+			t.Errorf("BypassOrderPayment() calls = %d, want 0", usecase.bypassOrderPaymentCalls)
+		}
+	})
+
+	t.Run("rejects malformed order ID", func(t *testing.T) {
+		usecase := &fakeOrderUsecase{}
+		handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+		rec := serveOrderRequest(
+			handler,
+			http.MethodPut,
+			"/orders/not-a-uuid/bypass-payment",
+			true,
+		)
+
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusUnprocessableEntity, rec.Body.String())
+		}
+		if usecase.bypassOrderPaymentCalls != 0 {
+			t.Errorf("BypassOrderPayment() calls = %d, want 0", usecase.bypassOrderPaymentCalls)
+		}
+	})
 }
 
 func newOrderTestHandler(

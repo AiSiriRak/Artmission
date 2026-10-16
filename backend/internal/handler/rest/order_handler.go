@@ -161,6 +161,22 @@ func (h *OrderHandler) Register(api huma.API) {
 			)
 		},
 	)
+
+	huma.Put(api, "/orders/{order_id}/bypass-payment", h.bypassOrderPayment,
+		huma.OperationTags("orders"),
+		func(o *huma.Operation) {
+			o.OperationID = "bypass-order-payment"
+			o.Summary = "Bypass Order Payment (temporary)"
+			o.Description = "Temporary endpoint for Sprint 2 testing. " +
+				"Bypasses payment processing and must be removed when payment is implemented."
+			o.DefaultStatus = http.StatusOK
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireRole(api, user.RoleCustomer),
+			)
+		},
+	)
 }
 
 // orderSummaryView represents an order summary in the REST response.
@@ -567,7 +583,10 @@ type confirmDeliverableOutput struct {
 }
 
 // confirmDeliverable accepts or rejects a submitted deliverable on behalf of the authenticated customer.
-func (h *OrderHandler) confirmDeliverable(ctx context.Context, input *confirmDeliverableInput) (*confirmDeliverableOutput, error) {
+func (h *OrderHandler) confirmDeliverable(
+	ctx context.Context,
+	input *confirmDeliverableInput,
+) (*confirmDeliverableOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
 		return nil, huma.Error401Unauthorized("missing authentication")
@@ -704,6 +723,44 @@ func (h *OrderHandler) confirmDelayRequest(
 	out.Body.DeadlineAt = output.DeadlineAt
 
 	return out, nil
+}
+
+// for sprint 2
+// BypassOrderPaymentInput contains the order ID requested by the authenticated participant.
+type BypassOrderPaymentInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+}
+
+// BypassOrderPaymentOutput contains the result of bypassing payment for an order.
+type BypassOrderPaymentOutput struct {
+	Body struct {
+		Message string `json:"message"`
+	}
+}
+
+// bypassOrderPayment temporarily bypasses payment for an order.
+func (h *OrderHandler) bypassOrderPayment(
+	ctx context.Context,
+	input *BypassOrderPaymentInput,
+) (*BypassOrderPaymentOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	err := h.orderUsecase.BypassOrderPayment(
+		ctx,
+		info.UserID,
+		input.OrderID,
+	)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	output := &BypassOrderPaymentOutput{}
+	output.Body.Message = "Payment bypassed successfully"
+
+	return output, nil
 }
 
 // participantForRole converts an authenticated account role to its order scope.

@@ -96,6 +96,12 @@ type fakeRepo struct {
 	expireDelayRequestCutoff time.Time
 	expireDelayRequestIDs    []uuid.UUID
 	expireDelayRequestErr    error
+
+	// for sprint 2
+	bypassPaymentCustomerID uuid.UUID
+	bypassPaymentOrderID    uuid.UUID
+	bypassPaymentErr        error
+	bypassPaymentCalled     bool
 }
 
 func (f *fakeRepo) ListOrders(
@@ -265,6 +271,18 @@ func (f *fakeRepo) CancelExpiredRequest(
 	f.expireDelayRequestNow = now
 	f.expireDelayRequestCutoff = expiringCutoff
 	return f.expireDelayRequestIDs, f.expireDelayRequestErr
+}
+
+// for sprint 2
+func (f *fakeRepo) BypassOrderPayment(
+	_ context.Context,
+	customerID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	f.bypassPaymentCalled = true
+	f.bypassPaymentCustomerID = customerID
+	f.bypassPaymentOrderID = orderID
+	return f.bypassPaymentErr
 }
 
 var _ order.OrderRepository = (*fakeRepo)(nil)
@@ -2404,5 +2422,73 @@ func TestCancelExpiredDelayRequest_PropagatesRepositoryError(t *testing.T) {
 
 	if _, err := usecase.CancelExpiredDelayRequest(context.Background()); !errors.Is(err, wantErr) {
 		t.Fatalf("err = %v, want %v", err, wantErr)
+	}
+}
+
+// for sprint 2
+func TestBypassOrderPayment(t *testing.T) {
+	customerID := uuid.New()
+	orderID := uuid.New()
+	repoErr := errors.New("database unavailable")
+
+	for _, tt := range []struct {
+		name         string
+		customerID   uuid.UUID
+		orderID      uuid.UUID
+		repoErr      error
+		wantErr      error
+		wantRepoCall bool
+	}{
+		{
+			name:         "delegates payment bypass to repository",
+			customerID:   customerID,
+			orderID:      orderID,
+			wantRepoCall: true,
+		},
+		{
+			name:    "rejects missing customer ID",
+			orderID: orderID,
+			wantErr: order.ErrMissingParticipantID,
+		},
+		{
+			name:       "rejects missing order ID",
+			customerID: customerID,
+			wantErr:    order.ErrMissingOrderID,
+		},
+		{
+			name:         "propagates repository error",
+			customerID:   customerID,
+			orderID:      orderID,
+			repoErr:      repoErr,
+			wantErr:      repoErr,
+			wantRepoCall: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &fakeRepo{bypassPaymentErr: tt.repoErr}
+			usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+			err := usecase.BypassOrderPayment(
+				context.Background(),
+				tt.customerID,
+				tt.orderID,
+			)
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("BypassOrderPayment() error = %v, want %v", err, tt.wantErr)
+			}
+			if repo.bypassPaymentCalled != tt.wantRepoCall {
+				t.Errorf("repository called = %t, want %t", repo.bypassPaymentCalled, tt.wantRepoCall)
+			}
+			if tt.wantRepoCall &&
+				(repo.bypassPaymentCustomerID != customerID || repo.bypassPaymentOrderID != orderID) {
+				t.Errorf(
+					"repository args = customer %s, order %s; want %s, %s",
+					repo.bypassPaymentCustomerID,
+					repo.bypassPaymentOrderID,
+					customerID,
+					orderID,
+				)
+			}
+		})
 	}
 }
