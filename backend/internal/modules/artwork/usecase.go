@@ -26,7 +26,10 @@ func NewUsecase(repo Repository, tx Transactioner, storage ObjectStorage) Usecas
 }
 
 // Search validates the query, normalizes empty collections, and attaches artist image URLs.
-func (u *usecase) Search(ctx context.Context, query SearchQuery) (SearchPage, error) {
+func (u *usecase) Search(
+	ctx context.Context,
+	query SearchQuery,
+) (SearchPage, error) {
 	normalized, err := normalizeSearchQuery(query)
 	if err != nil {
 		return SearchPage{}, err
@@ -53,7 +56,10 @@ func (u *usecase) Search(ctx context.Context, query SearchQuery) (SearchPage, er
 }
 
 // Create validates the artwork, uploads its samples, and transactionally persists it with cleanup on failure.
-func (u *usecase) Create(ctx context.Context, input CreateInput) (*Artwork, error) {
+func (u *usecase) Create(
+	ctx context.Context,
+	input CreateInput,
+) (*Artwork, error) {
 	created, styleIDs, err := normalizeArtwork(uuid.New(), input)
 	if err != nil {
 		return nil, err
@@ -74,7 +80,10 @@ func (u *usecase) Create(ctx context.Context, input CreateInput) (*Artwork, erro
 }
 
 // Update validates ownership input, replaces artwork data transactionally, and cleans up sample files.
-func (u *usecase) Update(ctx context.Context, input UpdateInput) (*Artwork, error) {
+func (u *usecase) Update(
+	ctx context.Context,
+	input UpdateInput,
+) (*Artwork, error) {
 	if input.ArtworkID == uuid.Nil {
 		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
 	}
@@ -106,7 +115,11 @@ func (u *usecase) Update(ctx context.Context, input UpdateInput) (*Artwork, erro
 }
 
 // Delete soft-deletes an artwork scoped to its artist inside a transaction.
-func (u *usecase) Delete(ctx context.Context, artistID, artworkID uuid.UUID) error {
+func (u *usecase) Delete(
+	ctx context.Context,
+	artistID uuid.UUID,
+	artworkID uuid.UUID,
+) error {
 	if artistID == uuid.Nil || artworkID == uuid.Nil {
 		return apperror.InvalidInput("artwork id and artist id must not be empty", nil)
 	}
@@ -115,8 +128,77 @@ func (u *usecase) Delete(ctx context.Context, artistID, artworkID uuid.UUID) err
 	})
 }
 
+// ListAllCategories returns repository categories as a non-nil slice.
+func (u *usecase) ListAllCategories(ctx context.Context) ([]Category, error) {
+	categories, err := u.repo.ListAllCategories(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if categories == nil {
+		return []Category{}, nil
+	}
+	return categories, nil
+}
+
+// ListAllStyles returns repository styles as a non-nil slice.
+func (u *usecase) ListAllStyles(ctx context.Context) ([]Style, error) {
+	styles, err := u.repo.ListAllStyles(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if styles == nil {
+		return []Style{}, nil
+	}
+	return styles, nil
+}
+
+// ListByArtistID returns an artist's artworks with non-nil style and sample slices.
+func (u *usecase) ListByArtistID(
+	ctx context.Context,
+	artistID uuid.UUID,
+) ([]Artwork, error) {
+	artworks, err := u.repo.ListByArtistID(ctx, artistID)
+	if err != nil {
+		return nil, err
+	}
+	if artworks == nil {
+		artworks = make([]Artwork, 0)
+	}
+	for artworkIndex := range artworks {
+		if artworks[artworkIndex].Styles == nil {
+			artworks[artworkIndex].Styles = make([]string, 0)
+		}
+		if artworks[artworkIndex].Samples == nil {
+			artworks[artworkIndex].Samples = make([]Sample, 0)
+		}
+	}
+	return artworks, nil
+}
+
+// GetArtwork rejects an empty ID and returns a not-found error when no artwork exists.
+func (u *usecase) GetArtwork(
+	ctx context.Context,
+	artworkID uuid.UUID,
+) (*Artwork, error) {
+	if artworkID == uuid.Nil {
+		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
+	}
+
+	data, err := u.repo.GetByID(ctx, artworkID)
+	if err != nil {
+		return nil, err
+	}
+	if data == nil {
+		return nil, apperror.NotFound("artwork not found")
+	}
+	return data, nil
+}
+
 // normalizeArtwork validates required fields and builds a timestamped artwork with unique style IDs.
-func normalizeArtwork(id uuid.UUID, input CreateInput) (*Artwork, []uuid.UUID, error) {
+func normalizeArtwork(
+	id uuid.UUID,
+	input CreateInput,
+) (*Artwork, []uuid.UUID, error) {
 	if input.ArtistID == uuid.Nil {
 		return nil, nil, apperror.InvalidInput("artist id must not be empty", nil)
 	}
@@ -203,7 +285,11 @@ func normalizeDeletedSampleURLs(urls []string) ([]string, error) {
 }
 
 // uploadSamples validates and stores each image, adding its public URL to the artwork.
-func (u *usecase) uploadSamples(ctx context.Context, item *Artwork, files []io.Reader) ([]string, error) {
+func (u *usecase) uploadSamples(
+	ctx context.Context,
+	item *Artwork,
+	files []io.Reader,
+) ([]string, error) {
 	uploadedURLs := make([]string, 0, len(files))
 	for index, reader := range files {
 		content, contentType, extension, err := readSampleImage(reader)
@@ -224,7 +310,10 @@ func (u *usecase) uploadSamples(ctx context.Context, item *Artwork, files []io.R
 }
 
 // deleteSampleURLs best-effort deletes stored objects corresponding to public sample URLs.
-func (u *usecase) deleteSampleURLs(ctx context.Context, urls []string) {
+func (u *usecase) deleteSampleURLs(
+	ctx context.Context,
+	urls []string,
+) {
 	for _, imageURL := range urls {
 		key, ok := u.storage.KeyFromURL(imageURL)
 		if !ok {
@@ -323,7 +412,10 @@ func normalizeSearchQuery(query SearchQuery) (SearchQuery, error) {
 }
 
 // normalizeFilterLabels trims non-empty labels and removes duplicates without changing their order.
-func normalizeFilterLabels(field string, labels []string) ([]string, error) {
+func normalizeFilterLabels(
+	field string,
+	labels []string,
+) ([]string, error) {
 	seen := make(map[string]struct{}, len(labels))
 	normalized := make([]string, 0, len(labels))
 	for _, label := range labels {
@@ -341,70 +433,13 @@ func normalizeFilterLabels(field string, labels []string) ([]string, error) {
 }
 
 // normalizeFilterLabel trims one required filter label and returns its normalized value.
-func normalizeFilterLabel(field string, label string) (string, error) {
+func normalizeFilterLabel(
+	field string,
+	label string,
+) (string, error) {
 	value, err := requiredText(field, label)
 	if err != nil {
 		return "", err
 	}
 	return value, nil
-}
-
-// ListAllCategories returns repository categories as a non-nil slice.
-func (u *usecase) ListAllCategories(ctx context.Context) ([]Category, error) {
-	categories, err := u.repo.ListAllCategories(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if categories == nil {
-		return []Category{}, nil
-	}
-	return categories, nil
-}
-
-// ListAllStyles returns repository styles as a non-nil slice.
-func (u *usecase) ListAllStyles(ctx context.Context) ([]Style, error) {
-	styles, err := u.repo.ListAllStyles(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if styles == nil {
-		return []Style{}, nil
-	}
-	return styles, nil
-}
-
-// ListByArtistID returns an artist's artworks with non-nil style and sample slices.
-func (u *usecase) ListByArtistID(ctx context.Context, artistID uuid.UUID) ([]Artwork, error) {
-	artworks, err := u.repo.ListByArtistID(ctx, artistID)
-	if err != nil {
-		return nil, err
-	}
-	if artworks == nil {
-		artworks = make([]Artwork, 0)
-	}
-	for artworkIndex := range artworks {
-		if artworks[artworkIndex].Styles == nil {
-			artworks[artworkIndex].Styles = make([]string, 0)
-		}
-		if artworks[artworkIndex].Samples == nil {
-			artworks[artworkIndex].Samples = make([]Sample, 0)
-		}
-	}
-	return artworks, nil
-}
-
-// GetArtwork rejects an empty ID and returns a not-found error when no artwork exists.
-func (u *usecase) GetArtwork(ctx context.Context, artworkID uuid.UUID) (*Artwork, error) {
-	if artworkID == uuid.Nil {
-		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
-	}
-
-	data, err := u.repo.GetByID(ctx, artworkID)
-	if err != nil {
-		return nil, err
-	}
-	if data == nil {
-		return nil, apperror.NotFound("artwork not found")
-	}
-	return data, nil
 }

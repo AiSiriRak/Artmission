@@ -10,6 +10,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// ArtworkSnapshot represents a JSON-serialized snapshot of artwork details captured at order creation.
 type ArtworkSnapshot struct {
 	ArtworkName string      `json:"artwork_name"`
 	CategoryID  uuid.UUID   `json:"category_id"`
@@ -44,6 +45,7 @@ func (s *ArtworkSnapshot) Scan(src any) error {
 	return nil
 }
 
+// Order represents a commission order placed by a customer to an artist.
 type Order struct {
 	bun.BaseModel `bun:"table:orders,alias:o"`
 
@@ -62,6 +64,7 @@ type Order struct {
 	UpdatedAt           time.Time       `bun:"updated_at,nullzero"`
 }
 
+// OrderDeliverable represents a submitted work version or revision deliverable for an order.
 type OrderDeliverable struct {
 	bun.BaseModel `bun:"table:order_deliverables,alias:od"`
 
@@ -74,4 +77,30 @@ type OrderDeliverable struct {
 	PreviewImageKey  string    `bun:"preview_image_key"`
 	CreatedAt        time.Time `bun:"created_at,nullzero"`
 	UpdatedAt        time.Time `bun:"updated_at,nullzero"`
+}
+
+// OrderCancellation represents an order cancellation record in the database.
+type OrderCancellation struct {
+	bun.BaseModel `bun:"table:order_cancellations,alias:ocr"`
+
+	ID          uuid.UUID `bun:"id,pk"`
+	OrderID     uuid.UUID `bun:"order_id"`
+	Reason      string    `bun:"reason,default:'OTHER'"`
+	Explanation string    `bun:"explanation"`
+	CreatedAt   time.Time `bun:"created_at,nullzero"`
+}
+
+// OrderDelayRequest represents a deadline extension request for an order.
+type OrderDelayRequest struct {
+	bun.BaseModel `bun:"table:order_delay_requests,alias:odr"`
+
+	ID                 uuid.UUID `bun:"id,pk"`
+	OrderID            uuid.UUID `bun:"order_id"`
+	OriginalDeadlineAt time.Time `bun:"original_deadline_at"`
+	DeadlineRequestAt  time.Time `bun:"deadline_request_at"`
+	Reason             string    `bun:"reason"`
+	Explanation        string    `bun:"explanation"`
+	CustomerDecision   string    `bun:"customer_decision"`
+	CreatedAt          time.Time `bun:"created_at"`
+	UpdatedAt          time.Time `bun:"updated_at"`
 }

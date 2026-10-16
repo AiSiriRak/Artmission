@@ -1,12 +1,17 @@
 info:
-  name: "Confirm Order: Reject"
+  name: "ConfirmDelayRequest: Approve"
   type: http
-  seq: 6
+  seq: 13
+  tags:
+    - orders
 
 http:
   method: PUT
-  url: "{{api_url}}/orders/:id/confirm"
+  url: "{{api_url}}/orders/:id/delay-requests/:delay_request_id/confirm"
   params:
+    - name: delay_request_id
+      value: ""
+      type: path
     - name: id
       value: "{{OrderID}}"
       type: path
@@ -15,7 +20,7 @@ http:
     type: json
     data: |-
       {
-        "accept": false
+        "accept": true
       }
   auth: inherit
 
@@ -24,24 +29,28 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
-  forwardAuthorizationHeader: false
+  forwardAuthorizationHeader: true
 
 examples:
   - name: 200 Response
     description: OK
     request:
-      url: "{{api_url}}/orders/:id/confirm"
+      url: "{{api_url}}/orders/:id/delay-requests/:delay_request_id"
       method: PUT
       params:
         - name: id
           value: ""
           type: path
           description: Order ID
+        - name: delay_request_id
+          value: ""
+          type: path
+          description: Delay Request ID
       body:
         type: json
         data: |-
           {
-            "accept": false
+            "accept": true
           }
     response:
       status: 200
@@ -55,23 +64,28 @@ examples:
           {
             "$schema": "",
             "message": "",
-            "status": ""
+            "customer_decision": "",
+            "deadline_at": ""
           }
   - name: default Response
     description: Error
     request:
-      url: "{{api_url}}/orders/:id/confirm"
+      url: "{{api_url}}/orders/:id/delay-requests/:delay_request_id"
       method: PUT
       params:
         - name: id
           value: ""
           type: path
           description: Order ID
+        - name: delay_request_id
+          value: ""
+          type: path
+          description: Delay Request ID
       body:
         type: json
         data: |-
           {
-            "accept": false
+            "accept": true
           }
     response:
       headers:
@@ -90,4 +104,4 @@ examples:
             "type": ""
           }
 
-docs: Reject order
+docs: Accept or reject an order delay request as the customer.

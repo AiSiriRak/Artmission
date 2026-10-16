@@ -14,6 +14,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
+// accountDeletionRepository provides database operations for the account deletion workflow.
 type accountDeletionRepository struct {
 	exec baserepo.Executor
 }
@@ -26,11 +27,19 @@ func NewAccountDeletionRepository(db *bun.DB) user.AccountDeletionRepository {
 }
 
 // LockUserByIDForDeletion acquires a row lock so account deletion cannot race session or order updates.
-func (r *accountDeletionRepository) LockUserByIDForDeletion(ctx context.Context, userID uuid.UUID) error {
+func (r *accountDeletionRepository) LockUserByIDForDeletion(
+	ctx context.Context,
+	userID uuid.UUID,
+) error {
 	model := &pgmodel.User{ID: userID}
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		// FOR UPDATE conflicts with session and order key-share locks; a plain soft-delete UPDATE does not.
-		return idb.NewSelect().Model(model).Column("id").WherePK().For("UPDATE").Scan(ctx)
+		return idb.NewSelect().
+			Model(model).
+			Column("id").
+			WherePK().
+			For("UPDATE").
+			Scan(ctx)
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -42,7 +51,11 @@ func (r *accountDeletionRepository) LockUserByIDForDeletion(ctx context.Context,
 }
 
 // HasOrdersInStatuses reports whether a user has any orders in one of the supplied statuses.
-func (r *accountDeletionRepository) HasOrdersInStatuses(ctx context.Context, userID uuid.UUID, statuses []order.Status) (exists bool, err error) {
+func (r *accountDeletionRepository) HasOrdersInStatuses(
+	ctx context.Context,
+	userID uuid.UUID,
+	statuses []order.Status,
+) (exists bool, err error) {
 	err = r.exec.Run(ctx, func(idb bun.IDB) error {
 		exists, err = idb.NewSelect().
 			TableExpr("orders AS o").
@@ -58,20 +71,33 @@ func (r *accountDeletionRepository) HasOrdersInStatuses(ctx context.Context, use
 }
 
 // DeleteBankAccountByUserID removes the bank account record linked to the user.
-func (r *accountDeletionRepository) DeleteBankAccountByUserID(ctx context.Context, userID uuid.UUID) error {
+func (r *accountDeletionRepository) DeleteBankAccountByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+) error {
 	return r.deleteByUserID(ctx, "bank_accounts", userID, "failed to delete bank account")
 }
 
 // DeleteSessionsByUserID removes all sessions belonging to the user.
-func (r *accountDeletionRepository) DeleteSessionsByUserID(ctx context.Context, userID uuid.UUID) error {
+func (r *accountDeletionRepository) DeleteSessionsByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+) error {
 	return r.deleteByUserID(ctx, "sessions", userID, "failed to invalidate sessions")
 }
 
 // SoftDeleteUserByID removes the user record by ID and maps a missing row to a domain error.
-func (r *accountDeletionRepository) SoftDeleteUserByID(ctx context.Context, userID uuid.UUID) error {
+func (r *accountDeletionRepository) SoftDeleteUserByID(
+	ctx context.Context,
+	userID uuid.UUID,
+) error {
 	model := &pgmodel.User{ID: userID}
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return idb.NewDelete().Model(model).WherePK().Returning("id").Scan(ctx)
+		return idb.NewDelete().
+			Model(model).
+			WherePK().
+			Returning("id").
+			Scan(ctx)
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -83,9 +109,17 @@ func (r *accountDeletionRepository) SoftDeleteUserByID(ctx context.Context, user
 }
 
 // deleteByUserID deletes all rows from a table whose user_id matches the account owner.
-func (r *accountDeletionRepository) deleteByUserID(ctx context.Context, table string, userID uuid.UUID, message string) error {
+func (r *accountDeletionRepository) deleteByUserID(
+	ctx context.Context,
+	table string,
+	userID uuid.UUID,
+	message string,
+) error {
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		_, err := idb.NewDelete().Table(table).Where("user_id = ?", userID).Exec(ctx)
+		_, err := idb.NewDelete().
+			Table(table).
+			Where("user_id = ?", userID).
+			Exec(ctx)
 		return err
 	})
 	if err != nil {

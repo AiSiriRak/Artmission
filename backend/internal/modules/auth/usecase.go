@@ -12,6 +12,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// authUsecase implements the authentication flows using user identity,
+// session storage, and token issuance dependencies.
 type authUsecase struct {
 	users           UserIdentity
 	sessionRepo     SessionRepository
@@ -21,7 +23,8 @@ type authUsecase struct {
 	now             func() time.Time
 }
 
-// NewAuthUsecase configures token issuance, session storage, and token lifetimes.
+// NewAuthUsecase creates an authentication use case with the provided
+// dependencies and access/refresh token lifetimes.
 func NewAuthUsecase(
 	users UserIdentity,
 	sessionRepo SessionRepository,
@@ -40,7 +43,10 @@ func NewAuthUsecase(
 }
 
 // Login verifies credentials and creates a persisted session with access and refresh tokens.
-func (u *authUsecase) Login(ctx context.Context, email, password string) (*AuthResult, error) {
+func (u *authUsecase) Login(
+	ctx context.Context, email string,
+	password string,
+) (*AuthResult, error) {
 	found, err := u.users.Authenticate(ctx, email, password)
 	if err != nil {
 		if err == user.ErrInvalidCredential {
@@ -56,8 +62,12 @@ func (u *authUsecase) Login(ctx context.Context, email, password string) (*AuthR
 	return result, err
 }
 
-// Refresh validates and rotates a refresh token, issuing a new token pair and session.
-func (u *authUsecase) Refresh(ctx context.Context, refreshToken string) (*AuthResult, error) {
+// Refresh validates a refresh token, revokes its current session,
+// and issues a new token pair backed by a new session.
+func (u *authUsecase) Refresh(
+	ctx context.Context,
+	refreshToken string,
+) (*AuthResult, error) {
 	claims, err := u.tokenIssuer.ParseRefreshToken(refreshToken)
 	if err != nil {
 		return nil, ErrInvalidToken
@@ -85,12 +95,18 @@ func (u *authUsecase) Refresh(ctx context.Context, refreshToken string) (*AuthRe
 }
 
 // Logout revokes a session by deleting its server-side record.
-func (u *authUsecase) Logout(ctx context.Context, sessionID uuid.UUID) error {
+func (u *authUsecase) Logout(
+	ctx context.Context,
+	sessionID uuid.UUID,
+) error {
 	return u.sessionRepo.DeleteByID(ctx, sessionID)
 }
 
 // Authenticate parses an access token and confirms its user and session are still valid.
-func (u *authUsecase) Authenticate(ctx context.Context, accessToken string) (*TokenClaims, error) {
+func (u *authUsecase) Authenticate(
+	ctx context.Context,
+	accessToken string,
+) (*TokenClaims, error) {
 	claims, err := u.tokenIssuer.ParseAccessToken(accessToken)
 	if err != nil {
 		return nil, ErrInvalidToken
@@ -110,7 +126,11 @@ func (u *authUsecase) Authenticate(ctx context.Context, accessToken string) (*To
 }
 
 // validateSession checks the owner, expiry, and constant-time refresh-token hash match.
-func (u *authUsecase) validateSession(session *Session, userID uuid.UUID, refreshToken string) error {
+func (u *authUsecase) validateSession(
+	session *Session,
+	userID uuid.UUID,
+	refreshToken string,
+) error {
 	if session.UserID != userID {
 		return ErrSessionNotFound
 	}
@@ -124,7 +144,10 @@ func (u *authUsecase) validateSession(session *Session, userID uuid.UUID, refres
 }
 
 // issueSession generates both tokens and persists the session using only the refresh-token hash.
-func (u *authUsecase) issueSession(ctx context.Context, found *user.User) (*AuthResult, error) {
+func (u *authUsecase) issueSession(
+	ctx context.Context,
+	found *user.User,
+) (*AuthResult, error) {
 	now := u.now()
 	sessionID := uuid.New()
 	claims := TokenClaims{UserID: found.ID, SessionID: sessionID, Role: found.Role}

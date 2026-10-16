@@ -146,6 +146,11 @@ type orderDeliverableRow struct {
 // "APPROVED"/"REJECTED" for a decided row — the pending unique index
 // allows at most one WAIT row per order.
 func seedDeliverable(orderID string, version int, previewKey string, decision string) error {
+	_, err := seedDeliverableWithID(orderID, version, previewKey, decision)
+	return err
+}
+
+func seedDeliverableWithID(orderID string, version int, previewKey string, decision string) (string, error) {
 	var comment *string
 	if decision == "REJECTED" {
 		comment = new("Please revise this version.")
@@ -160,8 +165,10 @@ func seedDeliverable(orderID string, version int, previewKey string, decision st
 		PreviewImageKey:  previewKey,
 		CreatedAt:        time.Now(),
 	}
-	_, err := app.DB.NewInsert().Model(row).Exec(context.Background())
-	return err
+	if _, err := app.DB.NewInsert().Model(row).Exec(context.Background()); err != nil {
+		return "", err
+	}
+	return row.ID.String(), nil
 }
 
 // sharedCounterpart returns the account backing the other side of every
