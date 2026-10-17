@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import DraftHistory, { type Draft } from "../shared/DraftHistory";
-import { cancelOrder, confirmOrder, getOrderDetail, submitOrderDraft, type OrderDetail, type OrderDeliverable } from "@/lib/api/order-details";
+import { cancelOrder, confirmOrder, getOrderDetail, requestOrderPostpone, submitOrderDraft, type OrderDetail, type OrderDeliverable } from "@/lib/api/order-details";
 import { getAccount } from "@/lib/api/users";
 import { isApiError } from "@/lib/api/error";
 import { routes } from "@/lib/routes";
+import { startAutoRefresh } from "@/lib/auto-refresh";
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
 import MainLayout from "@/components/feature/main/MainLayout";
@@ -19,6 +20,7 @@ import SubmitDraft from "./SubmitDraft";
 import ConfirmOrderPopup from "./popups/ConfirmOrderPopup";
 import CancelOrderPopup from "./popups/CancelOrderPopup";
 import PostponeOrderPopup from "./popups/PostponeOrderPopup";
+import PostponeNotice from "./PostponeNotice";
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -67,11 +69,15 @@ export default function ArtistOrderDetails() {
   const [actionError, setActionError] = useState("");
   const [refreshWarning, setRefreshWarning] = useState("");
   const mutationPending = useRef(false);
+  const mutationVersion = useRef(0);
   const activeOrderId = useRef<string | null>(null);
 
   useEffect(() => {
     activeOrderId.current = orderId;
     let active = true;
+    let ready = false;
+    let refreshing = false;
+    const refreshController = new AbortController();
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 15000);
     async function load() {
@@ -85,6 +91,7 @@ export default function ArtistOrderDetails() {
         setPopup(null);
         setActionError("");
         setRefreshWarning("");
+        ready = true;
       } catch (error: unknown) {
         if (!active) return;
         setOrder(null);
@@ -96,10 +103,34 @@ export default function ArtistOrderDetails() {
       }
     }
     void load();
+    async function refresh() {
+      if (!ready || refreshing || mutationPending.current) return;
+      refreshing = true;
+      const version = mutationVersion.current;
+      try {
+        const latest = await getOrderDetail(orderId, {
+          signal: AbortSignal.any([refreshController.signal, AbortSignal.timeout(15000)]),
+          cache: "no-store",
+        });
+        // Ignore a response fetched before an Accept/Cancel/Submit action.
+        if (!active || mutationPending.current || version !== mutationVersion.current) return;
+        setOrder(latest);
+        setRefreshWarning("");
+      } catch (error: unknown) {
+        if (!active || mutationPending.current || version !== mutationVersion.current) return;
+        if (isApiError(error) && error.status === 401) router.replace(routes.login);
+        else setRefreshWarning("โหลดข้อมูลล่าสุดไม่สำเร็จ ระบบจะลองใหม่อัตโนมัติ");
+      } finally {
+        refreshing = false;
+      }
+    }
+    const stopRefresh = startAutoRefresh(() => { void refresh(); });
     return () => {
       active = false;
       activeOrderId.current = null;
       controller.abort();
+      refreshController.abort();
+      stopRefresh();
       window.clearTimeout(timeout);
     };
   }, [orderId, reloadKey, router]);
@@ -117,6 +148,7 @@ export default function ArtistOrderDetails() {
   async function runMutation(action: () => Promise<(previous: OrderDetail) => OrderDetail>) {
     if (mutationPending.current) throw new Error("กำลังทำรายการ กรุณารอสักครู่");
     mutationPending.current = true;
+    mutationVersion.current += 1;
     setBusy(true);
     setActionError("");
     setRefreshWarning("");
@@ -138,6 +170,7 @@ export default function ArtistOrderDetails() {
       }
       throw error;
     } finally {
+      mutationVersion.current += 1;
       mutationPending.current = false;
       setBusy(false);
     }
@@ -159,6 +192,8 @@ export default function ArtistOrderDetails() {
   const latestDeliverable = [...(order.deliverables ?? [])].sort((a, b) => b.version - a.version)[0];
   const canSubmit = order.status === "IN_PROCESS" && latestDeliverable?.decision !== "WAIT";
   const hasActions = ["PENDING", "NOT_PAID", "IN_PROCESS"].includes(order.status);
+  const pendingPostpone = order.status === "IN_PROCESS" && order.active_delay_request?.customer_decision === "WAIT"
+    ? order.active_delay_request : null;
   const deadline = new Date(order.deadline_at);
   const deadlineInput = [deadline.getFullYear(), String(deadline.getMonth() + 1).padStart(2, "0"), String(deadline.getDate()).padStart(2, "0")].join("-");
   const summary = "Order #" + order.id + " · " + order.name + " · ฿" + (order.price_satang / 100).toLocaleString("en-US");
@@ -167,6 +202,7 @@ export default function ArtistOrderDetails() {
     <>
       <OrderDetails
         usertype="artist"
+        notice={pendingPostpone ? <PostponeNotice deadline={pendingPostpone.deadline_request_at} /> : undefined}
         description={
           <OrderDescription orderNumber={order.id}
             artworkName={order.artwork_snapshot.artwork_name || order.name}
@@ -180,11 +216,11 @@ export default function ArtistOrderDetails() {
             <OrderInfo status={order.status} priceSatang={order.price_satang}
               orderDate={formatDate(order.created_at)} deadlineDate={formatDate(order.deadline_at)}
               actions={hasActions ? (
-                <ArtistOrderActions status={order.status} busy={busy}
+                <ArtistOrderActions status={order.status} busy={busy} postponePending={Boolean(pendingPostpone)}
                   onReject={() => openPopup("reject")} onAccept={() => openPopup("accept")}
                   onCancel={() => openPopup("cancel")} onPostpone={() => openPopup("postpone")} />
               ) : undefined} />
-            {/* TODO: Revisions and postpone requests are not returned by this API yet. */}
+            {/* TODO: Display revisions when the API provides the revision allowance. */}
             {refreshWarning && <p role="status" className="mt-3 text-small text-error">{refreshWarning}</p>}
           </>
         }
@@ -220,8 +256,21 @@ export default function ArtistOrderDetails() {
       )}
       {popup === "postpone" && (
         <PostponeOrderPopup orderSummary={summary} currentDeadline={deadlineInput}
-          currentDeadlineLabel={formatDate(order.deadline_at)} onClose={closePopup} unavailable
-          onConfirm={() => { /* TODO: Connect when Backend provides the postpone endpoint. */ }} />
+          currentDeadlineLabel={formatDate(order.deadline_at)} onClose={closePopup} busy={busy} serverError={actionError}
+          onConfirm={({ deadline: proposedDate, reason, description }) => {
+            void runMutation(async () => {
+              // Keep the deadline's local time when changing its calendar date.
+              const requestedDeadline = new Date(order.deadline_at);
+              const [year, month, day] = proposedDate.split("-").map(Number);
+              requestedDeadline.setFullYear(year, month - 1, day);
+              const request = await requestOrderPostpone(orderId, {
+                deadline_request_at: requestedDeadline.toISOString(),
+                reason,
+                explanation: description,
+              });
+              return (previous) => ({ ...previous, active_delay_request: request });
+            }).catch(() => { /* Error is shown in the popup. */ });
+          }} />
       )}
     </>
   );

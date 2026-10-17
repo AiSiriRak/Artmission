@@ -8,9 +8,10 @@ interface ArtistOrderActionsProps {
   onCancel: () => void;
   onPostpone: () => void;
   busy?: boolean;
+  postponePending?: boolean;
 }
 
-export default function ArtistOrderActions({ status, onReject, onAccept, onCancel, onPostpone, busy = false }: ArtistOrderActionsProps) {
+export default function ArtistOrderActions({ status, onReject, onAccept, onCancel, onPostpone, busy = false, postponePending = false }: ArtistOrderActionsProps) {
   // TODO: connect these actions with the API when ready.
   switch (status) {
     case "PENDING":
@@ -25,7 +26,7 @@ export default function ArtistOrderActions({ status, onReject, onAccept, onCance
     case "IN_PROCESS":
       return (
         <>
-          <Button type="button" variant="transparent" className="min-w-32" disabled={busy} onClick={onPostpone}>Postpone Order</Button>
+          <Button type="button" variant="transparent" className="min-w-32" disabled={busy || postponePending} onClick={onPostpone}>Postpone Order</Button>
           <Button type="button" variant="red" className="min-w-32" disabled={busy} onClick={onCancel}>Cancel Order</Button>
         </>
       );

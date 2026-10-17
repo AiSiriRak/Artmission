@@ -12,6 +12,26 @@ export interface OrderDeliverable {
   updated_at: string;
 }
 
+export type PostponeReason =
+  | "NEED_MORE_TIME"
+  | "WAITING_FOR_FEEDBACK"
+  | "PERSONAL_REASON"
+  | "HIGH_WORKLOAD"
+  | "TECHNICAL_ISSUE"
+  | "OTHER";
+
+export interface OrderDelayRequest {
+  id: string;
+  order_id: string;
+  original_deadline_at: string;
+  deadline_request_at: string;
+  reason: PostponeReason;
+  explanation: string;
+  customer_decision: "WAIT" | "APPROVED" | "REJECTED";
+  created_at: string;
+  updated_at: string;
+}
+
 export interface OrderDetail {
   id: string;
   customer_id: string;
@@ -28,6 +48,17 @@ export interface OrderDetail {
   completed_at?: string;
   other_party: { id: string; name: string; email: string; artist_review_score?: number };
   deliverables: OrderDeliverable[] | null;
+  active_delay_request?: OrderDelayRequest | null;
+}
+
+export function requestOrderPostpone(orderId: string, input: {
+  deadline_request_at: string;
+  reason: PostponeReason;
+  explanation: string;
+}) {
+  return apiFetch<OrderDelayRequest>(`/orders/${encodeURIComponent(orderId)}/delay-requests`, {
+    method: "POST", body: JSON.stringify(input),
+  });
 }
 
 export function getOrderDetail(orderId: string, options: RequestInit = {}) {

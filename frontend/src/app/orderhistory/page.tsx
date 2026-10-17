@@ -7,6 +7,7 @@ import Image from "next/image";
 import { OrderHistory, OrderSortField, OrderSortOrder } from "@/lib/api/types";
 import { getOrderHistory } from "@/lib/api/orders";
 import { routes } from "@/lib/routes";
+import { startAutoRefresh } from "@/lib/auto-refresh";
 import { OrderStatus } from "@/lib/api/types";
 import { isApiError } from "@/lib/api/error";
 
@@ -65,21 +66,34 @@ export default function HomePage() {
   );
 
   useEffect(() => {
+    let active = true;
+    let loading = false;
+    const controller = new AbortController();
     async function loadUser() {
+      if (loading) return;
+      loading = true;
       try {
         const orderdata = await getOrderHistory({
           status: status,
           sort: selectedSortOrder?.sort,
           order: selectedSortOrder?.order,
-        });
-        setOrder(orderdata);
+        }, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]), cache: "no-store" });
+        if (active) setOrder(orderdata);
       } catch (error: unknown) {
-        if (isApiError(error) && error.status === 401) {
+        if (active && isApiError(error) && error.status === 401) {
           router.replace(routes.login);
         }
+      } finally {
+        loading = false;
       }
     }
-    loadUser();
+    void loadUser();
+    const stopRefresh = startAutoRefresh(() => { void loadUser(); });
+    return () => {
+      active = false;
+      controller.abort();
+      stopRefresh();
+    };
   }, [
     status,
     sortOrder,

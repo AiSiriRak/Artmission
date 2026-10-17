@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 export default function PostponeNotice({ deadline }: { deadline: string }) {
-  const dateLabel = new Date(deadline + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const dateLabel = new Date(deadline).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   return (
     <div role="status" className="mb-6 rounded-3xl bg-status-pending-pale p-6">
       <h3 className="flex items-center gap-2 text-body"><Image src="/icons/hourglass.svg" alt="" width={24} height={24} />Postpone Request Pending</h3>

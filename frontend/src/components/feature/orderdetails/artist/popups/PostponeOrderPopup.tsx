@@ -5,10 +5,11 @@ import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { SelectInput } from "@/components/ui/SelectInput";
 import ArtistOrderPopup from "./ArtistOrderPopup";
+import type { PostponeReason } from "@/lib/api/order-details";
 
 export interface PostponeRequest {
   deadline: string;
-  reason: string;
+  reason: PostponeReason;
   description: string;
 }
 
@@ -18,18 +19,19 @@ interface PostponeOrderPopupProps {
   currentDeadlineLabel: string;
   onClose: () => void;
   onConfirm: (request: PostponeRequest) => void;
-  unavailable?: boolean;
+  busy?: boolean;
+  serverError?: string;
 }
 
 const reasons = [
-  { value: "details", label: "I need more time for details" },
-  { value: "feedback", label: "I am waiting for additional customer feedback" },
-  { value: "emergency", label: "I have a personal emergency / illness" },
-  { value: "workload", label: "I am experiencing an unexpected high workload" },
-  { value: "other", label: "Other" },
-];
+  { value: "NEED_MORE_TIME", label: "I need more time for details" },
+  { value: "WAITING_FOR_FEEDBACK", label: "I am waiting for additional customer feedback" },
+  { value: "PERSONAL_REASON", label: "I have a personal emergency / illness" },
+  { value: "HIGH_WORKLOAD", label: "I am experiencing an unexpected high workload" },
+  { value: "OTHER", label: "Other" },
+] satisfies { value: PostponeReason; label: string }[];
 
-export default function PostponeOrderPopup({ orderSummary, currentDeadline, currentDeadlineLabel, onClose, onConfirm, unavailable = false }: PostponeOrderPopupProps) {
+export default function PostponeOrderPopup({ orderSummary, currentDeadline, currentDeadlineLabel, onClose, onConfirm, busy = false, serverError }: PostponeOrderPopupProps) {
   const [deadline, setDeadline] = useState("");
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
@@ -50,11 +52,13 @@ export default function PostponeOrderPopup({ orderSummary, currentDeadline, curr
       <div className="my-3 rounded-xl bg-neutral-400 px-4 py-2 text-small"><p>{orderSummary}</p><p>Current Deadline · {currentDeadlineLabel}</p></div>
       <form onSubmit={(event) => {
         event.preventDefault();
-        if (unavailable) return;
-        if (!deadline || deadline <= currentDeadline || !reason || !description.trim()) {
+        if (busy) return;
+        const selectedReason = reasons.find((item) => item.value === reason);
+        if (!deadline || deadline <= currentDeadline || !selectedReason || !description.trim()) {
           setError("กรุณาเลือกวันหลัง Deadline เดิม พร้อมเหตุผลและคำอธิบาย"); return;
         }
-        onConfirm({ deadline, reason, description: description.trim() });
+        setError("");
+        onConfirm({ deadline, reason: selectedReason.value, description: description.trim() });
       }}>
         <label htmlFor={fieldId + "-date"} className="mb-2 block text-caption">New Proposed Deadline <span className="text-error">*</span></label>
         <div className="relative flex items-center gap-2 rounded-lg border-2 border-neutral-400 px-3 py-2 focus-within:border-primary-500">
@@ -86,10 +90,10 @@ export default function PostponeOrderPopup({ orderSummary, currentDeadline, curr
           <p>The customer has 48 hours to respond. If no response, the request will be automatically declined and the original deadline will remain.</p>
         </div>
         {error && <p role="alert" className="mt-3 text-small text-error">{error}</p>}
-        {unavailable && <p className="mt-3 text-small text-neutral">การส่งคำขอเลื่อนกำหนดส่งยังไม่พร้อมใช้งาน</p>}
+        {serverError && <p role="alert" className="mt-3 text-small text-error">{serverError}</p>}
         <div className="mt-3 flex justify-end gap-6">
-          <Button type="button" variant="transparent" className="w-[138px] rounded-xl" onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="dark" className="w-[138px] rounded-xl" disabled={unavailable}>Send Request</Button>
+          <Button type="button" variant="transparent" className="w-[138px] rounded-xl" disabled={busy} onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="dark" className="w-[138px] rounded-xl" disabled={busy}>{busy ? "Please wait..." : "Send Request"}</Button>
         </div>
       </form>
     </ArtistOrderPopup>

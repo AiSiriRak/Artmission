@@ -11,6 +11,7 @@ interface GetOrderHistoryParams {
 
 export async function getOrderHistory(
   params?: GetOrderHistoryParams,
+  options: RequestInit = {},
 ): Promise<OrderHistory> {
   const searchParams = new URLSearchParams();
 
@@ -38,5 +39,5 @@ export async function getOrderHistory(
 
   const query = searchParams.toString();
 
-  return apiFetch<OrderHistory>(`/orders${query ? `?${query}` : ""}`);
+  return apiFetch<OrderHistory>(`/orders${query ? `?${query}` : ""}`, options);
 }
