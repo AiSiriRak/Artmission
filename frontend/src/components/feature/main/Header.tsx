@@ -44,8 +44,8 @@ export default function Header({ usertype = "customer" }: HeaderProps) {
       : [
           {
             name: "Order",
-            page: "Home",
-            path: routes.home,
+            page: "Order History",
+            path: routes.order.history,
             icon: "/icons/order.svg",
           },
           {
