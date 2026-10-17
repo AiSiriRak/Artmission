@@ -166,7 +166,7 @@ export default function HomePage() {
 
         {artworks && artworks.length > 0 && (
           <>
-            <div className="mb-12 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
+            <div className="mb-12 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] justify-start gap-12">
               {artworks.map((item) => (
                 <SearchArtworkCard key={item.id} item={item} />
               ))}

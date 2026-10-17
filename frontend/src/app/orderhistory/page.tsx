@@ -154,7 +154,7 @@ export default function HomePage() {
         {/* Order List */}
         {status.length != 0 && (
           <div className="relative">
-            <div className="px-10 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] gap-12 space-y-6 item justify-start mb-20">
+            <div className="px-10 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] gap-12 justify-start mb-20">
               {order.orders &&
                 order.orders.length > 0 &&
                 order.orders.map((option) => (
