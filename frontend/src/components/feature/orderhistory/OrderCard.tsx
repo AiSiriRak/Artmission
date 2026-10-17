@@ -52,10 +52,10 @@ export function OrderCard({ status, order, canOpenDetails = false }: OrderCard) 
         <WhiteCard
           margin=""
           roundsize="rounded-4xl"
-          padding="p-[35px]"
-          className="w-full min-w-0 max-w-none"
+          padding=""
+          className="w-full min-w-0 max-w-none overflow-hidden"
         >
-          <div className="relative w-full min-w-0 ">
+          <div className="relative w-full min-w-0">
             {/* Image */}
             <div className="flex w-full h-80 justify-center">
               {/* Empty Image */}
@@ -64,11 +64,11 @@ export function OrderCard({ status, order, canOpenDetails = false }: OrderCard) 
                 alt={""}
                 width={1000}
                 height={1000}
-                className="relative z-10 aspect-square w-full object-contain"
+                className="relative w-full h-full object-cover"
               />
             </div>
           </div>
-          <div className="space-y-2 ">
+          <div className="space-y-2 m-6">
             {/* Last Update */}
             <div className="mt-1.5 flex items-center space-x-2">
               <p className="text-left text-small text-neutral">Last Updated</p>{" "}
@@ -90,7 +90,7 @@ export function OrderCard({ status, order, canOpenDetails = false }: OrderCard) 
               </p>
             </div>
             {/* Deadline */}
-            <p className="text-left text-caption text-accent-500">
+            <p className="text-left text-caption text-accent-500 pb-4">
               deadline -
               {order.deadline_at
                 ? format(new Date(order.deadline_at), " d MMM yyyy")
