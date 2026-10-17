@@ -32,6 +32,17 @@ export type OrderQuery = NonNullable<
 export type OrderStatus = NonNullable<OrderQuery["status"]>[number];
 export type OrderSortField = OrderQuery["sort"];
 export type OrderSortOrder = OrderQuery["order"];
+export type { OrderDetail, OrderDeliverable, OrderDelayRequest as DelayRequest } from "./order-details";
+export interface CreateOrderInput {
+  artwork_id: string;
+  name: string;
+  customer_description: string;
+  deadline_at: string;
+}
+export interface CancelOrderInput {
+  reason: string;
+  explanation: string;
+}
 
 // Artist
 export type ArtistProfile = components["schemas"]["ArtistProfileView"];

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { routes } from "@/lib/routes";
 
 import { format, formatDistanceToNow } from "date-fns";
 import { Order } from "@/lib/api/types";
@@ -38,7 +40,7 @@ export function OrderCard({ status, order }: OrderCard) {
     CANCEL: "bg-status-cancel-pale",
   };
   return (
-    <div className="relative w-[320px] min-w-0 hover:brightness-90">
+    <Link href={routes.order.detail(order.id)} className="relative block w-[320px] min-w-0 hover:brightness-90">
       <div>
         {/* Status Banner */}
         <div
@@ -96,6 +98,6 @@ export function OrderCard({ status, order }: OrderCard) {
           </div>
         </WhiteCard>
       </div>
-    </div>
+    </Link>
   );
 }

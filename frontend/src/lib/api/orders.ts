@@ -1,5 +1,33 @@
 import { apiFetch } from "./client";
 import { OrderHistory, OrderStatus } from "./types";
+import type { CancelOrderInput, CreateOrderInput, Order } from "./types";
+export { getOrderDetail as getOrderById } from "./order-details";
+export type { OrderDetail, OrderDeliverable } from "./order-details";
+
+export function createOrder(input: CreateOrderInput) {
+  return apiFetch<Order>("/orders", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function cancelOrder(orderId: string, input: CancelOrderInput) {
+  return apiFetch<{ order_id: string; reason: string; explanation: string }>(
+    `/orders/${encodeURIComponent(orderId)}/cancel`,
+    { method: "PUT", body: JSON.stringify(input) },
+  );
+}
+
+export function confirmDeliverable(orderId: string, deliverableId: string, input: { accept: boolean; comment?: string }) {
+  return apiFetch<{ message: string; status: string }>(
+    `/orders/${encodeURIComponent(orderId)}/deliverables/${encodeURIComponent(deliverableId)}/confirm`,
+    { method: "PUT", body: JSON.stringify(input) },
+  );
+}
+
+export function confirmDelayRequest(orderId: string, requestId: string, input: { accept: boolean }) {
+  return apiFetch<{ message: string; customer_decision: string; deadline_at: string }>(
+    `/orders/${encodeURIComponent(orderId)}/delay-requests/${encodeURIComponent(requestId)}/confirm`,
+    { method: "PUT", body: JSON.stringify(input) },
+  );
+}
 
 interface GetOrderHistoryParams {
   status?: OrderStatus[];
