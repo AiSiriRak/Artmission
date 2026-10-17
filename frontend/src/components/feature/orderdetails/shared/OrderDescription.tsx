@@ -3,6 +3,7 @@ import TagList from "@/components/feature/artistprofile/TagList";
 
 interface OrderDescriptionProps {
   orderNumber: string;
+  orderName: string;
   artworkName: string;
   categoryName: string;
   categories: string[];
@@ -10,13 +11,9 @@ interface OrderDescriptionProps {
   requestDetail: string;
 }
 
-function formatTagLabel(value: string) {
-  const label = value.trim().toLowerCase();
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
 export default function OrderDescription({
   orderNumber,
+  orderName,
   artworkName,
   categoryName,
   categories,
@@ -32,11 +29,12 @@ export default function OrderDescription({
         roundsize="rounded-3xl"
         className="max-w-none border border-primary-500 bg-secondary-200 shadow-none"
       >
-        <h3 className="mb-4 break-words text-h1">{artworkName}</h3>
+        <h3 className="mb-4 break-words text-h1">{orderName}</h3>
         <div className="mb-8 flex flex-wrap items-center gap-3">
+          <span className="break-words text-h3">{artworkName}</span>
           {categoryName && <span className="text-h3">{categoryName}</span>}
-          <TagList items={categories.map(formatTagLabel)} variant="category" />
-          <TagList items={styles.map(formatTagLabel)} variant="style" />
+          <TagList items={categories} variant="category" />
+          <TagList items={styles} variant="style" />
         </div>
         <h4 className="mb-3 text-h3">Request Detail</h4>
         <p className="whitespace-pre-wrap break-words text-caption">{requestDetail}</p>

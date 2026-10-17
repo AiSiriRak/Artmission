@@ -5,6 +5,11 @@ interface TagListProps {
   variant?: "category" | "style";
 }
 
+function formatTagLabel(value: string) {
+  const label = value.trim().toLowerCase();
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export default function TagList({ items, variant = "category" }: TagListProps) {
   if (!items || items.length === 0) return <p className="text-gray-400">-</p>;
 
@@ -22,7 +27,7 @@ export default function TagList({ items, variant = "category" }: TagListProps) {
           key={index}
           className={`px-3 py-1 ${tagStyle} text-caption rounded-[46px]`}
         >
-          {item.trim()}
+          {formatTagLabel(item)}
         </span>
       ))}
     </div>

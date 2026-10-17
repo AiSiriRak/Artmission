@@ -52,7 +52,7 @@ export default function OrderInfo({
             <p className="text-caption text-primary-500">{statusLabels[status]}</p>
           </div>
         </div>
-        <dl className="space-y-3 px-6 pt-5 pb-2">
+        <dl className={`space-y-3 px-6 pt-5 ${actions ? "pb-2" : "pb-5"}`}>
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-h3">Total Amount</dt>
             <dd className="text-body text-right">{(priceSatang / 100).toLocaleString("en-US")} THB</dd>

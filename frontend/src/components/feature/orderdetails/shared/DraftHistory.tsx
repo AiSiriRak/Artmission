@@ -65,8 +65,10 @@ function DateLine({ label, value }: { label: string; value: string }) {
 
 function ArtworkPreview({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="mx-auto mt-8 w-full max-w-56 border border-neutral bg-white p-3">
-      <img src={src} alt={alt} className="aspect-square w-full object-contain" />
+    <div className="mx-auto mt-8 w-full max-w-[940px] p-6">
+      <div className="mx-auto w-fit max-w-full border border-neutral bg-white">
+        <img src={src} alt={alt} className="block h-auto w-auto max-h-[632px] max-w-full object-contain" />
+      </div>
     </div>
   );
 }
@@ -76,7 +78,7 @@ function DraftStatusBadge({ status }: { status: DraftStatus }) {
 
   return (
     <div
-      className={`${view.className} flex w-[252px] max-w-full shrink-0 justify-center rounded-full border border-primary-500 p-1.5`}
+      className={`${view.className} ml-auto flex w-[252px] max-w-full shrink-0 justify-center rounded-full border border-primary-500 p-1.5`}
     >
       <p className="text-center text-caption text-primary-500">{view.label}</p>
     </div>
@@ -120,7 +122,7 @@ export default function DraftHistory({ drafts, renderDraftActions, renderFinalAr
               <article key={draft.id} className="min-w-0">
                 <h3 className="mb-4 text-h3">#{draft.draftNumber} Draft</h3>
                 <HistoryCard>
-                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                     <dl className="space-y-1">
                       <DateLine label="Submit Date" value={draft.submitDate} />
                       {reviewDate && (

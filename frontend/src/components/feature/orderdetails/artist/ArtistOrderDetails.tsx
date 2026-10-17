@@ -205,7 +205,8 @@ export default function ArtistOrderDetails() {
         notice={pendingPostpone ? <PostponeNotice deadline={pendingPostpone.deadline_request_at} /> : undefined}
         description={
           <OrderDescription orderNumber={order.id}
-            artworkName={order.artwork_snapshot.artwork_name || order.name}
+            orderName={order.name}
+            artworkName={order.artwork_snapshot.artwork_name}
             categoryName=""
             categories={order.artwork_snapshot.category ? [order.artwork_snapshot.category] : []}
             styles={order.artwork_snapshot.styles ?? []}
