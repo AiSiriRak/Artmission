@@ -11,11 +11,23 @@ interface CustomerConfirmPopUp {
   description: string;
   cancelText: string;
   confirmText: string;
+  confirmDisabled?: boolean;
+  errorMessage?: string | null;
   onCancel: () => void;
   onConfirm: () => void;
 }
 
-export function CustomerConfirmPopUp({ isOpen, title, description, cancelText, confirmText, onCancel, onConfirm }: CustomerConfirmPopUp) {
+export function CustomerConfirmPopUp({
+  isOpen,
+  title,
+  description,
+  cancelText,
+  confirmText,
+  confirmDisabled = false,
+  errorMessage,
+  onCancel,
+  onConfirm,
+}: CustomerConfirmPopUp) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -46,12 +58,17 @@ export function CustomerConfirmPopUp({ isOpen, title, description, cancelText, c
             <p className="mt-8 text-center text-small text-primary-500 w-50">
               {description}
             </p>
+            {errorMessage && (
+              <p role="alert" className="mt-3 text-center text-small text-error">
+                {errorMessage}
+              </p>
+            )}
             {/* Buttons */}
             <div className="mt-8 flex w-full justify-between">
-              <Button variant="light" onClick={onCancel}>
+              <Button variant="light" onClick={onCancel} disabled={confirmDisabled}>
                 {cancelText}
               </Button>
-              <Button variant="dark" onClick={onConfirm}>
+              <Button variant="dark" onClick={onConfirm} disabled={confirmDisabled}>
                 {confirmText}
               </Button>
             </div>

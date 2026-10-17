@@ -120,3 +120,13 @@ export async function confirmDelayRequest(
     { method: "PUT", body: JSON.stringify(input) },
   );
 }
+
+/**
+ * Bypass the payment for an order (for testing purposes)
+ * PUT /orders/{order_id}/bypass-payment
+ */
+export async function bypassPayment(orderId: string): Promise<void> {
+  return apiFetch<void>(`/orders/${orderId}/bypass-payment`, {
+    method: "PUT",
+  });
+}

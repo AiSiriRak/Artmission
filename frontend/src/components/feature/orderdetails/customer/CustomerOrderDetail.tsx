@@ -175,8 +175,14 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
             revisions={{ used: revisionsUsed, limit: REVISION_LIMIT }}
             actions={
               <CustomerOrderActions
+                orderId={order.id}
                 status={order.status}
                 onCancelOrder={() => setCancelOpen(true)}
+                onPaymentBypassed={async () => {
+                  const fresh = await getOrderById(order.id);
+                  setOrder(fresh);
+                  setDrafts(toDrafts(fresh.deliverables));
+                }}
               />
             }
           />
@@ -202,13 +208,14 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
         {drafts.length > 0 && (
           <DraftHistory
             drafts={drafts}
-            renderFinalArtworkActions={(draft) => (
-              <DownloadArtworkButton
-                // The backend only returns the preview image, so download that.
-                imageUrl={draft.previewImageUrl}
-                fileName={`${order.name}-final`}
-              />
-            )}
+            renderFinalArtworkActions={() =>
+              order.original_image_url ? (
+                <DownloadArtworkButton
+                  imageUrl={order.original_image_url}
+                  fileName={`${order.name}-final`}
+                />
+              ) : null
+            }
             renderDraftActions={(draft) => (
               <CustomerDraftActions
                 draft={draft}
@@ -254,4 +261,3 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
     </>
   );
 }
-

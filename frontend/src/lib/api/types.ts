@@ -57,11 +57,12 @@ export type ConfirmDelayRequestResult =
 // The backend returns null when there is no active delay request.
 export type OrderDetail = Omit<
   components["schemas"]["OrderDetailView"],
-  "status" | "deliverables" | "active_delay_request"
+  "status" | "deliverables" | "active_delay_request" | "original_image_url"
 > & {
   status: OrderStatus;
   deliverables: OrderDeliverable[] | null;
   active_delay_request: DelayRequest | null;
+  original_image_url?: string | null;
 };
 
 // Artist

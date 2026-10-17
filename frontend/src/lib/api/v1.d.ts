@@ -799,6 +799,7 @@ export interface components {
             email: string;
             password: string;
         };
+        // TODO : update original url
         OrderDetailView: {
             /**
              * Format: uri
@@ -822,6 +823,7 @@ export interface components {
             id: string;
             name: string;
             other_party: components["schemas"]["OrderPartyView"];
+            original_image_url?: string;
             /** Format: int64 */
             price_satang: number;
             status: string;
