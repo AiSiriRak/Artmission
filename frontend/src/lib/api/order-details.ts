@@ -41,10 +41,19 @@ export function confirmOrder(orderId: string, accept: boolean) {
   );
 }
 
-// Current cancel API has no request body. Reasons require a Backend extension.
-export function cancelOrder(orderId: string) {
-  return apiFetch<{ message: string; status: OrderStatus }>(
-    `/orders/${encodeURIComponent(orderId)}/cancel`, { method: "PUT" },
+export type ArtistCancelReason =
+  | "UNABLE_TO_COMPLETE"
+  | "UNABLE_TO_MEET_DEADLINE"
+  | "CUSTOMER_CHANGED_REQUIREMENTS"
+  | "CUSTOMER_UNRESPONSIVE"
+  | "MUTUAL_AGREEMENT"
+  | "PERSONAL_OR_TECHNICAL_ISSUE"
+  | "OTHER";
+
+export function cancelOrder(orderId: string, input: { reason: ArtistCancelReason; explanation: string }) {
+  return apiFetch<{ order_id: string; reason: string; explanation: string }>(
+    `/orders/${encodeURIComponent(orderId)}/cancel`,
+    { method: "PUT", body: JSON.stringify(input) },
   );
 }
 

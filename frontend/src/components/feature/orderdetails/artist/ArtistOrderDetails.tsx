@@ -211,11 +211,10 @@ export default function ArtistOrderDetails() {
       )}
       {popup === "cancel" && (
         <CancelOrderPopup orderSummary={summary} busy={busy} serverError={actionError} onClose={closePopup}
-          onConfirm={() => {
-            // TODO: Current API cannot persist the form's reason/description.
+          onConfirm={({ reason, description }) => {
             void runMutation(async () => {
-              const result = await cancelOrder(orderId);
-              return (previous) => ({ ...previous, status: result.status });
+              await cancelOrder(orderId, { reason, explanation: description });
+              return (previous) => ({ ...previous, status: "CANCEL" });
             }).catch(() => { /* Error is shown in the popup. */ });
           }} />
       )}

@@ -5,25 +5,25 @@ import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { SelectInput } from "@/components/ui/SelectInput";
 import ArtistOrderPopup from "./ArtistOrderPopup";
+import type { ArtistCancelReason } from "@/lib/api/order-details";
 
 interface CancelOrderPopupProps {
   orderSummary: string;
   onClose: () => void;
-  onConfirm: (value: { reason: string; description: string }) => void;
+  onConfirm: (value: { reason: ArtistCancelReason; description: string }) => void;
   busy?: boolean;
   serverError?: string;
 }
 
-// TODO: Map these UI values to Backend reason codes when the API is connected.
 const reasons = [
-  { value: "cannot_complete", label: "I’m unable to complete the project" },
-  { value: "cannot_meet_deadline", label: "I’m unable to meet the deadline" },
-  { value: "requirements_changed", label: "The project requirements have changed" },
-  { value: "client_unresponsive", label: "The client is unresponsive" },
-  { value: "mutual_agreement", label: "The client and I agreed to cancel" },
-  { value: "personal_or_technical", label: "I have a personal or technical issue" },
-  { value: "other", label: "Other" },
-];
+  { value: "UNABLE_TO_COMPLETE", label: "I’m unable to complete the project" },
+  { value: "UNABLE_TO_MEET_DEADLINE", label: "I’m unable to meet the deadline" },
+  { value: "CUSTOMER_CHANGED_REQUIREMENTS", label: "The project requirements have changed" },
+  { value: "CUSTOMER_UNRESPONSIVE", label: "The client is unresponsive" },
+  { value: "MUTUAL_AGREEMENT", label: "The client and I agreed to cancel" },
+  { value: "PERSONAL_OR_TECHNICAL_ISSUE", label: "I have a personal or technical issue" },
+  { value: "OTHER", label: "Other" },
+] satisfies { value: ArtistCancelReason; label: string }[];
 
 export default function CancelOrderPopup({ orderSummary, onClose, onConfirm, busy = false, serverError }: CancelOrderPopupProps) {
   const [reason, setReason] = useState("");
@@ -46,8 +46,9 @@ export default function CancelOrderPopup({ orderSummary, onClose, onConfirm, bus
       <form onSubmit={(event) => {
         event.preventDefault();
         if (busy) return;
-        if (!reason || !description.trim()) { setError("กรุณาเลือกเหตุผลและกรอกคำอธิบาย"); return; }
-        onConfirm({ reason, description: description.trim() });
+        const selectedReason = reasons.find((item) => item.value === reason);
+        if (!selectedReason || !description.trim()) { setError("กรุณาเลือกเหตุผลและกรอกคำอธิบาย"); return; }
+        onConfirm({ reason: selectedReason.value, description: description.trim() });
       }}>
         <p className="mb-2 text-caption">Reason for cancellation <span className="text-error">*</span></p>
         <SelectInput options={reasons} value={reason} onChange={setReason} formatSelectedLabel={(label) => reason ? label : "Select reason for cancellation"} buttonClassName="rounded-lg border-neutral-400" />
@@ -60,7 +61,6 @@ export default function CancelOrderPopup({ orderSummary, onClose, onConfirm, bus
         </div>
         {error && <p role="alert" className="mt-3 text-small text-error">{error}</p>}
         {serverError && <p role="alert" className="mt-3 text-small text-error">{serverError}</p>}
-        <p className="mt-2 text-small text-neutral">ขณะนี้ยกเลิกออร์เดอร์ได้ แต่เหตุผลและคำอธิบายยังไม่ถูกบันทึก</p>
         <div className="mt-4 flex justify-end gap-6">
           <Button type="button" variant="transparent" className="w-[135px] rounded-xl" disabled={busy} onClick={onClose}>Keep order</Button>
           <Button type="submit" variant="error" className="w-[135px] rounded-xl" disabled={busy}>{busy ? "Please wait..." : "Cancel order"}</Button>
