@@ -41,7 +41,7 @@ services:
       start_period: 1s
 
   # Creates both app buckets once rustfs is up (buckets are infra-owned, not app).
-  # artmission-public is public-read; artmission-private stays default-private.
+  # artmission-public is public-read; artmission-private stays default-private but allows browser GETs (presigned URLs) from the local frontend.
   rustfs-init:
     image: amazon/aws-cli:latest
     restart: "no"
@@ -69,6 +69,7 @@ services:
           fi
         done
         aws --endpoint-url http://rustfs:9000 s3api put-bucket-policy --bucket "$${PUBLIC_BUCKET}" --policy "$${PUBLIC_BUCKET_POLICY}"
+        aws --endpoint-url http://rustfs:9000 s3api put-bucket-cors --bucket "$${PRIVATE_BUCKET}" --cors-configuration '{"CORSRules":[{"AllowedOrigins":["http://localhost:3000"],"AllowedMethods":["GET"],"AllowedHeaders":["*"]}]}'
         aws --endpoint-url http://rustfs:9000 s3 ls
 
 volumes:
