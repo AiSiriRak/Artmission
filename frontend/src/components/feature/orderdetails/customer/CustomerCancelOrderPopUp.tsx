@@ -1,13 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { SelectInput } from "@/components/ui/SelectInput";
-import { WhiteCard } from "@/components/ui/WhiteCard";
 import { cancelOrder } from "@/lib/api/orders";
 import type { CancelOrderInput } from "@/lib/api/types";
+import ArtistOrderPopup from "../artist/popups/ArtistOrderPopup";
 
 type CancelReason = CancelOrderInput["reason"];
 
@@ -41,6 +41,7 @@ export function CustomerCancelOrderPopUp({
   onClose,
   onCancelled,
 }: CustomerCancelOrderPopUpProps) {
+  const explanationId = useId();
   const [reason, setReason] = useState<string>("");
   const [explanation, setExplanation] = useState("");
   const [validation, setValidation] = useState<string | null>(null);
@@ -49,13 +50,6 @@ export function CustomerCancelOrderPopUp({
     "default",
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    document.body.style.overflow = isOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -95,122 +89,147 @@ export function CustomerCancelOrderPopUp({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25">
-      <WhiteCard>
-        {status === "success" ? (
-          <div className="space-y-5">
-            <Image
-              src="/icons/success.svg"
-              alt=""
-              width={64}
-              height={64}
-              className="mx-auto"
-            />
-            <p className="text-center text-h2 text-primary-500">Success</p>
-            <p className="text-center text-small text-primary-500">
-              Your order has been cancelled.
-            </p>
-            <Button variant="light" onClick={close} className="w-full">
-              Close
-            </Button>
+    <ArtistOrderPopup
+      title={
+        status === "success"
+          ? "Success"
+          : status === "fail"
+            ? "Unable to cancel this order."
+            : "Cancel this order?"
+      }
+      form
+      onClose={close}
+      icon={
+        <Image
+          src={
+            status === "success"
+              ? "/icons/success.svg"
+              : status === "fail"
+                ? "/icons/fail.svg"
+                : "/icons/Error_Circle.svg"
+          }
+          alt=""
+          width={64}
+          height={64}
+          className="h-16 w-16"
+        />
+      }
+    >
+      {status === "success" ? (
+        <div className="space-y-5">
+          <p className="text-center text-small">
+            Your order has been cancelled.
+          </p>
+          <Button variant="light" onClick={close} className="w-full">
+            Close
+          </Button>
+        </div>
+      ) : status === "fail" ? (
+        <div className="space-y-6">
+          {errorMessage && (
+            <p className="text-center text-small">{errorMessage}</p>
+          )}
+          <Button variant="light" onClick={close} className="w-full">
+            Close
+          </Button>
+        </div>
+      ) : (
+        <>
+          <p className="mx-auto mt-3 text-center text-small">
+            The artist will be notified and work on this order will stop. This action cannot be undone.
+          </p>
+          <div className="my-3 rounded-xl bg-neutral-400 px-4 py-2 text-small">
+            {orderLabel}
           </div>
-        ) : status === "fail" ? (
-          <div className="space-y-6">
-            <Image
-              src="/icons/fail.svg"
-              alt=""
-              width={64}
-              height={64}
-              className="mx-auto"
-            />
-            <p className="text-center text-h2 text-primary-500">
-              Unable to cancel this order.
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit();
+            }}
+          >
+            <p className="mb-2 text-caption">
+              Reason for cancellation <span className="text-error">*</span>
             </p>
-            {errorMessage && (
-              <p className="text-center text-small text-primary-500">
-                {errorMessage}
+            <SelectInput
+              value={reason}
+              onChange={(value) => {
+                setReason(value);
+                setValidation(null);
+              }}
+              options={CUSTOMER_REASONS}
+              formatSelectedLabel={(label) =>
+                reason ? label : "Select reason for cancellation"
+              }
+              buttonClassName="rounded-lg border-neutral-400"
+            />
+            <label
+              htmlFor={explanationId}
+              className="mb-2 mt-3 block text-caption"
+            >
+              Please explain your reason <span className="text-error">*</span>
+            </label>
+            <textarea
+              id={explanationId}
+              value={explanation}
+              onChange={(event) => {
+                setExplanation(event.target.value);
+                setValidation(null);
+              }}
+              rows={4}
+              placeholder="Briefly explain why you're cancelling..."
+              className="h-20 w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small"
+            />
+            {validation && (
+              <p role="alert" className="mt-1 text-small text-error">
+                {validation}
               </p>
             )}
-            <Button variant="light" onClick={close} className="w-full">
-              Close
-            </Button>
-          </div>
-        ) : (
-          <div className="mt-6 w-full space-y-4">
-            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500 text-h3 font-bold text-white">
-              i
-            </span>
-            <h2 className="text-center text-h2 text-primary-500">
-              Cancel this order?
-            </h2>
-            <p className="text-center text-small text-primary-500">
-              {orderLabel}
-            </p>
-
-            <div>
-                <div className="flex items-center gap-1">
-                <p className="mb-1 text-h4 font-bold">
-                    Reason for cancellation 
-                </p>
-                <p className="text-body text-red-500">*</p>
-                </div>
-              <SelectInput
-                value={reason}
-                onChange={(value) => {
-                  setReason(value);
-                  setValidation(null);
-                }}
-                options={CUSTOMER_REASONS}
-                formatSelectedLabel={(label) =>
-                  reason ? label : "Select reason for cancellation"
-                }
+            <div className="mt-3 flex items-center gap-3 rounded-xl bg-status-notpaid-pale px-4 py-3 text-small text-blue-900">
+              <Image
+                src="/icons/info.svg"
+                alt=""
+                width={30}
+                height={27}
+                className="shrink-0"
+                style={{ filter: "invert(34%) sepia(92%) saturate(749%) hue-rotate(180deg) brightness(95%) contrast(92%)" }}
               />
+              <div className="flex-1">
+                <p className="text-small font-bold">Refund information</p>
+                <p>If you cancel this order now, you’ll receive a 50% refund of the order total.</p>
+               </div>
             </div>
-
-            <div>
-              <div className="flex items-center gap-1">
-                <p className="flex mb-1 text-h4 font-bold">
-                  Please explain your reason
-                </p>
-                <p className="text-body text-red-500">*</p>
-              </div>
-              <textarea
-                value={explanation}
-                onChange={(e) => {
-                  setExplanation(e.target.value);
-                  setValidation(null);
-                }}
-                rows={4}
-                placeholder="Briefly explain why you're cancelling…"
-                className="w-full rounded-md border border-gray-300 bg-white p-2"
+            <div className="mt-3 flex items-center gap-3 rounded-xl bg-accent-200 px-4 py-3 text-small text-error">
+              <Image
+                src="/icons/pink-error-triangle.svg"
+                alt=""
+                width={30}
+                height={27}
+                className="shrink-0"
               />
-              {validation && (
-                <p className="mt-1 text-sm text-red-500">{validation}</p>
-              )}
+              <p>The artist will be notified immediately after cancellation.</p>
             </div>
-
-            <div className="flex items-center gap-4 rounded-md bg-blue-50 p-3">
-                <div className="flex flex-col">
-                    <h4 className="text-h4 font-bold">Refund information</h4>
-                <p className="text-small">If you cancel this order now, you’ll receive a 50% refund of the order total.</p>
-                </div>
-            </div>
-
-            <div className="rounded-md bg-red-50 p-3 text-small text-red-600">
-              The artist will be notified immediately after cancellation.
-            </div>
-
-            <div className="flex w-full justify-between gap-4">
-              <Button variant="light" onClick={close} disabled={submitting}>
-                Keep Order
+            <div className="mt-4 flex justify-end gap-6">
+              <Button
+                type="button"
+                variant="transparent"
+                className="w-[135px] rounded-xl"
+                disabled={submitting}
+                onClick={close}
+              >
+                Keep order
               </Button>
-              <Button variant="red" onClick={submit} disabled={submitting}>
-                {submitting ? "Cancelling..." : "Cancel Order"}
+              <Button
+                type="submit"
+                variant="error"
+                className="w-[135px] rounded-xl"
+                disabled={submitting}
+              >
+                {submitting ? "Cancelling..." : "Cancel order"}
               </Button>
             </div>
-          </div>
-        )}
-      </WhiteCard>
-    </div>
+          </form>
+        </>
+      )}
+    </ArtistOrderPopup>
   );
 }
