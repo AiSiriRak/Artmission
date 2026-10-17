@@ -96,6 +96,12 @@ type fakeRepo struct {
 	expireDelayRequestCutoff time.Time
 	expireDelayRequestIDs    []uuid.UUID
 	expireDelayRequestErr    error
+
+	// for sprint 2
+	bypassPaymentCustomerID uuid.UUID
+	bypassPaymentOrderID    uuid.UUID
+	bypassPaymentErr        error
+	bypassPaymentCalled     bool
 }
 
 func (f *fakeRepo) ListOrders(
@@ -267,6 +273,18 @@ func (f *fakeRepo) CancelExpiredRequest(
 	return f.expireDelayRequestIDs, f.expireDelayRequestErr
 }
 
+// for sprint 2
+func (f *fakeRepo) BypassOrderPayment(
+	_ context.Context,
+	customerID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	f.bypassPaymentCalled = true
+	f.bypassPaymentCustomerID = customerID
+	f.bypassPaymentOrderID = orderID
+	return f.bypassPaymentErr
+}
+
 var _ order.OrderRepository = (*fakeRepo)(nil)
 
 // fakeStorage returns url+key for any GetPresignedURL call, or err if set —
@@ -313,6 +331,7 @@ type recordingStorage struct {
 	uploads       []storedObject
 	deletes       []string
 	presignedKeys []string
+	presignedURL  string
 	failUploadAt  int
 	uploadErr     error
 	presignErr    error
@@ -328,7 +347,7 @@ func (storage *recordingStorage) GetPresignedURL(
 	if storage.presignErr != nil {
 		return "", storage.presignErr
 	}
-	return key, nil
+	return storage.presignedURL + key, nil
 }
 
 func (storage *recordingStorage) Upload(
@@ -861,6 +880,116 @@ func TestGetOrder_ArtistGetsCustomerAsOtherParty(t *testing.T) {
 			"OtherParty.ArtistReviewScore = %v, want nil for customer",
 			*got.OtherParty.ArtistReviewScore,
 		)
+	}
+}
+
+func TestGetOrder_PresignsLatestOriginalImageOnlyWhenOrderIsSuccessful(t *testing.T) {
+	const latestOriginalKey = "orders/order-1/v2/original.png"
+	const storageURLPrefix = "https://storage.example.com/"
+	wantOriginalURL := storageURLPrefix + latestOriginalKey
+
+	for _, tt := range []struct {
+		name              string
+		status            order.Status
+		deliverables      []order.Deliverable
+		wantOriginalURL   string
+		wantPresignedKeys []string
+	}{
+		{
+			name:   "successful order",
+			status: order.StatusSuccess,
+			deliverables: []order.Deliverable{
+				{OriginalImageKey: latestOriginalKey},
+				{OriginalImageKey: "orders/order-1/v1/original.png"},
+			},
+			wantOriginalURL:   wantOriginalURL,
+			wantPresignedKeys: []string{latestOriginalKey},
+		},
+		{
+			name:   "unfinished order",
+			status: order.StatusPending,
+			deliverables: []order.Deliverable{
+				{OriginalImageKey: latestOriginalKey},
+			},
+		},
+		{
+			name:         "successful order without deliverables",
+			status:       order.StatusSuccess,
+			deliverables: []order.Deliverable{},
+		},
+		{
+			name:   "successful order with empty original key",
+			status: order.StatusSuccess,
+			deliverables: []order.Deliverable{
+				{OriginalImageKey: ""},
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := &recordingStorage{presignedURL: storageURLPrefix}
+			repo := &fakeRepo{
+				orderDetailData: &order.OrderDetailData{
+					Order:        order.Order{Status: tt.status},
+					Deliverables: tt.deliverables,
+				},
+			}
+			usecase := newTestOrderUsecase(repo, storage)
+
+			got, err := usecase.GetOrder(
+				context.Background(),
+				order.ParticipantCustomer,
+				uuid.New(),
+				uuid.New(),
+			)
+			if err != nil {
+				t.Fatalf("GetOrder() error = %v, want nil", err)
+			}
+
+			if tt.wantOriginalURL == "" {
+				if got.OriginalImageURL != nil {
+					t.Errorf("OriginalImageURL = %q, want nil", *got.OriginalImageURL)
+				}
+			} else {
+				if got.OriginalImageURL == nil {
+					t.Fatalf("OriginalImageURL = nil, want %q for successful order", tt.wantOriginalURL)
+				}
+				if *got.OriginalImageURL != tt.wantOriginalURL {
+					t.Errorf("OriginalImageURL = %q, want %q", *got.OriginalImageURL, tt.wantOriginalURL)
+				}
+			}
+
+			if len(storage.presignedKeys) != len(tt.wantPresignedKeys) {
+				t.Fatalf("presigned keys = %v, want %v", storage.presignedKeys, tt.wantPresignedKeys)
+			}
+			for i, key := range tt.wantPresignedKeys {
+				if storage.presignedKeys[i] != key {
+					t.Errorf("presigned key[%d] = %q, want %q", i, storage.presignedKeys[i], key)
+				}
+			}
+		})
+	}
+}
+
+func TestGetOrder_ReturnsErrorWhenOriginalImageURLCannotBePresigned(t *testing.T) {
+	repo := &fakeRepo{
+		orderDetailData: &order.OrderDetailData{
+			Order: order.Order{Status: order.StatusSuccess},
+			Deliverables: []order.Deliverable{
+				{OriginalImageKey: "orders/order-1/original.png"},
+			},
+		},
+	}
+	storage := &recordingStorage{presignErr: errors.New("storage unavailable")}
+	usecase := newTestOrderUsecase(repo, storage)
+
+	_, err := usecase.GetOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		uuid.New(),
+		uuid.New(),
+	)
+	if !errors.Is(err, order.ErrFailedToPresignOriginalImageURL) {
+		t.Errorf("GetOrder() error = %v, want %v", err, order.ErrFailedToPresignOriginalImageURL)
 	}
 }
 
@@ -2293,5 +2422,73 @@ func TestCancelExpiredDelayRequest_PropagatesRepositoryError(t *testing.T) {
 
 	if _, err := usecase.CancelExpiredDelayRequest(context.Background()); !errors.Is(err, wantErr) {
 		t.Fatalf("err = %v, want %v", err, wantErr)
+	}
+}
+
+// for sprint 2
+func TestBypassOrderPayment(t *testing.T) {
+	customerID := uuid.New()
+	orderID := uuid.New()
+	repoErr := errors.New("database unavailable")
+
+	for _, tt := range []struct {
+		name         string
+		customerID   uuid.UUID
+		orderID      uuid.UUID
+		repoErr      error
+		wantErr      error
+		wantRepoCall bool
+	}{
+		{
+			name:         "delegates payment bypass to repository",
+			customerID:   customerID,
+			orderID:      orderID,
+			wantRepoCall: true,
+		},
+		{
+			name:    "rejects missing customer ID",
+			orderID: orderID,
+			wantErr: order.ErrMissingParticipantID,
+		},
+		{
+			name:       "rejects missing order ID",
+			customerID: customerID,
+			wantErr:    order.ErrMissingOrderID,
+		},
+		{
+			name:         "propagates repository error",
+			customerID:   customerID,
+			orderID:      orderID,
+			repoErr:      repoErr,
+			wantErr:      repoErr,
+			wantRepoCall: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &fakeRepo{bypassPaymentErr: tt.repoErr}
+			usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+			err := usecase.BypassOrderPayment(
+				context.Background(),
+				tt.customerID,
+				tt.orderID,
+			)
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("BypassOrderPayment() error = %v, want %v", err, tt.wantErr)
+			}
+			if repo.bypassPaymentCalled != tt.wantRepoCall {
+				t.Errorf("repository called = %t, want %t", repo.bypassPaymentCalled, tt.wantRepoCall)
+			}
+			if tt.wantRepoCall &&
+				(repo.bypassPaymentCustomerID != customerID || repo.bypassPaymentOrderID != orderID) {
+				t.Errorf(
+					"repository args = customer %s, order %s; want %s, %s",
+					repo.bypassPaymentCustomerID,
+					repo.bypassPaymentOrderID,
+					customerID,
+					orderID,
+				)
+			}
+		})
 	}
 }

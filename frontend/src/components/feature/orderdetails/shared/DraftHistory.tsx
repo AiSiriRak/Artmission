@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 
 export type DraftStatus =
-  | "WAITING_FOR_CUSTOMER_REVIEW"
+  | "WAITING_FOR_CUSTOMER_COMMENT"
   | "CHANGE_REQUESTED"
   | "COMMISSION_ACCEPTED";
 
@@ -13,21 +12,23 @@ export interface Draft {
   draftNumber: number;
   status: DraftStatus;
   submitDate: string;
-  reviewDate?: string;
-  imageUrl: string;
+  commentDate?: string;
+  previewImageUrl: string;
   imageAlt?: string;
-  customerReview?: string;
-  reviewDeadline?: string;
+  customerComment?: string;
+  commentDeadline?: string;
 }
 
 interface DraftHistoryProps {
   drafts: Draft[];
+  /** Role-specific actions (e.g. customer review controls) rendered under each draft. */
   renderDraftActions?: (draft: Draft) => ReactNode;
+  /** Role-specific actions (e.g. download) rendered under the final artwork. */
   renderFinalArtworkActions?: (draft: Draft) => ReactNode;
 }
 
 const statusView: Record<DraftStatus, { label: string; className: string }> = {
-  WAITING_FOR_CUSTOMER_REVIEW: {
+  WAITING_FOR_CUSTOMER_COMMENT: {
     label: "Waiting for Customer Review",
     className: "bg-status-notpaid-pale",
   },
@@ -85,10 +86,77 @@ function DraftStatusBadge({ status }: { status: DraftStatus }) {
   );
 }
 
-export default function DraftHistory({ drafts, renderDraftActions, renderFinalArtworkActions }: DraftHistoryProps) {
+function DraftCard({
+  draft,
+  actions,
+}: {
+  draft: Draft;
+  actions?: ReactNode;
+}) {
+  const commentDate = draft.commentDate?.trim();
+  const customerComment = draft.customerComment?.trim();
+
+  return (
+    <article className="min-w-0">
+      <h3 className="mb-4 text-h3">#{draft.draftNumber} Draft</h3>
+      <HistoryCard>
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+          <dl className="space-y-1">
+            <DateLine label="Submit Date" value={draft.submitDate} />
+            {commentDate && (
+              <DateLine label="Comment Date" value={commentDate} />
+            )}
+          </dl>
+          <DraftStatusBadge status={draft.status} />
+        </div>
+        <ArtworkPreview
+          src={draft.previewImageUrl}
+          alt={draft.imageAlt ?? `Draft ${draft.draftNumber} artwork`}
+        />
+
+        {actions}
+
+        {customerComment && (
+          <div className="mt-8">
+            <p className="mb-2 text-h3">Customer Comment</p>
+            <p className="whitespace-pre-wrap break-words text-caption">
+              {customerComment}
+            </p>
+          </div>
+        )}
+        {draft.status === "WAITING_FOR_CUSTOMER_COMMENT" &&
+          draft.commentDeadline && (
+            <p className="mt-8 flex items-start justify-center gap-2 text-small">
+              The customer has review until {draft.commentDeadline}. If no
+              response, the artwork will be automatically accepted.
+            </p>
+          )}
+      </HistoryCard>
+    </article>
+  );
+}
+
+export default function DraftHistory({
+  drafts,
+  renderDraftActions,
+  renderFinalArtworkActions,
+}: DraftHistoryProps) {
   const approvedDraft = drafts.find(
     (draft) => draft.status === "COMMISSION_ACCEPTED",
   );
+
+  // Only the latest draft waiting for the customer is pinned above the history.
+  const waitingDraft = drafts.reduce<Draft | undefined>(
+    (latest, draft) =>
+      draft.status === "WAITING_FOR_CUSTOMER_COMMENT" &&
+      (!latest || draft.draftNumber > latest.draftNumber)
+        ? draft
+        : latest,
+    undefined,
+  );
+
+  // Sort history drafts by draft number in descending order
+  const historyDrafts = drafts.filter((draft) => draft.id !== waitingDraft?.id).sort((a, b) => b.draftNumber - a.draftNumber);
 
   return (
     <div className="mt-10 min-w-0">
@@ -100,7 +168,7 @@ export default function DraftHistory({ drafts, renderDraftActions, renderFinalAr
               <DateLine label="Submit Date" value={approvedDraft.submitDate} />
             </dl>
             <ArtworkPreview
-              src={approvedDraft.imageUrl}
+              src={approvedDraft.previewImageUrl}
               alt={approvedDraft.imageAlt ?? "Final artwork"}
             />
             {renderFinalArtworkActions?.(approvedDraft)}
@@ -108,56 +176,32 @@ export default function DraftHistory({ drafts, renderDraftActions, renderFinalAr
         </section>
       )}
 
-      <section>
-        <h2 className="mb-8 rounded-r-md border-l-4 border-accent-500 bg-secondary-300 px-4 py-2.5 text-h3">
-          Draft History
-        </h2>
+      {waitingDraft && (
+        <section className="mb-10">
+          <DraftCard
+            draft={waitingDraft}
+            actions={renderDraftActions?.(waitingDraft)}
+          />
+        </section>
+      )}
 
-        <div className="space-y-10">
-          {drafts.map((draft) => {
-            const reviewDate = draft.reviewDate?.trim();
-            const customerReview = draft.customerReview?.trim();
+      {historyDrafts.length > 0 && (
+        <section>
+          <h2 className="mb-8 rounded-r-md border-l-4 border-accent-500 bg-secondary-300 px-4 py-2.5 text-h3">
+            Draft History
+          </h2>
 
-            return (
-              <article key={draft.id} className="min-w-0">
-                <h3 className="mb-4 text-h3">#{draft.draftNumber} Draft</h3>
-                <HistoryCard>
-                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-                    <dl className="space-y-1">
-                      <DateLine label="Submit Date" value={draft.submitDate} />
-                      {reviewDate && (
-                        <DateLine label="Review Date" value={reviewDate} />
-                      )}
-                    </dl>
-                    <DraftStatusBadge status={draft.status} />
-                  </div>
-                  <ArtworkPreview
-                    src={draft.imageUrl}
-                    alt={
-                      draft.imageAlt ?? `Draft ${draft.draftNumber} artwork`
-                    }
-                  />
-                  {customerReview && (
-                    <div className="mt-8">
-                      <p className="mb-2 text-h3">Customer Review</p>
-                      <p className="whitespace-pre-wrap break-words text-caption">
-                        {customerReview}
-                      </p>
-                    </div>
-                  )}
-                  {draft.status === "WAITING_FOR_CUSTOMER_REVIEW" && draft.reviewDeadline && (
-                    <p className="mt-8 flex items-start justify-center gap-2 text-small">
-                      <Image src="/icons/clock.svg" alt="" width={16} height={16} className="shrink-0" />
-                      The customer has review until {draft.reviewDeadline}. If no response, the artwork will be automatically accepted.
-                    </p>
-                  )}
-                  {renderDraftActions?.(draft)}
-                </HistoryCard>
-              </article>
-            );
-          })}
-        </div>
-      </section>
+          <div className="space-y-10">
+            {historyDrafts.map((draft) => (
+              <DraftCard
+                key={draft.id}
+                draft={draft}
+                actions={renderDraftActions?.(draft)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -161,7 +161,7 @@ export default function HomePage() {
                   <OrderCard
                     key={option.id}
                     order={option}
-                    canOpenDetails={role === "artist"}
+                    canOpenDetails
                     status={status_list}
                   />
                 ))}

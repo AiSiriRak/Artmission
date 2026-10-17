@@ -31,7 +31,7 @@ function formatDate(value: string) {
 
 export function mapOrderDrafts(deliverables: OrderDeliverable[]): Draft[] {
   const decisions: Record<OrderDeliverable["decision"], Draft["status"]> = {
-    WAIT: "WAITING_FOR_CUSTOMER_REVIEW",
+    WAIT: "WAITING_FOR_CUSTOMER_COMMENT",
     REJECTED: "CHANGE_REQUESTED",
     APPROVED: "COMMISSION_ACCEPTED",
   };
@@ -40,9 +40,9 @@ export function mapOrderDrafts(deliverables: OrderDeliverable[]): Draft[] {
     draftNumber: item.version,
     status: decisions[item.decision],
     submitDate: formatDate(item.created_at),
-    reviewDate: item.decision === "WAIT" ? undefined : formatDate(item.updated_at),
-    imageUrl: item.preview_image_url,
-    customerReview: item.comment ?? undefined,
+    commentDate: item.decision === "WAIT" ? undefined : formatDate(item.updated_at),
+    previewImageUrl: item.preview_image_url,
+    customerComment: item.comment ?? undefined,
     // TODO: Backend must return the actual review expiry before showing auto-acceptance.
   }));
 }
@@ -207,8 +207,7 @@ export default function ArtistOrderDetails() {
           <OrderDescription orderNumber={order.id}
             orderName={order.name}
             artworkName={order.artwork_snapshot.artwork_name}
-            categoryName=""
-            categories={order.artwork_snapshot.category ? [order.artwork_snapshot.category] : []}
+            category={order.artwork_snapshot.category}
             styles={order.artwork_snapshot.styles ?? []}
             requestDetail={order.customer_description} />
         }

@@ -5,8 +5,7 @@ interface OrderDescriptionProps {
   orderNumber: string;
   orderName: string;
   artworkName: string;
-  categoryName: string;
-  categories: string[];
+  category: string;
   styles: string[];
   requestDetail: string;
 }
@@ -15,8 +14,7 @@ export default function OrderDescription({
   orderNumber,
   orderName,
   artworkName,
-  categoryName,
-  categories,
+  category,
   styles,
   requestDetail,
 }: OrderDescriptionProps) {
@@ -32,13 +30,12 @@ export default function OrderDescription({
         <h3 className="mb-4 break-words text-h1">{orderName}</h3>
         <div className="mb-8 flex flex-wrap items-center gap-3">
           <span className="break-words text-h3">{artworkName}</span>
-          {categoryName && <span className="text-h3">{categoryName}</span>}
-          <TagList items={categories} variant="category" />
+          <TagList items={category ? [category] : []} variant="category" />
           <TagList items={styles} variant="style" />
         </div>
         <h4 className="mb-3 text-h3">Request Detail</h4>
         <p className="whitespace-pre-wrap break-words text-caption">{requestDetail}</p>
       </WhiteCard>
     </>
-  );
+  );  
 }
