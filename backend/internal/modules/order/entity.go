@@ -391,6 +391,7 @@ type OrderDetail struct {
 	OtherParty         OrderParty
 	Deliverables       []Deliverable
 	ActiveDelayRequest *OrderDelayRequest
+	OriginalImageURL   *string
 }
 
 // CreateInput contains the customer-provided information required to create an order.

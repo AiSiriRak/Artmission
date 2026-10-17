@@ -1,7 +1,7 @@
 info:
   name: "ConfirmDelayRequest: Approve"
   type: http
-  seq: 13
+  seq: 12
   tags:
     - orders
 

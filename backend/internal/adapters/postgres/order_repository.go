@@ -1361,3 +1361,46 @@ func (r *orderRepository) CancelExpiredRequest(
 
 	return ids, nil
 }
+
+// for sprint 2
+// BypassOrderPayment temporarily bypasses payment for an order owned by the customer.
+func (r *orderRepository) BypassOrderPayment(
+	ctx context.Context,
+	customerID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	return r.exec.Run(ctx, func(idb bun.IDB) error {
+		existing := new(pgmodel.Order)
+
+		if err := idb.NewSelect().
+			Model(existing).
+			Column("id", "status").
+			Where("id = ?", orderID).
+			Where("customer_id = ?", customerID).
+			For("UPDATE").
+			Scan(ctx); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return order.ErrOrderNotFound
+			}
+			return err
+		}
+
+		if existing.Status != string(order.StatusNotPaid) {
+			return order.ErrInvalidOrderStatus
+		}
+
+		_, err := idb.NewUpdate().
+			Model((*pgmodel.Order)(nil)).
+			Set("status = ?", string(order.StatusInProcess)).
+			Set("updated_at = NOW()").
+			Where("status = ?", string(order.StatusNotPaid)).
+			Where("customer_id = ?", customerID).
+			Where("id = ?", orderID).
+			Exec(ctx)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+}

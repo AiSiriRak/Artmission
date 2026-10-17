@@ -17,6 +17,20 @@ Feature: Get Order
     When the user views their last order
     Then the system shows the order details for the user
 
+  Scenario: a customer views the latest original image URL for a successful order
+    Given the user has a registered customer account
+    And the user has logged in
+    And the user has an order with status "SUCCESS" and 2 submitted deliverable versions
+    When the user views their last order
+    Then the system shows the latest original image URL for the successful order
+
+  Scenario: a pending order does not include an original image URL
+    Given the user has a registered customer account
+    And the user has logged in
+    And the user has an order with a pending deliverable
+    When the user views their last order
+    Then the system does not include an original image URL
+
   Scenario: an unauthenticated user cannot view order detail
     Given the user has a registered customer account
     And the user has an order

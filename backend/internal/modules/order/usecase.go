@@ -192,6 +192,17 @@ func (u *orderUsecase) GetOrder(
 		ActiveDelayRequest: data.ActiveDelayRequest,
 	}
 
+	if detail.Status == StatusSuccess && len(data.Deliverables) > 0 {
+		originalImageKey := data.Deliverables[0].OriginalImageKey
+		if originalImageKey != "" {
+			url, err := u.storage.GetPresignedURL(ctx, originalImageKey, orderDeliverableTTL)
+			if err != nil {
+				return nil, ErrFailedToPresignOriginalImageURL
+			}
+			detail.OriginalImageURL = &url
+		}
+	}
+
 	switch participant {
 	case ParticipantCustomer:
 		detail.OtherParty = data.Artist
@@ -983,4 +994,31 @@ func (u *orderUsecase) CancelExpiredDelayRequest(
 	// Use the returned delay request IDs to identify the affected requests.
 
 	return ids, nil
+}
+
+// for sprint 2
+// BypassOrderPayment transitions order status from NOT_PAID to IN_PROCESS for dev.
+func (u *orderUsecase) BypassOrderPayment(
+	ctx context.Context,
+	customerID uuid.UUID,
+	orderID uuid.UUID,
+) error {
+	if customerID == uuid.Nil {
+		return ErrMissingParticipantID
+	}
+
+	if orderID == uuid.Nil {
+		return ErrMissingOrderID
+	}
+
+	err := u.repo.BypassOrderPayment(
+		ctx,
+		customerID,
+		orderID,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
