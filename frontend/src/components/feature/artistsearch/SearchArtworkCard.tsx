@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 
 import type { SearchArtwork } from "@/lib/api/types";
 import { WhiteCard } from "@/components/ui/WhiteCard";
@@ -22,7 +21,7 @@ export function SearchArtworkCard({ item }: SearchArtworkCardProps) {
   const imageUrl = item.artwork_samples?.[0]?.image_url ?? null;
 
   return (
-    <Link href={`/artworks/${encodeURIComponent(item.id)}`} className="relative block w-full min-w-0 hover:brightness-95 transition-[filter]">
+    <div className="relative w-full min-w-0 hover:brightness-95 transition-[filter]">
       <WhiteCard
         margin=""
         roundsize="rounded-[40px]"
@@ -65,6 +64,6 @@ export function SearchArtworkCard({ item }: SearchArtworkCardProps) {
           </div>
         </div>
       </WhiteCard>
-    </Link>
+    </div>
   );
 }
