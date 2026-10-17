@@ -114,7 +114,7 @@ export default function Header({ usertype = "customer" }: HeaderProps) {
           </Link>
         </div>
 
-        {usertype == "customer" && (
+        {usertype == "customer" && pathname == routes.home && (
           <div className="min-w-0 flex-1 basis-0 px-1 sm:px-2 md:max-w-80 md:flex-none md:basis-80 md:px-0">
             <Suspense fallback={<div className="h-10 w-full" />}>
               <CustomerSearchBar />
