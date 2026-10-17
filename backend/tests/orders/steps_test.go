@@ -472,63 +472,6 @@ func (o *ordersContext) theArtistRejectsTheirLastOrder() error {
 func (o *ordersContext) theUserAttemptsToAcceptTheirLastOrder() error {
 	return o.confirmLastOrder(true)
 }
-func (o *ordersContext) theArtistSubmitsADeliverableForTheirLastOrder(authenticated bool) error {
-	var imageData bytes.Buffer
-	if err := png.Encode(&imageData, image.NewRGBA(image.Rect(0, 0, 32, 32))); err != nil {
-		return fmt.Errorf("encode test deliverable image: %w", err)
-	}
-
-	headers := map[string]string(nil)
-	if authenticated {
-		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
-	}
-	resp, err := o.client.DoMultipart(http.MethodPost, "/orders/"+o.lastOrderID+"/deliverables", nil, []apptest.MultipartFile{
-		{
-			FieldName:   "deliverable_image",
-			Filename:    "deliverable.png",
-			ContentType: "image/png",
-			Data:        imageData.Bytes(),
-		},
-	}, headers)
-	if err != nil {
-		return err
-	}
-	o.resp = resp
-	return nil
-}
-
-func (o *ordersContext) theArtistSubmitsADeliverableForTheirLastOrderWithAuthentication() error {
-	return o.theArtistSubmitsADeliverableForTheirLastOrder(true)
-}
-
-func (o *ordersContext) theUserSubmitsADeliverableForTheirLastOrderWithoutLoggingIn() error {
-	return o.theArtistSubmitsADeliverableForTheirLastOrder(false)
-}
-
-func (o *ordersContext) cancelOrder(orderID string, authenticated bool) error {
-	headers := map[string]string(nil)
-	if authenticated {
-		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
-	}
-	resp, err := o.client.Do(http.MethodPut, "/orders/"+orderID+"/cancel", nil, headers)
-	if err != nil {
-		return err
-	}
-	o.resp = resp
-	return nil
-}
-
-func (o *ordersContext) theUserCancelsTheirLastOrder() error {
-	return o.cancelOrder(o.lastOrderID, true)
-}
-
-func (o *ordersContext) theUserCancelsTheirLastOrderWithoutLoggingIn() error {
-	return o.cancelOrder(o.lastOrderID, false)
-}
-
-func (o *ordersContext) theUserCancelsAnotherUsersOrder() error {
-	return o.cancelOrder(o.otherOrderID, true)
-}
 
 func (o *ordersContext) confirmDeliverable(orderID, deliverableID string) error {
 	resp, err := o.client.Do(
