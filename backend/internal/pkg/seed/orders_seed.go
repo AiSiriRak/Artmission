@@ -122,6 +122,38 @@ func seedOrdersDown(ctx context.Context, d deps) error {
 	return deleteByIDs[pgmodel.Order](ctx, d, "id", ids)
 }
 
+func seedReviewsDown(ctx context.Context, d deps) error {
+	ids := make([]uuid.UUID, len(orders))
+	for i, o := range orders {
+		ids[i] = orderID(o.Key)
+	}
+	return deleteByColumn(ctx, d, "reviews", "order_id", ids)
+}
+
+func seedOrderCancellationsDown(ctx context.Context, d deps) error {
+	ids := make([]uuid.UUID, len(orders))
+	for i, o := range orders {
+		ids[i] = orderID(o.Key)
+	}
+	return deleteByColumn(ctx, d, "order_cancellations", "order_id", ids)
+}
+
+func seedPaymentsDown(ctx context.Context, d deps) error {
+	ids := make([]uuid.UUID, len(orders))
+	for i, o := range orders {
+		ids[i] = orderID(o.Key)
+	}
+	return deleteByColumn(ctx, d, "payments", "order_id", ids)
+}
+
+func seedOrderDelayRequestsDown(ctx context.Context, d deps) error {
+	ids := make([]uuid.UUID, len(orders))
+	for i, o := range orders {
+		ids[i] = orderID(o.Key)
+	}
+	return deleteByColumn(ctx, d, "order_delay_requests", "order_id", ids)
+}
+
 func seedOrderDeliverablesUp(ctx context.Context, d deps) error {
 	now := time.Now()
 	rows := make([]pgmodel.OrderDeliverable, len(deliverables))

@@ -40,10 +40,16 @@ var upSteps = []step{
 	seedOrderDeliverablesUp,
 }
 
-// Declare steps only the tables that actually need an explicit delete.
-// The rest shall be deleted via ON DELETE CASCADE.
+// Declare steps only the tables that actually need an explicit delete:
+// those seeded directly, plus tables holding an ON DELETE RESTRICT FK to
+// a seeded table. Everything else is deleted via ON DELETE CASCADE.
 var downSteps = []step{
 	seedOrderDeliverablesDown,
+	seedReviewsDown,
+	seedOrderCancellationsDown,
+	seedOrderDelayRequestsDown,
+	seedPaymentsDown,
+	seedNotificationsDown,
 	seedOrdersDown,
 	seedUsersDown,
 	seedArtworkImagesDown,
@@ -105,6 +111,19 @@ func deleteByIDs[T any](ctx context.Context, d deps, idColumn string, ids []uuid
 	}
 	if _, err := d.db.NewDelete().Model((*T)(nil)).Where(idColumn+" IN (?)", bun.List(ids)).ForceDelete().Exec(ctx); err != nil {
 		return fmt.Errorf("delete seeded rows: %w", err)
+	}
+	return nil
+}
+
+// deleteByColumn hard-deletes rows from a table whose column value is in
+// ids. Use this instead of deleteByIDs when no bun model struct exists
+// yet for the table.
+func deleteByColumn(ctx context.Context, d deps, table, column string, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	if _, err := d.db.NewDelete().Table(table).Where(column+" IN (?)", bun.List(ids)).Exec(ctx); err != nil {
+		return fmt.Errorf("delete seeded %s: %w", table, err)
 	}
 	return nil
 }
