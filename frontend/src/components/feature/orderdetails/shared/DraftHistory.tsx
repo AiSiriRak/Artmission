@@ -22,6 +22,8 @@ export interface Draft {
 
 interface DraftHistoryProps {
   drafts: Draft[];
+  renderDraftActions?: (draft: Draft) => ReactNode;
+  renderFinalArtworkActions?: (draft: Draft) => ReactNode;
 }
 
 const statusView: Record<DraftStatus, { label: string; className: string }> = {
@@ -81,7 +83,7 @@ function DraftStatusBadge({ status }: { status: DraftStatus }) {
   );
 }
 
-export default function DraftHistory({ drafts }: DraftHistoryProps) {
+export default function DraftHistory({ drafts, renderDraftActions, renderFinalArtworkActions }: DraftHistoryProps) {
   const approvedDraft = drafts.find(
     (draft) => draft.status === "COMMISSION_ACCEPTED",
   );
@@ -99,6 +101,7 @@ export default function DraftHistory({ drafts }: DraftHistoryProps) {
               src={approvedDraft.imageUrl}
               alt={approvedDraft.imageAlt ?? "Final artwork"}
             />
+            {renderFinalArtworkActions?.(approvedDraft)}
           </HistoryCard>
         </section>
       )}
@@ -146,6 +149,7 @@ export default function DraftHistory({ drafts }: DraftHistoryProps) {
                       The customer has review until {draft.reviewDeadline}. If no response, the artwork will be automatically accepted.
                     </p>
                   )}
+                  {renderDraftActions?.(draft)}
                 </HistoryCard>
               </article>
             );

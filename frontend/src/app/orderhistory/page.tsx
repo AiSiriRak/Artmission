@@ -8,6 +8,7 @@ import { OrderHistory, OrderSortField, OrderSortOrder } from "@/lib/api/types";
 import { getOrderHistory } from "@/lib/api/orders";
 import { routes } from "@/lib/routes";
 import { startAutoRefresh } from "@/lib/auto-refresh";
+import { getAccount } from "@/lib/api/users";
 import { OrderStatus } from "@/lib/api/types";
 import { isApiError } from "@/lib/api/error";
 
@@ -57,6 +58,22 @@ export default function HomePage() {
   ];
 
   const [order, setOrder] = useState<OrderHistory | null>(null);
+  const [role, setRole] = useState<"artist" | "customer" | null>(null);
+  const [accountError, setAccountError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    getAccount().then((account) => {
+      if (!active) return;
+      if (account.role !== "artist" && account.role !== "customer") throw new Error("บัญชีนี้ไม่สามารถเปิดออร์เดอร์ได้");
+      setRole(account.role);
+    }).catch((error: unknown) => {
+      if (!active) return;
+      if (isApiError(error) && error.status === 401) router.replace(routes.login);
+      setAccountError(error instanceof Error ? error.message : "โหลดบัญชีไม่สำเร็จ");
+    });
+    return () => { active = false; };
+  }, [router]);
   const [sortOrder, setSortOrder] = useState<string | null>("update-asc");
   const selectedSortOrder = sortOrder_list.find(
     (option) => option.value === sortOrder,
@@ -102,11 +119,12 @@ export default function HomePage() {
     selectedSortOrder?.order,
   ]);
 
-  if (!order) {
+  if (accountError) return <p role="alert" className="p-12 text-center text-error">{accountError}</p>;
+  if (!order || !role) {
     return <Loading />;
   }
   return (
-    <MainLayout usertype={"customer"}>
+    <MainLayout usertype={role}>
       <div className="min-h-screen">
         <div className="flex items-center justify-between m-10">
           <p className="truncate text-primary-500 text-h2 ">Recently Orders</p>
@@ -143,6 +161,7 @@ export default function HomePage() {
                   <OrderCard
                     key={option.id}
                     order={option}
+                    canOpenDetails={role === "artist"}
                     status={status_list}
                   />
                 ))}

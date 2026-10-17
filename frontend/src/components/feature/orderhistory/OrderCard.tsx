@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { routes } from "@/lib/routes";
 
 import { format, formatDistanceToNow } from "date-fns";
 import { Order } from "@/lib/api/types";
@@ -15,9 +17,10 @@ interface OrderCard {
     label: string;
   }[];
   order: Order;
+  canOpenDetails?: boolean;
 }
 
-export function OrderCard({ status, order }: OrderCard) {
+export function OrderCard({ status, order, canOpenDetails = false }: OrderCard) {
   const [artistName, setArtistName] = useState("");
   const statusLabel =
     status.find((item) => item.value === order.status)?.label ?? order.status;
@@ -37,7 +40,7 @@ export function OrderCard({ status, order }: OrderCard) {
     SUCCESS: "bg-status-success-pale",
     CANCEL: "bg-status-cancel-pale",
   };
-  return (
+  const content = (
     <div className="relative w-[320px] min-w-0 hover:brightness-90">
       <div>
         {/* Status Banner */}
@@ -98,4 +101,7 @@ export function OrderCard({ status, order }: OrderCard) {
       </div>
     </div>
   );
+  return canOpenDetails
+    ? <Link href={routes.order.detail(order.id)} className="block">{content}</Link>
+    : content;
 }

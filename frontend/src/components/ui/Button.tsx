@@ -39,7 +39,7 @@ export function Button({
     <button
       {...props}
       disabled={disabled}
-      className={`${variantClass[currentVariant]} flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-button transition-colors cursor-pointer hover:brightness-90 ${className}`}
+      className={`${variantClass[currentVariant]} flex items-center justify-center gap-2 px-5 py-2 rounded-lg text-button transition-colors ${disabled ? "cursor-not-allowed" : "cursor-pointer hover:brightness-90"} ${className}`}
     >
       {icon && <span>{icon}</span>}
       {children}
