@@ -7,6 +7,7 @@ import (
 
 	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 )
 
 type orderSeed struct {
@@ -125,42 +126,62 @@ func seedOrdersUp(ctx context.Context, d deps) error {
 	return seedTable(ctx, d, rows, "id")
 }
 
+// orderIDsOfSeededUsers returns the IDs of every order placed by or assigned to
+// a seeded user, including orders created later through the app. The down
+// steps must clear all of them: orders.customer_id and orders.artist_id are
+// ON DELETE RESTRICT, so one leftover order blocks deleting the seeded users.
+func orderIDsOfSeededUsers(ctx context.Context, d deps) ([]uuid.UUID, error) {
+	userIDs := make([]uuid.UUID, len(users))
+	for i, u := range users {
+		userIDs[i] = userID(u.Key)
+	}
+	var ids []uuid.UUID
+	if err := d.db.NewSelect().
+		Table("orders").
+		Column("id").
+		Where("customer_id IN (?) OR artist_id IN (?)", bun.List(userIDs), bun.List(userIDs)).
+		Scan(ctx, &ids); err != nil {
+		return nil, fmt.Errorf("find orders of seeded users: %w", err)
+	}
+	return ids, nil
+}
+
 func seedOrdersDown(ctx context.Context, d deps) error {
-	ids := make([]uuid.UUID, len(orders))
-	for i, o := range orders {
-		ids[i] = orderID(o.Key)
+	ids, err := orderIDsOfSeededUsers(ctx, d)
+	if err != nil {
+		return err
 	}
 	return deleteModelRows[pgmodel.Order](ctx, d, "id", ids)
 }
 
 func seedReviewsDown(ctx context.Context, d deps) error {
-	ids := make([]uuid.UUID, len(orders))
-	for i, o := range orders {
-		ids[i] = orderID(o.Key)
+	ids, err := orderIDsOfSeededUsers(ctx, d)
+	if err != nil {
+		return err
 	}
 	return deleteTableRows(ctx, d, "reviews", "order_id", ids)
 }
 
 func seedOrderCancellationsDown(ctx context.Context, d deps) error {
-	ids := make([]uuid.UUID, len(orders))
-	for i, o := range orders {
-		ids[i] = orderID(o.Key)
+	ids, err := orderIDsOfSeededUsers(ctx, d)
+	if err != nil {
+		return err
 	}
 	return deleteTableRows(ctx, d, "order_cancellations", "order_id", ids)
 }
 
 func seedPaymentsDown(ctx context.Context, d deps) error {
-	ids := make([]uuid.UUID, len(orders))
-	for i, o := range orders {
-		ids[i] = orderID(o.Key)
+	ids, err := orderIDsOfSeededUsers(ctx, d)
+	if err != nil {
+		return err
 	}
 	return deleteTableRows(ctx, d, "payments", "order_id", ids)
 }
 
 func seedOrderDelayRequestsDown(ctx context.Context, d deps) error {
-	ids := make([]uuid.UUID, len(orders))
-	for i, o := range orders {
-		ids[i] = orderID(o.Key)
+	ids, err := orderIDsOfSeededUsers(ctx, d)
+	if err != nil {
+		return err
 	}
 	return deleteTableRows(ctx, d, "order_delay_requests", "order_id", ids)
 }
@@ -188,9 +209,9 @@ func seedOrderDeliverablesUp(ctx context.Context, d deps) error {
 }
 
 func seedOrderDeliverablesDown(ctx context.Context, d deps) error {
-	ids := make([]uuid.UUID, len(orders))
-	for i, o := range orders {
-		ids[i] = orderID(o.Key)
+	ids, err := orderIDsOfSeededUsers(ctx, d)
+	if err != nil {
+		return err
 	}
 	if err := deleteModelRows[pgmodel.OrderDeliverable](ctx, d, "order_id", ids); err != nil {
 		return err
