@@ -5,6 +5,7 @@ import type {
   UpdateArtworkInput,
 } from "@/lib/api/types";
 import { Button } from "@/components/ui/Button";
+import TagList from "./TagList";
 import ReviewList from "./ReviewList";
 import DeleteArtworkModal from "./DeleteArtworkModal";
 import ArtworkSampleGallery from "./ArtworkSampleGallery";
@@ -388,19 +389,11 @@ export default function ArtworkDetail({
                   </h1>
                   <div className="flex flex-wrap gap-2">
                     {savedData.category && (
-                      <span className="px-4 py-1.5 bg-accent-200 text-primary-400 rounded-full text-sm font-semibold shadow-sm">
-                        {displayLabel(availableCategories, savedData.category)}
-                      </span>
+                      <TagList items={[displayLabel(availableCategories, savedData.category)]} variant="category" />
                     )}
-                    {savedData.styles &&
-                      savedData.styles.map((style) => (
-                        <span
-                          key={style}
-                          className="px-4 py-1.5 bg-secondary-600 text-gray-900 rounded-full text-sm font-semibold shadow-sm"
-                        >
-                          {displayLabel(availableStyles, style)}
-                        </span>
-                      ))}
+                    {savedData.styles && savedData.styles.length > 0 && (
+                      <TagList items={savedData.styles.map((style) => displayLabel(availableStyles, style))} variant="style" />
+                    )}
                   </div>
                 </div>
               )}
