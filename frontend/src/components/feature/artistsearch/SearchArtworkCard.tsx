@@ -42,7 +42,7 @@ export function SearchArtworkCard({ item }: SearchArtworkCardProps) {
           />
         </div>
 
-        <div className="flex w-full flex-col gap-1 px-6 pb-6 pt-1">
+        <div className="flex w-full flex-col gap-1 px-6 pb-6 pt-4">
           <p className="truncate text-h3 text-primary-500">
             {formatPriceThb(item.price_satang)}
           </p>
