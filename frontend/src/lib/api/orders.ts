@@ -71,8 +71,8 @@ export async function getOrderHistory(
  * ดึงรายละเอียดออเดอร์ตาม ID
  * GET /orders/{orderId}
  */
-export async function getOrderById(orderId: string): Promise<OrderDetail> {
-  return apiFetch<OrderDetail>(`/orders/${orderId}`);
+export async function getOrderById(orderId: string, options: RequestInit = {}): Promise<OrderDetail> {
+  return apiFetch<OrderDetail>(`/orders/${orderId}`, options);
 }
 
 /**

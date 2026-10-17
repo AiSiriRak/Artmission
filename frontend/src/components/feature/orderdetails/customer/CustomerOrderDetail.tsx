@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { startAutoRefresh } from "@/lib/auto-refresh";
 import OrderDescription from "@/components/feature/orderdetails/shared/OrderDescription";
 import OrderDetails from "@/components/feature/orderdetails/shared/OrderDetails";
 import OrderInfo from "@/components/feature/orderdetails/shared/OrderInfo";
@@ -86,6 +87,35 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
   const [artistProfile, setArtistProfile] = useState<ArtistProfile | null>(null);
 
   useEffect(() => {
+    if (pending || cancelOpen) return;
+    let active = true;
+    let refreshing = false;
+    const controller = new AbortController();
+
+    async function refresh() {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const fresh = await getOrderById(order.id, {
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+          cache: "no-store",
+        });
+        if (!active) return;
+        setOrder(fresh);
+        setDrafts(toDrafts(fresh.deliverables));
+      } catch { /* Keep the current data and retry on the next refresh. */ }
+      finally { refreshing = false; }
+    }
+
+    const stopRefresh = startAutoRefresh(() => { void refresh(); });
+    return () => {
+      active = false;
+      controller.abort();
+      stopRefresh();
+    };
+  }, [order.id, order.updated_at, pending, cancelOpen]);
+
+  useEffect(() => {
     let cancelled = false;
     getArtistProfile(initialOrder.artist_id)
       .then((profile) => {
@@ -157,7 +187,6 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
         }
         description={
           <OrderDescription
-            orderNumber={order.id}
             orderName={order.name}
             artworkName={order.artwork_snapshot.artwork_name}
             category={order.artwork_snapshot.category}

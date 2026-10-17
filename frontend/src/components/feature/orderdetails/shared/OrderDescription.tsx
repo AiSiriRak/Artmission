@@ -2,7 +2,6 @@ import { WhiteCard } from "@/components/ui/WhiteCard";
 import TagList from "@/components/feature/artistprofile/TagList";
 
 interface OrderDescriptionProps {
-  orderNumber: string;
   orderName: string;
   artworkName: string;
   category: string;
@@ -11,7 +10,6 @@ interface OrderDescriptionProps {
 }
 
 export default function OrderDescription({
-  orderNumber,
   orderName,
   artworkName,
   category,
@@ -20,7 +18,7 @@ export default function OrderDescription({
 }: OrderDescriptionProps) {
   return (
     <>
-      <h2 className="mb-4 text-h3">Order #{orderNumber}</h2>
+      <h2 className="mb-4 text-h3">Order Description</h2>
       <WhiteCard
         margin=""
         padding="p-6 sm:p-9"
