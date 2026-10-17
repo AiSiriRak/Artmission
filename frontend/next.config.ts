@@ -13,21 +13,19 @@ const targetHost = getHostname(process.env.S3_PUBLIC_BASE_URL);
 
 const nextConfig: NextConfig = {
   images: {
-    // *** Uncomment below line for LOCAL TEST ONLY. ***
-    // dangerouslyAllowLocalIP: true,
+    // Local MinIO fallback serves presigned URLs from localhost/private IPs;
+    // Next's Image Optimizer blocks those as a potential SSRF vector unless
+    // this is set. Only enabled when no public S3 base URL is configured.
+    dangerouslyAllowLocalIP: !targetHost,
 
     remotePatterns: targetHost
       ? [
-          ...(targetHost
-            ? [
-                {
-                  protocol: "https" as const,
-                  hostname: targetHost,
-                  port: "",
-                  pathname: "/**",
-                },
-              ]
-            : []),
+          {
+            protocol: "https" as const,
+            hostname: targetHost,
+            port: "",
+            pathname: "/**",
+          },
           {
             protocol: "https" as const,
             hostname: "*.supabase.co",
