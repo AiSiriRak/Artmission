@@ -34,7 +34,7 @@ export function SearchArtworkCard({ item }: SearchArtworkCardProps) {
             alt={item.name}
             width={320}
             height={320}
-            className="h-full w-full object-contain p-8"
+            className="h-full w-full object-contain"
           />
         </div>
 
