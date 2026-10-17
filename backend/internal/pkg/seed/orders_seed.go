@@ -7,7 +7,6 @@ import (
 
 	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/google/uuid"
-	"github.com/uptrace/bun"
 )
 
 type orderSeed struct {
@@ -181,11 +180,8 @@ func seedOrderDeliverablesDown(ctx context.Context, d deps) error {
 	for i, o := range orders {
 		ids[i] = orderID(o.Key)
 	}
-	if len(ids) == 0 {
-		return nil
-	}
-	if _, err := d.db.NewDelete().Model((*pgmodel.OrderDeliverable)(nil)).Where("order_id IN (?)", bun.List(ids)).Exec(ctx); err != nil {
-		return fmt.Errorf("delete seeded order deliverables: %w", err)
+	if err := deleteModelRows[pgmodel.OrderDeliverable](ctx, d, "order_id", ids); err != nil {
+		return err
 	}
 	for _, del := range deliverables {
 		original, preview := deliverableImageKeys(del.OrderKey, del.Version)
