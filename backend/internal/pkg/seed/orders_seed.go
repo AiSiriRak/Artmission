@@ -71,6 +71,18 @@ var deliverables = []deliverableSeed{
 	{OrderKey: "order-4", Version: 1, Decision: "APPROVED"},
 }
 
+// Every order seeded with status CANCEL needs a row here, mirroring what
+// orderRepository.CancelOrder writes (one cancellation per order).
+type cancellationSeed struct {
+	OrderKey    string
+	Reason      string
+	Explanation string
+}
+
+var cancellations = []cancellationSeed{
+	{OrderKey: "order-5", Reason: "NO_LONGER_NEEDED", Explanation: "I changed my mind about the style."},
+}
+
 func deliverableImageKeys(orderKey string, version int) (original, preview string) {
 	return fmt.Sprintf("orders/%s/v%d/original.png", orderKey, version),
 		fmt.Sprintf("orders/%s/v%d/preview.png", orderKey, version)
@@ -190,4 +202,19 @@ func seedOrderDeliverablesDown(ctx context.Context, d deps) error {
 		}
 	}
 	return nil
+}
+
+func seedOrderCancellationsUp(ctx context.Context, d deps) error {
+	now := time.Now()
+	rows := make([]pgmodel.OrderCancellation, len(cancellations))
+	for i, c := range cancellations {
+		rows[i] = pgmodel.OrderCancellation{
+			ID:          id("order_cancellation", c.OrderKey),
+			OrderID:     orderID(c.OrderKey),
+			Reason:      c.Reason,
+			Explanation: c.Explanation,
+			CreatedAt:   now,
+		}
+	}
+	return seedTable(ctx, d, rows, "id")
 }
