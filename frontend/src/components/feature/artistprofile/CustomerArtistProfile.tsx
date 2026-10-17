@@ -106,7 +106,7 @@ export default function CustomerArtistProfile({
           reviews={reviews}
           reviewScore={profile.review_score}
           onArtworkClick={(artwork) => {
-            // TODO: เชื่อม Artwork Details page ตรงนี้จ้า
+            router.push(`/artworks/${encodeURIComponent(artwork.id)}`);
           }}
           actions={
             <Button
