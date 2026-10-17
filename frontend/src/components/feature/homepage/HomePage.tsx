@@ -110,7 +110,7 @@ export default function HomePage() {
 
   return (
     <MainLayout usertype="customer">
-      <div className="mx-auto min-h-screen w-full max-w-[1400px] px-4 py-6 sm:px-6 md:px-10 md:py-8">
+      <div className="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 md:py-8">
         <div className="mb-2">
           <h1 className="text-h2 text-primary-500">{title}</h1>
           <p className="mt-1 text-body text-neutral sm:text-h3">{countLabel}</p>
@@ -166,7 +166,7 @@ export default function HomePage() {
 
         {artworks && artworks.length > 0 && (
           <>
-            <div className="mb-12 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] justify-start gap-12">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] justify-start gap-12">
               {artworks.map((item) => (
                 <SearchArtworkCard key={item.id} item={item} />
               ))}

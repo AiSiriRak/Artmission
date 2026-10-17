@@ -125,8 +125,8 @@ export default function HomePage() {
   }
   return (
     <MainLayout usertype={role}>
-      <div className="min-h-screen">
-        <div className="flex items-center justify-between m-10">
+      <div className="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 md:py-8">
+        <div className="mb-5 flex items-center justify-between md:mb-6">
           <p className="truncate text-primary-500 text-h2 ">Recently Orders</p>
           <div className="flex space-x-8">
             <div className="w-48">
@@ -154,7 +154,7 @@ export default function HomePage() {
         {/* Order List */}
         {status.length != 0 && (
           <div className="relative">
-            <div className="px-10 grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] gap-12 justify-start mb-20">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] justify-start gap-12">
               {order.orders &&
                 order.orders.length > 0 &&
                 order.orders.map((option) => (
