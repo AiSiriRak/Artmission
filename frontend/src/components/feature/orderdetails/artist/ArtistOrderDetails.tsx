@@ -196,7 +196,7 @@ export default function ArtistOrderDetails() {
     ? order.active_delay_request : null;
   const deadline = new Date(order.deadline_at);
   const deadlineInput = [deadline.getFullYear(), String(deadline.getMonth() + 1).padStart(2, "0"), String(deadline.getDate()).padStart(2, "0")].join("-");
-  const summary = order.name + " · ฿" + (order.price_satang / 100).toLocaleString("en-US");
+  const summary = "Order #" + order.id + " · " + order.name + " · ฿" + (order.price_satang / 100).toLocaleString("en-US");
 
   return (
     <>
@@ -204,7 +204,7 @@ export default function ArtistOrderDetails() {
         usertype="artist"
         notice={pendingPostpone ? <PostponeNotice deadline={pendingPostpone.deadline_request_at} /> : undefined}
         description={
-          <OrderDescription
+          <OrderDescription orderNumber={order.id}
             orderName={order.name}
             artworkName={order.artwork_snapshot.artwork_name}
             category={order.artwork_snapshot.category}

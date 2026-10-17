@@ -157,6 +157,7 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
         }
         description={
           <OrderDescription
+            orderNumber={order.id}
             orderName={order.name}
             artworkName={order.artwork_snapshot.artwork_name}
             category={order.artwork_snapshot.category}
@@ -253,7 +254,7 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
       <CustomerCancelOrderPopUp
         isOpen={cancelOpen}
         orderId={order.id}
-        orderLabel={`${order.name} · ฿${(order.price_satang / 100).toLocaleString()}`}
+        orderLabel={`Order #${order.id.slice(0, 8)} · ${order.name} · ฿${(order.price_satang / 100).toLocaleString()}`}
         onClose={() => setCancelOpen(false)}
         onCancelled={() => setOrder((prev) => ({ ...prev, status: "CANCEL" }))}
       />
