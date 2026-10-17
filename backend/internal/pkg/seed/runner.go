@@ -103,22 +103,23 @@ func seedTable[T any](ctx context.Context, d deps, rows []T, conflictTarget stri
 	return nil
 }
 
-// deleteByIDs hard-deletes rows. ForceDelete is required for User: bun would
-// otherwise stamp deleted_at and Up's ON CONFLICT (id) would skip them.
-func deleteByIDs[T any](ctx context.Context, d deps, idColumn string, ids []uuid.UUID) error {
+// deleteModelRows hard-deletes rows via a bun model type. ForceDelete is
+// required for User: bun would otherwise stamp deleted_at and Up's
+// ON CONFLICT (id) would skip them.
+func deleteModelRows[T any](ctx context.Context, d deps, column string, ids []uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	if _, err := d.db.NewDelete().Model((*T)(nil)).Where(idColumn+" IN (?)", bun.List(ids)).ForceDelete().Exec(ctx); err != nil {
+	if _, err := d.db.NewDelete().Model((*T)(nil)).Where(column+" IN (?)", bun.List(ids)).ForceDelete().Exec(ctx); err != nil {
 		return fmt.Errorf("delete seeded rows: %w", err)
 	}
 	return nil
 }
 
-// deleteByColumn hard-deletes rows from a table whose column value is in
-// ids. Use this instead of deleteByIDs when no bun model struct exists
-// yet for the table.
-func deleteByColumn(ctx context.Context, d deps, table, column string, ids []uuid.UUID) error {
+// deleteTableRows hard-deletes rows from a table referenced by name,
+// whose column value is in ids. Use this instead of deleteModelRows when
+// no bun model struct exists yet for the table.
+func deleteTableRows(ctx context.Context, d deps, table, column string, ids []uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil
 	}
