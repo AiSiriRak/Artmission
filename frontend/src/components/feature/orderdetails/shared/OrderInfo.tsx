@@ -37,6 +37,8 @@ export default function OrderInfo({
   revisions,
   actions,
 }: OrderInfoProps) {
+  const hasActions = status !== "CANCEL" && status !== "SUCCESS" && Boolean(actions);
+
   return (
     <>
       <h2 className="mb-4 text-h3">Order Info</h2>
@@ -52,7 +54,7 @@ export default function OrderInfo({
             <p className="text-caption text-primary-500">{statusLabels[status]}</p>
           </div>
         </div>
-        <dl className={`space-y-3 px-6 pt-5 ${actions ? "pb-2" : "pb-5"}`}>
+        <dl className={`space-y-3 px-6 pt-5 ${hasActions ? "pb-2" : "pb-5"}`}>
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-h3">Total Amount</dt>
             <dd className="text-body text-right">{(priceSatang / 100).toLocaleString("en-US")} THB</dd>
@@ -75,7 +77,7 @@ export default function OrderInfo({
             <span className="text-body">{revisions.used}/{revisions.limit} used</span>
           </div>
         )}
-        {actions && (
+        {hasActions && (
           <div className={`flex flex-wrap justify-center gap-6 px-6 pb-4 ${status === "IN_PROCESS" && revisions ? "" : "border-t border-primary-500 pt-4"}`}>
             {actions}
           </div>
