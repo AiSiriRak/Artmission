@@ -38,12 +38,19 @@ var upSteps = []step{
 	seedArtworkStylesUp,
 	seedOrdersUp,
 	seedOrderDeliverablesUp,
+	seedOrderCancellationsUp,
 }
 
-// Declare steps only the tables that actually need an explicit delete.
-// The rest shall be deleted via ON DELETE CASCADE.
+// Declare steps only the tables that actually need an explicit delete:
+// those seeded directly, plus tables holding an ON DELETE RESTRICT FK to
+// a seeded table. Everything else is deleted via ON DELETE CASCADE.
 var downSteps = []step{
 	seedOrderDeliverablesDown,
+	seedReviewsDown,
+	seedOrderCancellationsDown,
+	seedOrderDelayRequestsDown,
+	seedPaymentsDown,
+	seedNotificationsDown,
 	seedOrdersDown,
 	seedUsersDown,
 	seedArtworkImagesDown,
@@ -97,14 +104,28 @@ func seedTable[T any](ctx context.Context, d deps, rows []T, conflictTarget stri
 	return nil
 }
 
-// deleteByIDs hard-deletes rows. ForceDelete is required for User: bun would
-// otherwise stamp deleted_at and Up's ON CONFLICT (id) would skip them.
-func deleteByIDs[T any](ctx context.Context, d deps, idColumn string, ids []uuid.UUID) error {
+// deleteModelRows hard-deletes rows via a bun model type. ForceDelete is
+// required for User: bun would otherwise stamp deleted_at and Up's
+// ON CONFLICT (id) would skip them.
+func deleteModelRows[T any](ctx context.Context, d deps, column string, ids []uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	if _, err := d.db.NewDelete().Model((*T)(nil)).Where(idColumn+" IN (?)", bun.List(ids)).ForceDelete().Exec(ctx); err != nil {
+	if _, err := d.db.NewDelete().Model((*T)(nil)).Where(column+" IN (?)", bun.List(ids)).ForceDelete().Exec(ctx); err != nil {
 		return fmt.Errorf("delete seeded rows: %w", err)
+	}
+	return nil
+}
+
+// deleteTableRows hard-deletes rows from a table referenced by name,
+// whose column value is in ids. Use this instead of deleteModelRows when
+// no bun model struct exists yet for the table.
+func deleteTableRows(ctx context.Context, d deps, table, column string, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	if _, err := d.db.NewDelete().Table(table).Where(column+" IN (?)", bun.List(ids)).Exec(ctx); err != nil {
+		return fmt.Errorf("delete seeded %s: %w", table, err)
 	}
 	return nil
 }

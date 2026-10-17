@@ -80,7 +80,15 @@ func seedUsersDown(ctx context.Context, d deps) error {
 	for i, u := range users {
 		ids[i] = userID(u.Key)
 	}
-	return deleteByIDs[pgmodel.User](ctx, d, "id", ids)
+	return deleteModelRows[pgmodel.User](ctx, d, "id", ids)
+}
+
+func seedNotificationsDown(ctx context.Context, d deps) error {
+	ids := make([]uuid.UUID, len(users))
+	for i, u := range users {
+		ids[i] = userID(u.Key)
+	}
+	return deleteTableRows(ctx, d, "notifications", "user_id", ids)
 }
 
 func seedBankAccountsUp(ctx context.Context, d deps) error {
