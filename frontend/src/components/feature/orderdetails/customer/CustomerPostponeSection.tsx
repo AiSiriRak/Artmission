@@ -167,6 +167,7 @@ export default function CustomerPostponeSection({
         description={popupCopy.description}
         cancelText="Cancel"
         confirmText={submitting ? "Saving..." : popupCopy.confirmText}
+        confirmDisabled={submitting}
         onCancel={closePopup}
         onConfirm={decide}
       />

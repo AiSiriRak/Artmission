@@ -54,6 +54,7 @@ export function CustomerCancelOrderPopUp({
   if (!isOpen) return null;
 
   const close = () => {
+    if (submitting) return;
     if (status === "success") onCancelled();
     setReason("");
     setExplanation("");

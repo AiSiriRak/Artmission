@@ -9,7 +9,12 @@ import { routes } from "@/lib/routes";
 const getMinDeadlineDate = (minDays: number): string => {
   const currentDate = new Date();
   currentDate.setDate(currentDate.getDate() + minDays + 1); // Add 1 to ensure the minimum date is at least minDays from today
-  return currentDate.toISOString().split("T")[0]; // Format as YYYY-MM-DD
+  // Format the date as YYYY-MM-DD
+  return [
+     currentDate.getFullYear(),
+     String(currentDate.getMonth() + 1).padStart(2, "0"),
+     String(currentDate.getDate()).padStart(2, "0"),
+   ].join("-");
 };
 
 // calculate the estimate deadline by user's selected date and current date
@@ -47,11 +52,11 @@ export function OrderRequestSection({ artwork }: OrderRequestSectionProps) {
       setError("Please enter the order name and request details.");
       return;
     }
-    // System already hard blocking invalid deadline input
-    // if (!deadline || deadline < minDeadline) {
-    //   setError(`Deadline must be at least ${artwork.minimum_deadline_days} days from today.`);
-    //   return;
-    // }
+    
+    if (!deadline || deadline < minDeadline) {
+      setError(`Deadline must be at least ${artwork.minimum_deadline_days} days from today.`);
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
