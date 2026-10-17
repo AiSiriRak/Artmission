@@ -45,10 +45,13 @@ type ordersContext struct {
 	lastDeliverableID         string
 	otherDeliverableID        string
 	lastDeliverablePreviewKey string // most recently seeded deliverable version's preview_image_key
-	autoApprovedDeliverables  []uuid.UUID
-	delayRequestDeadline      time.Time
-	lastDelayRequestID        string
-	targetArtworkID           string
+	lastOriginalImageKey      string // most recently seeded deliverable version's original_image_key
+	// for sprint 2
+	sprint2BypassMessage     string
+	autoApprovedDeliverables []uuid.UUID
+	delayRequestDeadline     time.Time
+	lastDelayRequestID       string
+	targetArtworkID          string
 
 	resp         *apptest.Response
 	page         viewOrdersOutput // last response decoded while resp.StatusCode == 200
@@ -195,8 +198,8 @@ func (o *ordersContext) anotherCustomerHasAnOrderWithPendingDeliverable() error 
 // highest version's preview regardless of the order's status (including
 // terminal ones like CANCEL). Every version before the last is seeded
 // REJECTED (the order_deliverables_order_id_pending_key unique index
-// allows at most one WAIT row per order); only the last version is
-// left pending (decision WAIT).
+// allows at most one WAIT row per order); only the last version is left
+// pending unless the order is successful, in which case it is approved.
 func (o *ordersContext) theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersions(status string, n int) error {
 	counterpart, err := o.sharedCounterpart()
 	if err != nil {
@@ -215,11 +218,14 @@ func (o *ordersContext) theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersi
 		decision := "WAIT"
 		if v < n {
 			decision = rejected
+		} else if status == "SUCCESS" {
+			decision = "APPROVED"
 		}
 		if err := seedDeliverable(id, v, key, decision); err != nil {
 			return err
 		}
 		o.lastDeliverablePreviewKey = key
+		o.lastOriginalImageKey = key + ".original"
 	}
 	return nil
 }
@@ -700,6 +706,69 @@ func (o *ordersContext) theUserCancelsAnotherUsersOrder() error {
 	return o.cancelOrder(o.otherOrderID, true)
 }
 
+// for sprint 2
+func (o *ordersContext) bypassPaymentForLastOrder(authenticated bool) error {
+	headers := map[string]string(nil)
+	if authenticated {
+		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
+	}
+	resp, err := o.client.Do(
+		http.MethodPut,
+		"/orders/"+o.lastOrderID+"/bypass-payment",
+		nil,
+		headers,
+	)
+	if err != nil {
+		return err
+	}
+	o.resp = resp
+	if resp.StatusCode == http.StatusOK {
+		var output struct {
+			Message string `json:"message"`
+		}
+		if err := resp.JSON(&output); err != nil {
+			return fmt.Errorf("decode bypass-payment response: %w (body: %s)", err, resp.Body)
+		}
+		o.sprint2BypassMessage = output.Message
+	}
+	return nil
+}
+
+// for sprint 2
+func (o *ordersContext) theUserBypassesPaymentForTheirLastOrder() error {
+	return o.bypassPaymentForLastOrder(true)
+}
+
+// for sprint 2
+func (o *ordersContext) theUserAttemptsToBypassPaymentWithoutLoggingIn() error {
+	return o.bypassPaymentForLastOrder(false)
+}
+
+// for sprint 2
+func (o *ordersContext) theSystemConfirmsPaymentBypassAndMovesOrderToInProcess() error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if o.sprint2BypassMessage != "Payment bypassed successfully" {
+		return fmt.Errorf("bypass response message = %q, want success message", o.sprint2BypassMessage)
+	}
+	if err := o.getOrder(o.lastOrderID, true); err != nil {
+		return err
+	}
+	if o.resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("get order after payment bypass: status %d (body: %s)", o.resp.StatusCode, o.resp.Body)
+	}
+	if o.orderDetail.Status != string(ordermod.StatusInProcess) {
+		return fmt.Errorf("order status = %q, want %q", o.orderDetail.Status, ordermod.StatusInProcess)
+	}
+	return nil
+}
+
+// for sprint 2
+func (o *ordersContext) theSystemForbidsPaymentBypass() error {
+	return o.expectStatus(http.StatusForbidden)
+}
+
 // getOrder sends GET /orders/{id} and decodes a successful detail response.
 func (o *ordersContext) getOrder(orderID string, authenticated bool) error {
 	headers := map[string]string(nil)
@@ -806,6 +875,7 @@ type orderDetailOutput struct {
 	OtherParty          orderPartyOutput      `json:"other_party"`
 	Deliverables        []deliverableOutput   `json:"deliverables"`
 	ActiveDelayRequest  *delayRequestOutput   `json:"active_delay_request"`
+	OriginalImageURL    *string               `json:"original_image_url"`
 }
 
 type deliverableOutput struct {
@@ -1104,6 +1174,39 @@ func (o *ordersContext) theSystemShowsTheOrderDetailsForTheUser() error {
 		got.OtherParty.Name != expectedParty.Username ||
 		got.OtherParty.Email != expectedParty.Email {
 		return fmt.Errorf("other_party = %+v; want account ID %q, username %q, email %q", got.OtherParty, expectedParty.ID, expectedParty.Username, expectedParty.Email)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemShowsTheLatestOriginalImageURLForSuccessfulOrder() error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if o.orderDetail.Status != "SUCCESS" {
+		return fmt.Errorf("order status = %q, want SUCCESS", o.orderDetail.Status)
+	}
+	if o.orderDetail.OriginalImageURL == nil {
+		return fmt.Errorf("successful order has no original_image_url: %+v", o.orderDetail)
+	}
+	originalURL, err := url.Parse(*o.orderDetail.OriginalImageURL)
+	if err != nil {
+		return fmt.Errorf("parse original_image_url: %w", err)
+	}
+	if !strings.HasSuffix(originalURL.Path, "/"+o.lastOriginalImageKey) {
+		return fmt.Errorf("original_image_url path = %q, want suffix %q", originalURL.Path, "/"+o.lastOriginalImageKey)
+	}
+	if originalURL.Query().Get("X-Amz-Signature") == "" {
+		return fmt.Errorf("original_image_url is not presigned: %q", originalURL)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemDoesNotIncludeAnOriginalImageURL() error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if o.orderDetail.OriginalImageURL != nil {
+		return fmt.Errorf("non-successful order returned original_image_url %q", *o.orderDetail.OriginalImageURL)
 	}
 	return nil
 }
@@ -1740,6 +1843,14 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		return o.theUserCancelsTheirLastOrderWithoutLoggingIn()
 	})
 	sc.Step(`^the user cancels another user's order$`, func() error { return o.theUserCancelsAnotherUsersOrder() })
+	// for sprint 2
+	sc.Step(`^the user bypasses payment for their last order$`, func() error {
+		return o.theUserBypassesPaymentForTheirLastOrder()
+	})
+	// for sprint 2
+	sc.Step(`^the user attempts to bypass payment without logging in$`, func() error {
+		return o.theUserAttemptsToBypassPaymentWithoutLoggingIn()
+	})
 	sc.Step(`^the user views their orders filtered by status "([^"]*)"$`, func(status string) error {
 		return o.theUserViewsTheirOrdersFilteredByStatus(status)
 	})
@@ -1796,6 +1907,12 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system requires the user to log in$`, func() error { return o.theSystemRequiresTheUserToLogIn() })
 	sc.Step(`^the system shows the order details for the user$`, func() error {
 		return o.theSystemShowsTheOrderDetailsForTheUser()
+	})
+	sc.Step(`^the system shows the latest original image URL for the successful order$`, func() error {
+		return o.theSystemShowsTheLatestOriginalImageURLForSuccessfulOrder()
+	})
+	sc.Step(`^the system does not include an original image URL$`, func() error {
+		return o.theSystemDoesNotIncludeAnOriginalImageURL()
 	})
 	sc.Step(`^the system confirms the order with status "([^"]*)"$`, func(status string) error {
 		return o.theSystemConfirmsTheOrderWithStatus(status)
@@ -1860,6 +1977,14 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system hides the order from the user$`, func() error {
 		return o.theSystemHidesTheOrderFromTheUser()
+	})
+	// for sprint 2
+	sc.Step(`^the system confirms payment bypass and moves the order to IN_PROCESS$`, func() error {
+		return o.theSystemConfirmsPaymentBypassAndMovesOrderToInProcess()
+	})
+	// for sprint 2
+	sc.Step(`^the system forbids payment bypass$`, func() error {
+		return o.theSystemForbidsPaymentBypass()
 	})
 	sc.Step(`^the system rejects the request due to an invalid offset$`, func() error { return o.expectClientError() })
 	sc.Step(`^the system rejects the request due to an invalid status$`, func() error { return o.expectClientError() })
