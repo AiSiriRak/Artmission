@@ -40,29 +40,20 @@ func init() {
 	deliverableWatermark = decoded
 }
 
-type ArtistGetter interface {
-	GetArtistName(ctx context.Context, id uuid.UUID) (string, error)
-}
-
 type orderUsecase struct {
-	repo         OrderRepository
-	storage      ObjectStorage
-	artistGetter ArtistGetter
+	repo    OrderRepository
+	storage ObjectStorage
 }
 
-// NewOrderUsecase creates an order use case with its repository,
-// object storage, and artist lookup dependencies.
+// NewOrderUsecase creates an order use case with its repository and storage.
 func NewOrderUsecase(
 	repo OrderRepository,
 	storage ObjectStorage,
-	artistGetter ArtistGetter,
 ) OrderUsecase {
-	usecase := &orderUsecase{
-		repo:         repo,
-		storage:      storage,
-		artistGetter: artistGetter,
+	return &orderUsecase{
+		repo:    repo,
+		storage: storage,
 	}
-	return usecase
 }
 
 const orderDeliverableTTL = 15 * time.Minute

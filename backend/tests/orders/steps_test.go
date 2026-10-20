@@ -1629,7 +1629,7 @@ func (o *ordersContext) theUserHasAnOrderWithStatusCreatedAndDeadline(status, cr
 // theSystemCancelsExpiredOrders runs the expiry sweep once, directly against
 // the usecase: it is a background job, so there is no HTTP endpoint to call.
 func (o *ordersContext) theSystemCancelsExpiredOrders() error {
-	usecase := ordermod.NewOrderUsecase(postgres.NewOrderRepository(app.DB), nil, nil)
+	usecase := ordermod.NewOrderUsecase(postgres.NewOrderRepository(app.DB), nil)
 	_, err := usecase.CancelExpiredOrders(context.Background())
 	return err
 }
@@ -1662,7 +1662,7 @@ func (o *ordersContext) thePendingDeliverableWasSubmittedMoreThanThreeDaysAgo() 
 }
 
 func (o *ordersContext) theSystemAutoApprovesExpiredDeliverables() error {
-	usecase := ordermod.NewOrderUsecase(postgres.NewOrderRepository(app.DB), nil, nil)
+	usecase := ordermod.NewOrderUsecase(postgres.NewOrderRepository(app.DB), nil)
 	ids, err := usecase.AutoApproveExpiredDeliverables(context.Background())
 	if err != nil {
 		return err

@@ -56,7 +56,7 @@ func Wire(cfg Config) *httpserver.Server {
 	artworkUsecase := artwork.NewUsecase(artworkRepo, tx, cfg.ObjectStorage.Public)
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx, cfg.ObjectStorage.Public)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
-	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private, userUsecase)
+	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private)
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
@@ -81,22 +81,7 @@ const orderExpiryInterval = time.Minute
 // cmd_serve.go is the only caller.
 func WireWorkers(cfg Config) []worker.Worker {
 	orderRepo := postgres.NewOrderRepository(cfg.DB)
-	userRepo := postgres.NewUserRepository(cfg.DB)
-	bankRepo := postgres.NewBankAccountRepository(cfg.DB)
-	artistRepo := postgres.NewArtistRepository(cfg.DB)
-	accountDeletionRepo := postgres.NewAccountDeletionRepository(cfg.DB)
-	tx := baserepo.NewTransactioner(cfg.DB)
-
-	artistUsecase := artist.NewProfileUsecase(artistRepo, cfg.ObjectStorage.Public)
-	userUsecase := user.NewUserUsecase(
-		userRepo,
-		bankRepo,
-		artistUsecase,
-		accountDeletionRepo,
-		tx,
-		cfg.ObjectStorage.Public,
-	)
-	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private, userUsecase)
+	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private)
 
 	return []worker.Worker{
 		worker.NewOrderExpiryWorker(orderUsecase, orderExpiryInterval, cfg.Logger),
