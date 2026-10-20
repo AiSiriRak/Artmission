@@ -27,13 +27,6 @@ export async function register(data: RegisterInput): Promise<void> {
   });
 }
 
-export async function refreshAccessToken(): Promise<AuthResult> {
-  return apiFetch<AuthResult>("/auth/refresh", {
-    method: "POST",
-    credentials: "include",
-  });
-}
-
 export async function logout(accessToken?: string): Promise<void> {
   return apiFetch<void>("/auth/logout", {
     method: "POST",

@@ -1,4 +1,5 @@
-import { getAccessToken } from "@/lib/token";
+import { clearAccessToken, getAccessToken, setAccessToken } from "@/lib/token";
+import type { AuthResult } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -12,6 +13,12 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
+
+const NO_REFRESH_RETRY_PATHS: Record<string, true> = {
+  "/auth/login": true,
+  "/auth/register": true,
+  "/auth/refresh": true,
+};
 
 function messageFromErrorBody(body: unknown, fallback: string) {
   if (body && typeof body === "object") {
@@ -30,10 +37,7 @@ function messageFromErrorBody(body: unknown, fallback: string) {
   return fallback;
 }
 
-export async function apiFetch<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function rawFetch<T>(path: string, options: RequestInit): Promise<T> {
   if (!API_BASE_URL) {
     throw new Error("NEXT_PUBLIC_API_BASE_URL is not defined");
   }
@@ -92,4 +96,50 @@ export async function apiFetch<T>(
   }
 
   return JSON.parse(text);
+}
+
+let refreshPromise: Promise<boolean> | null = null;
+
+function refreshAccessToken(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = rawFetch<AuthResult>("/auth/refresh", {
+    method: "POST",
+    credentials: "include",
+  })
+    .then((result) => {
+      setAccessToken(result.access_token);
+      return true;
+    })
+    .catch(() => {
+      clearAccessToken();
+      return false;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+
+  return refreshPromise;
+}
+
+export async function apiFetch<T>(
+  path: string,
+  options: RequestInit = {},
+  _retrying = false,
+): Promise<T> {
+  try {
+    return await rawFetch<T>(path, options);
+  } catch (error) {
+    const shouldRetry =
+      error instanceof ApiError &&
+      error.status === 401 &&
+      !_retrying &&
+      !NO_REFRESH_RETRY_PATHS[path];
+
+    if (shouldRetry && (await refreshAccessToken())) {
+      return apiFetch<T>(path, options, true);
+    }
+
+    throw error;
+  }
 }
