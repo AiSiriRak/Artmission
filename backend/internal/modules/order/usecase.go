@@ -3,6 +3,7 @@ package order
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"image"
@@ -11,6 +12,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -19,12 +21,24 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
-	xdraw "golang.org/x/image/draw"
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/basicfont"
-	"golang.org/x/image/math/fixed"
 	_ "golang.org/x/image/webp"
 )
+
+//go:embed assets/deliverable-watermark.png
+var deliverableWatermarkBytes []byte
+
+var deliverableWatermark image.Image
+
+func init() {
+	decoded, err := imaging.Decode(
+		bytes.NewReader(deliverableWatermarkBytes),
+	)
+	if err != nil {
+		panic("failed to decode deliverable watermark: " + err.Error())
+	}
+
+	deliverableWatermark = decoded
+}
 
 type ArtistGetter interface {
 	GetArtistName(ctx context.Context, id uuid.UUID) (string, error)
@@ -443,22 +457,20 @@ func (u *orderUsecase) CreateDeliverable(
 		return nil, err
 	}
 
-	artistName, err := u.artistGetter.GetArtistName(ctx, artistID)
-	if err != nil {
-		return nil, err
-	}
-
 	now := time.Now()
 
-	// Generate a resized preview with a watermark.
+	watermark := deliverableWatermark
+	if err != nil {
+		return nil, apperror.Internal(
+			"failed to load deliverable watermark",
+			err,
+		)
+	}
+
 	preview, err := createDeliverablePreview(
 		original,
-		artistName,
-		now,
+		watermark,
 	)
-	if err != nil {
-		return nil, apperror.InvalidInput("failed to process deliverable image", err)
-	}
 
 	// Generate one ID to associate the uploaded objects with this
 	// deliverable record.
@@ -647,9 +659,16 @@ func readDeliverableImage(reader io.Reader) ([]byte, string, string, error) {
 // watermark that fits the image, and encodes the result as a JPEG preview.
 func createDeliverablePreview(
 	original []byte,
-	artistName string,
-	submittedAt time.Time,
+	watermark image.Image,
 ) ([]byte, error) {
+	if len(original) == 0 {
+		return nil, errors.New("deliverable image is empty")
+	}
+	if watermark == nil {
+		return nil, errors.New("deliverable watermark is nil")
+	}
+
+	// Decode the original image and apply EXIF orientation.
 	src, err := imaging.Decode(
 		bytes.NewReader(original),
 		imaging.AutoOrientation(true),
@@ -663,7 +682,7 @@ func createDeliverablePreview(
 		return nil, errors.New("deliverable image has invalid dimensions")
 	}
 
-	// Resize the image while preserving its aspect ratio.
+	// Resize while preserving aspect ratio and never upscale.
 	if max(width, height) > deliverablePreviewSize {
 		if width >= height {
 			height = max(1, height*deliverablePreviewSize/width)
@@ -676,97 +695,115 @@ func createDeliverablePreview(
 		src = imaging.Resize(src, width, height, imaging.Lanczos)
 	}
 
-	// Create a mutable image for drawing the watermark.
-	watermarkImage := imaging.Clone(src)
-	bounds := watermarkImage.Bounds()
-	width, height = bounds.Dx(), bounds.Dy()
+	// Create a mutable image for the watermark.
+	dst := imaging.Clone(src)
 
-	// Calculate watermark dimensions relative to the image.
-	padding := max(4, width/100)
-	availableWidth := max(1, width-2*padding)
-	bandHeight := max(18, min(height/10, 60))
-	bandHeight = min(bandHeight, height)
-
-	// Draw a translucent background at the bottom of the image.
-	band := image.Rect(0, height-bandHeight, width, height)
-	stdDraw.Draw(
-		watermarkImage,
-		band,
-		image.NewUniform(color.NRGBA{A: 180}),
-		image.Point{},
-		stdDraw.Over,
-	)
-
-	// Build the watermark text using the artist name and submission date.
-	watermarkText := artistName + " - " +
-		submittedAt.UTC().Format("2006-01-02")
-
-	// Measure the text using the existing fixed-size font.
-	face := basicfont.Face7x13
-	textWidth := font.MeasureString(face, watermarkText).Ceil()
-	textHeight := face.Metrics().Height.Ceil()
-
-	// Scale the rendered text to fit both the available width and band height.
-	availableTextHeight := max(1, bandHeight*2/3)
-	scale := min(
-		float64(availableWidth)/float64(max(1, textWidth)),
-		float64(availableTextHeight)/float64(max(1, textHeight)),
-	)
-
-	scaledWidth := max(1, int(float64(textWidth)*scale))
-	scaledHeight := max(1, int(float64(textHeight)*scale))
-
-	// Render the text to a temporary image.
-	textImage := image.NewRGBA(
-		image.Rect(0, 0, max(1, textWidth), max(1, textHeight)),
-	)
-
-	drawer := font.Drawer{
-		Dst:  textImage,
-		Src:  image.NewUniform(color.White),
-		Face: face,
-		Dot: fixed.P(
-			0,
-			face.Metrics().Ascent.Ceil(),
-		),
+	// Scale the logo to fit within 1/5 of the preview's width and height.
+	wmBounds := watermark.Bounds()
+	wmWidth, wmHeight := wmBounds.Dx(), wmBounds.Dy()
+	if wmWidth <= 0 || wmHeight <= 0 {
+		return nil, errors.New("deliverable watermark has invalid dimensions")
 	}
-	drawer.DrawString(watermarkText)
 
-	// Resize the rendered text to fit the available space.
-	scaledText := image.NewRGBA(
-		image.Rect(0, 0, scaledWidth, scaledHeight),
-	)
-	xdraw.CatmullRom.Scale(
-		scaledText,
-		scaledText.Bounds(),
-		textImage,
-		textImage.Bounds(),
-		xdraw.Src,
-		nil,
+	scale := math.Min(
+		float64(width)/5/float64(wmWidth),
+		float64(height)/5/float64(wmHeight),
 	)
 
-	// Center the text vertically within the watermark band.
-	textX := padding
-	textY := height - bandHeight + (bandHeight-scaledHeight)/2
+	// Scale only when necessary; do not enlarge a small logo.
+	scale = math.Min(scale, 1)
 
-	stdDraw.Draw(
-		watermarkImage,
-		image.Rect(
-			textX,
-			textY,
-			textX+scaledWidth,
-			textY+scaledHeight,
-		),
-		scaledText,
-		image.Point{},
-		stdDraw.Over,
+	scaledWidth := max(1, int(float64(wmWidth)*scale))
+	scaledHeight := max(1, int(float64(wmHeight)*scale))
+
+	// Resize watermark logo.
+	logo := imaging.Resize(
+		watermark,
+		scaledWidth,
+		scaledHeight,
+		imaging.Lanczos,
 	)
+
+	// Rotate the logo while preserving transparent corners.
+	logo = imaging.Rotate(
+		logo,
+		deliverableWatermarkTiltedAngle,
+		color.Transparent,
+	)
+
+	// Use the actual dimensions after rotation.
+	logoBounds := logo.Bounds()
+	logoWidth := logoBounds.Dx()
+	logoHeight := logoBounds.Dy()
+
+	// Apply 30% opacity, preserving the existing alpha channel.
+	logoRGBA := image.NewRGBA(
+		image.Rect(0, 0, logoWidth, logoHeight),
+	)
+
+	for y := 0; y < logoHeight; y++ {
+		for x := 0; x < logoWidth; x++ {
+			c := color.NRGBAModel.Convert(
+				logo.At(
+					logoBounds.Min.X+x,
+					logoBounds.Min.Y+y,
+				),
+			).(color.NRGBA)
+
+			c.A = uint8(
+				math.Round(float64(c.A) * deliverableWatermarkOpacity),
+			)
+
+			logoRGBA.Set(x, y, c)
+		}
+	}
+
+	// Tile the logo diagonally across the image.
+	gapX := int(math.Round(float64(logoWidth) * deliverableWatermarkGapRatio))
+	gapY := int(math.Round(float64(logoHeight) * deliverableWatermarkGapRatio))
+
+	stepX := logoWidth + gapX
+	stepY := logoHeight + gapY
+
+	// Move each row horizontally to create a diagonal pattern.
+	diagonalOffset := stepX / 2
+
+	for row, y := 0, -stepY; y < height; row, y = row+1, y+stepY {
+		row := y / stepY
+		offsetX := row * diagonalOffset
+
+		for x := offsetX - stepX; x < width; x += stepX {
+			rect := image.Rect(
+				x,
+				y,
+				x+logoWidth,
+				y+logoHeight,
+			).Intersect(dst.Bounds())
+
+			if rect.Empty() {
+				continue
+			}
+
+			srcPoint := image.Point{
+				X: rect.Min.X - x,
+				Y: rect.Min.Y - y,
+			}
+
+			stdDraw.Draw(
+				dst,
+				rect,
+				logoRGBA,
+				srcPoint,
+				stdDraw.Over,
+			)
+		}
+	}
 
 	// Encode the watermarked preview as JPEG.
 	var output bytes.Buffer
 	if err := imaging.Encode(
 		&output,
-		watermarkImage,
+		dst,
 		imaging.JPEG,
 		imaging.JPEGQuality(deliverablePreviewQuality),
 	); err != nil {
