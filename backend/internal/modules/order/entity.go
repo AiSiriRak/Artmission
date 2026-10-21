@@ -123,10 +123,13 @@ type Deliverable struct {
 
 // Deliverable limits and image-processing settings.
 const (
-	MaxDeliverableVersions    = 3
-	MaxDeliverableImageSize   = 20 * 1024 * 1024
-	deliverablePreviewSize    = 1800
-	deliverablePreviewQuality = 88
+	MaxDeliverableVersions          = 3
+	MaxDeliverableImageSize         = 20 * 1024 * 1024
+	deliverablePreviewSize          = 1800
+	deliverablePreviewQuality       = 88
+	deliverableWatermarkOpacity     = 0.30
+	deliverableWatermarkGapRatio    = 0.25
+	deliverableWatermarkTiltedAngle = 30
 )
 
 // DelayRequestReason represents the reason for requesting a deadline extension.

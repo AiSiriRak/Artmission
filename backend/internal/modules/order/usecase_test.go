@@ -377,25 +377,11 @@ func (storage *recordingStorage) Delete(
 
 var _ order.ObjectStorage = (*recordingStorage)(nil)
 
-type fakeArtistGetter struct {
-	name string
-	err  error
-}
-
-func (getter fakeArtistGetter) GetArtistName(
-	context.Context,
-	uuid.UUID,
-) (string, error) {
-	return getter.name, getter.err
-}
-
-var _ order.ArtistGetter = fakeArtistGetter{}
-
 func newTestOrderUsecase(
 	repo order.OrderRepository,
 	storage order.ObjectStorage,
 ) order.OrderUsecase {
-	return order.NewOrderUsecase(repo, storage, fakeArtistGetter{})
+	return order.NewOrderUsecase(repo, storage)
 }
 
 func testDeliverablePNG(t *testing.T) []byte {
@@ -1676,7 +1662,7 @@ func TestCancelExpiredOrders_PropagatesRepositoryError(t *testing.T) {
 func TestCreateDeliverableUploadsOriginalAndWatermarkedPreview(t *testing.T) {
 	repo := &fakeRepo{}
 	storage := &recordingStorage{}
-	usecase := order.NewOrderUsecase(repo, storage, fakeArtistGetter{name: "Test Artist"})
+	usecase := order.NewOrderUsecase(repo, storage)
 	artistID, orderID := uuid.New(), uuid.New()
 	original := testDeliverablePNG(t)
 
@@ -1747,7 +1733,7 @@ func TestCreateDeliverableRejectsInvalidOrOversizedImageBeforeUpload(t *testing.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			storage := &recordingStorage{}
-			usecase := order.NewOrderUsecase(&fakeRepo{}, storage, fakeArtistGetter{name: "Test Artist"})
+			usecase := order.NewOrderUsecase(&fakeRepo{}, storage)
 
 			_, err := usecase.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{
 				OrderID:          uuid.New(),
@@ -1767,7 +1753,7 @@ func TestCreateDeliverableReturnsValidationErrorBeforeUpload(t *testing.T) {
 	wantErr := order.ErrInvalidOrderStatus
 	repo := &fakeRepo{validateDeliverableErr: wantErr}
 	storage := &recordingStorage{}
-	usecase := order.NewOrderUsecase(repo, storage, fakeArtistGetter{name: "Test Artist"})
+	usecase := order.NewOrderUsecase(repo, storage)
 
 	_, err := usecase.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{
 		OrderID:          uuid.New(),
@@ -1786,7 +1772,7 @@ func TestCreateDeliverableReturnsValidationErrorBeforeUpload(t *testing.T) {
 
 func TestCreateDeliverableCleansUpWhenPreviewUploadFails(t *testing.T) {
 	storage := &recordingStorage{failUploadAt: 2, uploadErr: errors.New("storage unavailable")}
-	usecase := order.NewOrderUsecase(&fakeRepo{}, storage, fakeArtistGetter{name: "Test Artist"})
+	usecase := order.NewOrderUsecase(&fakeRepo{}, storage)
 
 	_, err := usecase.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{
 		OrderID:          uuid.New(),
@@ -1805,7 +1791,7 @@ func TestCreateDeliverableCleansUpWhenPersistenceFails(t *testing.T) {
 	repoErr := apperror.Internal("database unavailable", nil)
 	repo := &fakeRepo{deliverableCreateErr: repoErr}
 	storage := &recordingStorage{}
-	usecase := order.NewOrderUsecase(repo, storage, fakeArtistGetter{name: "Test Artist"})
+	usecase := order.NewOrderUsecase(repo, storage)
 
 	_, err := usecase.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{
 		OrderID:          uuid.New(),
@@ -1821,7 +1807,7 @@ func TestCreateDeliverableCleansUpWhenPersistenceFails(t *testing.T) {
 
 func TestCreateDeliverablePropagatesPreviewPresignFailure(t *testing.T) {
 	storage := &recordingStorage{presignErr: errors.New("storage unavailable")}
-	usecase := order.NewOrderUsecase(&fakeRepo{}, storage, fakeArtistGetter{name: "Test Artist"})
+	usecase := order.NewOrderUsecase(&fakeRepo{}, storage)
 
 	created, err := usecase.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{
 		OrderID:          uuid.New(),
