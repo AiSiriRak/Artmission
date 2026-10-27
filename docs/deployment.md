@@ -15,7 +15,7 @@ The only unavoidable GitHub-side requirement is adding repo Secrets/Variables (S
 
 ### Credential design
 
-Only **one** value is a true secret in GitHub: `VERCEL_TOKEN`. Everything GCP-related is a non-sensitive identifier. Runtime secrets the backend actually needs at request time live in **Google Secret Manager** and are pulled at deploy time — they never touch GitHub.
+GitHub Secrets hold every true secret: `VERCEL_TOKEN`, `DATABASE_DSN`, `AUTH_JWT_SECRET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`. Everything GCP-related is a non-sensitive identifier (GitHub Variables). The workflow injects the backend secrets directly as Cloud Run environment variables at deploy time; Google Secret Manager is not used.
 
 ## Prerequisites
 
@@ -38,7 +38,7 @@ gcloud auth application-default set-quota-project "$PROJECT_ID"
 
 # 1. Enable required APIs
 gcloud services enable run.googleapis.com artifactregistry.googleapis.com \
-  iamcredentials.googleapis.com secretmanager.googleapis.com
+  iamcredentials.googleapis.com
 
 # 2. Artifact Registry repo for backend Docker images
 gcloud artifacts repositories create artmission \
@@ -46,7 +46,7 @@ gcloud artifacts repositories create artmission \
   --description="Artmission images"
 
 # 3. Deploy service account — the identity GitHub Actions impersonates via WIF.
-#    Can build/push images and deploy to Cloud Run, but cannot read runtime secrets.
+#    Can build/push images and deploy to Cloud Run.
 gcloud iam service-accounts create gh-deployer --display-name="GitHub Actions deployer"
 DEPLOY_SA="gh-deployer@$PROJECT_ID.iam.gserviceaccount.com"
 
@@ -55,15 +55,12 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:$DEPLOY_SA" --role="roles/artifactregistry.writer" --condition=None
 
-# 4. Runtime service account — what the Cloud Run *service* runs as.
-#    Can read Secret Manager secrets, but cannot deploy anything (least privilege
-#    split: a compromised deploy pipeline can't exfiltrate DB creds, and vice versa).
+# 4. Runtime service account — what the Cloud Run *service* runs as. It has no
+#    roles: the backend needs no GCP APIs (DB and S3 are external), and a bare
+#    SA avoids the default compute SA's broad Editor role.
 gcloud iam service-accounts create artmission-backend-run \
   --display-name="Backend Cloud Run runtime"
 RUN_SA="artmission-backend-run@$PROJECT_ID.iam.gserviceaccount.com"
-
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:$RUN_SA" --role="roles/secretmanager.secretAccessor" --condition=None
 
 # deploy SA needs permission to deploy the service AS the runtime SA
 gcloud iam service-accounts add-iam-policy-binding "$RUN_SA" \
@@ -91,18 +88,7 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
 # 6. Print the provider resource name -> this is the GCP_WIF_PROVIDER value
 gcloud iam workload-identity-pools providers describe github-provider \
   --location=global --workload-identity-pool=github-pool --format="value(name)"
-
-# 7. Runtime secrets (values come from backend/.env.prod, never commit real values)
-for name in DATABASE_DSN AUTH_JWT_SECRET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY; do
-  gcloud secrets create "$name" --replication-policy="automatic"
-done
-echo -n "postgres://..."          | gcloud secrets versions add DATABASE_DSN --data-file=-
-echo -n "<jwt secret>"            | gcloud secrets versions add AUTH_JWT_SECRET --data-file=-
-echo -n "<s3 access key id>"      | gcloud secrets versions add S3_ACCESS_KEY_ID --data-file=-
-echo -n "<s3 secret access key>" | gcloud secrets versions add S3_SECRET_ACCESS_KEY --data-file=-
 ```
-
-To rotate a secret later: `echo -n "<new value>" | gcloud secrets versions add NAME --data-file=-`. The workflow always deploys `:latest`, so the next deploy picks it up — no redeploy of the pipeline itself required.
 
 ## Part 2 — Vercel setup
 
@@ -152,19 +138,25 @@ Settings → Secrets and variables → Actions.
 | Name | Value |
 |---|---|
 | `VERCEL_TOKEN` | token created above |
+| `DATABASE_DSN` | Postgres DSN, e.g. `postgres://user:pass@host:5432/db?sslmode=require` |
+| `AUTH_JWT_SECRET` | long random string, e.g. `openssl rand -base64 48` |
+| `S3_ACCESS_KEY_ID` | S3/Supabase storage access key id |
+| `S3_SECRET_ACCESS_KEY` | S3/Supabase storage secret access key |
+
 
 Optionally create a `production` [Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) (Settings → Environments) for required-reviewer gating before deploys run — both workflows already target `environment: production`. Without it configured, the reference is a no-op label.
 
 ## Part 4 — Workflows
 
-- [`../.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml) — on push to `main` touching `backend/**` (or manual dispatch): authenticate via WIF, `docker build`/`push` to Artifact Registry, `deploy-cloudrun` with plain env vars from repo Variables and runtime secrets pulled live from Secret Manager.
+- [`../.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml) — on push to `main` touching `backend/**` (or manual dispatch): authenticate via WIF, `docker build`/`push` to Artifact Registry, `deploy-cloudrun` with all env vars — plain values from repo Variables, secrets from repo Secrets — injected directly as Cloud Run environment variables.
 - [`../.github/workflows/deploy-frontend.yml`](../.github/workflows/deploy-frontend.yml) — on push to `main` touching `frontend/**` (or manual dispatch): `vercel pull` → `vercel build --prod` → `vercel deploy --prebuilt --prod`.
 
 Both are independent of `ci.yml`/`backend.yml` (which only run on pull requests) and only trigger on `main`.
 
 ## Troubleshooting
 
-- **`deploy-cloudrun` step fails with a permission error on Secret Manager**: confirm `GCP_RUN_SERVICE_ACCOUNT` (not the deploy SA) has `roles/secretmanager.secretAccessor`, and that the `--service-account` flag in the workflow points at it.
+- **Backend crashes at startup with a config validation error**: a required secret (`DATABASE_DSN`, `AUTH_JWT_SECRET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`) is missing or empty in GitHub Secrets — an unset secret expands to an empty string. Check Settings → Secrets and variables → Actions → Secrets.
+- **`deploy-cloudrun` fails parsing `env_vars`**: the action splits `env_vars` on commas/newlines. A secret value containing a comma or newline (e.g. a DB password) breaks it; use a value without them (URL-encode the password in the DSN).
 - **WIF auth fails with `attribute condition was not met`**: the OIDC provider's `--attribute-condition` only allows `AiSiriRak/Artmission`; a fork or renamed repo needs the provider recreated with the new value.
 - **`vercel pull` fails with `Could not retrieve Project Settings` despite correct/matching `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` and a valid, non-expired token**: run the pull step with `--debug` — it calls `GET /v2/user`, `GET /teams/:id`, and `GET /v9/projects/:id` separately, and the generic error fires if *any* of them fails, even if the project lookup itself succeeds. A `403` specifically on `GET /teams/:id` means the token was created with **Scope = a single project** (Account Settings → Tokens) instead of **Scope = the team**; project-scoped tokens can read that one project but can never satisfy `vercel pull`'s team-level lookup. Recreate the token scoped to the team itself.
 - **Cloud Run service rejects traffic / 403**: confirm the `--allow-unauthenticated` flag deployed successfully; Cloud Run defaults new services to requiring IAM auth.
