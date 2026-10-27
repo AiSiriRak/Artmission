@@ -19,8 +19,10 @@ export default function CustomerPayment({ order }: { order: OrderDetail }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submitNotice, setSubmitNotice] = useState(false);
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const chooseButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const deadline = expiresAt ?? Date.now() + QR_LIFETIME_MS;
@@ -37,15 +39,18 @@ export default function CustomerPayment({ order }: { order: OrderDetail }) {
 
   function chooseFile(files: FileList | null) {
     setError(null);
+    setSubmitNotice(false);
     setFile(null);
     setPreview(null);
     if (!files?.length) return;
     if (files.length !== 1) { setError("Please attach one payment slip at a time."); return; }
     const selected = files[0];
     if (!["image/png", "image/jpeg"].includes(selected.type)) {
-      setError("Invalid file. Please choose a PNG or JPG image.");
-    } else if (selected.size === 0 || selected.size > 5 * 1024 * 1024) {
-      setError("Please choose a non-empty image no larger than 5 MB.");
+      setError("Choose a PNG or JPG image.");
+    } else if (selected.size > 5 * 1024 * 1024) {
+      setError("This file is too large. Maximum size is 5 MB.");
+    } else if (selected.size === 0) {
+      setError("This file is empty. Choose another image.");
     } else {
       setFile(selected);
       setPreview(URL.createObjectURL(selected));
@@ -95,34 +100,35 @@ export default function CustomerPayment({ order }: { order: OrderDetail }) {
               <h2 id="upload-heading" className="mb-4 text-h3">2. Upload your slip</h2>
               <div className={`${card} flex flex-col items-center gap-4 p-6 sm:p-8`}>
                 <input ref={input} type="file" accept="image/png,image/jpeg" className="sr-only" tabIndex={-1} aria-label="Choose payment slip" onChange={(event) => { chooseFile(event.target.files); event.target.value = ""; }} />
-                <button
-                  type="button"
+                <div
                   className={`flex min-h-[320px] w-full flex-col items-center justify-center gap-6 rounded-2xl border-2 border-dashed p-5 text-center focus-visible:outline-2 focus-visible:outline-offset-4 sm:min-h-[400px] ${dragging ? "border-accent-500 bg-accent-200" : "border-secondary-600"}`}
-                  aria-describedby={error ? "slip-error" : "slip-help"}
-                  onClick={() => input.current?.click()}
                   onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
                   onDragLeave={() => setDragging(false)}
                   onDrop={(event) => { event.preventDefault(); setDragging(false); chooseFile(event.dataTransfer.files); }}
                 >
                   {file && preview ? (
                     <>
-                      <img src={preview} alt="Selected payment slip" className="max-h-64 max-w-full object-contain" onError={() => { setFile(null); setPreview(null); setError("This image could not be opened. Please choose another PNG or JPG."); }} />
+                      <div className="relative max-w-full">
+                        <img src={preview} alt="Selected payment slip" className="max-h-64 max-w-full object-contain" onError={() => { setFile(null); setPreview(null); setError("This image could not be opened. Please choose another PNG or JPG."); }} />
+                        <button type="button" aria-label="Remove slip" className="absolute right-2 top-2 flex size-10 items-center justify-center rounded-full border border-primary-500 bg-white focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => { setFile(null); setPreview(null); setError(null); setSubmitNotice(false); requestAnimationFrame(() => chooseButton.current?.focus()); }}>
+                          <img src="/icons/close_round.svg" width={24} height={24} alt="" />
+                        </button>
+                      </div>
                       <span className="max-w-full break-all text-body">{file.name}</span>
-                      <span className="text-small">Click to choose another slip</span>
+                      <button type="button" className="text-small underline focus-visible:outline-2 focus-visible:outline-offset-4" onClick={() => input.current?.click()}>Choose another slip</button>
                     </>
                   ) : (
-                    <>
+                    <button ref={chooseButton} type="button" className="flex w-full flex-col items-center gap-6 focus-visible:outline-2 focus-visible:outline-offset-4" aria-describedby={error ? "slip-error" : "slip-help"} onClick={() => input.current?.click()}>
                       <img src={`${asset}upload.svg`} width={150} height={150} alt="" />
                       <span className="text-body">Drag &amp; drop your slip here, or click to choose</span>
-                    </>
+                    </button>
                   )}
                   <span id="slip-help" className="text-small">PNG / JPG · Maximum 5 MB</span>
-                </button>
+                </div>
                 {error && <p id="slip-error" role="alert" className="text-small text-error">{error}</p>}
-                {file && <Button type="button" onClick={() => { setFile(null); setPreview(null); setError(null); }}>Remove slip</Button>}
-                <Button type="button" variant="dark" disabled className="w-[138px]">Submit</Button>
+                <Button type="button" variant="dark" className="w-[138px]" onClick={() => { if (!file) setError("Please select a slip before submitting."); else setSubmitNotice(true); }}>Submit</Button>
                 <p className="text-center text-small">We’ll verify your slip and notify the artist.</p>
-                <p className="text-center text-small">Slip submission will be available when payment integration is connected.</p>
+                <p role={submitNotice ? "status" : undefined} className="text-center text-small">Slip submission will be available when payment integration is connected.</p>
               </div>
             </section>
           </div>
