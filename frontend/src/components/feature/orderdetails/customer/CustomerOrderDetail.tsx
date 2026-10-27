@@ -207,11 +207,6 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
                 orderId={order.id}
                 status={order.status}
                 onCancelOrder={() => setCancelOpen(true)}
-                onPaymentBypassed={async () => {
-                  const fresh = await getOrderById(order.id);
-                  setOrder(fresh);
-                  setDrafts(toDrafts(fresh.deliverables));
-                }}
               />
             }
           />

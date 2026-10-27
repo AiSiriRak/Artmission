@@ -12,5 +12,6 @@ export const routes = {
   order: {
     history: "/orderhistory",
     detail: (id: string) => `/orderhistory/${id}`,
+    payment: (id: string) => `/orderhistory/${encodeURIComponent(id)}/payment`,
   },
 } as const;
