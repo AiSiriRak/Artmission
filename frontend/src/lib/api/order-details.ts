@@ -32,6 +32,14 @@ export interface OrderDelayRequest {
   updated_at: string;
 }
 
+export interface OrderCancellation {
+  id?: string;
+  order_id: string;
+  reason: string;
+  explanation: string;
+  created_at: string;
+}
+
 export interface OrderDetail {
   id: string;
   customer_id: string;
@@ -49,6 +57,7 @@ export interface OrderDetail {
   other_party: { id: string; name: string; email: string; artist_review_score?: number };
   deliverables: OrderDeliverable[] | null;
   active_delay_request?: OrderDelayRequest | null;
+  cancellation?: OrderCancellation | null;
 }
 
 export function requestOrderPostpone(orderId: string, input: {

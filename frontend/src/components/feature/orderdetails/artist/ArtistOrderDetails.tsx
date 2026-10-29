@@ -21,6 +21,7 @@ import ConfirmOrderPopup from "./popups/ConfirmOrderPopup";
 import CancelOrderPopup from "./popups/CancelOrderPopup";
 import PostponeOrderPopup from "./popups/PostponeOrderPopup";
 import PostponeNotice from "./PostponeNotice";
+import OrderCancelSection from "../shared/OrderCancelSection";
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -203,6 +204,14 @@ export default function ArtistOrderDetails() {
       <OrderDetails
         usertype="artist"
         notice={pendingPostpone ? <PostponeNotice deadline={pendingPostpone.deadline_request_at} /> : undefined}
+        cancelSection={
+          // order.cancellation && 
+          order.status === "CANCEL" ? (
+            <OrderCancelSection
+            // cancellation={order.cancellation}
+            />
+          ) : null
+        }
         description={
           <OrderDescription
             orderName={order.name}
@@ -229,9 +238,11 @@ export default function ArtistOrderDetails() {
         {canSubmit && (
           <SubmitDraft disabled={busy} onSubmit={(file) => runMutation(async () => {
             const deliverable = await submitOrderDraft(orderId, file);
-            return (previous) => ({ ...previous, deliverables: [
-              ...(previous.deliverables ?? []).filter((item) => item.id !== deliverable.id), deliverable,
-            ] });
+            return (previous) => ({
+              ...previous, deliverables: [
+                ...(previous.deliverables ?? []).filter((item) => item.id !== deliverable.id), deliverable,
+              ]
+            });
           })} />
         )}
         {drafts.length > 0 && <DraftHistory drafts={drafts} />}

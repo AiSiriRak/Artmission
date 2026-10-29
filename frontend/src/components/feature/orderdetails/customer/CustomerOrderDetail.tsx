@@ -26,6 +26,7 @@ import { getArtistProfile } from "@/lib/api/artists";
 import type { ArtistProfile } from "@/lib/api/types";
 import { ArtistMiniProfile } from "./ArtistMiniProfile";
 import CustomerPostponeSection from "./CustomerPostponeSection";
+import OrderCancelSection from "../shared/OrderCancelSection";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -76,8 +77,8 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reviewStep, setReviewStep] = useState<"none" | "rating" | "thanks">(() =>
     initialOrder.status === "SUCCESS" &&
-    (initialOrder.deliverables ?? []).some((d) => d.decision === "APPROVED") &&
-    !localStorage.getItem(`order-rating-shown:${initialOrder.id}`)
+      (initialOrder.deliverables ?? []).some((d) => d.decision === "APPROVED") &&
+      !localStorage.getItem(`order-rating-shown:${initialOrder.id}`)
       ? "rating"
       : "none",
   );
@@ -121,7 +122,7 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
       .then((profile) => {
         if (!cancelled) setArtistProfile(profile);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
@@ -169,7 +170,7 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
 
   return (
     <>
-    
+
       <OrderDetails
         usertype="customer"
         postponeSection={
@@ -182,6 +183,14 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
                 setOrder(fresh);
                 setDrafts(toDrafts(fresh.deliverables));
               }}
+            />
+          ) : null
+        }
+        cancelSection={
+          // order.cancellation && 
+          order.status === "CANCEL" ? (
+            <OrderCancelSection
+              // cancellation={order.cancellation}
             />
           ) : null
         }

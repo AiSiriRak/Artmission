@@ -10,6 +10,7 @@ interface OrderDetailsProps {
   description: ReactNode;
   info: ReactNode;
   postponeSection?: ReactNode; 
+  cancelSection?: ReactNode;
   userInfo?: ReactNode;
   notice?: ReactNode;
   children?: ReactNode;
@@ -23,6 +24,7 @@ export default function OrderDetails({
   notice,
   children,
   postponeSection,
+  cancelSection,
 }: OrderDetailsProps) {
   const router = useRouter();
 
@@ -48,6 +50,7 @@ export default function OrderDetails({
 
         {notice}
         {postponeSection}
+        {cancelSection}
         <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
           <section className="min-w-0">
             {description}

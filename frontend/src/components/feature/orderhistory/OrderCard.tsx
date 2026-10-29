@@ -57,7 +57,7 @@ export function OrderCard({ status, order, canOpenDetails = false }: OrderCard) 
         <p className="text-left text-small text-neutral">Last Updated</p>{" "}
         <div className="w-1.5 h-1.5 flex item-center bg-neutral rounded-full" />
         <p className="text-left text-small text-neutral">
-          {formatDistanceToNow(new Date(order.created_at), {
+          {formatDistanceToNow(new Date(order.updated_at), {
             addSuffix: true,
           })}
         </p>

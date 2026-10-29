@@ -15,7 +15,7 @@ interface CancelOrderPopupProps {
   serverError?: string;
 }
 
-const reasons = [
+export const reasons = [
   { value: "UNABLE_TO_COMPLETE", label: "I’m unable to complete the project" },
   { value: "UNABLE_TO_MEET_DEADLINE", label: "I’m unable to meet the deadline" },
   { value: "CUSTOMER_CHANGED_REQUIREMENTS", label: "The project requirements have changed" },
