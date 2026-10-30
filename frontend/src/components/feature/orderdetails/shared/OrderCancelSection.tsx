@@ -108,21 +108,22 @@ export default function OrderCancelSection({
 			>
 				<div className="flex items-start gap-4">
 					<img
-						src="/icons/edit.svg" // TODO: add bell-light icon
+						src="/icons/Bell_light.svg"
 						alt=""
 						className="mt-1 h-6 w-6 shrink-0"
 					/>
 					<div className="min-w-0 flex-1">
 						<div className="flex flex-wrap items-baseline gap-x-3">
-							<h3 className="text-h3">{cancelStatement}</h3>
+							<h3 className="text-h3">Order Canceled</h3>
+							<h1 className="text-body">{cancelStatement}</h1>
 						</div>
 						<dl className="mt-6 space-y-3">
 							<div className="flex flex-wrap items-baseline gap-x-2">
-								<dt className="text-h3">Reason: </dt>
+								<dt className="text-body font-bold">Reason: </dt>
 								<dd className="text-body">{cancelReason.text}</dd>
 							</div>
-							<div>
-								<dt className="text-h3">Explanation</dt>
+							<div className="flex flex-wrap items-baseline gap-x-2">
+								<dt className="text-body font-bold">Explanation:</dt>
 								<dd className="text-body">{cancellation.explanation}</dd>
 							</div>
 						</dl>
