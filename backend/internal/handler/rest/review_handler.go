@@ -44,6 +44,19 @@ func (h *ReviewHandler) Register(api huma.API) {
 			)
 		},
 	)
+	huma.Get(api, "/artists/{artist_id}/reviews", h.getArtistReviews,
+		huma.OperationTags("reviews"),
+		func(o *huma.Operation) {
+			o.OperationID = "get-artist-reviews"
+			o.Summary = "GetArtistReviews"
+			o.Description = "Get an artist's reviews from newest to oldest."
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireAnyRole(api, user.RoleCustomer, user.RoleArtist),
+			)
+		},
+	)
 }
 
 type SubmitReviewInput struct {
@@ -66,6 +79,22 @@ type reviewView struct {
 
 type SubmitReviewOutput struct {
 	Body reviewView
+}
+
+type GetArtistReviewsInput struct {
+	ArtistID uuid.UUID `path:"artist_id"`
+}
+
+type reviewDetailView struct {
+	reviewView
+	Username string `json:"username"`
+	Order    string `json:"order"`
+}
+
+type GetArtistReviewsOutput struct {
+	Body struct {
+		Reviews []reviewDetailView `json:"reviews"`
+	}
 }
 
 // submitReview reads the authenticated customer and returns the created review.
@@ -102,4 +131,38 @@ func (h *ReviewHandler) submitReview(
 			CreatedAt:  result.CreatedAt,
 		},
 	}, nil
+}
+
+// getArtistReviews returns an artist's reviews with customer and artwork names.
+func (h *ReviewHandler) getArtistReviews(
+	ctx context.Context,
+	input *GetArtistReviewsInput,
+) (*GetArtistReviewsOutput, error) {
+	items, err := h.reviewUsecase.GetArtistReviews(ctx, input.ArtistID)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	views := make([]reviewDetailView, 0, len(items))
+
+	for _, item := range items {
+		views = append(views, reviewDetailView{
+			reviewView: reviewView{
+				ID:         item.ID,
+				OrderID:    item.OrderID,
+				CustomerID: item.CustomerID,
+				ArtistID:   item.ArtistID,
+				Rating:     item.Rating,
+				Comment:    item.Comment,
+				CreatedAt:  item.CreatedAt,
+			},
+			Username: item.Username,
+			Order:    item.Order,
+		})
+	}
+
+	out := &GetArtistReviewsOutput{}
+	out.Body.Reviews = views
+
+	return out, nil
 }

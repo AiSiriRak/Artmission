@@ -15,3 +15,10 @@ type Review struct {
 	Comment    *string
 	CreatedAt  time.Time
 }
+
+type ReviewDetail struct {
+	Review
+	Username string
+	Order    string
+}
+

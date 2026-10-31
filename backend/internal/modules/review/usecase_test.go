@@ -11,8 +11,11 @@ import (
 )
 
 type fakeRepo struct {
-	order   *review.OrderForReview
-	created *review.Review
+	order        *review.OrderForReview
+	created      *review.Review
+	reviews      []review.ReviewDetail
+	listArtistID uuid.UUID
+	listErr      error
 }
 
 func (f *fakeRepo) GetOrderForReview(
@@ -39,6 +42,14 @@ func (f *fakeRepo) Create(
 ) error {
 	f.created = item
 	return nil
+}
+
+func (f *fakeRepo) ListByArtistID(
+	_ context.Context,
+	artistID uuid.UUID,
+) ([]review.ReviewDetail, error) {
+	f.listArtistID = artistID
+	return f.reviews, f.listErr
 }
 
 // verifies that a rating alone can create a review
@@ -214,5 +225,86 @@ func TestSubmitReview_Duplicate(t *testing.T) {
 	}
 	if repo.created != existingReview {
 		t.Fatal("the existing review must not be replaced")
+	}
+}
+
+// verifies that reviews are retrieved for the requested artist
+func TestGetArtistReviews_Success(t *testing.T) {
+	artistID := uuid.New()
+	reviewID := uuid.New()
+	comment := "Great work!"
+
+	repo := &fakeRepo{
+		reviews: []review.ReviewDetail{
+			{
+				Review: review.Review{
+					ID:       reviewID,
+					ArtistID: artistID,
+					Rating:   5,
+					Comment:  &comment,
+				},
+				Username: "Customer",
+				Order:    "Cat artwork",
+			},
+		},
+	}
+	uc := review.NewReviewUsecase(repo)
+
+	result, err := uc.GetArtistReviews(context.Background(), artistID)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.listArtistID != artistID {
+		t.Fatal("repository received the wrong artist ID")
+	}
+	if len(result) != 1 {
+		t.Fatalf("review count = %d, want 1", len(result))
+	}
+
+	got := result[0]
+	if got.ID != reviewID ||
+		got.Username != "Customer" ||
+		got.Order != "Cat artwork" ||
+		got.Rating != 5 ||
+		got.Comment == nil ||
+		*got.Comment != comment {
+		t.Fatal("returned review details do not match")
+	}
+}
+
+// returns an empty list when there are no reviews.
+func TestGetArtistReviews_Empty(t *testing.T) {
+	repo := &fakeRepo{}
+	uc := review.NewReviewUsecase(repo)
+
+	result, err := uc.GetArtistReviews(context.Background(), uuid.New())
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected an empty list, not nil")
+	}
+	if len(result) != 0 {
+		t.Fatalf("review count = %d, want 0", len(result))
+	}
+}
+
+// propagates a repository failure.
+func TestGetArtistReviews_RepositoryError(t *testing.T) {
+	expectedErr := errors.New("database unavailable")
+	repo := &fakeRepo{
+		listErr: expectedErr,
+	}
+	uc := review.NewReviewUsecase(repo)
+
+	result, err := uc.GetArtistReviews(context.Background(), uuid.New())
+
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("error = %v, want %v", err, expectedErr)
+	}
+	if result != nil {
+		t.Fatal("expected no reviews when retrieval fails")
 	}
 }

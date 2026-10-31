@@ -85,3 +85,24 @@ func (u *reviewUsecase) SubmitReview(
 
 	return result, nil
 }
+
+// GetArtistReviews validates the artist ID and retrieves reviews from newest to oldest.
+func (u *reviewUsecase) GetArtistReviews(
+	ctx context.Context,
+	artistID uuid.UUID,
+) ([]ReviewDetail, error) {
+	if artistID == uuid.Nil {
+		return nil, apperror.InvalidInput("artist ID is required", nil)
+	}
+
+	reviews, err := u.repo.ListByArtistID(ctx, artistID)
+	if err != nil {
+		return nil, err
+	}
+
+	if reviews == nil {
+		return []ReviewDetail{}, nil
+	}
+
+	return reviews, nil
+}

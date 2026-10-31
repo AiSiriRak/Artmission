@@ -13,12 +13,22 @@ type ReviewUsecase interface {
 		customerID uuid.UUID,
 		input SubmitReviewInput,
 	) (*Review, error)
+
+	GetArtistReviews(
+	ctx context.Context,
+	artistID uuid.UUID,
+	) ([]ReviewDetail, error)
 }
 
 type ReviewRepository interface {
 	GetOrderForReview(ctx context.Context, orderID uuid.UUID) (*OrderForReview, error)
 	ExistsByOrderID(ctx context.Context, orderID uuid.UUID) (bool, error)
 	Create(ctx context.Context, review *Review) error
+	
+	ListByArtistID(
+	ctx context.Context,
+	artistID uuid.UUID,
+	) ([]ReviewDetail, error)
 }
 
 type SubmitReviewInput struct {

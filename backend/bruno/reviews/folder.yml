@@ -9,3 +9,6 @@ request:
     - name: OrderID
       value: 00000000-0000-0000-0000-000000000000
       description: Order ID
+    - name: ArtistID
+      value: 00000000-0000-0000-0000-000000000000
+      description: Artist ID
