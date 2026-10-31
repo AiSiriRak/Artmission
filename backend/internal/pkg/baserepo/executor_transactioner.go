@@ -45,6 +45,10 @@ func NewTransactioner(db *bun.DB) Transactioner {
 }
 
 func (t *transactionerImpl) Transaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	// Join the caller's transaction so a nested order write and its notification commit together.
+	if _, ok := ctx.Value(dbContextKey{}).(bun.IDB); ok {
+		return fn(ctx)
+	}
 	return t.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		return fn(context.WithValue(ctx, dbContextKey{}, tx))
 	})

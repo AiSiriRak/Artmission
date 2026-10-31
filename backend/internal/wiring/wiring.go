@@ -16,6 +16,7 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/artist"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/notification"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
@@ -43,6 +44,8 @@ type Config struct {
 // the server's lifecycle.
 func Wire(cfg Config) *httpserver.Server {
 	userRepo := postgres.NewUserRepository(cfg.DB)
+	notificationRepo := postgres.NewNotificationRepository(cfg.DB)
+	notificationUsecase := notification.NewNotificationUsecase(notificationRepo)
 	bankRepo := postgres.NewBankAccountRepository(cfg.DB)
 	artistRepo := postgres.NewArtistRepository(cfg.DB)
 	artworkRepo := postgres.NewArtworkRepository(cfg.DB)
@@ -51,6 +54,7 @@ func Wire(cfg Config) *httpserver.Server {
 	accountDeletionRepo := postgres.NewAccountDeletionRepository(cfg.DB)
 	tokenIssuer := token.NewJWTIssuer(cfg.Auth.JWTSecret)
 	tx := baserepo.NewTransactioner(cfg.DB)
+	orderRepo = notification.NewNotifyingRepository(orderRepo, notificationUsecase, tx)
 
 	artistUsecase := artist.NewProfileUsecase(artistRepo, cfg.ObjectStorage.Public)
 	artworkUsecase := artwork.NewUsecase(artworkRepo, tx, cfg.ObjectStorage.Public)
@@ -66,6 +70,7 @@ func Wire(cfg Config) *httpserver.Server {
 
 	api, server := httpserver.New(cfg.App.Address, cfg.App.BasePath, cfg.App.AllowedOrigins, cfg.Logger, []httpserver.Pinger{cfg.DB, cfg.ObjectStorage})
 	authHandler.Register(api)
+	rest.NewNotificationHandler(notificationUsecase, authUsecase).Register(api)
 	userHandler.Register(api)
 	orderHandler.Register(api)
 	artistHandler.Register(api)

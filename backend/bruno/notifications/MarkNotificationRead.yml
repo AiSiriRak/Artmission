@@ -1,0 +1,13 @@
+info:
+  name: MarkNotificationRead
+  type: http
+  seq: 3
+http:
+  method: PATCH
+  url: "{{api_url}}/notifications/{{notification_id}}/read"
+  auth: inherit
+docs: Set notification_id to an ID returned by ListNotifications. Success returns 204.
+runtime:
+  variables:
+    - name: notification_id
+      value: 00000000-0000-0000-0000-000000000000
