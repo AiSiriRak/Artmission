@@ -8,4 +8,4 @@ request:
   variables:
     - name: OrderID
       value: 00000000-0000-0000-0000-000000000000
-      description: Successful order owned by the customer used to log in; replace for local testing.
+      description: Order ID
