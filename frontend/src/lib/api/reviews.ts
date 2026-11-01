@@ -34,7 +34,7 @@ export interface Review {
 	customer_id: string;
 	artist_id: string;
 	rating: number;
-	comment: string;
+	comment?: string;
 	created_at: string;
 }
 
@@ -63,7 +63,7 @@ export const mockReviews: Review[] = [
 		customer_id: "customer-003",
 		artist_id: "artist-001",
 		rating: 5,
-		comment: "Very detailed and beautiful illustration!",
+		comment: "",
 		created_at: "2026-10-15T12:00:00Z",
 	},
 ];

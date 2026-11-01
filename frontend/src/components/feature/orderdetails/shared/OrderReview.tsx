@@ -1,8 +1,9 @@
 "use client";
 
+import { format } from "date-fns";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 
-import { Review, mockReviews } from "@/lib/api/reviews";
+import { Review } from "@/lib/api/reviews";
 
 function ReviewStars({ rating, size = 24 }: { rating: number; size?: number }) {
 	return (
@@ -36,35 +37,60 @@ interface OrderReviewProps {
 }
 
 export default function OrderCancelSection({
-	review = mockReviews[1],
+	review,
 }: OrderReviewProps) {
-	if (!review) return null;
-
 	return (
 		<div className="flex flex-col gap-2">
-			<h2 className="mb-1 text-h3">Review</h2>
-			<section>
-				<WhiteCard
-					margin=""
-					padding="p-6 sm:p-8"
-					roundsize="rounded-3xl"
-					className="max-w-none border border-primary-500 bg-secondary-200 shadow-none"
-				>
-					<dl className="flex min-w-0 flex-1 flex-col gap-2">
-						<dd className="flex items-center gap-2">
-							<ReviewStars rating={review.rating} size={28} />
-							<span className="text-small text-primary-400/60">
-								{review.rating}/5
-							</span>
-						</dd>
-					</dl>
-					<dl className="flex min-w-0 flex-1 flex-col gap-2 mt-2">
-						<dd className="break-words text-body">
+			<div className="flex flex-wrap items-center justify-between gap-3">
+				<div className="flex flex-wrap items-center gap-3">
+					<h2 className="text-h3">Review</h2>
+					{review && (
+						<ReviewStars rating={review.rating} size={22} />
+					)}
+				</div>
+				{review && (
+					<span className="text-small text-primary-400/60">
+						{format(new Date(review.created_at), "d MMM yyyy")}
+					</span>
+				)}
+			</div>
+
+			{review && review.comment && review.comment.trim() !== "" && (
+				<section>
+					<WhiteCard
+						margin=""
+						padding="p-6 sm:p-8"
+						roundsize="rounded-3xl"
+						className="max-w-none border border-primary-500 bg-secondary-200 shadow-none"
+					>
+						<div className="break-words text-body">
 							{review.comment}
-						</dd>
-					</dl>
-				</WhiteCard>
-			</section>
+						</div>
+					</WhiteCard>
+				</section>
+			)}
+
+			{!review && (
+				<section>
+					<WhiteCard
+						margin=""
+						padding="p-6 sm:p-8"
+						roundsize="rounded-3xl"
+						className="max-w-none border border-primary-500 bg-secondary-200 shadow-none"
+					>
+						<div className="mt-1 flex flex-col items-center justify-center text-center">
+							<img
+								src="/icons/message-circle-off.svg"
+								alt=""
+								className="h-18 w-18 shrink-0"
+							/>
+							<div className="mt-2 break-words text-body text-neutral">
+								waiting for customer's review
+							</div>
+						</div>
+					</WhiteCard>
+				</section>
+			)}
 		</div>
 	);
 }

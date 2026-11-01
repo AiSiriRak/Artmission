@@ -32,6 +32,7 @@ import {
   getReviewByOrderId,
   createReview,
   type Review,
+  mockReviews,
 } from "@/lib/api/reviews";
 import FinalArtworkActions from "./FinalArtworkActions";
 
@@ -264,9 +265,9 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
         }
         review={
           // order.review && 
-          order.status === "SUCCESS" && review ? (
+          order.status === "SUCCESS" ? (
             <OrderReview
-            // review={order.review}
+              review={hasReviewed ? mockReviews[2] : null}
             />
           ) : null
         }
