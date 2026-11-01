@@ -704,11 +704,6 @@ func (o *ordersContext) theUserCancelsAnotherUsersOrder() error {
 	return o.cancelOrder(o.otherOrderID, true)
 }
 
-// for sprint 2
-func (o *ordersContext) theSystemForbidsPaymentBypass() error {
-	return o.expectStatus(http.StatusForbidden)
-}
-
 // getOrder sends GET /orders/{id} and decodes a successful detail response.
 func (o *ordersContext) getOrder(orderID string, authenticated bool) error {
 	headers := map[string]string(nil)
@@ -1909,14 +1904,6 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system hides the order from the user$`, func() error {
 		return o.theSystemHidesTheOrderFromTheUser()
-	})
-	// for sprint 2
-	sc.Step(`^the system confirms payment bypass and moves the order to IN_PROCESS$`, func() error {
-		return o.theSystemConfirmsPaymentBypassAndMovesOrderToInProcess()
-	})
-	// for sprint 2
-	sc.Step(`^the system forbids payment bypass$`, func() error {
-		return o.theSystemForbidsPaymentBypass()
 	})
 	sc.Step(`^the system rejects the request due to an invalid offset$`, func() error { return o.expectClientError() })
 	sc.Step(`^the system rejects the request due to an invalid status$`, func() error { return o.expectClientError() })
