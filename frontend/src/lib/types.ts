@@ -10,3 +10,9 @@ export const BANK_LABELS = {
   uob: "United Overseas Bank (UOB)",
   cimb: "CIMB Thai Bank",
 };
+export const NOTI_TYPE = {
+  order_update: "ORDER_UPDATE",
+  review: "REVIEW",
+  pospone: "POSPONE",
+  payment: "PAYMENT",
+};

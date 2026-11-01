@@ -3,77 +3,40 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { UserAccount } from "@/lib/api/types";
 import { getAccount } from "@/lib/api/users";
 import { routes } from "@/lib/routes";
 import { isApiError } from "@/lib/api/error";
+import {
+  getNotifications,
+  markNotificationAsRead,
+} from "@/lib/api/notification";
+import { UserAccount, NotificationList, Notification } from "@/lib/api/types";
+import { NOTI_TYPE } from "@/lib/types";
 
 import { Loading } from "@/components/ui/Loading";
 import MainLayout from "@/components/feature/main/MainLayout";
-import {
-  NotificationCard,
-  notiType,
-  Notification,
-} from "@/components/feature/notification/NotificationCard";
+import { NotificationCard } from "@/components/feature/notification/NotificationCard";
+import NotiTest from "@/components/feature/notification/NotiTest";
 
-// TEMP
-let mockNoti = [
-  {
-    id: "1",
-    user_id: "1",
-    title: "Payment noti",
-    message:
-      "a very long messageeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-    type: notiType.payment,
-    is_read: false,
-    created_at: "2026-10-30T20:32:21.129Z",
-    payment: {
-      amount: 50,
-    },
-  },
-  {
-    id: "2",
-    user_id: "2",
-    title: "Order noti",
-    message:
-      "a very long messageeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-    type: notiType.orderUpdate,
-    is_read: false,
-    created_at: "2026-09-30T20:32:21.129Z",
-    order: {
-      status: "PENDING",
-    },
-  },
-  {
-    id: "3",
-    user_id: "3",
-    title: "Review noti",
-    message:
-      "a very long messageeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-    type: notiType.review,
-    is_read: true,
-    created_at: "2025-10-30T20:32:21.129Z",
-  },
-  {
-    id: "4",
-    user_id: "4",
-    title: "Pospone noti",
-    message:
-      "a very long messageeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-    type: notiType.pospone,
-    is_read: true,
-    created_at: "2026-10-05T20:32:21.129Z",
-  },
-];
 export default function NotificationPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserAccount | null>(null);
+  const [notification, setNotification] = useState<NotificationList>([]);
 
   const notiRouteMap: Record<string, string> = {
-    [notiType.review]: routes.order.history,
-    [notiType.orderUpdate]: routes.order.history,
-    [notiType.pospone]: routes.order.history,
-    [notiType.payment]: routes.order.history,
+    [NOTI_TYPE.review]: routes.home,
+    [NOTI_TYPE.order_update]: routes.order.history,
+    [NOTI_TYPE.pospone]: routes.settings,
+    [NOTI_TYPE.payment]: routes.order.history,
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const notificationdata = await getNotifications();
+      setNotification(notificationdata);
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+    }
   };
 
   useEffect(() => {
@@ -81,6 +44,8 @@ export default function NotificationPage() {
       try {
         const accountdata = await getAccount();
         setUser(accountdata);
+
+        await fetchNotifications();
       } catch (error: unknown) {
         if (isApiError(error) && error.status === 401) {
           router.replace(routes.login);
@@ -88,14 +53,22 @@ export default function NotificationPage() {
       }
     }
     loadUser();
-  }, [router]);
+  }, [router, fetchNotifications]);
 
   if (!user) {
     return <Loading />;
   }
 
-  const handleClick = (e: React.MouseEvent, notificaion: Notification) => {
+  const handleClick = async (
+    e: React.MouseEvent,
+    notificaion: Notification,
+  ) => {
     e.preventDefault();
+
+    await markNotificationAsRead(notificaion.id);
+
+    await fetchNotifications();
+
     router.replace(notiRouteMap[notificaion.type]);
   };
 
@@ -103,13 +76,13 @@ export default function NotificationPage() {
     <MainLayout usertype={user.role}>
       <p className="mx-20 my-10 text-h2">Recently Notifications</p>
       <div className="space-y-6 mx-20 my-10">
-        {mockNoti.map((option) => (
+        <NotiTest />
+        {notification.map((option) => (
           <NotificationCard
             key={option.id}
             notification={option}
             onClick={(e) => {
               handleClick(e, option);
-              option.is_read = true;
             }}
           />
         ))}

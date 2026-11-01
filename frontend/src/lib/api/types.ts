@@ -90,3 +90,30 @@ export type SearchArtworksSort = NonNullable<SearchArtworksQuery["sort"]>;
 // Type from multipart/form-data from path
 export type CreateArtworkInput = RequestBody<"/artworks", "post">;
 export type UpdateArtworkInput = RequestBody<"/artworks/{artwork_id}", "put">;
+
+// *** TEMP NOTIFICATION TYPE ***
+// Notification
+export type Notification = {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  is_read: boolean;
+  created_at: string;
+  order?: {
+    status: string;
+  };
+  payment?: {
+    amount: number;
+  };
+};
+export type NotificationList = Notification[];
+export type NotificationUnreadCount = {
+  count: number;
+};
+export type NotificationType =
+  | "ORDER_UPDATE"
+  | "REVIEW"
+  | "POSPONE"
+  | "PAYMENT";
