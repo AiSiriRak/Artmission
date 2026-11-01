@@ -46,12 +46,10 @@ type ordersContext struct {
 	otherDeliverableID        string
 	lastDeliverablePreviewKey string // most recently seeded deliverable version's preview_image_key
 	lastOriginalImageKey      string // most recently seeded deliverable version's original_image_key
-	// for sprint 2
-	sprint2BypassMessage     string
-	autoApprovedDeliverables []uuid.UUID
-	delayRequestDeadline     time.Time
-	lastDelayRequestID       string
-	targetArtworkID          string
+	autoApprovedDeliverables  []uuid.UUID
+	delayRequestDeadline      time.Time
+	lastDelayRequestID        string
+	targetArtworkID           string
 
 	resp         *apptest.Response
 	page         viewOrdersOutput // last response decoded while resp.StatusCode == 200
@@ -704,64 +702,6 @@ func (o *ordersContext) theUserCancelsTheirLastOrderWithoutLoggingIn() error {
 
 func (o *ordersContext) theUserCancelsAnotherUsersOrder() error {
 	return o.cancelOrder(o.otherOrderID, true)
-}
-
-// for sprint 2
-func (o *ordersContext) bypassPaymentForLastOrder(authenticated bool) error {
-	headers := map[string]string(nil)
-	if authenticated {
-		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
-	}
-	resp, err := o.client.Do(
-		http.MethodPut,
-		"/orders/"+o.lastOrderID+"/bypass-payment",
-		nil,
-		headers,
-	)
-	if err != nil {
-		return err
-	}
-	o.resp = resp
-	if resp.StatusCode == http.StatusOK {
-		var output struct {
-			Message string `json:"message"`
-		}
-		if err := resp.JSON(&output); err != nil {
-			return fmt.Errorf("decode bypass-payment response: %w (body: %s)", err, resp.Body)
-		}
-		o.sprint2BypassMessage = output.Message
-	}
-	return nil
-}
-
-// for sprint 2
-func (o *ordersContext) theUserBypassesPaymentForTheirLastOrder() error {
-	return o.bypassPaymentForLastOrder(true)
-}
-
-// for sprint 2
-func (o *ordersContext) theUserAttemptsToBypassPaymentWithoutLoggingIn() error {
-	return o.bypassPaymentForLastOrder(false)
-}
-
-// for sprint 2
-func (o *ordersContext) theSystemConfirmsPaymentBypassAndMovesOrderToInProcess() error {
-	if err := o.expectStatus(http.StatusOK); err != nil {
-		return err
-	}
-	if o.sprint2BypassMessage != "Payment bypassed successfully" {
-		return fmt.Errorf("bypass response message = %q, want success message", o.sprint2BypassMessage)
-	}
-	if err := o.getOrder(o.lastOrderID, true); err != nil {
-		return err
-	}
-	if o.resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("get order after payment bypass: status %d (body: %s)", o.resp.StatusCode, o.resp.Body)
-	}
-	if o.orderDetail.Status != string(ordermod.StatusInProcess) {
-		return fmt.Errorf("order status = %q, want %q", o.orderDetail.Status, ordermod.StatusInProcess)
-	}
-	return nil
 }
 
 // for sprint 2
@@ -1843,14 +1783,6 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		return o.theUserCancelsTheirLastOrderWithoutLoggingIn()
 	})
 	sc.Step(`^the user cancels another user's order$`, func() error { return o.theUserCancelsAnotherUsersOrder() })
-	// for sprint 2
-	sc.Step(`^the user bypasses payment for their last order$`, func() error {
-		return o.theUserBypassesPaymentForTheirLastOrder()
-	})
-	// for sprint 2
-	sc.Step(`^the user attempts to bypass payment without logging in$`, func() error {
-		return o.theUserAttemptsToBypassPaymentWithoutLoggingIn()
-	})
 	sc.Step(`^the user views their orders filtered by status "([^"]*)"$`, func(status string) error {
 		return o.theUserViewsTheirOrdersFilteredByStatus(status)
 	})

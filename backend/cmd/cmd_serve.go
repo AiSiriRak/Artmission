@@ -42,7 +42,14 @@ var serveCmd = &cobra.Command{
 			return err
 		}
 
-		wireConfig := wiring.Config{DB: db, Logger: log, App: cfg.App(), Auth: cfg.Auth(), ObjectStorage: objectStorage}
+		wireConfig := wiring.Config{
+			DB:            db,
+			Logger:        log,
+			App:           cfg.App(),
+			Auth:          cfg.Auth(),
+			Slip2Go:       cfg.Slip2Go(),
+			ObjectStorage: objectStorage,
+		}
 		server := wiring.Wire(wireConfig)
 
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
