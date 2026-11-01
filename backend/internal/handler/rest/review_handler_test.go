@@ -1,0 +1,291 @@
+package rest
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/review"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/httpserver"
+	"github.com/google/uuid"
+)
+
+type reviewAuthStub struct {
+	auth.AuthUsecase
+	role user.Role
+}
+
+type reviewUsecaseStub struct {
+	review.ReviewUsecase
+	submitCalls  int
+	reviews      []review.ReviewDetail
+	listCalls    int
+	listArtistID uuid.UUID
+}
+
+func (s reviewAuthStub) Authenticate(
+	_ context.Context,
+	token string,
+) (*auth.TokenClaims, error) {
+	if token != "test-token" {
+		return nil, auth.ErrInvalidToken
+	}
+
+	return &auth.TokenClaims{
+		UserID:    uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+		SessionID: uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+		Role:      s.role,
+	}, nil
+}
+
+func (s *reviewUsecaseStub) SubmitReview(
+	_ context.Context,
+	customerID uuid.UUID,
+	input review.SubmitReviewInput,
+) (*review.Review, error) {
+	s.submitCalls++
+
+	return &review.Review{
+		ID:         uuid.New(),
+		OrderID:    input.OrderID,
+		CustomerID: customerID,
+		ArtistID:   uuid.New(),
+		Rating:     input.Rating,
+		Comment:    input.Comment,
+	}, nil
+}
+
+func (s *reviewUsecaseStub) GetArtistReviews(
+	_ context.Context,
+	artistID uuid.UUID,
+) ([]review.ReviewDetail, error) {
+	s.listCalls++
+	s.listArtistID = artistID
+	return s.reviews, nil
+}
+
+// TestReviewHandler_SubmitValidation verifies rating validation and access restrictions.
+func TestReviewHandler_SubmitValidation(t *testing.T) {
+	cases := []struct {
+		name          string
+		role          user.Role
+		body          string
+		authenticated bool
+		wantStatus    int
+		wantCalls     int
+	}{
+		{
+			name:          "customer submits rating",
+			role:          user.RoleCustomer,
+			body:          `{"rating":5}`,
+			authenticated: true,
+			wantStatus:    http.StatusCreated,
+			wantCalls:     1,
+		},
+		{
+			name:          "missing rating",
+			role:          user.RoleCustomer,
+			body:          `{"comment":"Great work!"}`,
+			authenticated: true,
+			wantStatus:    http.StatusUnprocessableEntity,
+		},
+		{
+			name:       "missing token",
+			role:       user.RoleCustomer,
+			body:       `{"rating":5}`,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:          "artist cannot submit",
+			role:          user.RoleArtist,
+			body:          `{"rating":5}`,
+			authenticated: true,
+			wantStatus:    http.StatusForbidden,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			usecase := &reviewUsecaseStub{}
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			api, server := httpserver.New("", "/api/v1", nil, logger, nil)
+
+			NewReviewHandler(
+				usecase,
+				reviewAuthStub{role: tc.role},
+			).Register(api)
+
+			orderID := uuid.New()
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/api/v1/orders/"+orderID.String()+"/review",
+				strings.NewReader(tc.body),
+			)
+			req.Header.Set("Content-Type", "application/json")
+
+			if tc.authenticated {
+				req.Header.Set("Authorization", "Bearer test-token")
+			}
+
+			rec := httptest.NewRecorder()
+			server.Handler().ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf(
+					"status = %d, want %d: %s",
+					rec.Code,
+					tc.wantStatus,
+					rec.Body.String(),
+				)
+			}
+			if usecase.submitCalls != tc.wantCalls {
+				t.Fatalf(
+					"submit calls = %d, want %d",
+					usecase.submitCalls,
+					tc.wantCalls,
+				)
+			}
+		})
+	}
+}
+
+// TestReviewHandler_GetArtistReviews verifies access, response fields, and the empty state.
+func TestReviewHandler_GetArtistReviews(t *testing.T) {
+	artistID := uuid.New()
+	reviewID := uuid.New()
+	comment := "Great work!"
+	createdAt := time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC)
+
+	items := []review.ReviewDetail{
+		{
+			Review: review.Review{
+				ID:        reviewID,
+				ArtistID:  artistID,
+				Rating:    5,
+				Comment:   &comment,
+				CreatedAt: createdAt,
+			},
+			Username: "Customer",
+			Order:    "Cat artwork",
+		},
+	}
+
+	cases := []struct {
+		name          string
+		role          user.Role
+		authenticated bool
+		empty         bool
+		wantStatus    int
+	}{
+		{
+			name:          "customer can read",
+			role:          user.RoleCustomer,
+			authenticated: true,
+			wantStatus:    http.StatusOK,
+		},
+		{
+			name:          "artist can read",
+			role:          user.RoleArtist,
+			authenticated: true,
+			wantStatus:    http.StatusOK,
+		},
+		{
+			name:          "no reviews",
+			role:          user.RoleCustomer,
+			authenticated: true,
+			empty:         true,
+			wantStatus:    http.StatusOK,
+		},
+		{
+			name:       "missing token",
+			role:       user.RoleCustomer,
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			usecase := &reviewUsecaseStub{reviews: items}
+			if tc.empty {
+				usecase.reviews = nil
+			}
+
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			api, server := httpserver.New("", "/api/v1", nil, logger, nil)
+			NewReviewHandler(
+				usecase,
+				reviewAuthStub{role: tc.role},
+			).Register(api)
+
+			req := httptest.NewRequest(
+				http.MethodGet,
+				"/api/v1/artists/"+artistID.String()+"/reviews",
+				nil,
+			)
+			if tc.authenticated {
+				req.Header.Set("Authorization", "Bearer test-token")
+			}
+
+			rec := httptest.NewRecorder()
+			server.Handler().ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf(
+					"status = %d, want %d: %s",
+					rec.Code, tc.wantStatus, rec.Body.String(),
+				)
+			}
+
+			if tc.wantStatus != http.StatusOK {
+				if usecase.listCalls != 0 {
+					t.Fatal("an unauthorized request must not reach the usecase")
+				}
+				return
+			}
+
+			if usecase.listCalls != 1 || usecase.listArtistID != artistID {
+				t.Fatal("expected one request for the selected artist")
+			}
+
+			var body struct {
+				Reviews []reviewDetailView `json:"reviews"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if body.Reviews == nil {
+				t.Fatal("reviews must be an array, not null or missing")
+			}
+
+			if tc.empty {
+				if len(body.Reviews) != 0 {
+					t.Fatal("expected an empty reviews array")
+				}
+				return
+			}
+
+			if len(body.Reviews) != 1 {
+				t.Fatalf("review count = %d, want 1", len(body.Reviews))
+			}
+
+			got := body.Reviews[0]
+			if got.ID != reviewID ||
+				got.Username != "Customer" ||
+				got.Order != "Cat artwork" ||
+				got.Rating != 5 ||
+				got.Comment == nil ||
+				*got.Comment != comment ||
+				!got.CreatedAt.Equal(createdAt) {
+				t.Fatal("response does not contain the expected review details")
+			}
+		})
+	}
+}

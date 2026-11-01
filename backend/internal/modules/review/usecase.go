@@ -106,3 +106,59 @@ func (u *reviewUsecase) GetArtistReviews(
 
 	return reviews, nil
 }
+
+// retrieves an order's review for its customer or artist.
+func (u *reviewUsecase) GetOrderReview(
+	ctx context.Context,
+	userID uuid.UUID,
+	orderID uuid.UUID,
+) (*ReviewDetail, error) {
+	if userID == uuid.Nil {
+		return nil, apperror.Unauthorized("missing user identity")
+	}
+	if orderID == uuid.Nil {
+		return nil, apperror.InvalidInput("order ID is required", nil)
+	}
+
+	orderData, err := u.repo.GetOrderForReview(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if orderData == nil {
+		return nil, ErrOrderNotFound
+	}
+
+	if userID != orderData.CustomerID && userID != orderData.ArtistID {
+		return nil, ErrNotOrderParticipant
+	}
+
+	item, err := u.repo.GetByOrderID(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if item == nil {
+		return nil, ErrReviewNotFound
+	}
+
+	return item, nil
+}
+
+// retrieves reviews from orders placed for the artwork
+func (u *reviewUsecase) GetReviewsByArtwork(
+	ctx context.Context,
+	artworkID uuid.UUID,
+) ([]ReviewDetail, error) {
+	if artworkID == uuid.Nil {
+		return nil, apperror.InvalidInput("artwork ID is required", nil)
+	}
+
+	items, err := u.repo.ListByArtworkID(ctx, artworkID)
+	if err != nil {
+		return nil, err
+	}
+	if items == nil {
+		return []ReviewDetail{}, nil
+	}
+
+	return items, nil
+}

@@ -57,6 +57,34 @@ func (h *ReviewHandler) Register(api huma.API) {
 			)
 		},
 	)
+
+	huma.Get(api, "/orders/{order_id}/review", h.getOrderReview,
+		huma.OperationTags("reviews"),
+		func(o *huma.Operation) {
+			o.OperationID = "get-order-review"
+			o.Summary = "GetOrderReview"
+			o.Description = "Get an order's review as its customer or artist."
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireAnyRole(api, user.RoleCustomer, user.RoleArtist),
+			)
+		},
+	)
+
+	huma.Get(api, "/artworks/{artwork_id}/reviews", h.getReviewsByArtwork,
+		huma.OperationTags("reviews"),
+		func(o *huma.Operation) {
+			o.OperationID = "get-reviews-by-artwork"
+			o.Summary = "GetReviewsByArtwork"
+			o.Description = "Get reviews from orders placed for the artwork, newest first."
+			o.Middlewares = append(
+				o.Middlewares,
+				requireAuth(api, h.authUsecase),
+				requireAnyRole(api, user.RoleCustomer, user.RoleArtist),
+			)
+		},
+	)
 }
 
 type SubmitReviewInput struct {
@@ -92,6 +120,24 @@ type reviewDetailView struct {
 }
 
 type GetArtistReviewsOutput struct {
+	Body struct {
+		Reviews []reviewDetailView `json:"reviews"`
+	}
+}
+
+type GetOrderReviewInput struct {
+	OrderID uuid.UUID `path:"order_id"`
+}
+
+type GetOrderReviewOutput struct {
+	Body reviewDetailView
+}
+
+type GetReviewsByArtworkInput struct {
+	ArtworkID uuid.UUID `path:"artwork_id"`
+}
+
+type GetReviewsByArtworkOutput struct {
 	Body struct {
 		Reviews []reviewDetailView `json:"reviews"`
 	}
@@ -165,4 +211,65 @@ func (h *ReviewHandler) getArtistReviews(
 	out.Body.Reviews = views
 
 	return out, nil
+}
+
+// getOrderReview returns the order's review to its customer or artist.
+func (h *ReviewHandler) getOrderReview(
+	ctx context.Context,
+	input *GetOrderReviewInput,
+) (*GetOrderReviewOutput, error) {
+	info, ok := authInfoFromContext(ctx)
+	if !ok {
+		return nil, huma.Error401Unauthorized("missing authentication")
+	}
+
+	item, err := h.reviewUsecase.GetOrderReview(
+		ctx,
+		info.UserID,
+		input.OrderID,
+	)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	return &GetOrderReviewOutput{
+		Body: newReviewDetailView(*item),
+	}, nil
+}
+
+// getReviewsByArtwork returns reviews from orders placed for the artwork.
+func (h *ReviewHandler) getReviewsByArtwork(
+	ctx context.Context,
+	input *GetReviewsByArtworkInput,
+) (*GetReviewsByArtworkOutput, error) {
+	items, err := h.reviewUsecase.GetReviewsByArtwork(ctx, input.ArtworkID)
+	if err != nil {
+		return nil, mapAppError(err)
+	}
+
+	views := make([]reviewDetailView, 0, len(items))
+	for _, item := range items {
+		views = append(views, newReviewDetailView(item))
+	}
+
+	out := &GetReviewsByArtworkOutput{}
+	out.Body.Reviews = views
+	return out, nil
+}
+
+// newReviewDetailView converts review details into an API response.
+func newReviewDetailView(item review.ReviewDetail) reviewDetailView {
+	return reviewDetailView{
+		reviewView: reviewView{
+			ID:         item.ID,
+			OrderID:    item.OrderID,
+			CustomerID: item.CustomerID,
+			ArtistID:   item.ArtistID,
+			Rating:     item.Rating,
+			Comment:    item.Comment,
+			CreatedAt:  item.CreatedAt,
+		},
+		Username: item.Username,
+		Order:    item.Order,
+	}
 }

@@ -115,28 +115,50 @@ func (r *reviewRepository) Create(
 	return apperror.Internal("failed to create review", err)
 }
 
-// retrieves an artist's reviews from newest to oldest
+type reviewDetailRow struct {
+	pgmodel.Review
+	Username  string `bun:"username"`
+	OrderName string `bun:"order_name"`
+}
+
+// newReviewDetailQuery selects reviews with customer and artwork names.
+func newReviewDetailQuery(idb bun.IDB) *bun.SelectQuery {
+	return idb.NewSelect().
+		TableExpr("reviews AS r").
+		ColumnExpr("r.*").
+		ColumnExpr("customer.username AS username").
+		ColumnExpr("COALESCE(NULLIF(o.artwork_snapshot->>'artwork_name', ''), a.name, o.name) AS order_name").
+		Join("JOIN users AS customer ON customer.id = r.customer_id").
+		Join("JOIN orders AS o ON o.id = r.order_id").
+		Join("LEFT JOIN artworks AS a ON a.id = o.artwork_id")
+}
+
+// toDomain converts a database result into review details.
+func (row reviewDetailRow) toDomain() review.ReviewDetail {
+	return review.ReviewDetail{
+		Review: review.Review{
+			ID:         row.ID,
+			OrderID:    row.OrderID,
+			CustomerID: row.CustomerID,
+			ArtistID:   row.ArtistID,
+			Rating:     row.Rating,
+			Comment:    row.Comment,
+			CreatedAt:  row.CreatedAt,
+		},
+		Username: row.Username,
+		Order:    row.OrderName,
+	}
+}
+
+// ListByArtistID retrieves an artist's reviews from newest to oldest.
 func (r *reviewRepository) ListByArtistID(
 	ctx context.Context,
 	artistID uuid.UUID,
 ) ([]review.ReviewDetail, error) {
-	var rows []struct {
-		pgmodel.Review
-		Username  string `bun:"username"`
-		OrderName string `bun:"order_name"`
-	}
+	var rows []reviewDetailRow
 
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return idb.NewSelect().
-			TableExpr("reviews AS r").
-			ColumnExpr("r.*").
-			ColumnExpr("customer.username AS username").
-			ColumnExpr(
-				"COALESCE(NULLIF(o.artwork_snapshot->>'artwork_name', ''), a.name, o.name) AS order_name",
-			).
-			Join("JOIN users AS customer ON customer.id = r.customer_id").
-			Join("JOIN orders AS o ON o.id = r.order_id").
-			Join("LEFT JOIN artworks AS a ON a.id = o.artwork_id").
+		return newReviewDetailQuery(idb).
 			Where("r.artist_id = ?", artistID).
 			OrderExpr("r.created_at DESC, r.id DESC").
 			Scan(ctx, &rows)
@@ -148,20 +170,55 @@ func (r *reviewRepository) ListByArtistID(
 	result := make([]review.ReviewDetail, 0, len(rows))
 
 	for _, row := range rows {
-		result = append(result, review.ReviewDetail{
-			Review: review.Review{
-				ID:         row.ID,
-				OrderID:    row.OrderID,
-				CustomerID: row.CustomerID,
-				ArtistID:   row.ArtistID,
-				Rating:     row.Rating,
-				Comment:    row.Comment,
-				CreatedAt:  row.CreatedAt,
-			},
-			Username: row.Username,
-			Order:    row.OrderName,
-		})
+		result = append(result, row.toDomain())
 	}
 
+	return result, nil
+}
+
+// GetByOrderID retrieves the review associated with an order.
+func (r *reviewRepository) GetByOrderID(
+	ctx context.Context,
+	orderID uuid.UUID,
+) (*review.ReviewDetail, error) {
+	var row reviewDetailRow
+
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		return newReviewDetailQuery(idb).
+			Where("r.order_id = ?", orderID).
+			Scan(ctx, &row)
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, review.ErrReviewNotFound
+		}
+		return nil, apperror.Internal("failed to get order review", err)
+	}
+
+	item := row.toDomain()
+	return &item, nil
+}
+
+// ListByArtworkID retrieves reviews from orders placed for the artwork.
+func (r *reviewRepository) ListByArtworkID(
+	ctx context.Context,
+	artworkID uuid.UUID,
+) ([]review.ReviewDetail, error) {
+	var rows []reviewDetailRow
+
+	err := r.exec.Run(ctx, func(idb bun.IDB) error {
+		return newReviewDetailQuery(idb).
+			Where("o.artwork_id = ?", artworkID).
+			OrderExpr("r.created_at DESC, r.id DESC").
+			Scan(ctx, &rows)
+	})
+	if err != nil {
+		return nil, apperror.Internal("failed to list artwork reviews", err)
+	}
+
+	result := make([]review.ReviewDetail, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, row.toDomain())
+	}
 	return result, nil
 }
