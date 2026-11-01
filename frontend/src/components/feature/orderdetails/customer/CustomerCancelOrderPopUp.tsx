@@ -12,7 +12,7 @@ import ArtistOrderPopup from "../artist/popups/ArtistOrderPopup";
 type CancelReason = CancelOrderInput["reason"];
 
 // Reasons the backend accepts from a customer (order.CancelReason.IsValid).
-const CUSTOMER_REASONS: { value: CancelReason; label: string }[] = [
+export const CUSTOMER_REASONS: { value: CancelReason; label: string }[] = [
   { value: "PLACED_ORDER_BY_MISTAKE", label: "I placed this order by mistake" },
   { value: "NO_LONGER_NEEDED", label: "I no longer need this artwork" },
   {

@@ -26,12 +26,15 @@ import type { ArtistProfile } from "@/lib/api/types";
 import { ArtistMiniProfile } from "./ArtistMiniProfile";
 import CustomerPostponeSection from "./CustomerPostponeSection";
 import OrderReview from "../shared/OrderReview"
+import OrderCancelSection from "../shared/OrderCancelSection";
+import OrderSuccessSection from "../shared/OrderSuccessSection";
 import {
   getReviewByOrderId,
   createReview,
   type Review,
 } from "@/lib/api/reviews";
 import FinalArtworkActions from "./FinalArtworkActions";
+
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -123,7 +126,7 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
       .then((profile) => {
         if (!cancelled) setArtistProfile(profile);
       })
-      .catch(() => { });
+      .catch(() => {  });
     return () => {
       cancelled = true;
     };
@@ -192,6 +195,22 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
                 setOrder(fresh);
                 setDrafts(toDrafts(fresh.deliverables));
               }}
+            />
+          ) : null
+        }
+        cancelSection={
+          // order.cancellation && 
+          order.status === "CANCEL" ? (
+            <OrderCancelSection
+              // cancellation={order.cancellation}
+            />
+          ) : null
+        }
+        successSection={
+          order.status === "SUCCESS" ? (
+            <OrderSuccessSection 
+            draftCount={order.deliverables?.length ?? 0}
+            review={hasReviewed}
             />
           ) : null
         }
