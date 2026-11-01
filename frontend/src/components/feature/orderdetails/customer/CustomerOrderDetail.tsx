@@ -127,7 +127,7 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
       .then((profile) => {
         if (!cancelled) setArtistProfile(profile);
       })
-      .catch(() => {  });
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
@@ -203,15 +203,15 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
           // order.cancellation && 
           order.status === "CANCEL" ? (
             <OrderCancelSection
-              // cancellation={order.cancellation}
+            // cancellation={order.cancellation}
             />
           ) : null
         }
         successSection={
           order.status === "SUCCESS" ? (
-            <OrderSuccessSection 
-            draftCount={order.deliverables?.length ?? 0}
-            review={hasReviewed}
+            <OrderSuccessSection
+              draftCount={order.deliverables?.length ?? 0}
+              review={hasReviewed}
             />
           ) : null
         }

@@ -24,6 +24,7 @@ import PostponeNotice from "./PostponeNotice";
 import OrderReview from "../shared/OrderReview"
 import OrderCancelSection from "../shared/OrderCancelSection";
 import OrderSuccessSection from "../shared/OrderSuccessSection";
+import { mockReviews } from "@/lib/api/reviews";
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -206,7 +207,7 @@ export default function ArtistOrderDetails() {
       <OrderDetails
         usertype="artist"
         notice={pendingPostpone ? <PostponeNotice deadline={pendingPostpone.deadline_request_at} /> : undefined}
-        cancelSection={order.status === "CANCEL" ? (<OrderCancelSection/>) : null}
+        cancelSection={order.status === "CANCEL" ? (<OrderCancelSection />) : null}
         successSection={order.status === "SUCCESS" ? (<OrderSuccessSection draftCount={order.deliverables?.length ?? 0} review={true} />) : null}
         description={
           <OrderDescription
@@ -230,7 +231,7 @@ export default function ArtistOrderDetails() {
           </>
         }
         userInfo={<UserInfo title="Customer Info" name={order.other_party.name} email={order.other_party.email} />}
-        review={order.status === "SUCCESS" ? (<OrderReview />) : null}
+        review={order.status === "SUCCESS" ? (<OrderReview review={mockReviews[2]} />) : null}
       >
         {canSubmit && (
           <SubmitDraft disabled={busy} onSubmit={(file) => runMutation(async () => {
