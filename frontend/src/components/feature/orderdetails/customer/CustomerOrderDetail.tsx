@@ -20,12 +20,18 @@ import { CustomerCommentConfirmPopUp } from "./CustomerCommentConfirmPopUp";
 import { RatingOrderPopup } from "./RatingOrderPopUp";
 import { ThankYouOrderPopup } from "./ThankYouOrderPopUp";
 import CustomerDraftActions from "./CustomerDraftActions";
-import DownloadArtworkButton from "./DownloadArtworkButton";
 import CustomerOrderActions from "./CustomerOrderActions";
 import { getArtistProfile } from "@/lib/api/artists";
 import type { ArtistProfile } from "@/lib/api/types";
 import { ArtistMiniProfile } from "./ArtistMiniProfile";
 import CustomerPostponeSection from "./CustomerPostponeSection";
+import OrderReview from "../shared/OrderReview"
+import {
+  getReviewByOrderId,
+  createReview,
+  type Review,
+} from "@/lib/api/reviews";
+import FinalArtworkActions from "./FinalArtworkActions";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -74,13 +80,9 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
   const [drafts, setDrafts] = useState<Draft[]>(() => toDrafts(initialOrder.deliverables));
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [reviewStep, setReviewStep] = useState<"none" | "rating" | "thanks">(() =>
-    initialOrder.status === "SUCCESS" &&
-    (initialOrder.deliverables ?? []).some((d) => d.decision === "APPROVED") &&
-    !localStorage.getItem(`order-rating-shown:${initialOrder.id}`)
-      ? "rating"
-      : "none",
-  );
+  const [reviewStep, setReviewStep] = useState<"none" | "rating" | "thanks">("none");
+  const [review, setReview] = useState<Review | null>(null);
+  const hasReviewed = review !== null;
   const [popupStatus, setPopupStatus] = useState<"default" | "success" | "fail">("default");
   const [popupError, setPopupError] = useState<string | null>(null);
 
@@ -121,11 +123,29 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
       .then((profile) => {
         if (!cancelled) setArtistProfile(profile);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
   }, [initialOrder.artist_id]);
+
+  useEffect(() => {
+    let active = true;
+
+    getReviewByOrderId(order.id)
+      .then((result) => {
+        if (active) {
+          setReview(result);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load review:", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [order.id]);
 
   const revisionsUsed = drafts.filter((d) => d.status === "CHANGE_REQUESTED").length;
   const closePopup = () => {
@@ -148,7 +168,6 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
       setDrafts(toDrafts(fresh.deliverables));
       if (pending.kind === "accept") {
         closePopup();
-        setReviewStep("rating");
       } else {
         setPopupStatus("success");
       }
@@ -158,18 +177,9 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
     }
   };
 
-  // The rating popup is shown once for an order that is already completed and
-  // not yet rated (e.g. the final draft was auto-accepted). The backend has no
-  // review endpoint, so "already shown" is remembered per order in localStorage.
-  const ratingKey = `order-rating-shown:${order.id}`;
-
-  useEffect(() => {
-    if (reviewStep === "rating") localStorage.setItem(ratingKey, "1");
-  }, [reviewStep, ratingKey]);
-
   return (
     <>
-    
+
       <OrderDetails
         usertype="customer"
         postponeSection={
@@ -233,18 +243,30 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
             />
           </div>
         }
+        review={
+          // order.review && 
+          order.status === "SUCCESS" && review ? (
+            <OrderReview
+            // review={order.review}
+            />
+          ) : null
+        }
       >
         {drafts.length > 0 && (
           <DraftHistory
             drafts={drafts}
-            renderFinalArtworkActions={() =>
-              order.original_image_url ? (
-                <DownloadArtworkButton
-                  imageUrl={order.original_image_url}
+            renderFinalArtworkActions={() => {
+              if (order.status !== "SUCCESS") return null;
+
+              return (
+                <FinalArtworkActions
+                  hasReviewed={hasReviewed}
+                  imageUrl={order.original_image_url ?? null}
                   fileName={`${order.name}-final`}
+                  onReview={() => setReviewStep("rating")}
                 />
-              ) : null
-            }
+              );
+            }}
             renderDraftActions={(draft) => (
               <CustomerDraftActions
                 draft={draft}
@@ -272,8 +294,26 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
         isOpen={reviewStep === "rating"}
         status="default"
         onCancel={() => setReviewStep("none")}
-        // The backend has no review endpoint yet, so the rating is not persisted.
-        onConfirm={() => setReviewStep("thanks")}
+        onConfirm={async () => {
+          const newReview: Review = {
+            id: crypto.randomUUID(),
+            order_id: order.id,
+            customer_id: "mock-customer",
+            artist_id: order.artist_id,
+            rating: 5,
+            comment: "Great artwork!",
+            created_at: new Date().toISOString(),
+          };
+
+          try {
+            const savedReview = await createReview(newReview);
+
+            setReview(savedReview);
+            setReviewStep("thanks");
+          } catch (error) {
+            console.error("Failed to create review:", error);
+          }
+        }}
       />
       <ThankYouOrderPopup
         isOpen={reviewStep === "thanks"}

@@ -21,6 +21,7 @@ import ConfirmOrderPopup from "./popups/ConfirmOrderPopup";
 import CancelOrderPopup from "./popups/CancelOrderPopup";
 import PostponeOrderPopup from "./popups/PostponeOrderPopup";
 import PostponeNotice from "./PostponeNotice";
+import OrderReview from "../shared/OrderReview"
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -225,6 +226,7 @@ export default function ArtistOrderDetails() {
           </>
         }
         userInfo={<UserInfo title="Customer Info" name={order.other_party.name} email={order.other_party.email} />}
+        review={order.status === "SUCCESS" ? (<OrderReview />) : null}
       >
         {canSubmit && (
           <SubmitDraft disabled={busy} onSubmit={(file) => runMutation(async () => {

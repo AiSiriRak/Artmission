@@ -13,6 +13,7 @@ interface OrderDetailsProps {
   userInfo?: ReactNode;
   notice?: ReactNode;
   children?: ReactNode;
+  review?: ReactNode;
 }
 
 export default function OrderDetails({
@@ -23,6 +24,7 @@ export default function OrderDetails({
   notice,
   children,
   postponeSection,
+  review,
 }: OrderDetailsProps) {
   const router = useRouter();
 
@@ -56,6 +58,7 @@ export default function OrderDetails({
           <section className="min-w-0">
             {info}
             {userInfo && <div className="mt-10">{userInfo}</div>}
+            {review && <div className="mt-10">{review}</div>}
           </section>
         </div>
       </div>
