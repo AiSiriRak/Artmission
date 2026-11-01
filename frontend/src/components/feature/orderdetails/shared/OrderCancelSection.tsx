@@ -110,7 +110,7 @@ export default function OrderCancelSection({
 					<img
 						src="/icons/Bell_light.svg"
 						alt=""
-						className="mt-1 h-6 w-6 shrink-0"
+						className="h-8 w-8 shrink-0"
 					/>
 					<div className="min-w-0 flex-1">
 						<div className="flex flex-wrap items-baseline gap-x-3">

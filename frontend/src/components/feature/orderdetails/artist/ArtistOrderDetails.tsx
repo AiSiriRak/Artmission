@@ -22,6 +22,7 @@ import CancelOrderPopup from "./popups/CancelOrderPopup";
 import PostponeOrderPopup from "./popups/PostponeOrderPopup";
 import PostponeNotice from "./PostponeNotice";
 import OrderCancelSection from "../shared/OrderCancelSection";
+import OrderSuccessSection from "../shared/OrderSuccessSection";
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -204,14 +205,8 @@ export default function ArtistOrderDetails() {
       <OrderDetails
         usertype="artist"
         notice={pendingPostpone ? <PostponeNotice deadline={pendingPostpone.deadline_request_at} /> : undefined}
-        cancelSection={
-          // order.cancellation && 
-          order.status === "CANCEL" ? (
-            <OrderCancelSection
-            // cancellation={order.cancellation}
-            />
-          ) : null
-        }
+        cancelSection={order.status === "CANCEL" ? (<OrderCancelSection/>) : null}
+        successSection={order.status === "SUCCESS" ? (<OrderSuccessSection draftCount={order.deliverables?.length ?? 3}/>) : null}
         description={
           <OrderDescription
             orderName={order.name}

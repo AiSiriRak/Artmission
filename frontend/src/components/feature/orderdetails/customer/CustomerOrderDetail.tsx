@@ -27,6 +27,7 @@ import type { ArtistProfile } from "@/lib/api/types";
 import { ArtistMiniProfile } from "./ArtistMiniProfile";
 import CustomerPostponeSection from "./CustomerPostponeSection";
 import OrderCancelSection from "../shared/OrderCancelSection";
+import OrderSuccessSection from "../shared/OrderSuccessSection";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -191,6 +192,13 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
           order.status === "CANCEL" ? (
             <OrderCancelSection
               // cancellation={order.cancellation}
+            />
+          ) : null
+        }
+        successSection={
+          order.status === "SUCCESS" ? (
+            <OrderSuccessSection 
+            draftCount={order.deliverables?.length ?? 0}
             />
           ) : null
         }
