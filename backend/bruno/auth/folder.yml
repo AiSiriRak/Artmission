@@ -10,8 +10,8 @@ request:
     - name: artist_email
       value: artist@example.com
     - name: customer_email
-      value: customer@example.com
+      value: mai@mail.com
     - name: customer_username
       value: testcustomer
     - name: password
-      value: password123
+      value: "123456789"
