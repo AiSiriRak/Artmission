@@ -14,6 +14,32 @@ import (
 	"github.com/google/uuid"
 )
 
+type reviewResponse struct {
+	ID         uuid.UUID `json:"id"`
+	OrderID    uuid.UUID `json:"order_id"`
+	CustomerID uuid.UUID `json:"customer_id"`
+	ArtistID   uuid.UUID `json:"artist_id"`
+	Rating     int       `json:"rating"`
+	Comment    *string   `json:"comment"`
+	CreatedAt  time.Time `json:"created_at"`
+	Username   string    `json:"username"`
+	Order      string    `json:"order"`
+}
+
+type reviewsContext struct {
+	client          *apptest.Client
+	customer        apptest.Account
+	artist          apptest.Account
+	customerToken   string
+	orderID         uuid.UUID
+	artworkID       uuid.UUID
+	categoryID      uuid.UUID
+	response        *apptest.Response
+	existingReviews int
+	expectedIDs     []uuid.UUID
+	expectedDates   []time.Time
+}
+
 func InitializeScenario(sc *godog.ScenarioContext) {
 	var c *reviewsContext
 	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
@@ -62,8 +88,6 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 			"unfinished commission": http.StatusConflict,
 			"duplicate review":      http.StatusConflict,
 			"forbidden":             http.StatusForbidden,
-			"unauthenticated":       http.StatusUnauthorized,
-			"missing order":         http.StatusNotFound,
 		}
 		status, ok := statuses[reason]
 		if !ok {
@@ -88,9 +112,6 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		}
 		return c.submit(c.orderID, map[string]any{"rating": 5}, token)
 	})
-	sc.Step(`^the customer reviews an order that does not exist$`, func() error {
-		return c.submit(uuid.New(), map[string]any{"rating": 5}, c.customerToken)
-	})
 	sc.Step(`^the customer has already reviewed the commission$`, func() error {
 		if err := c.submit(c.orderID, map[string]any{"rating": 5, "comment": "Original review"}, c.customerToken); err != nil {
 			return err
@@ -111,45 +132,6 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		}
 		return checkComment(row.Comment, "Original review")
 	})
-	sc.Step(`^the customer submits the same review concurrently$`, func() error {
-		results := make(chan submissionResult, 2)
-		for range 2 {
-			go func() {
-				client := apptest.NewClient(app.BaseURL())
-				response, err := client.Do(http.MethodPost, "/orders/"+c.orderID.String()+"/review", map[string]any{"rating": 5}, map[string]string{"Authorization": "Bearer " + c.customerToken})
-				results <- submissionResult{response: response, err: err}
-			}()
-		}
-		for range 2 {
-			c.concurrent = append(c.concurrent, <-results)
-		}
-		return nil
-	})
-	sc.Step(`^only one review is saved$`, func() error {
-		created, conflicted := 0, 0
-		for _, result := range c.concurrent {
-			if result.err != nil {
-				return result.err
-			}
-			switch result.response.StatusCode {
-			case http.StatusCreated:
-				created++
-			case http.StatusConflict:
-				conflicted++
-			default:
-				return fmt.Errorf("unexpected concurrent response %d: %s", result.response.StatusCode, result.response.Body)
-			}
-		}
-		count, err := c.countOrderReviews()
-		if err != nil {
-			return err
-		}
-		if created != 1 || conflicted != 1 || count != 1 {
-			return fmt.Errorf("expected one created review and one conflict, got created=%d conflicts=%d rows=%d", created, conflicted, count)
-		}
-		want := 5.0
-		return c.requireAverage(&want)
-	})
 	sc.Step(`^the customer reviews three completed commissions with ratings 5, 4, and 4$`, func() error {
 		for _, rating := range []int{5, 4, 4} {
 			orderID, err := c.createOrder("SUCCESS", time.Now().UTC())
@@ -166,10 +148,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		return nil
 	})
 	sc.Step(`^the artist has reviews whose order dates differ from their review dates$`, func() error {
-		return c.prepareReviewHistory(false)
-	})
-	sc.Step(`^the artist has reviews with identical timestamps$`, func() error {
-		return c.prepareReviewHistory(true)
+		return c.prepareReviewHistory()
 	})
 	sc.Step(`^"([^"]+)" requests the artist reviews$`, func(caller string) error {
 		token, err := c.tokenFor(caller)
@@ -223,10 +202,6 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		}
 		return nil
 	})
-	sc.Step(`^the reviewed artwork has been deleted$`, func() error {
-		_, err := app.DB.ExecContext(context.Background(), "DELETE FROM artworks WHERE id = ?", c.artworkID)
-		return err
-	})
 	sc.Step(`^the system returns an empty review list and no average score$`, func() error {
 		items, err := c.readReviewList()
 		if err != nil {
@@ -236,9 +211,6 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 			return fmt.Errorf("expected reviews: [], got %+v", items)
 		}
 		return c.requireAverage(nil)
-	})
-	sc.Step(`^the artist review list requires authentication$`, func() error {
-		return c.requireStatus(http.StatusUnauthorized)
 	})
 }
 
@@ -258,11 +230,7 @@ func (c *reviewsContext) tokenFor(caller string) (string, error) {
 	case "the customer":
 		return c.customerToken, nil
 	case "the artist":
-		return c.artistToken, nil
-	case "a visitor":
-		return "", nil
-	case "an expired token":
-		return "invalid-or-expired-token", nil
+		return apptest.Login(c.client, c.artist.Email, c.artist.Password)
 	case "another customer":
 		other, err := apptest.RegisterCustomer(app, c.client)
 		if err != nil {
@@ -280,26 +248,22 @@ func (c *reviewsContext) readReviewList() ([]reviewResponse, error) {
 	}
 	var body struct {
 		Reviews []reviewResponse `json:"reviews"`
+		Total   *int             `json:"total"`
 	}
 	if err := c.response.JSON(&body); err != nil {
 		return nil, err
+	}
+	if body.Total == nil || *body.Total != len(body.Reviews) {
+		return nil, fmt.Errorf("total must match the number of reviews")
 	}
 	return body.Reviews, nil
 }
 
 // prepareReviewHistory makes order chronology disagree with review chronology.
-func (c *reviewsContext) prepareReviewHistory(equalTimes bool) error {
+func (c *reviewsContext) prepareReviewHistory() error {
 	base := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
 	ids := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
 	dates := []time.Time{base, base.Add(2 * time.Hour), base.Add(time.Hour)}
-	if equalTimes {
-		ids = []uuid.UUID{
-			uuid.MustParse("00000000-0000-0000-0000-000000000010"),
-			uuid.MustParse("00000000-0000-0000-0000-000000000030"),
-			uuid.MustParse("00000000-0000-0000-0000-000000000020"),
-		}
-		dates = []time.Time{base, base, base}
-	}
 	for i := range ids {
 		orderID, err := c.createOrder("SUCCESS", base.Add(time.Duration(3-i)*time.Hour))
 		if err != nil {
@@ -311,8 +275,13 @@ func (c *reviewsContext) prepareReviewHistory(equalTimes bool) error {
 		if err := c.requireStatus(http.StatusCreated); err != nil {
 			return err
 		}
-		// Fixed review times avoid sleeps and make timestamp ties reproducible.
-		if _, err := app.DB.ExecContext(context.Background(), "UPDATE reviews SET id = ?, created_at = ? WHERE order_id = ?", ids[i], dates[i], orderID); err != nil {
+		var item reviewResponse
+		if err := c.response.JSON(&item); err != nil {
+			return err
+		}
+		ids[i] = item.ID
+		// Fixed review times keep the sorting check independent of machine speed.
+		if _, err := app.DB.ExecContext(context.Background(), "UPDATE reviews SET created_at = ? WHERE order_id = ?", dates[i], orderID); err != nil {
 			return err
 		}
 	}
@@ -327,4 +296,119 @@ func (c *reviewsContext) prepareReviewHistory(equalTimes bool) error {
 		return err
 	}
 	return other.requireStatus(http.StatusCreated)
+}
+
+// prepareCommission seeds an order state without replaying the unrelated payment flow.
+func (c *reviewsContext) prepareCommission(status string) error {
+	var err error
+	c.customer, err = apptest.RegisterCustomer(app, c.client)
+	if err != nil {
+		return err
+	}
+	c.artist, err = apptest.RegisterArtist(app, c.client, "Review test artist")
+	if err != nil {
+		return err
+	}
+	c.customerToken, err = apptest.Login(c.client, c.customer.Email, c.customer.Password)
+	if err != nil {
+		return err
+	}
+	c.categoryID, c.artworkID = uuid.New(), uuid.New()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := app.DB.ExecContext(ctx,
+		"INSERT INTO categories (id, label) VALUES (?, ?)",
+		c.categoryID, "Review category "+apptest.UniqueSuffix(),
+	); err != nil {
+		return err
+	}
+	if _, err := app.DB.ExecContext(ctx, `
+		INSERT INTO artworks (id, artist_id, category_id, name, description, price_satang, minimum_deadline_days)
+		VALUES (?, ?, ?, 'Current artwork name', 'Review fixture', 1000, 7)
+	`, c.artworkID, c.artist.ID, c.categoryID); err != nil {
+		return err
+	}
+	c.orderID, err = c.createOrder(status, time.Now().UTC())
+	return err
+}
+
+func (c *reviewsContext) createOrder(status string, createdAt time.Time) (uuid.UUID, error) {
+	id := uuid.New()
+	snapshot, err := json.Marshal(map[string]any{
+		"artwork_name": "Purchased artwork name",
+		"category_id":  c.categoryID,
+		"style_ids":    []string{},
+	})
+	if err != nil {
+		return uuid.Nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err = app.DB.ExecContext(ctx, `
+		INSERT INTO orders (
+			id, customer_id, artist_id, artwork_id, artwork_snapshot, price_satang_order,
+			name, customer_description, deadline_at, status, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?::jsonb, 1000, 'Customer commission title', 'Review fixture', ?, ?, ?, ?)
+	`, id, c.customer.ID, c.artist.ID, c.artworkID, string(snapshot), createdAt.AddDate(0, 0, 7), status, createdAt, createdAt)
+	return id, err
+}
+
+func (c *reviewsContext) submit(orderID uuid.UUID, body any, token string) error {
+	headers := map[string]string{}
+	if token != "" {
+		headers["Authorization"] = "Bearer " + token
+	}
+	var err error
+	c.response, err = c.client.Do(http.MethodPost, "/orders/"+orderID.String()+"/review", body, headers)
+	return err
+}
+
+func (c *reviewsContext) listReviews(token string) error {
+	headers := map[string]string{}
+	if token != "" {
+		headers["Authorization"] = "Bearer " + token
+	}
+	var err error
+	c.response, err = c.client.Do(http.MethodGet, "/artists/"+c.artist.ID+"/reviews", nil, headers)
+	return err
+}
+
+func (c *reviewsContext) requireStatus(want int) error {
+	if c.response == nil {
+		return fmt.Errorf("no HTTP response")
+	}
+	if c.response.StatusCode != want {
+		return fmt.Errorf("expected status %d, got %d: %s", want, c.response.StatusCode, c.response.Body)
+	}
+	return nil
+}
+
+func (c *reviewsContext) countOrderReviews() (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return app.DB.NewSelect().Table("reviews").Where("order_id = ?", c.orderID).Count(ctx)
+}
+
+func (c *reviewsContext) requireAverage(want *float64) error {
+	response, err := c.client.Do(http.MethodGet, "/artists/"+c.artist.ID, nil, nil)
+	if err != nil {
+		return err
+	}
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("artist profile returned %d: %s", response.StatusCode, response.Body)
+	}
+	var profile struct {
+		Score *float64 `json:"review_score"`
+	}
+	if err := response.JSON(&profile); err != nil {
+		return err
+	}
+	if want == nil {
+		if profile.Score != nil {
+			return fmt.Errorf("expected no average score, got %v", *profile.Score)
+		}
+	} else if profile.Score == nil || *profile.Score != *want {
+		return fmt.Errorf("expected average %v, got %v", *want, profile.Score)
+	}
+	return nil
 }

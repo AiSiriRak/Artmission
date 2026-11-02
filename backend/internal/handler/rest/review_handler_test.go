@@ -257,12 +257,16 @@ func TestReviewHandler_GetArtistReviews(t *testing.T) {
 
 			var body struct {
 				Reviews []reviewDetailView `json:"reviews"`
+				Total   *int               `json:"total"`
 			}
 			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 				t.Fatalf("decode response: %v", err)
 			}
 			if body.Reviews == nil {
 				t.Fatal("reviews must be an array, not null or missing")
+			}
+			if body.Total == nil || *body.Total != len(body.Reviews) {
+				t.Fatal("total must be present and match the number of reviews")
 			}
 
 			if tc.empty {

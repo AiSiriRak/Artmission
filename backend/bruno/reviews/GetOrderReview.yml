@@ -1,0 +1,26 @@
+info:
+  name: GetOrderReview
+  type: http
+  seq: 3
+  tags:
+    - reviews
+
+http:
+  method: GET
+  url: "{{api_url}}/orders/:order_id/review"
+  params:
+    - name: order_id
+      value: "{{OrderID}}"
+      type: path
+      description: Order ID
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+docs:
+  Get the review associated with an order
