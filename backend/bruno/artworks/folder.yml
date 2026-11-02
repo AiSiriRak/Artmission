@@ -12,4 +12,4 @@ request:
     - name: StyleID
       value: 00000000-0000-0000-0000-000000000000
     - name: ArtistID
-      value: cd81ab25-5451-456d-a795-1ae11d107f82
+      value: 00000000-0000-0000-0000-000000000000
