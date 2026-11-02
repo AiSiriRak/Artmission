@@ -1,4 +1,5 @@
 import { ReviewData } from "../../../app/artist-profile/types";
+import { ReviewStars } from "../orderdetails/shared/OrderReview";
 
 export default function ReviewCard({ review }: { review: ReviewData }) {
   return (
@@ -15,7 +16,7 @@ export default function ReviewCard({ review }: { review: ReviewData }) {
       </div>
 
       {/* ข้อมูลรีวิว */}
-      <div className="flex-1 text-sm text-gray-800 leading-relaxed">
+      <div className="flex-1 text-sm text-gray-800 leading-relaxed gap-4">
         <div className="flex items-center gap-2 mb-1">
           <span className="font-bold text-gray-900">
             {review.reviewerName || "Name"}
@@ -29,11 +30,12 @@ export default function ReviewCard({ review }: { review: ReviewData }) {
           Order:{" "}
           <span className="font-normal">{review.orderName || "Pixel Art"}</span>
         </p>
-        <p className="font-semibold text-gray-900 mb-2">
-          Rating: <span className="font-normal">{review.rating}/5</span>
-        </p>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-gray-900">Rating:</span>
+          <ReviewStars rating={review.rating} size={14} />
+        </div>
 
-        <p className="text-gray-700">{review.comment}</p>
+        <p className="mt-2 text-gray-700">{review.comment}</p>
       </div>
     </div>
   );

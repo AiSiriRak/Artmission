@@ -267,7 +267,7 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
           // order.review && 
           order.status === "SUCCESS" ? (
             <OrderReview
-              review={hasReviewed ? mockReviews[2] : null}
+              review={hasReviewed ? mockReviews[1] : null}
             />
           ) : null
         }

@@ -5,7 +5,7 @@ import { WhiteCard } from "@/components/ui/WhiteCard";
 
 import { Review } from "@/lib/api/reviews";
 
-function ReviewStars({ rating, size = 24 }: { rating: number; size?: number }) {
+export function ReviewStars({ rating, size = 24 }: { rating: number; size?: number }) {
   return (
     <div className="flex items-center gap-2">
       {[...Array(5)].map((_, index) => {
@@ -41,13 +41,11 @@ export default function OrderCancelSection({
 }: OrderReviewProps) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-h3">Review</h2>
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-h3">Review</h2>
           {review && (
             <ReviewStars rating={review.rating} size={22} />
           )}
-        </div>
         {review && (
           <span className="text-small text-primary-400/60">
             {format(new Date(review.created_at), "d MMM yyyy")}
