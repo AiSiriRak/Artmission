@@ -7,8 +7,11 @@ request:
   auth: inherit
   variables:
     - name: OrderID
-      value: 17ee28d1-3af7-4b21-8476-860aef6f2553
+      value: 00000000-0000-0000-0000-000000000000
       description: Order ID
     - name: ArtistID
       value: 00000000-0000-0000-0000-000000000000
       description: Artist ID
+    - name: ArtworkID
+      value: 00000000-0000-0000-0000-000000000000
+      description: Artwork ID

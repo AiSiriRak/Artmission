@@ -95,7 +95,7 @@ type SubmitReviewInput struct {
 	}
 }
 
-type reviewView struct {
+type ReviewView struct {
 	ID         uuid.UUID `json:"id"`
 	OrderID    uuid.UUID `json:"order_id"`
 	CustomerID uuid.UUID `json:"customer_id"`
@@ -106,7 +106,7 @@ type reviewView struct {
 }
 
 type SubmitReviewOutput struct {
-	Body reviewView
+	Body ReviewView
 }
 
 type GetArtistReviewsInput struct {
@@ -114,7 +114,7 @@ type GetArtistReviewsInput struct {
 }
 
 type reviewDetailView struct {
-	reviewView
+	ReviewView
 	Username string `json:"username"`
 	Order    string `json:"order"`
 }
@@ -131,7 +131,7 @@ type GetOrderReviewInput struct {
 }
 
 type GetOrderReviewOutput struct {
-	Body reviewDetailView
+	Body ReviewView
 }
 
 type GetReviewsByArtworkInput struct {
@@ -168,7 +168,7 @@ func (h *ReviewHandler) submitReview(
 	}
 
 	return &SubmitReviewOutput{
-		Body: reviewView{
+		Body: ReviewView{
 			ID:         result.ID,
 			OrderID:    result.OrderID,
 			CustomerID: result.CustomerID,
@@ -194,7 +194,7 @@ func (h *ReviewHandler) getArtistReviews(
 
 	for _, item := range items {
 		views = append(views, reviewDetailView{
-			reviewView: reviewView{
+			ReviewView: ReviewView{
 				ID:         item.ID,
 				OrderID:    item.OrderID,
 				CustomerID: item.CustomerID,
@@ -235,7 +235,7 @@ func (h *ReviewHandler) getOrderReview(
 	}
 
 	return &GetOrderReviewOutput{
-		Body: newReviewDetailView(*item),
+		Body: newReviewDetailView(*item).ReviewView,
 	}, nil
 }
 
@@ -262,7 +262,7 @@ func (h *ReviewHandler) getReviewsByArtwork(
 // newReviewDetailView converts review details into an API response.
 func newReviewDetailView(item review.ReviewDetail) reviewDetailView {
 	return reviewDetailView{
-		reviewView: reviewView{
+		ReviewView: ReviewView{
 			ID:         item.ID,
 			OrderID:    item.OrderID,
 			CustomerID: item.CustomerID,
