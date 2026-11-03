@@ -23,6 +23,7 @@ type orderSeed struct {
 	CustomerDescription string
 	Status              string
 	Completed           bool // sets completed_at; only meaningful for SUCCESS
+	DeadlineDays        int  // days from now; 0 = the artwork's minimum deadline
 }
 
 var orders = []orderSeed{
@@ -50,6 +51,49 @@ var orders = []orderSeed{
 		Key: "order-5", CustomerKey: "customer-1", ArtistKey: "artist-3", ArtworkKey: "artwork-5",
 		Name: "Line art self-portrait", CustomerDescription: "Simple black line art.",
 		Status: "CANCEL",
+	},
+	// Orders for the automated UI tests in frontend/e2e. Every test that changes an
+	// order gets its own, so run `seed reseed` before each e2e run. All belong to
+	// artist-2 with a 14-day deadline.
+	{
+		Key: "e2e-postpone-send", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
+		Name: "E2E postpone - send request", CustomerDescription: "Order for the deadline extension request test.",
+		Status: "IN_PROCESS", DeadlineDays: 14,
+	},
+	{
+		Key: "e2e-postpone-validation", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
+		Name: "E2E postpone - validation", CustomerDescription: "Order for the deadline extension validation tests.",
+		Status: "IN_PROCESS", DeadlineDays: 14,
+	},
+	{
+		Key: "e2e-postpone-pending", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
+		Name: "E2E postpone - request pending", CustomerDescription: "Order that already has an extension request awaiting the customer.",
+		Status: "IN_PROCESS", DeadlineDays: 14,
+	},
+	{
+		Key: "e2e-draft-jpg", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
+		Name: "E2E draft - JPEG", CustomerDescription: "Order for submitting a JPEG draft.",
+		Status: "IN_PROCESS", DeadlineDays: 14,
+	},
+	{
+		Key: "e2e-draft-png", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
+		Name: "E2E draft - PNG", CustomerDescription: "Order for submitting a PNG draft.",
+		Status: "IN_PROCESS", DeadlineDays: 14,
+	},
+	{
+		Key: "e2e-draft-webp", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
+		Name: "E2E draft - WebP", CustomerDescription: "Order for submitting a WebP draft.",
+		Status: "IN_PROCESS", DeadlineDays: 14,
+	},
+	{
+		Key: "e2e-draft-validation", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
+		Name: "E2E draft - validation", CustomerDescription: "Order for the draft upload validation tests.",
+		Status: "IN_PROCESS", DeadlineDays: 14,
+	},
+	{
+		Key: "e2e-cancelled", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
+		Name: "E2E cancelled order", CustomerDescription: "Already cancelled order, for read-only status checks.",
+		Status: "CANCEL", DeadlineDays: 14,
 	},
 }
 
@@ -86,6 +130,22 @@ type cancellationSeed struct {
 
 var cancellations = []cancellationSeed{
 	{OrderKey: "order-5", Reason: "NO_LONGER_NEEDED", Explanation: "I changed my mind about the style."},
+	{OrderKey: "e2e-cancelled", Reason: "NO_LONGER_NEEDED", Explanation: "Cancelled for the automated tests."},
+}
+
+type delayRequestSeed struct {
+	OrderKey    string
+	ExtraDays   int // requested deadline = the order's deadline + ExtraDays
+	Reason      string
+	Explanation string
+	Decision    string // "WAIT" | "APPROVED" | "REJECTED"
+}
+
+var delayRequests = []delayRequestSeed{
+	{
+		OrderKey: "e2e-postpone-pending", ExtraDays: 7,
+		Reason: "NEED_MORE_TIME", Explanation: "I need more time for details.", Decision: "WAIT",
+	},
 }
 
 func deliverableImageKeys(orderKey string, version int) (original, preview string) {
@@ -120,7 +180,7 @@ func seedOrdersUp(ctx context.Context, d deps) error {
 			Name:                o.Name,
 			PriceSatangOrder:    artwork.PriceSatang,
 			CustomerDescription: o.CustomerDescription,
-			DeadlineAt:          now.AddDate(0, 0, artwork.MinimumDeadlineDays),
+			DeadlineAt:          now.AddDate(0, 0, deadlineDays(o, artwork)),
 			Status:              o.Status,
 			CompletedAt:         completedAt,
 			CreatedAt:           now,
@@ -272,4 +332,39 @@ func seedOrderCancellationsUp(ctx context.Context, d deps) error {
 		}
 	}
 	return seedTable(ctx, d, rows, "id")
+}
+
+func seedOrderDelayRequestsUp(ctx context.Context, d deps) error {
+	now := time.Now()
+	rows := make([]pgmodel.OrderDelayRequest, len(delayRequests))
+	for i, r := range delayRequests {
+		var deadline time.Time
+		if err := d.db.NewSelect().
+			Table("orders").
+			Column("deadline_at").
+			Where("id = ?", orderID(r.OrderKey)).
+			Scan(ctx, &deadline); err != nil {
+			return fmt.Errorf("load deadline of seeded order %q: %w", r.OrderKey, err)
+		}
+		rows[i] = pgmodel.OrderDelayRequest{
+			ID:                 id("order_delay_request", r.OrderKey),
+			OrderID:            orderID(r.OrderKey),
+			OriginalDeadlineAt: deadline,
+			DeadlineRequestAt:  deadline.AddDate(0, 0, r.ExtraDays),
+			Reason:             r.Reason,
+			Explanation:        r.Explanation,
+			CustomerDecision:   r.Decision,
+			CreatedAt:          now,
+			UpdatedAt:          now,
+		}
+	}
+	return seedTable(ctx, d, rows, "id")
+}
+
+// deadlineDays returns how many days from now the seeded order is due.
+func deadlineDays(o orderSeed, artwork artworkSeed) int {
+	if o.DeadlineDays > 0 {
+		return o.DeadlineDays
+	}
+	return artwork.MinimumDeadlineDays
 }

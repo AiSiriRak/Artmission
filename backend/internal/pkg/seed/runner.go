@@ -40,6 +40,7 @@ var upSteps = []step{
 	seedPaymentsUp,
 	seedOrderDeliverablesUp,
 	seedOrderCancellationsUp,
+	seedOrderDelayRequestsUp,
 }
 
 // Declare steps only the tables that actually need an explicit delete:
