@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/notification"
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 	"net/http"
@@ -34,16 +33,17 @@ func (h *NotificationHandler) Register(api huma.API) {
 }
 
 type notificationView struct {
-	ID          uuid.UUID              `json:"id"`
-	Title       string                 `json:"title"`
-	Message     string                 `json:"message"`
-	Type        notification.Type      `json:"type"`
-	IsRead      bool                   `json:"is_read"`
-	CreatedAt   time.Time              `json:"created_at"`
-	EventType   notification.EventType `json:"event_type"`
-	OrderID     *uuid.UUID             `json:"order_id"`
-	OrderStatus *order.Status          `json:"order_status"`
-	DeadlineAt  *time.Time             `json:"deadline_at"`
+	ID                 uuid.UUID         `json:"id"`
+	Title              string            `json:"title"`
+	Message            string            `json:"message"`
+	Type               notification.Type `json:"type"`
+	IsRead             bool              `json:"is_read"`
+	CreatedAt          time.Time         `json:"created_at"`
+	DeliverableID      *uuid.UUID        `json:"deliverable_id"`
+	OrderID            *uuid.UUID        `json:"order_id"`
+	DeadlineAt         *time.Time        `json:"deadline_at"`
+	DeliverableVersion *int              `json:"deliverable_version"`
+	DelayRequestID     *uuid.UUID        `json:"delay_request_id"`
 }
 type listNotificationsInput struct {
 	Limit  int `query:"limit" minimum:"1" maximum:"100" default:"20"`
@@ -71,7 +71,7 @@ func (h *NotificationHandler) listMine(ctx context.Context, in *listNotification
 	for _, n := range page.Items {
 		out.Body.Items = append(out.Body.Items, notificationView{
 			ID: n.ID, Title: n.Title, Message: n.Message, Type: n.Type, IsRead: n.IsRead, CreatedAt: n.CreatedAt,
-			EventType: n.EventType, OrderID: n.OrderID, OrderStatus: n.OrderStatus, DeadlineAt: n.DeadlineAt,
+			DeliverableID: n.DeliverableID, OrderID: n.OrderID, DeadlineAt: n.DeadlineAt, DeliverableVersion: n.DeliverableVersion, DelayRequestID: n.DelayRequestID,
 		})
 	}
 	return out, nil

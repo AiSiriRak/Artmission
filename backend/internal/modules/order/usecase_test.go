@@ -2478,3 +2478,92 @@ func TestBypassOrderPayment(t *testing.T) {
 		})
 	}
 }
+
+func TestDraftNotificationFailureCleansUploadedImages(t *testing.T) {
+	storage := &recordingStorage{}
+	sink := &eventSink{err: errors.New("notification unavailable")}
+	tx := &eventTx{}
+	uc := order.NewOrderUsecase(&fakeRepo{}, storage, order.WithNotifications(sink, tx))
+	created, err := uc.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{OrderID: uuid.New(), DeliverableImage: bytes.NewReader(testDeliverablePNG(t))})
+	if err == nil || created != nil || tx.committed {
+		t.Fatal("notification failure must abort draft")
+	}
+	if len(storage.deletes) != 2 {
+		t.Fatalf("orphan images: %v", storage.deletes)
+	}
+}
+
+type eventSink struct {
+	events []order.NotificationEvent
+	err    error
+}
+
+func (s *eventSink) NotifyOrder(ctx context.Context, e order.NotificationEvent) error {
+	s.events = append(s.events, e)
+	return s.err
+}
+
+type eventTx struct{ committed bool }
+
+func (t *eventTx) Transaction(ctx context.Context, fn func(context.Context) error) error {
+	err := fn(ctx)
+	t.committed = err == nil
+	return err
+}
+
+func TestNotificationAfterSuccessfulBypass(t *testing.T) {
+	for _, failure := range []string{"", "order", "notification"} {
+		t.Run(failure, func(t *testing.T) {
+			repo, sink, tx := &fakeRepo{}, &eventSink{}, &eventTx{}
+			if failure == "order" {
+				repo.bypassPaymentErr = errors.New("write failed")
+			}
+			if failure == "notification" {
+				sink.err = errors.New("notify failed")
+			}
+			uc := order.NewOrderUsecase(repo, nil, order.WithNotifications(sink, tx))
+			id := uuid.New()
+			err := uc.BypassOrderPayment(context.Background(), uuid.New(), id)
+			if failure != "" {
+				if err == nil || tx.committed {
+					t.Fatal("failure must not commit")
+				}
+				if failure == "order" && len(sink.events) != 0 {
+					t.Fatal("failed write notified")
+				}
+				return
+			}
+			if err != nil || !tx.committed || len(sink.events) != 1 || sink.events[0].Kind != "PAYMENT_SECURED" || sink.events[0].OrderID != id {
+				t.Fatalf("%v %+v", err, sink.events)
+			}
+		})
+	}
+}
+
+func TestExpiryEmitsOnlyChangedIDs(t *testing.T) {
+	ids := []uuid.UUID{uuid.New(), uuid.New()}
+	for _, kind := range []string{"ORDER_EXPIRED", "DELIVERABLE_AUTO_APPROVED", "DELAY_REQUEST_EXPIRED"} {
+		t.Run(kind, func(t *testing.T) {
+			repo := &fakeRepo{expireIDs: ids, expireDeliverablesIDs: ids, expireDelayRequestIDs: ids}
+			sink, tx := &eventSink{}, &eventTx{}
+			uc := order.NewOrderUsecase(repo, nil, order.WithNotifications(sink, tx))
+			var err error
+			switch kind {
+			case "ORDER_EXPIRED":
+				_, err = uc.CancelExpiredOrders(context.Background())
+			case "DELIVERABLE_AUTO_APPROVED":
+				_, err = uc.AutoApproveExpiredDeliverables(context.Background())
+			default:
+				_, err = uc.CancelExpiredDelayRequest(context.Background())
+			}
+			if err != nil || !tx.committed || len(sink.events) != 2 {
+				t.Fatalf("%v %+v", err, sink.events)
+			}
+			for _, e := range sink.events {
+				if e.Kind != kind {
+					t.Fatalf("wrong event: %+v", e)
+				}
+			}
+		})
+	}
+}

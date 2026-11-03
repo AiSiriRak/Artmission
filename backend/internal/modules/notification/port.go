@@ -2,9 +2,7 @@ package notification
 
 import (
 	"context"
-	"time"
 
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/google/uuid"
 )
 
@@ -22,11 +20,11 @@ type CreateInput struct {
 	UserID         uuid.UUID
 	Title, Message string
 	Type           Type
-	EventType      EventType
 	OrderID        *uuid.UUID
-	OrderStatus    *order.Status
-	DeadlineAt     *time.Time
+	DeliverableID  *uuid.UUID
+	DelayRequestID *uuid.UUID
 }
+
 type NotificationUsecase interface {
 	// Create validates and trims the message, then saves a new unread notification.
 	// This is called by backend features; it is not exposed as a public creation endpoint.

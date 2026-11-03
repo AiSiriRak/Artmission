@@ -54,13 +54,12 @@ func Wire(cfg Config) *httpserver.Server {
 	accountDeletionRepo := postgres.NewAccountDeletionRepository(cfg.DB)
 	tokenIssuer := token.NewJWTIssuer(cfg.Auth.JWTSecret)
 	tx := baserepo.NewTransactioner(cfg.DB)
-	orderRepo = notification.NewNotifyingRepository(orderRepo, notificationUsecase, tx)
 
 	artistUsecase := artist.NewProfileUsecase(artistRepo, cfg.ObjectStorage.Public)
 	artworkUsecase := artwork.NewUsecase(artworkRepo, tx, cfg.ObjectStorage.Public)
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx, cfg.ObjectStorage.Public)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
-	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private)
+	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private, order.WithNotifications(notification.NewOrderNotifier(postgres.NewOrderNotificationReader(cfg.DB), notificationUsecase), tx))
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
@@ -85,8 +84,10 @@ const orderExpiryInterval = time.Minute
 // the BDD suite's in-process server doesn't start timers it can't control;
 // cmd_serve.go is the only caller.
 func WireWorkers(cfg Config) []worker.Worker {
+	notificationUsecase := notification.NewNotificationUsecase(postgres.NewNotificationRepository(cfg.DB))
+	tx := baserepo.NewTransactioner(cfg.DB)
 	orderRepo := postgres.NewOrderRepository(cfg.DB)
-	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private)
+	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private, order.WithNotifications(notification.NewOrderNotifier(postgres.NewOrderNotificationReader(cfg.DB), notificationUsecase), tx))
 
 	return []worker.Worker{
 		worker.NewOrderExpiryWorker(orderUsecase, orderExpiryInterval, cfg.Logger),

@@ -3,7 +3,6 @@ package notification
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +12,17 @@ import (
 )
 
 type fakeRepository struct{ rows []Notification }
+
+func TestNotificationTypeStoresSpecificEvent(t *testing.T) {
+	uc := NewNotificationUsecase(&fakeRepository{})
+	n, err := uc.Create(context.Background(), CreateInput{UserID: uuid.New(), Title: "Draft Submitted", Message: "Review draft #2", Type: Type("DRAFT_SUBMITTED")})
+	if err != nil || n.Type != Type("DRAFT_SUBMITTED") {
+		t.Fatalf("specific event type: %+v %v", n, err)
+	}
+	if _, err := uc.Create(context.Background(), CreateInput{UserID: uuid.New(), Title: "Title", Message: "Message", Type: Type("ORDER_UPDATE")}); !errors.Is(err, ErrInvalidType) {
+		t.Fatalf("legacy category must be rejected: %v", err)
+	}
+}
 
 func TestSpecificNotificationValidationErrors(t *testing.T) {
 	// A nil repository ensures invalid input is rejected before persistence is attempted.
@@ -24,9 +34,9 @@ func TestSpecificNotificationValidationErrors(t *testing.T) {
 		input CreateInput
 		want  error
 	}{
-		{"missing recipient", CreateInput{Title: "Title", Message: "Message", Type: TypeSystem}, ErrMissingUserID},
-		{"blank title", CreateInput{UserID: owner, Title: " \t", Message: "Message", Type: TypeSystem}, ErrMissingTitle},
-		{"blank message", CreateInput{UserID: owner, Title: "Title", Message: " \n", Type: TypeSystem}, ErrMissingMessage},
+		{"missing recipient", CreateInput{Title: "Title", Message: "Message", Type: TypeGeneral}, ErrMissingUserID},
+		{"blank title", CreateInput{UserID: owner, Title: " \t", Message: "Message", Type: TypeGeneral}, ErrMissingTitle},
+		{"blank message", CreateInput{UserID: owner, Title: "Title", Message: " \n", Type: TypeGeneral}, ErrMissingMessage},
 		{"invalid type", CreateInput{UserID: owner, Title: "Title", Message: "Message", Type: "UNKNOWN"}, ErrInvalidType},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -112,7 +122,7 @@ func TestCreateAndReadOwnNotification(t *testing.T) {
 	repo := &fakeRepository{}
 	uc := NewNotificationUsecase(repo)
 	owner := uuid.New()
-	n, err := uc.Create(ctx, CreateInput{UserID: owner, Title: " New order ", Message: " Review the brief ", Type: TypeOrderUpdate})
+	n, err := uc.Create(ctx, CreateInput{UserID: owner, Title: " New order ", Message: " Review the brief ", Type: TypeOrderCreated})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,8 +156,8 @@ func TestRejectInvalidInput(t *testing.T) {
 	ctx := context.Background()
 	for _, in := range []CreateInput{
 		{UserID: uuid.New(), Title: "title", Message: "message", Type: "INVALID"},
-		{UserID: uuid.New(), Title: " ", Message: "message", Type: TypeSystem},
-		{Title: "title", Message: "message", Type: TypeSystem},
+		{UserID: uuid.New(), Title: " ", Message: "message", Type: TypeGeneral},
+		{Title: "title", Message: "message", Type: TypeGeneral},
 	} {
 		if _, err := uc.Create(ctx, in); err == nil {
 			t.Fatalf("accepted %+v", in)
@@ -160,100 +170,33 @@ func TestRejectInvalidInput(t *testing.T) {
 	}
 }
 
-type notificationRepoFake struct {
-	order.OrderRepository
-	item order.Order
-	fail error
-}
-
-func (r *notificationRepoFake) Create(_ context.Context, item *order.Order) error {
-	item.ArtistID = r.item.ArtistID
-	return r.fail
-}
-func (r *notificationRepoFake) ConfirmOrder(_ context.Context, _, _ uuid.UUID, status order.Status) error {
-	r.item.Status = status
-	return r.fail
-}
-func (r *notificationRepoFake) GetOrderByID(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetailData, error) {
-	return &order.OrderDetailData{Order: r.item}, nil
-}
-
-type notificationSinkFake struct {
-	inputs []CreateInput
-	fail   error
-}
-
-func (s *notificationSinkFake) Create(_ context.Context, in CreateInput) (*Notification, error) {
-	if s.fail != nil {
-		return nil, s.fail
-	}
-	s.inputs = append(s.inputs, in)
-	return &Notification{}, nil
-}
-
-type notificationTxFake struct{ committed bool }
-
-func (tx *notificationTxFake) Transaction(ctx context.Context, fn func(context.Context) error) error {
-	err := fn(ctx)
-	tx.committed = err == nil
-	return err
-}
-func TestNewOrderNotifiesArtist(t *testing.T) {
-	artist := uuid.New()
-	sink := &notificationSinkFake{}
-	tx := &notificationTxFake{}
-	repo := NewNotifyingRepository(&notificationRepoFake{item: order.Order{ArtistID: artist}}, sink, tx)
-	deadline := time.Now().Add(7 * 24 * time.Hour)
-	err := repo.Create(context.Background(), &order.Order{ID: uuid.New(), Name: "Portrait", Status: order.StatusPending, DeadlineAt: deadline})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !tx.committed || len(sink.inputs) != 1 || sink.inputs[0].UserID != artist {
-		t.Fatalf("notification: %+v", sink.inputs)
-	}
-	in := sink.inputs[0]
-	if in.DeadlineAt == nil || !in.DeadlineAt.Equal(deadline) {
-		t.Fatalf("missing initial order deadline: %+v", in)
-	}
-	if in.EventType != EventOrderCreated || in.OrderID == nil || in.OrderStatus == nil || *in.OrderStatus != order.StatusPending {
-		t.Fatalf("missing card metadata: %+v", in)
-	}
-	if strings.Contains(in.Message, "Order:") || strings.Contains(in.Message, "Status:") {
-		t.Fatalf("technical metadata leaked into display message: %s", in.Message)
-	}
-}
-
 func TestCreatePreservesNotificationCardData(t *testing.T) {
 	ctx := context.Background()
 	orderID, recipient := uuid.New(), uuid.New()
-	status := order.StatusNotPaid
-	deadline := time.Now().UTC()
+	deliverableID := uuid.New()
 	uc := NewNotificationUsecase(&fakeRepository{})
 	n, err := uc.Create(ctx, CreateInput{
-		UserID: recipient, Title: "Order Accepted: Portrait", Message: "Please complete payment.", Type: TypeOrderUpdate,
-		EventType: EventOrderAccepted, OrderID: &orderID, OrderStatus: &status, DeadlineAt: &deadline,
+		UserID: recipient, Title: "Order Accepted: Portrait", Message: "Please complete payment.", Type: TypeOrderAccepted, OrderID: &orderID, DeliverableID: &deliverableID,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n.EventType != EventOrderAccepted || n.OrderID == nil || *n.OrderID != orderID ||
-		n.OrderStatus == nil || *n.OrderStatus != status || n.DeadlineAt == nil || !n.DeadlineAt.Equal(deadline) {
+	if n.Type != TypeOrderAccepted || n.OrderID == nil || *n.OrderID != orderID ||
+		n.DeliverableID == nil || *n.DeliverableID != deliverableID {
 		t.Fatalf("metadata lost: %+v", n)
 	}
 }
 
 func TestRejectInvalidCardMetadata(t *testing.T) {
-	status := order.Status("UNKNOWN")
 	for _, tc := range []struct {
 		name   string
 		mutate func(*CreateInput)
 		want   error
 	}{
-		{"event", func(in *CreateInput) { in.EventType = "UNKNOWN" }, ErrInvalidEventType},
-		{"status", func(in *CreateInput) { in.OrderStatus = &status }, ErrInvalidOrderStatus},
+		{"event", func(in *CreateInput) { in.Type = "UNKNOWN" }, ErrInvalidType},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			in := CreateInput{UserID: uuid.New(), Title: "Title", Message: "Message", Type: TypeOrderUpdate}
+			in := CreateInput{UserID: uuid.New(), Title: "Title", Message: "Message", Type: TypeOrderCreated}
 			tc.mutate(&in)
 			if _, err := NewNotificationUsecase(nil).Create(context.Background(), in); !errors.Is(err, tc.want) {
 				t.Fatalf("got %v, want %v", err, tc.want)
@@ -262,33 +205,75 @@ func TestRejectInvalidCardMetadata(t *testing.T) {
 	}
 }
 
-func TestOrderAcceptanceNotifiesCustomer(t *testing.T) {
-	customer := uuid.New()
-	artist := uuid.New()
-	sink := &notificationSinkFake{}
-	repo := NewNotifyingRepository(&notificationRepoFake{item: order.Order{CustomerID: customer, ArtistID: artist, Name: "Portrait"}}, sink, &notificationTxFake{})
-	if err := repo.ConfirmOrder(context.Background(), artist, uuid.New(), order.StatusNotPaid); err != nil {
-		t.Fatal(err)
-	}
-	if len(sink.inputs) != 1 || sink.inputs[0].UserID != customer {
-		t.Fatalf("notification: %+v", sink.inputs)
+type orderReaderFake struct {
+	detail order.OrderDetailData
+	err    error
+}
+
+func (r orderReaderFake) ReadNotificationOrder(context.Context, order.NotificationEvent) (*order.OrderDetailData, error) {
+	return &r.detail, r.err
+}
+
+func TestOrderEventCards(t *testing.T) {
+	artist, customer, id := uuid.New(), uuid.New(), uuid.New()
+	for _, tc := range []struct {
+		kind, decision string
+		event          Type
+		customer       bool
+		count          int
+	}{
+		{"ORDER_CREATED", "", TypeOrderCreated, false, 1},
+		{"ORDER_CONFIRMED", "NOT_PAID", TypeOrderAccepted, true, 1},
+		{"ORDER_CONFIRMED", "CANCEL", TypeOrderDeclined, true, 1},
+		{"PAYMENT_SECURED", "", TypePaymentSecured, false, 1},
+		{"DRAFT_SUBMITTED", "WAIT", TypeDraftSubmitted, true, 1},
+		{"DRAFT_SUBMITTED", "APPROVED", TypeFinalArtworkReady, true, 1},
+		{"DELIVERABLE_CONFIRMED", "APPROVED", TypeOrderCompleted, false, 1},
+		{"DELIVERABLE_CONFIRMED", "REJECTED", TypeRevisionRequested, false, 1},
+		{"DEADLINE_EXTENSION_REQUESTED", "", TypeDeadlineRequested, true, 1},
+		{"DEADLINE_EXTENSION_DECIDED", "APPROVED", TypeDeadlineApproved, false, 1},
+		{"DEADLINE_EXTENSION_DECIDED", "REJECTED", TypeDeadlineRejected, false, 1},
+		{"ORDER_EXPIRED", "", TypeOrderCanceled, false, 2},
+		{"DELIVERABLE_AUTO_APPROVED", "", TypeOrderCompleted, false, 2},
+		{"DELAY_REQUEST_EXPIRED", "", TypeDeadlineRejected, false, 2},
+		{"ORDER_CANCELED", "", TypeOrderCanceled, false, 1},
+	} {
+		t.Run(tc.kind+tc.decision, func(t *testing.T) {
+			deadline := time.Now().UTC()
+			repo := &fakeRepository{}
+			reader := orderReaderFake{detail: order.OrderDetailData{Order: order.Order{ID: id, ArtistID: artist, CustomerID: customer, Name: "Portrait", Status: order.StatusInProcess}}}
+			notifier := NewOrderNotifier(reader, NewNotificationUsecase(repo))
+			err := notifier.NotifyOrder(context.Background(), order.NotificationEvent{Kind: tc.kind, OrderID: id, Decision: tc.decision, Version: 2, DeadlineAt: &deadline})
+			if err != nil {
+				t.Fatal(err)
+			}
+			uc := NewNotificationUsecase(repo)
+			owner := artist
+			if tc.customer {
+				owner = customer
+			}
+			page, err := uc.ListMine(context.Background(), owner, ListQuery{Limit: 20})
+			if err != nil || len(page.Items) != 1 {
+				t.Fatalf("missing card: %+v %v", page, err)
+			}
+			n := page.Items[0]
+			if n.Type != tc.event || n.OrderID == nil || *n.OrderID != id {
+				t.Fatalf("wrong card: %+v", n)
+			}
+			if tc.count == 2 {
+				page, _ = uc.ListMine(context.Background(), customer, ListQuery{Limit: 20})
+				if len(page.Items) != 1 {
+					t.Fatal("worker event must notify both participants")
+				}
+			}
+		})
 	}
 }
-func TestFailedOrderDoesNotNotify(t *testing.T) {
-	sink := &notificationSinkFake{}
-	tx := &notificationTxFake{}
-	repo := NewNotifyingRepository(&notificationRepoFake{fail: errors.New("write failed")}, sink, tx)
-	if err := repo.Create(context.Background(), &order.Order{}); err == nil {
-		t.Fatal("expected error")
-	}
-	if len(sink.inputs) != 0 || tx.committed {
-		t.Fatal("failed write must not notify or commit")
-	}
-}
-func TestNotificationFailureAbortsTransaction(t *testing.T) {
-	tx := &notificationTxFake{}
-	repo := NewNotifyingRepository(&notificationRepoFake{}, &notificationSinkFake{fail: errors.New("notification failed")}, tx)
-	if err := repo.Create(context.Background(), &order.Order{Status: order.StatusPending}); err == nil || tx.committed {
-		t.Fatal("notification failure must abort the order transaction")
+
+func TestOrderNotificationReaderFailure(t *testing.T) {
+	want := errors.New("lookup failed")
+	notifier := NewOrderNotifier(orderReaderFake{err: want}, NewNotificationUsecase(&fakeRepository{}))
+	if err := notifier.NotifyOrder(context.Background(), order.NotificationEvent{}); !errors.Is(err, want) {
+		t.Fatalf("got %v", err)
 	}
 }

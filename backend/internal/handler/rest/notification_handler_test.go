@@ -2,8 +2,8 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/notification"
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/google/uuid"
 	"testing"
 	"time"
@@ -22,10 +22,9 @@ func (u *notificationTestUsecase) ListMine(_ context.Context, id uuid.UUID, _ no
 
 func TestNotificationHandlerReturnsCardMetadata(t *testing.T) {
 	orderID, owner := uuid.New(), uuid.New()
-	status := order.StatusNotPaid
 	deadline := time.Now().UTC()
 	uc := &notificationTestUsecase{page: notification.Page{Items: []notification.Notification{{
-		ID: uuid.New(), EventType: notification.EventOrderAccepted, OrderID: &orderID, OrderStatus: &status,
+		ID: uuid.New(), Type: notification.TypeOrderAccepted, OrderID: &orderID,
 		DeadlineAt: &deadline,
 	}}, Total: 1}}
 	out, err := NewNotificationHandler(uc, nil).listMine(withAuthInfo(context.Background(), AuthInfo{UserID: owner}), &listNotificationsInput{Limit: 20})
@@ -33,10 +32,25 @@ func TestNotificationHandlerReturnsCardMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := out.Body.Items[0]
-	if n.EventType != notification.EventOrderAccepted || n.OrderID == nil || *n.OrderID != orderID ||
-		n.OrderStatus == nil || *n.OrderStatus != status ||
+	if n.Type != notification.TypeOrderAccepted || n.OrderID == nil || *n.OrderID != orderID ||
 		n.DeadlineAt == nil || !n.DeadlineAt.Equal(deadline) {
 		t.Fatalf("response lost card data: %+v", n)
+	}
+	encoded, err := json.Marshal(n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(encoded, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if fields["type"] != "ORDER_ACCEPTED" {
+		t.Fatalf("type must be specific event: %s", encoded)
+	}
+	for _, removed := range []string{"event_type", "order_status"} {
+		if _, ok := fields[removed]; ok {
+			t.Fatalf("obsolete field %s remains", removed)
+		}
 	}
 }
 func TestNotificationHandlerUsesAuthenticatedRecipient(t *testing.T) {

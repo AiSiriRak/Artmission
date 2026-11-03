@@ -29,23 +29,15 @@ func (u *notificationUsecase) Create(ctx context.Context, in CreateInput) (*Noti
 	if message == "" {
 		return nil, ErrMissingMessage
 	}
-	switch in.Type {
-	case TypeOrderUpdate, TypeReview, TypeSystem:
-	default:
+	if in.Type == "" {
+		in.Type = TypeGeneral
+	}
+	if !in.Type.IsValid() {
 		return nil, ErrInvalidType
-	}
-	if in.EventType == "" {
-		in.EventType = EventGeneral
-	}
-	if !in.EventType.IsValid() {
-		return nil, ErrInvalidEventType
-	}
-	if in.OrderStatus != nil && *in.OrderStatus != order.StatusPending && *in.OrderStatus != order.StatusNotPaid {
-		return nil, ErrInvalidOrderStatus
 	}
 	n := &Notification{
 		ID: uuid.New(), UserID: in.UserID, Title: title, Message: message, Type: in.Type, CreatedAt: time.Now(),
-		EventType: in.EventType, OrderID: in.OrderID, OrderStatus: in.OrderStatus, DeadlineAt: in.DeadlineAt,
+		OrderID: in.OrderID, DeliverableID: in.DeliverableID, DelayRequestID: in.DelayRequestID,
 	}
 	if err := u.repo.Create(ctx, n); err != nil {
 		return nil, err
@@ -90,69 +82,116 @@ func (u *notificationUsecase) CountUnread(ctx context.Context, id uuid.UUID) (in
 	return u.repo.CountUnread(ctx, id)
 }
 
-// NotificationCreator is satisfied by the notification module without exposing its feed operations.
+// NotificationCreator keeps order activity independent of feed operations.
 type NotificationCreator interface {
 	Create(context.Context, CreateInput) (*Notification, error)
 }
-
-type NotificationTransactioner interface {
-	Transaction(context.Context, func(context.Context) error) error
+type OrderNotificationReader interface {
+	ReadNotificationOrder(context.Context, order.NotificationEvent) (*order.OrderDetailData, error)
 }
-
-type notifyingRepository struct {
-	order.OrderRepository
+type orderNotifier struct {
+	reader        OrderNotificationReader
 	notifications NotificationCreator
-	tx            NotificationTransactioner
 }
 
-// NewNotifyingRepository adds order notifications to successful writes.
-// The write and notification share a transaction, including repository-owned nested operations.
-func NewNotifyingRepository(repo order.OrderRepository, notifications NotificationCreator, tx NotificationTransactioner) order.OrderRepository {
-	return &notifyingRepository{OrderRepository: repo, notifications: notifications, tx: tx}
+var _ order.OrderNotifier = (*orderNotifier)(nil)
+
+func NewOrderNotifier(reader OrderNotificationReader, notifications NotificationCreator) order.OrderNotifier {
+	return &orderNotifier{reader: reader, notifications: notifications}
 }
 
-func (r *notifyingRepository) notify(ctx context.Context, item order.Order, recipient uuid.UUID, event EventType, title, message string) error {
-	var deadline *time.Time
-	if !item.DeadlineAt.IsZero() {
-		deadline = &item.DeadlineAt
+func (n *orderNotifier) send(ctx context.Context, item order.Order, recipient uuid.UUID, event Type, title, message string, source order.NotificationEvent) error {
+	var deliverableID, requestID *uuid.UUID
+	if source.DeliverableID != uuid.Nil {
+		deliverableID = &source.DeliverableID
 	}
-	_, err := r.notifications.Create(ctx, CreateInput{
-		UserID: recipient, Type: TypeOrderUpdate, EventType: event,
-		Title: fmt.Sprintf("%s: %s", title, item.Name), Message: message,
-		OrderID: &item.ID, OrderStatus: &item.Status, DeadlineAt: deadline,
-	})
+	if source.DelayRequestID != uuid.Nil {
+		requestID = &source.DelayRequestID
+	}
+	_, err := n.notifications.Create(ctx, CreateInput{UserID: recipient, Type: event,
+		Title: fmt.Sprintf("%s: %s", title, item.Name), Message: message, OrderID: &item.ID, DeliverableID: deliverableID, DelayRequestID: requestID})
 	return err
 }
 
-// Create notifies the artist only for a newly pending order.
-func (r *notifyingRepository) Create(ctx context.Context, item *order.Order) error {
-	return r.tx.Transaction(ctx, func(ctx context.Context) error {
-		if err := r.OrderRepository.Create(ctx, item); err != nil {
+func (n *orderNotifier) NotifyOrder(ctx context.Context, e order.NotificationEvent) error {
+	detail, err := n.reader.ReadNotificationOrder(ctx, e)
+	if err != nil {
+		return err
+	}
+	item := detail.Order
+	for _, d := range detail.Deliverables {
+		if d.ID == e.DeliverableID {
+			e.Version = d.Version
+			break
+		}
+	}
+	recipient := item.ArtistID
+	event, title, message := TypeGeneral, "", ""
+	switch e.Kind {
+	case "ORDER_CREATED":
+		event, title, message = TypeOrderCreated, "New Order", "The customer has placed a new order. Please check the order details to review the brief."
+	case "ORDER_CONFIRMED":
+		recipient = item.CustomerID
+		if e.Decision == string(order.StatusNotPaid) {
+			event, title, message = TypeOrderAccepted, "Order Accepted", "The artist has accepted your order! Please complete the payment to secure your commission."
+		} else {
+			event, title, message = TypeOrderDeclined, "Order Declined", "The artist declined this order. You are welcome to submit a new request anytime."
+		}
+	case "PAYMENT_SECURED":
+		event, title, message = TypePaymentSecured, "Payment Secured", "The customer has deposited the payment. You can now start working on this commission."
+	case "ORDER_CANCELED":
+		actor := "customer"
+		if e.Participant == order.ParticipantArtist {
+			recipient = item.CustomerID
+			actor = "artist"
+		}
+		event, title, message = TypeOrderCanceled, "Order Canceled", fmt.Sprintf("The %s canceled this order. Reason: %s. %s", actor, e.Reason, e.Explanation)
+	case "DRAFT_SUBMITTED":
+		recipient = item.CustomerID
+		if e.Decision == string(order.DeliverableDecisionApproved) {
+			event, title, message = TypeFinalArtworkReady, "Final Artwork Ready", "Your final artwork is complete and ready. Please check the order details to review and download it."
+		} else {
+			event, title, message = TypeDraftSubmitted, "Draft Submitted", fmt.Sprintf("The artist has submitted #%d Draft for your review. Please check the order details to accept the artwork or provide your feedback.", e.Version)
+		}
+	case "DELIVERABLE_CONFIRMED":
+		if e.Decision == string(order.DeliverableDecisionApproved) {
+			event, title, message = TypeOrderCompleted, "Order Completed", "The customer has accepted your artwork!"
+		} else {
+			message = "The customer has requested changes. Please review their feedback in the order details."
+			for _, d := range detail.Deliverables {
+				if d.ID == e.DeliverableID {
+					message = fmt.Sprintf("The customer has requested changes for #%d Draft. Please review their feedback in the order details.", d.Version)
+					break
+				}
+			}
+			event, title = TypeRevisionRequested, "Revision Requested"
+		}
+	case "DEADLINE_EXTENSION_REQUESTED":
+		recipient = item.CustomerID
+		event, title, message = TypeDeadlineRequested, "Deadline Extension Requested", "The artist has requested a deadline extension. Please review the request in the order details."
+	case "DEADLINE_EXTENSION_DECIDED":
+		if e.Decision == string(order.DelayDecisionApproved) {
+			event, title, message = TypeDeadlineApproved, "Deadline Extended", "Your postpone request was approved. Please check the order details for your new deadline."
+		} else {
+			event, title, message = TypeDeadlineRejected, "Postpone Request Declined", "Your postpone request was declined. Your deadline remains unchanged."
+		}
+	case "ORDER_EXPIRED":
+		if err := n.send(ctx, item, item.CustomerID, TypeOrderCanceled, "Order Canceled", "This order was automatically canceled because its confirmation window or deadline expired.", e); err != nil {
 			return err
 		}
-		if item.Status != order.StatusPending {
-			return nil
-		}
-		return r.notify(ctx, *item, item.ArtistID, EventOrderCreated, "New Order",
-			"The customer has placed a new order. Please check the order details to review the brief.")
-	})
-}
-
-// ConfirmOrder notifies the customer when artist acceptance makes payment due.
-// Rejection and later workflow actions keep their original order behavior without generating notifications.
-func (r *notifyingRepository) ConfirmOrder(ctx context.Context, artistID, orderID uuid.UUID, status order.Status) error {
-	return r.tx.Transaction(ctx, func(ctx context.Context) error {
-		if err := r.OrderRepository.ConfirmOrder(ctx, artistID, orderID, status); err != nil {
+		event, title, message = TypeOrderCanceled, "Order Canceled", "This order was automatically canceled because its confirmation window or deadline expired."
+	case "DELIVERABLE_AUTO_APPROVED":
+		if err := n.send(ctx, item, item.CustomerID, TypeFinalArtworkReady, "Final Artwork Ready", "The review window expired and your artwork was automatically accepted. Please check the order details to download it.", e); err != nil {
 			return err
 		}
-		if status != order.StatusNotPaid {
-			return nil
-		}
-		detail, err := r.OrderRepository.GetOrderByID(ctx, order.ParticipantArtist, artistID, orderID)
-		if err != nil {
+		event, title, message = TypeOrderCompleted, "Order Completed", "The review window expired and your artwork was automatically accepted."
+	case "DELAY_REQUEST_EXPIRED":
+		if err := n.send(ctx, item, item.CustomerID, TypeDeadlineRejected, "Deadline Extension Expired", "The deadline extension request expired without a response and was automatically rejected. The deadline remains unchanged.", e); err != nil {
 			return err
 		}
-		return r.notify(ctx, detail.Order, detail.Order.CustomerID, EventOrderAccepted, "Order Accepted",
-			"The artist has accepted your order! Please complete the payment to secure your commission.")
-	})
+		event, title, message = TypeDeadlineRejected, "Postpone Request Declined", "The customer did not respond in time. Your deadline extension request was automatically rejected and the deadline remains unchanged."
+	default:
+		return ErrInvalidType
+	}
+	return n.send(ctx, item, recipient, event, title, message, e)
 }
