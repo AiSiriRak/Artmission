@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/payment"
 	"github.com/google/uuid"
 )
 
@@ -115,5 +116,51 @@ func TestOrderExpiryWorker_LogsFailureAndRetriesOnNextTick(t *testing.T) {
 	}
 	if !strings.Contains(logs.String(), "deliverables expiry sweep failed") {
 		t.Fatalf("expected failed deliverable sweep to be logged, got %q", logs.String())
+	}
+}
+
+type paymentWorkerUsecase struct {
+	payment.Usecase
+	expire func(context.Context) ([]uuid.UUID, error)
+}
+
+func (u paymentWorkerUsecase) ExpirePayments(ctx context.Context) ([]uuid.UUID, error) {
+	return u.expire(ctx)
+}
+
+func TestPaymentQRWorkerRunsExpirationImmediately(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	expired := 0
+	uc := paymentWorkerUsecase{
+		expire: func(context.Context) ([]uuid.UUID, error) {
+			expired++
+			cancel()
+			return []uuid.UUID{uuid.New()}, nil
+		},
+	}
+	worker := NewPaymentQRWorker(uc, time.Hour, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	worker.Run(ctx)
+
+	if expired != 1 {
+		t.Fatalf("expiry sweeps = %d, want 1", expired)
+	}
+}
+
+func TestPaymentQRWorkerLogsFailures(t *testing.T) {
+	var logs bytes.Buffer
+	uc := paymentWorkerUsecase{
+		expire: func(context.Context) ([]uuid.UUID, error) {
+			return nil, errors.New("database unavailable")
+		},
+	}
+	worker := NewPaymentQRWorker(uc, time.Hour, slog.New(slog.NewTextHandler(&logs, nil)))
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	worker.Run(ctx)
+
+	if !strings.Contains(logs.String(), "payment QR expiry sweep failed") {
+		t.Fatalf("expected expiry failure to be logged, got %q", logs.String())
 	}
 }

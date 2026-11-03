@@ -12,3 +12,6 @@ build-errors.log
 # JS for Cucumber HTML reports
 /node_modules/
 /reports/
+
+# Personal AI work log (local-only)
+/ai-worklog/
