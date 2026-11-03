@@ -30,6 +30,11 @@ type reviewUsecaseStub struct {
 	listCalls    int
 	listArtistID uuid.UUID
 	listArtworkID uuid.UUID
+	orderReview    *review.ReviewDetail
+	orderReviewErr error
+	getOrderCalls  int
+	getOrderID     uuid.UUID
+	getOrderUserID uuid.UUID
 }
 
 func (s reviewAuthStub) Authenticate(
@@ -80,6 +85,18 @@ func (s *reviewUsecaseStub) GetReviewsByArtwork(
 	s.listCalls++
 	s.listArtworkID = artworkID
 	return s.reviews, nil
+}
+
+func (s *reviewUsecaseStub) GetOrderReview(
+	_ context.Context,
+	userID uuid.UUID,
+	orderID uuid.UUID,
+) (*review.ReviewDetail, error) {
+	s.getOrderCalls++
+	s.getOrderUserID = userID
+	s.getOrderID = orderID
+
+	return s.orderReview, s.orderReviewErr
 }
 
 // TestReviewHandler_SubmitValidation verifies rating validation and access restrictions.
