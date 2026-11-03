@@ -457,3 +457,130 @@ func TestReviewHandler_GetReviewsByArtwork(t *testing.T) {
 		})
 	}
 }
+
+// TestReviewHandler_GetOrderReview verifies access, response fields, and error mapping.
+func TestReviewHandler_GetOrderReview(t *testing.T) {
+	orderID := uuid.New()
+	userID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	comment := "Great Work!"
+	createdAt := time.Date(2026, 11, 3, 10, 0, 0, 0, time.UTC)
+
+	item := &review.ReviewDetail{
+		Review: review.Review{
+			ID:         uuid.New(),
+			OrderID:    orderID,
+			CustomerID: userID,
+			ArtistID:   uuid.New(),
+			Rating:     5,
+			Comment:    &comment,
+			CreatedAt:  createdAt,
+		},
+	}
+
+	cases := []struct {
+		name          string
+		role          user.Role
+		authenticated bool
+		usecaseErr    error
+		wantStatus    int
+	}{
+		{
+			name:          "customer can read",
+			role:          user.RoleCustomer,
+			authenticated: true,
+			wantStatus:    http.StatusOK,
+		},
+		{
+			name:          "artist can read",
+			role:          user.RoleArtist,
+			authenticated: true,
+			wantStatus:    http.StatusOK,
+		},
+		{
+			name:       "missing token",
+			role:       user.RoleCustomer,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:          "not an order participant",
+			role:          user.RoleCustomer,
+			authenticated: true,
+			usecaseErr:    review.ErrNotOrderParticipant,
+			wantStatus:    http.StatusForbidden,
+		},
+		{
+			name:          "review not found",
+			role:          user.RoleCustomer,
+			authenticated: true,
+			usecaseErr:    review.ErrReviewNotFound,
+			wantStatus:    http.StatusNotFound,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			usecase := &reviewUsecaseStub{
+				orderReview:    item,
+				orderReviewErr: tc.usecaseErr,
+			}
+
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			api, server := httpserver.New("", "/api/v1", nil, logger, nil)
+			NewReviewHandler(
+				usecase,
+				reviewAuthStub{role: tc.role},
+			).Register(api)
+
+			req := httptest.NewRequest(
+				http.MethodGet,
+				"/api/v1/orders/"+orderID.String()+"/review",
+				nil,
+			)
+			if tc.authenticated {
+				req.Header.Set("Authorization", "Bearer test-token")
+			}
+
+			rec := httptest.NewRecorder()
+			server.Handler().ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf(
+					"status = %d, want %d: %s",
+					rec.Code, tc.wantStatus, rec.Body.String(),
+				)
+			}
+
+			if !tc.authenticated {
+				if usecase.getOrderCalls != 0 {
+					t.Fatal("an unauthorized request must not reach the usecase")
+				}
+				return
+			}
+
+			if usecase.getOrderCalls != 1 ||
+				usecase.getOrderID != orderID ||
+				usecase.getOrderUserID != userID {
+				t.Fatal("expected one request with the order ID and authenticated user ID")
+			}
+
+			if tc.wantStatus != http.StatusOK {
+				return
+			}
+
+			var got ReviewView
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if got.ID != item.ID ||
+				got.OrderID != orderID ||
+				got.CustomerID != item.CustomerID ||
+				got.ArtistID != item.ArtistID ||
+				got.Rating != 5 ||
+				got.Comment == nil ||
+				*got.Comment != comment ||
+				!got.CreatedAt.Equal(createdAt) {
+				t.Fatal("response does not contain the expected review")
+			}
+		})
+	}
+}
