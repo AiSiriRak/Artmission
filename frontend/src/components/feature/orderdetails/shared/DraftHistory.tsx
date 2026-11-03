@@ -58,7 +58,7 @@ function HistoryCard({ children }: { children: ReactNode }) {
 function DateLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-4">
-      <dt className="text-h3">{label}</dt>
+      <dt className="text-h4">{label}</dt>
       <dd className="text-body">{value}</dd>
     </div>
   );
