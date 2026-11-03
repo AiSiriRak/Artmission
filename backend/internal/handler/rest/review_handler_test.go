@@ -36,6 +36,7 @@ type reviewUsecaseStub struct {
 	getOrderID     uuid.UUID
 	getOrderUserID uuid.UUID
 	listQuery review.ListQuery
+	total int
 }
 
 func (s reviewAuthStub) Authenticate(
@@ -81,7 +82,7 @@ func (s *reviewUsecaseStub) GetArtistReviews(
 
 	return &review.ReviewPage{
 		Reviews: s.reviews,
-		Total:   len(s.reviews),
+		Total: s.total,
 	}, nil
 }
 
@@ -96,7 +97,7 @@ func (s *reviewUsecaseStub) GetReviewsByArtwork(
 
 	return &review.ReviewPage{
 		Reviews: s.reviews,
-		Total:   len(s.reviews),
+		Total: s.total,
 	}, nil
 }
 
@@ -253,9 +254,10 @@ func TestReviewHandler_GetArtistReviews(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			usecase := &reviewUsecaseStub{reviews: items}
+			usecase := &reviewUsecaseStub{reviews: items, total: len(items)}
 			if tc.empty {
 				usecase.reviews = nil
+				usecase.total = 0
 			}
 
 			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -394,9 +396,10 @@ func TestReviewHandler_GetReviewsByArtwork(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			usecase := &reviewUsecaseStub{reviews: items}
+			usecase := &reviewUsecaseStub{reviews: items, total: len(items)}
 			if tc.empty {
 				usecase.reviews = nil
+				usecase.total = 0
 			}
 
 			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -603,5 +606,110 @@ func TestReviewHandler_GetOrderReview(t *testing.T) {
 				t.Fatal("response does not contain the expected review")
 			}
 		})
+	}
+}
+
+// TestReviewHandler_Pagination verifies query parameters and the full review count.
+func TestReviewHandler_Pagination(t *testing.T) {
+	id := uuid.New().String()
+
+	paths := []string{
+		"/api/v1/artists/" + id + "/reviews",
+		"/api/v1/artworks/" + id + "/reviews",
+	}
+
+	cases := []struct {
+		name       string
+		query      string
+		wantLimit  int
+		wantOffset int
+		wantStatus int
+	}{
+		{
+			name:       "defaults",
+			wantLimit:  20,
+			wantOffset: 0,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "custom pagination",
+			query:      "?limit=5&offset=20",
+			wantLimit:  5,
+			wantOffset: 20,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "negative limit",
+			query:      "?limit=-1",
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:       "limit too large",
+			query:      "?limit=101",
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:       "negative offset",
+			query:      "?offset=-1",
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+	}
+
+	for _, path := range paths {
+		for _, tc := range cases {
+			t.Run(path+"/"+tc.name, func(t *testing.T) {
+				usecase := &reviewUsecaseStub{
+					reviews: []review.ReviewDetail{
+						{Review: review.Review{ID: uuid.New(), Rating: 5}},
+					},
+					total: 53,
+				}
+
+				logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+				api, server := httpserver.New("", "/api/v1", nil, logger, nil)
+				NewReviewHandler(
+					usecase,
+					reviewAuthStub{role: user.RoleCustomer},
+				).Register(api)
+
+				req := httptest.NewRequest(http.MethodGet, path+tc.query, nil)
+				req.Header.Set("Authorization", "Bearer test-token")
+
+				rec := httptest.NewRecorder()
+				server.Handler().ServeHTTP(rec, req)
+
+				if rec.Code != tc.wantStatus {
+					t.Fatalf(
+						"status = %d, want %d: %s",
+						rec.Code, tc.wantStatus, rec.Body.String(),
+					)
+				}
+
+				if tc.wantStatus != http.StatusOK {
+					if usecase.listCalls != 0 {
+						t.Fatal("invalid pagination must not reach the usecase")
+					}
+					return
+				}
+
+				if usecase.listCalls != 1 ||
+					usecase.listQuery.Limit != tc.wantLimit ||
+					usecase.listQuery.Offset != tc.wantOffset {
+					t.Fatal("pagination was not passed correctly to the usecase")
+				}
+
+				var body struct {
+					Reviews []reviewDetailView `json:"reviews"`
+					Total   int                `json:"total"`
+				}
+				if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+					t.Fatalf("decode response: %v", err)
+				}
+
+				if len(body.Reviews) != 1 || body.Total != 53 {
+					t.Fatal("expected one review and total 53")
+				}
+			})
+		}
 	}
 }
