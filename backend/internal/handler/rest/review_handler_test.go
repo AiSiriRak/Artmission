@@ -29,6 +29,7 @@ type reviewUsecaseStub struct {
 	reviews      []review.ReviewDetail
 	listCalls    int
 	listArtistID uuid.UUID
+	listArtworkID uuid.UUID
 }
 
 func (s reviewAuthStub) Authenticate(
@@ -69,6 +70,15 @@ func (s *reviewUsecaseStub) GetArtistReviews(
 ) ([]review.ReviewDetail, error) {
 	s.listCalls++
 	s.listArtistID = artistID
+	return s.reviews, nil
+}
+
+func (s *reviewUsecaseStub) GetReviewsByArtwork(
+	_ context.Context,
+	artworkID uuid.UUID,
+) ([]review.ReviewDetail, error) {
+	s.listCalls++
+	s.listArtworkID = artworkID
 	return s.reviews, nil
 }
 
@@ -253,6 +263,143 @@ func TestReviewHandler_GetArtistReviews(t *testing.T) {
 
 			if usecase.listCalls != 1 || usecase.listArtistID != artistID {
 				t.Fatal("expected one request for the selected artist")
+			}
+
+			var body struct {
+				Reviews []reviewDetailView `json:"reviews"`
+				Total   *int               `json:"total"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if body.Reviews == nil {
+				t.Fatal("reviews must be an array, not null or missing")
+			}
+			if body.Total == nil || *body.Total != len(body.Reviews) {
+				t.Fatal("total must be present and match the number of reviews")
+			}
+
+			if tc.empty {
+				if len(body.Reviews) != 0 {
+					t.Fatal("expected an empty reviews array")
+				}
+				return
+			}
+
+			if len(body.Reviews) != 1 {
+				t.Fatalf("review count = %d, want 1", len(body.Reviews))
+			}
+
+			got := body.Reviews[0]
+			if got.ID != reviewID ||
+				got.Username != "Customer" ||
+				got.Order != "Cat artwork" ||
+				got.Rating != 5 ||
+				got.Comment == nil ||
+				*got.Comment != comment ||
+				!got.CreatedAt.Equal(createdAt) {
+				t.Fatal("response does not contain the expected review details")
+			}
+		})
+	}
+}
+
+// TestReviewHandler_GetReviewsByArtwork verifies access, response fields, and the empty state.
+func TestReviewHandler_GetReviewsByArtwork(t *testing.T) {
+	artworkID := uuid.New()
+	reviewID := uuid.New()
+	comment := "Great work!"
+	createdAt := time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC)
+
+	items := []review.ReviewDetail{
+		{
+			Review: review.Review{
+				ID:        reviewID,
+				ArtistID:  uuid.New(),
+				Rating:    5,
+				Comment:   &comment,
+				CreatedAt: createdAt,
+			},
+			Username: "Customer",
+			Order:    "Cat artwork",
+		},
+	}
+
+	cases := []struct {
+		name          string
+		role          user.Role
+		authenticated bool
+		empty         bool
+		wantStatus    int
+	}{
+		{
+			name:          "customer can read",
+			role:          user.RoleCustomer,
+			authenticated: true,
+			wantStatus:    http.StatusOK,
+		},
+		{
+			name:          "artist can read",
+			role:          user.RoleArtist,
+			authenticated: true,
+			wantStatus:    http.StatusOK,
+		},
+		{
+			name:          "no reviews",
+			role:          user.RoleCustomer,
+			authenticated: true,
+			empty:         true,
+			wantStatus:    http.StatusOK,
+		},
+		{
+			name:       "missing token",
+			role:       user.RoleCustomer,
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			usecase := &reviewUsecaseStub{reviews: items}
+			if tc.empty {
+				usecase.reviews = nil
+			}
+
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			api, server := httpserver.New("", "/api/v1", nil, logger, nil)
+			NewReviewHandler(
+				usecase,
+				reviewAuthStub{role: tc.role},
+			).Register(api)
+
+			req := httptest.NewRequest(
+				http.MethodGet,
+				"/api/v1/artworks/"+artworkID.String()+"/reviews",
+				nil,
+			)
+			if tc.authenticated {
+				req.Header.Set("Authorization", "Bearer test-token")
+			}
+
+			rec := httptest.NewRecorder()
+			server.Handler().ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf(
+					"status = %d, want %d: %s",
+					rec.Code, tc.wantStatus, rec.Body.String(),
+				)
+			}
+
+			if tc.wantStatus != http.StatusOK {
+				if usecase.listCalls != 0 {
+					t.Fatal("an unauthorized request must not reach the usecase")
+				}
+				return
+			}
+
+			if usecase.listCalls != 1 || usecase.listArtworkID != artworkID {
+				t.Fatal("expected one request for the selected artwork")
 			}
 
 			var body struct {
