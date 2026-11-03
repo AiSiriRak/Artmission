@@ -17,7 +17,8 @@ type ReviewUsecase interface {
 	GetArtistReviews(
 		ctx context.Context,
 		artistID uuid.UUID,
-	) ([]ReviewDetail, error)
+		query ListQuery,
+	) (*ReviewPage, error)
 	
 	GetOrderReview(
 		ctx context.Context,
@@ -28,16 +29,17 @@ type ReviewUsecase interface {
 	GetReviewsByArtwork(
 		ctx context.Context,
 		artworkID uuid.UUID,
-	) ([]ReviewDetail, error)
+		query ListQuery,
+	) (*ReviewPage, error)
 }
 
 type ReviewRepository interface {
 	GetOrderForReview(ctx context.Context, orderID uuid.UUID) (*OrderForReview, error)
 	ExistsByOrderID(ctx context.Context, orderID uuid.UUID) (bool, error)
 	Create(ctx context.Context, review *Review) error
-	ListByArtistID(ctx context.Context,artistID uuid.UUID,) ([]ReviewDetail, error)
+	ListByArtistID(ctx context.Context,artistID uuid.UUID,query ListQuery) (*ReviewPage, error)
 	GetByOrderID(ctx context.Context,orderID uuid.UUID,) (*ReviewDetail, error)
-	ListByArtworkID(ctx context.Context,artworkID uuid.UUID,) ([]ReviewDetail, error)
+	ListByArtworkID(ctx context.Context,artworkID uuid.UUID,query ListQuery) (*ReviewPage, error)
 }
 
 type SubmitReviewInput struct {
@@ -53,3 +55,12 @@ type OrderForReview struct {
 	Status     order.Status
 }
 
+type ListQuery struct {
+	Limit int
+	Offset int
+}
+
+type ReviewPage struct {
+	Reviews []ReviewDetail
+	Total   int
+}

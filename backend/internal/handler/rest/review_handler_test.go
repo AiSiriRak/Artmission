@@ -35,6 +35,7 @@ type reviewUsecaseStub struct {
 	getOrderCalls  int
 	getOrderID     uuid.UUID
 	getOrderUserID uuid.UUID
+	listQuery review.ListQuery
 }
 
 func (s reviewAuthStub) Authenticate(
@@ -72,19 +73,31 @@ func (s *reviewUsecaseStub) SubmitReview(
 func (s *reviewUsecaseStub) GetArtistReviews(
 	_ context.Context,
 	artistID uuid.UUID,
-) ([]review.ReviewDetail, error) {
+	query review.ListQuery,
+) (*review.ReviewPage, error) {
 	s.listCalls++
 	s.listArtistID = artistID
-	return s.reviews, nil
+	s.listQuery = query
+
+	return &review.ReviewPage{
+		Reviews: s.reviews,
+		Total:   len(s.reviews),
+	}, nil
 }
 
 func (s *reviewUsecaseStub) GetReviewsByArtwork(
 	_ context.Context,
 	artworkID uuid.UUID,
-) ([]review.ReviewDetail, error) {
+	query review.ListQuery,
+) (*review.ReviewPage, error) {
 	s.listCalls++
 	s.listArtworkID = artworkID
-	return s.reviews, nil
+	s.listQuery = query
+
+	return &review.ReviewPage{
+		Reviews: s.reviews,
+		Total:   len(s.reviews),
+	}, nil
 }
 
 func (s *reviewUsecaseStub) GetOrderReview(
@@ -282,6 +295,10 @@ func TestReviewHandler_GetArtistReviews(t *testing.T) {
 				t.Fatal("expected one request for the selected artist")
 			}
 
+			if usecase.listQuery.Limit != 20 || usecase.listQuery.Offset != 0 {
+				t.Fatal("expected default pagination: limit 20 and offset 0")
+			}
+
 			var body struct {
 				Reviews []reviewDetailView `json:"reviews"`
 				Total   *int               `json:"total"`
@@ -417,6 +434,10 @@ func TestReviewHandler_GetReviewsByArtwork(t *testing.T) {
 
 			if usecase.listCalls != 1 || usecase.listArtworkID != artworkID {
 				t.Fatal("expected one request for the selected artwork")
+			}
+
+			if usecase.listQuery.Limit != 20 || usecase.listQuery.Offset != 0 {
+				t.Fatal("expected default pagination: limit 20 and offset 0")
 			}
 
 			var body struct {

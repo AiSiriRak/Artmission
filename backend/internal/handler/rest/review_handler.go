@@ -111,6 +111,8 @@ type SubmitReviewOutput struct {
 
 type GetArtistReviewsInput struct {
 	ArtistID uuid.UUID `path:"artist_id"`
+	Limit    int       `query:"limit" minimum:"1" maximum:"100" default:"20"`
+	Offset   int       `query:"offset" minimum:"0" default:"0"`
 }
 
 type reviewDetailView struct {
@@ -136,6 +138,8 @@ type GetOrderReviewOutput struct {
 
 type GetReviewsByArtworkInput struct {
 	ArtworkID uuid.UUID `path:"artwork_id"`
+	Limit    int       `query:"limit" minimum:"1" maximum:"100" default:"20"`
+	Offset   int       `query:"offset" minimum:"0" default:"0"`
 }
 
 type GetReviewsByArtworkOutput struct {
@@ -181,37 +185,31 @@ func (h *ReviewHandler) submitReview(
 	}, nil
 }
 
-// getArtistReviews returns an artist's reviews with customer and artwork names.
+// getArtistReviews returns a page of artist reviews and the total count.
 func (h *ReviewHandler) getArtistReviews(
 	ctx context.Context,
 	input *GetArtistReviewsInput,
 ) (*GetArtistReviewsOutput, error) {
-	items, err := h.reviewUsecase.GetArtistReviews(ctx, input.ArtistID)
+	page, err := h.reviewUsecase.GetArtistReviews(
+		ctx,
+		input.ArtistID,
+		review.ListQuery{
+			Limit:  input.Limit,
+			Offset: input.Offset,
+		},
+	)
 	if err != nil {
 		return nil, mapAppError(err)
 	}
 
-	views := make([]reviewDetailView, 0, len(items))
-
-	for _, item := range items {
-		views = append(views, reviewDetailView{
-			ReviewView: ReviewView{
-				ID:         item.ID,
-				OrderID:    item.OrderID,
-				CustomerID: item.CustomerID,
-				ArtistID:   item.ArtistID,
-				Rating:     item.Rating,
-				Comment:    item.Comment,
-				CreatedAt:  item.CreatedAt,
-			},
-			Username: item.Username,
-			Order:    item.Order,
-		})
+	views := make([]reviewDetailView, 0, len(page.Reviews))
+	for _, item := range page.Reviews {
+		views = append(views, newReviewDetailView(item))
 	}
 
 	out := &GetArtistReviewsOutput{}
 	out.Body.Reviews = views
-	out.Body.Total = len(items)
+	out.Body.Total = page.Total
 
 	return out, nil
 }
@@ -240,25 +238,32 @@ func (h *ReviewHandler) getOrderReview(
 	}, nil
 }
 
-// getReviewsByArtwork returns reviews from orders placed for the artwork.
+// getReviewsByArtwork returns a page of artwork reviews and the total count.
 func (h *ReviewHandler) getReviewsByArtwork(
 	ctx context.Context,
 	input *GetReviewsByArtworkInput,
 ) (*GetReviewsByArtworkOutput, error) {
-	items, err := h.reviewUsecase.GetReviewsByArtwork(ctx, input.ArtworkID)
+	page, err := h.reviewUsecase.GetReviewsByArtwork(
+		ctx,
+		input.ArtworkID,
+		review.ListQuery{
+			Limit:  input.Limit,
+			Offset: input.Offset,
+		},
+	)
 	if err != nil {
 		return nil, mapAppError(err)
 	}
 
-	views := make([]reviewDetailView, 0, len(items))
-	for _, item := range items {
+	views := make([]reviewDetailView, 0, len(page.Reviews))
+	for _, item := range page.Reviews {
 		views = append(views, newReviewDetailView(item))
 	}
 
 	out := &GetReviewsByArtworkOutput{}
 	out.Body.Reviews = views
-	out.Body.Total = len(items)
-	
+	out.Body.Total = page.Total
+
 	return out, nil
 }
 

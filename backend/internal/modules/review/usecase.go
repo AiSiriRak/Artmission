@@ -86,25 +86,27 @@ func (u *reviewUsecase) SubmitReview(
 	return result, nil
 }
 
-// GetArtistReviews validates the artist ID and retrieves reviews from newest to oldest.
+// GetArtistReviews retrieves a page of artist reviews, newest first.
 func (u *reviewUsecase) GetArtistReviews(
 	ctx context.Context,
 	artistID uuid.UUID,
-) ([]ReviewDetail, error) {
+	query ListQuery,
+) (*ReviewPage, error) {
 	if artistID == uuid.Nil {
 		return nil, apperror.InvalidInput("artist ID is required", nil)
 	}
 
-	reviews, err := u.repo.ListByArtistID(ctx, artistID)
-	if err != nil {
-		return nil, err
+	if query.Limit == 0 {
+		query.Limit = 20
+	}
+	if query.Limit < 1 || query.Limit > 100 {
+		return nil, apperror.InvalidInput("limit must be between 1 and 100", nil)
+	}
+	if query.Offset < 0 {
+		return nil, apperror.InvalidInput("offset must not be negative", nil)
 	}
 
-	if reviews == nil {
-		return []ReviewDetail{}, nil
-	}
-
-	return reviews, nil
+	return u.repo.ListByArtistID(ctx, artistID, query)
 }
 
 // retrieves an order's review for its customer or artist.
@@ -143,22 +145,25 @@ func (u *reviewUsecase) GetOrderReview(
 	return item, nil
 }
 
-// retrieves reviews from orders placed for the artwork
+// GetReviewsByArtwork retrieves a page of artwork reviews, newest first.
 func (u *reviewUsecase) GetReviewsByArtwork(
 	ctx context.Context,
 	artworkID uuid.UUID,
-) ([]ReviewDetail, error) {
+	query ListQuery,
+) (*ReviewPage, error) {
 	if artworkID == uuid.Nil {
 		return nil, apperror.InvalidInput("artwork ID is required", nil)
 	}
 
-	items, err := u.repo.ListByArtworkID(ctx, artworkID)
-	if err != nil {
-		return nil, err
+	if query.Limit == 0 {
+		query.Limit = 20
 	}
-	if items == nil {
-		return []ReviewDetail{}, nil
+	if query.Limit < 1 || query.Limit > 100 {
+		return nil, apperror.InvalidInput("limit must be between 1 and 100", nil)
+	}
+	if query.Offset < 0 {
+		return nil, apperror.InvalidInput("offset must not be negative", nil)
 	}
 
-	return items, nil
+	return u.repo.ListByArtworkID(ctx, artworkID, query)
 }

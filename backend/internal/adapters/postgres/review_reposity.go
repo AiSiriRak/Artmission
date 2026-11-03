@@ -150,30 +150,39 @@ func (row reviewDetailRow) toDomain() review.ReviewDetail {
 	}
 }
 
-// ListByArtistID retrieves an artist's reviews from newest to oldest.
+// ListByArtistID retrieves a page of artist reviews and the total count.
 func (r *reviewRepository) ListByArtistID(
 	ctx context.Context,
 	artistID uuid.UUID,
-) ([]review.ReviewDetail, error) {
+	query review.ListQuery,
+) (*review.ReviewPage, error) {
 	var rows []reviewDetailRow
+	var total int
 
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return newReviewDetailQuery(idb).
+		var err error
+		total, err = newReviewDetailQuery(idb).
 			Where("r.artist_id = ?", artistID).
 			OrderExpr("r.created_at DESC, r.id DESC").
-			Scan(ctx, &rows)
+			Limit(query.Limit).
+			Offset(query.Offset).
+			ScanAndCount(ctx, &rows)
+
+		return err
 	})
 	if err != nil {
 		return nil, apperror.Internal("failed to list artist reviews", err)
 	}
 
-	result := make([]review.ReviewDetail, 0, len(rows))
-
+	items := make([]review.ReviewDetail, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, row.toDomain())
+		items = append(items, row.toDomain())
 	}
 
-	return result, nil
+	return &review.ReviewPage{
+		Reviews: items,
+		Total:   total,
+	}, nil
 }
 
 // GetByOrderID retrieves the review associated with an order.
@@ -199,26 +208,37 @@ func (r *reviewRepository) GetByOrderID(
 	return &item, nil
 }
 
-// ListByArtworkID retrieves reviews from orders placed for the artwork.
+// ListByArtworkID retrieves a page of artwork reviews and the total count.
 func (r *reviewRepository) ListByArtworkID(
 	ctx context.Context,
 	artworkID uuid.UUID,
-) ([]review.ReviewDetail, error) {
+	query review.ListQuery,
+) (*review.ReviewPage, error) {
 	var rows []reviewDetailRow
+	var total int
 
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return newReviewDetailQuery(idb).
+		var err error
+		total, err = newReviewDetailQuery(idb).
 			Where("o.artwork_id = ?", artworkID).
 			OrderExpr("r.created_at DESC, r.id DESC").
-			Scan(ctx, &rows)
+			Limit(query.Limit).
+			Offset(query.Offset).
+			ScanAndCount(ctx, &rows)
+
+		return err
 	})
 	if err != nil {
 		return nil, apperror.Internal("failed to list artwork reviews", err)
 	}
 
-	result := make([]review.ReviewDetail, 0, len(rows))
+	items := make([]review.ReviewDetail, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, row.toDomain())
+		items = append(items, row.toDomain())
 	}
-	return result, nil
+
+	return &review.ReviewPage{
+		Reviews: items,
+		Total:   total,
+	}, nil
 }

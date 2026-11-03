@@ -23,6 +23,7 @@ type fakeRepo struct {
 	artworkReviews []review.ReviewDetail
 	listArtworkID  uuid.UUID
 	artworkErr     error
+	listQuery      review.ListQuery
 }
 
 func (f *fakeRepo) GetOrderForReview(
@@ -54,9 +55,24 @@ func (f *fakeRepo) Create(
 func (f *fakeRepo) ListByArtistID(
 	_ context.Context,
 	artistID uuid.UUID,
-) ([]review.ReviewDetail, error) {
+	query review.ListQuery,
+) (*review.ReviewPage, error) {
 	f.listArtistID = artistID
-	return f.reviews, f.listErr
+	f.listQuery = query
+
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
+
+	items := f.reviews
+	if items == nil {
+		items = []review.ReviewDetail{}
+	}
+
+	return &review.ReviewPage{
+		Reviews: items,
+		Total:   len(items),
+	}, nil
 }
 
 func (f *fakeRepo) GetByOrderID(
@@ -71,9 +87,24 @@ func (f *fakeRepo) GetByOrderID(
 func (f *fakeRepo) ListByArtworkID(
 	_ context.Context,
 	artworkID uuid.UUID,
-) ([]review.ReviewDetail, error) {
+	query review.ListQuery,
+) (*review.ReviewPage, error) {
 	f.listArtworkID = artworkID
-	return f.artworkReviews, f.artworkErr
+	f.listQuery = query
+
+	if f.artworkErr != nil {
+		return nil, f.artworkErr
+	}
+
+	items := f.artworkReviews
+	if items == nil {
+		items = []review.ReviewDetail{}
+	}
+
+	return &review.ReviewPage{
+		Reviews: items,
+		Total:   len(items),
+	}, nil
 }
 
 // verifies that a rating alone can create a review
@@ -274,7 +305,7 @@ func TestGetArtistReviews_Success(t *testing.T) {
 	}
 	uc := review.NewReviewUsecase(repo)
 
-	result, err := uc.GetArtistReviews(context.Background(), artistID)
+	result, err := uc.GetArtistReviews(context.Background(), artistID, review.ListQuery{},)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -282,11 +313,11 @@ func TestGetArtistReviews_Success(t *testing.T) {
 	if repo.listArtistID != artistID {
 		t.Fatal("repository received the wrong artist ID")
 	}
-	if len(result) != 1 {
-		t.Fatalf("review count = %d, want 1", len(result))
+	if len(result.Reviews) != 1 {
+		t.Fatalf("review count = %d, want 1", len(result.Reviews))
 	}
 
-	got := result[0]
+	got := result.Reviews[0]
 	if got.ID != reviewID ||
 		got.Username != "Customer" ||
 		got.Order != "Cat artwork" ||
@@ -302,7 +333,7 @@ func TestGetArtistReviews_Empty(t *testing.T) {
 	repo := &fakeRepo{}
 	uc := review.NewReviewUsecase(repo)
 
-	result, err := uc.GetArtistReviews(context.Background(), uuid.New())
+	result, err := uc.GetArtistReviews(context.Background(), uuid.New(), review.ListQuery{},)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -310,8 +341,8 @@ func TestGetArtistReviews_Empty(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected an empty list, not nil")
 	}
-	if len(result) != 0 {
-		t.Fatalf("review count = %d, want 0", len(result))
+	if len(result.Reviews) != 0 {
+		t.Fatalf("review count = %d, want 0", len(result.Reviews))
 	}
 }
 
@@ -323,7 +354,7 @@ func TestGetArtistReviews_RepositoryError(t *testing.T) {
 	}
 	uc := review.NewReviewUsecase(repo)
 
-	result, err := uc.GetArtistReviews(context.Background(), uuid.New())
+	result, err := uc.GetArtistReviews(context.Background(), uuid.New(), review.ListQuery{},)
 
 	if !errors.Is(err, expectedErr) {
 		t.Fatalf("error = %v, want %v", err, expectedErr)
@@ -399,19 +430,19 @@ func TestGetReviewsByArtwork_Success(t *testing.T) {
 	repo := &fakeRepo{artworkReviews: []review.ReviewDetail{
 		{Review: review.Review{ID: reviewID, Rating: 4}, Username: "Customer", Order: "Cat artwork"},
 	}}
-	result, err := review.NewReviewUsecase(repo).GetReviewsByArtwork(context.Background(), artworkID)
+	result, err := review.NewReviewUsecase(repo).GetReviewsByArtwork(context.Background(), artworkID, review.ListQuery{},)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if repo.listArtworkID != artworkID || len(result) != 1 || result[0].ID != reviewID {
+	if repo.listArtworkID != artworkID || len(result.Reviews) != 1 || result.Reviews[0].ID != reviewID {
 		t.Fatal("expected reviews requested for the selected artwork")
 	}
 }
 
 // TestGetReviewsByArtwork_Empty returns an empty list when there are no reviews.
 func TestGetReviewsByArtwork_Empty(t *testing.T) {
-	result, err := review.NewReviewUsecase(&fakeRepo{}).GetReviewsByArtwork(context.Background(), uuid.New())
-	if err != nil || result == nil || len(result) != 0 {
+	result, err := review.NewReviewUsecase(&fakeRepo{}).GetReviewsByArtwork(context.Background(), uuid.New(), review.ListQuery{},)
+	if err != nil || result == nil || len(result.Reviews) != 0 {
 		t.Fatalf("expected an empty list, got %v, %v", result, err)
 	}
 }
@@ -420,7 +451,7 @@ func TestGetReviewsByArtwork_Empty(t *testing.T) {
 func TestGetReviewsByArtwork_RepositoryError(t *testing.T) {
 	expectedErr := errors.New("artwork review query failed")
 	repo := &fakeRepo{artworkErr: expectedErr}
-	result, err := review.NewReviewUsecase(repo).GetReviewsByArtwork(context.Background(), uuid.New())
+	result, err := review.NewReviewUsecase(repo).GetReviewsByArtwork(context.Background(), uuid.New(), review.ListQuery{},)
 	if !errors.Is(err, expectedErr) || result != nil {
 		t.Fatalf("expected repository error, got %v, %v", result, err)
 	}
