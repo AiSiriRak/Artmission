@@ -214,6 +214,7 @@ func (f *fakeProvider) VerifySlipImage(
 	[]byte,
 	string,
 	int64,
+	time.Time,
 ) (payment.SlipVerification, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -234,7 +235,7 @@ func TestGetQRReturnsStoredPayloadWithoutGenerating(t *testing.T) {
 	}
 	provider := &fakeProvider{}
 
-	result, err := payment.NewUsecase(repo, provider).GetQR(context.Background(), customerID, orderID)
+	result, err := payment.NewPaymentUsecase(repo, provider).GetQR(context.Background(), customerID, orderID)
 	if err != nil {
 		t.Fatalf("GetQR() error = %v", err)
 	}
@@ -266,7 +267,7 @@ func TestGetQRDoesNotReturnIneligibleOrExpiredPayload(t *testing.T) {
 					QRPayload: &payload, QRExpire: &test.expires,
 				},
 			}
-			_, err := payment.NewUsecase(repo, &fakeProvider{}).GetQR(context.Background(), customerID, orderID)
+			_, err := payment.NewPaymentUsecase(repo, &fakeProvider{}).GetQR(context.Background(), customerID, orderID)
 			if !errors.Is(err, test.wantErr) {
 				t.Fatalf("GetQR() error = %v, want %v", err, test.wantErr)
 			}
@@ -283,7 +284,7 @@ func TestGetQRReturnsNotReadyWhenPayloadIsMissing(t *testing.T) {
 			ID: uuid.New(), OrderID: orderID, Status: payment.StatusPending, QRExpire: &expires,
 		},
 	}
-	_, err := payment.NewUsecase(repo, &fakeProvider{}).GetQR(context.Background(), customerID, orderID)
+	_, err := payment.NewPaymentUsecase(repo, &fakeProvider{}).GetQR(context.Background(), customerID, orderID)
 	if !errors.Is(err, payment.ErrQRNotReady) {
 		t.Fatalf("GetQR() error = %v, want QR not ready", err)
 	}
@@ -306,7 +307,7 @@ func newGenerateFixture(amount int64, status string, expires time.Time) (*fakeRe
 func TestGenerateQRPersistsPayloadOnlyOnce(t *testing.T) {
 	repo, _, orderID := newGenerateFixture(12345, payment.EligibleOrderStatus, time.Now().Add(time.Hour))
 	provider := &fakeProvider{qr: payment.QRImage{Payload: "new-qr-payload", AmountSatang: 12345}}
-	uc := payment.NewUsecase(repo, provider)
+	uc := payment.NewPaymentUsecase(repo, provider)
 	customerID := uuid.New()
 
 	first, err := uc.GenerateQR(context.Background(), customerID, orderID)
@@ -325,7 +326,7 @@ func TestGenerateQRPersistsPayloadOnlyOnce(t *testing.T) {
 func TestGenerateQRDoesNotPersistWhenProviderFails(t *testing.T) {
 	repo, _, orderID := newGenerateFixture(500, payment.EligibleOrderStatus, time.Now().Add(time.Hour))
 	provider := &fakeProvider{qrErr: errors.New("provider timeout")}
-	_, err := payment.NewUsecase(repo, provider).GenerateQR(context.Background(), uuid.New(), orderID)
+	_, err := payment.NewPaymentUsecase(repo, provider).GenerateQR(context.Background(), uuid.New(), orderID)
 	var appErr *apperror.Error
 	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInternal {
 		t.Fatalf("GenerateQR() error = %v, want internal provider error", err)
@@ -351,7 +352,7 @@ func TestGenerateQRRejectsIneligibleOrExpiredPayment(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			repo, _, orderID := newGenerateFixture(500, test.status, test.expires)
 			provider := &fakeProvider{qr: payment.QRImage{Payload: "x", AmountSatang: 500}}
-			_, err := payment.NewUsecase(repo, provider).GenerateQR(context.Background(), uuid.New(), orderID)
+			_, err := payment.NewPaymentUsecase(repo, provider).GenerateQR(context.Background(), uuid.New(), orderID)
 			if !errors.Is(err, test.wantErr) {
 				t.Fatalf("GenerateQR() error = %v, want %v", err, test.wantErr)
 			}
@@ -365,7 +366,7 @@ func TestGenerateQRRejectsIneligibleOrExpiredPayment(t *testing.T) {
 func TestGenerateQRSerializesConcurrentRequests(t *testing.T) {
 	repo, _, orderID := newGenerateFixture(500, payment.EligibleOrderStatus, time.Now().Add(time.Hour))
 	provider := &fakeProvider{qr: payment.QRImage{Payload: "single-payload", AmountSatang: 500}}
-	uc := payment.NewUsecase(repo, provider)
+	uc := payment.NewPaymentUsecase(repo, provider)
 	customerID := uuid.New()
 
 	start := make(chan struct{})
@@ -395,7 +396,7 @@ func TestExpirePaymentsReturnsCancelledOrderIDs(t *testing.T) {
 		expiredOrderID: orderID,
 		orderCancelled: true,
 	}
-	cancelled, err := payment.NewUsecase(repo, &fakeProvider{}).ExpirePayments(context.Background())
+	cancelled, err := payment.NewPaymentUsecase(repo, &fakeProvider{}).ExpirePayments(context.Background())
 	if err != nil {
 		t.Fatalf("ExpirePayments() error = %v", err)
 	}
@@ -425,7 +426,7 @@ func TestVerifySlipRejectsExpiredOrCancelledOrdersBeforeProvider(t *testing.T) {
 				QRPayload: &payload, QRExpire: &test.expires,
 			}}
 			provider := &fakeProvider{verification: payment.SlipVerification{Valid: true, TransRef: "bank-ref", AmountSatang: 1234}}
-			_, err := payment.NewUsecase(repo, provider).VerifySlip(
+			_, err := payment.NewPaymentUsecase(repo, provider).VerifySlip(
 				context.Background(), customerID, orderID, []byte("image"), "image/png",
 			)
 			if !errors.Is(err, test.wantErr) {
@@ -451,7 +452,7 @@ func TestVerifySlipConfirmsOnlyValidUniqueReference(t *testing.T) {
 		Valid: true, ResultCode: "200000", TransRef: "bank-ref", AmountSatang: 1234,
 	}}
 
-	result, err := payment.NewUsecase(repo, provider).VerifySlip(
+	result, err := payment.NewPaymentUsecase(repo, provider).VerifySlip(
 		context.Background(), customerID, orderID, []byte("image"), "image/png",
 	)
 	if err != nil {
@@ -472,6 +473,7 @@ func TestVerifySlipReportsReadableRejectionReasons(t *testing.T) {
 		wantReason   string
 	}{
 		{"duplicate", payment.SlipVerification{ResultCode: "200501"}, "SLIP_ALREADY_USED"},
+		{"slip older than the payment", payment.SlipVerification{ResultCode: "200403"}, "SLIP_TOO_OLD"},
 		{"wrong receiver", payment.SlipVerification{ResultCode: "200401"}, "WRONG_RECEIVER"},
 		{"provider amount mismatch", payment.SlipVerification{ResultCode: "200402"}, "AMOUNT_MISMATCH"},
 		{"slip amount differs", payment.SlipVerification{ResultCode: "200200", TransRef: "r", AmountSatang: 9999}, "AMOUNT_MISMATCH"},
@@ -484,7 +486,7 @@ func TestVerifySlipReportsReadableRejectionReasons(t *testing.T) {
 				Status: payment.StatusPending, OrderStatus: payment.EligibleOrderStatus,
 				QRPayload: &payload, QRExpire: &expires,
 			}}
-			_, err := payment.NewUsecase(repo, &fakeProvider{verification: test.verification}).VerifySlip(
+			_, err := payment.NewPaymentUsecase(repo, &fakeProvider{verification: test.verification}).VerifySlip(
 				context.Background(), customerID, orderID, []byte("image"), "image/png",
 			)
 			var rejection *payment.SlipRejection
@@ -518,7 +520,7 @@ func TestVerifySlipRejectsProviderFailureAndAmountMismatch(t *testing.T) {
 				QRPayload: &payload, QRExpire: &expires,
 			}}
 			provider := &fakeProvider{verification: test.verification, verifyErr: test.providerErr}
-			_, err := payment.NewUsecase(repo, provider).VerifySlip(
+			_, err := payment.NewPaymentUsecase(repo, provider).VerifySlip(
 				context.Background(), customerID, orderID, []byte("image"), "image/png",
 			)
 			var appErr *apperror.Error

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -42,6 +42,7 @@ var _ payment.QRProvider = (*client)(nil)
 func NewClient(cfg Config) payment.QRProvider {
 	return newClient(cfg, &http.Client{
 		Timeout: 10 * time.Second,
+		// Never follow redirects: the bearer token and slip image must not be forwarded to another URL.
 		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
@@ -72,6 +73,12 @@ type slipVerificationConditions struct {
 	CheckDuplicate bool                `json:"checkDuplicate"`
 	CheckReceiver  []receiverCondition `json:"checkReceiver"`
 	CheckAmount    amountCondition     `json:"checkAmount"`
+	CheckDate      dateCondition       `json:"checkDate"`
+}
+
+type dateCondition struct {
+	Type string `json:"type"`
+	Date string `json:"date"`
 }
 
 type receiverCondition struct {
@@ -89,6 +96,7 @@ type verifySlipResponse struct {
 	Data struct {
 		TransRef string          `json:"transRef"`
 		Amount   json.RawMessage `json:"amount"`
+		DateTime string          `json:"dateTime"`
 	} `json:"data"`
 }
 
@@ -148,8 +156,8 @@ func (c *client) VerifySlipImage(
 	image []byte,
 	contentType string,
 	amountSatang int64,
+	notBefore time.Time,
 ) (payment.SlipVerification, error) {
-
 	if err := c.validateConfig(); err != nil {
 		return payment.SlipVerification{}, err
 	}
@@ -185,6 +193,11 @@ func (c *client) VerifySlipImage(
 			Type:   "eq",
 			Amount: formatSatang(amountSatang),
 		},
+		// Reject slips made before the payment existed.
+		CheckDate: dateCondition{
+			Type: "gte",
+			Date: notBefore.UTC().Format("2006-01-02T15:04:05.000Z"),
+		},
 	})
 	if err != nil {
 		return payment.SlipVerification{}, fmt.Errorf("encode Slip2Go verification conditions: %w", err)
@@ -209,7 +222,7 @@ func (c *client) VerifySlipImage(
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		log.Printf("Error sending Slip2Go verification request: %v", err)
+		slog.WarnContext(ctx, "Slip2Go verification request failed", "error", err)
 		return payment.SlipVerification{}, fmt.Errorf("send Slip2Go verification request: %w", err)
 	}
 	defer resp.Body.Close()
@@ -219,12 +232,13 @@ func (c *client) VerifySlipImage(
 		return payment.SlipVerification{}, err
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		log.Printf("Slip2Go returned HTTP status %d with body: %s", resp.StatusCode, string(responseBody))
 		var failure struct {
 			Code    string `json:"code"`
 			Message string `json:"message"`
 		}
 		_ = json.Unmarshal(responseBody, &failure)
+		slog.WarnContext(ctx, "Slip2Go verification returned an error status",
+			"status", resp.StatusCode, "provider_code", failure.Code)
 		if (resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusNotFound) &&
 			failure.Code != "" {
 			return payment.SlipVerification{ResultCode: failure.Code}, nil
@@ -250,10 +264,15 @@ func (c *client) VerifySlipImage(
 	if strings.TrimSpace(result.Data.TransRef) == "" {
 		return payment.SlipVerification{}, fmt.Errorf("Slip2Go verification response is missing transaction reference")
 	}
+	dateTime, err := parseSlipDateTime(result.Data.DateTime)
+	if err != nil {
+		return payment.SlipVerification{}, fmt.Errorf("Slip2Go verification response has invalid dateTime: %w", err)
+	}
 
 	verification.Valid = amount == amountSatang
 	verification.TransRef = result.Data.TransRef
 	verification.AmountSatang = amount
+	verification.DateTime = dateTime
 	return verification, nil
 }
 
@@ -268,17 +287,21 @@ func (c *client) doJSON(ctx context.Context, path string, body []byte) (*http.Re
 	}
 	req.Header.Set("Authorization", "Bearer "+c.config.SecretKey)
 	req.Header.Set("Content-Type", "application/json")
-	//print debug information about the request
-	log.Printf("Sending request to %s with body: %s", endpoint, string(body))
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("send Slip2Go request: %w", err)
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		responseBody, _ := readResponseBody(resp.Body)
-		log.Printf("Slip2Go respond = %s", strings.TrimSpace(string(responseBody)))
+		var failure struct {
+			Code string `json:"code"`
+		}
+		if responseBody, err := readResponseBody(resp.Body); err == nil {
+			_ = json.Unmarshal(responseBody, &failure)
+		}
 		resp.Body.Close()
+		slog.WarnContext(ctx, "Slip2Go request returned an error status",
+			"path", path, "status", resp.StatusCode, "provider_code", failure.Code)
 		return nil, fmt.Errorf("Slip2Go returned HTTP status %d", resp.StatusCode)
 	}
 	return resp, nil
@@ -370,6 +393,17 @@ func parseAmountSatang(value json.RawMessage) (int64, error) {
 		return 0, fmt.Errorf("amount has an invalid satang component")
 	}
 	return baht*100 + satang, nil
+}
+
+func parseSlipDateTime(value string) (time.Time, error) {
+	if strings.TrimSpace(value) == "" {
+		return time.Time{}, fmt.Errorf("dateTime is missing")
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return parsed.UTC(), nil
 }
 
 func formatSatang(amount int64) string {

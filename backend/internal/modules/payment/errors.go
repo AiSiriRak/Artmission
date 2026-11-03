@@ -47,6 +47,8 @@ func rejectionFromVerification(v SlipVerification, orderAmountSatang int64) *Sli
 		return newSlipRejection("AMOUNT_MISMATCH", "The slip amount does not match the order amount.")
 	case "200404":
 		return newSlipRejection("SLIP_NOT_FOUND", "No matching transfer was found for this slip. Use the original slip image.")
+	case "200403":
+		return newSlipRejection("SLIP_TOO_OLD", "This slip was made before the payment was created.")
 	case "200500":
 		return newSlipRejection("SLIP_FRAUD", "The slip looks invalid or tampered with.")
 	case "400002":

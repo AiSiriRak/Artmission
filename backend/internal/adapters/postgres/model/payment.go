@@ -16,6 +16,7 @@ type Payment struct {
 	Status                 string     `bun:"status"`
 	QRPayload              *string    `bun:"qr_payload"`
 	QRExpire               *time.Time `bun:"qr_expire"`
+	QRGeneratingAt         *time.Time `bun:"qr_generating_at"`
 	ProviderTransactionRef *string    `bun:"provider_transaction_ref"`
 	CreatedAt              time.Time  `bun:"created_at,nullzero"`
 	UpdatedAt              time.Time  `bun:"updated_at,nullzero"`

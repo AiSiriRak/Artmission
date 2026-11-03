@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -15,19 +16,19 @@ const (
 	expirationBatchSize = 100
 )
 
-type usecase struct {
+type paymentUsecase struct {
 	repo     Repository
 	provider QRProvider
 	now      func() time.Time
 }
 
-var _ Usecase = (*usecase)(nil)
+var _ Usecase = (*paymentUsecase)(nil)
 
-func NewUsecase(repo Repository, provider QRProvider) Usecase {
-	return &usecase{repo: repo, provider: provider, now: time.Now}
+func NewPaymentUsecase(repo Repository, provider QRProvider) Usecase {
+	return &paymentUsecase{repo: repo, provider: provider, now: time.Now}
 }
 
-func (u *usecase) GetQR(
+func (u *paymentUsecase) GetQR(
 	ctx context.Context,
 	customerID, orderID uuid.UUID,
 ) (*QRPayment, error) {
@@ -65,7 +66,7 @@ func (u *usecase) GetQR(
 	}, nil
 }
 
-func (u *usecase) GenerateQR(
+func (u *paymentUsecase) GenerateQR(
 	ctx context.Context,
 	customerID, orderID uuid.UUID,
 ) (resultQR *QRPayment, resultErr error) {
@@ -141,7 +142,7 @@ func (u *usecase) GenerateQR(
 	return result, err
 }
 
-func (u *usecase) ExpirePayments(ctx context.Context) ([]uuid.UUID, error) {
+func (u *paymentUsecase) ExpirePayments(ctx context.Context) ([]uuid.UUID, error) {
 	paymentIDs, err := u.repo.ListExpiredPaymentIDs(ctx, expirationBatchSize)
 	if err != nil {
 		return nil, err
@@ -162,7 +163,7 @@ func (u *usecase) ExpirePayments(ctx context.Context) ([]uuid.UUID, error) {
 	return cancelledOrders, sweepErr
 }
 
-func (u *usecase) VerifySlip(
+func (u *paymentUsecase) VerifySlip(
 	ctx context.Context,
 	customerID, orderID uuid.UUID,
 	image []byte,
@@ -192,7 +193,7 @@ func (u *usecase) VerifySlip(
 		return nil, ErrQRNotReady
 	}
 
-	verification, err := u.provider.VerifySlipImage(ctx, image, contentType, item.AmountSatang)
+	verification, err := u.provider.VerifySlipImage(ctx, image, contentType, item.AmountSatang, item.CreatedAt)
 	if err != nil {
 		return nil, apperror.Internal("slip verification provider failed", err)
 	}
@@ -209,6 +210,11 @@ func (u *usecase) VerifySlip(
 		return nil, newSlipRejection("SLIP_ALREADY_USED", "This slip has already been used.")
 	}
 	if err != nil {
+		// The provider already consumed this slip (checkDuplicate), so a retry would
+		// be rejected as used. Log enough for support to recover manually.
+		slog.ErrorContext(ctx, "slip verified by provider but payment was not recorded",
+			"order_id", orderID, "payment_id", item.PaymentID,
+			"trans_ref", verification.TransRef, "error", err)
 		return nil, err
 	}
 	return result, nil

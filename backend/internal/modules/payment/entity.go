@@ -67,6 +67,7 @@ type PaymentForVerification struct {
 	OrderStatus  string
 	QRPayload    *string
 	QRExpire     *time.Time
+	CreatedAt    time.Time
 }
 
 type SlipVerification struct {
@@ -74,6 +75,7 @@ type SlipVerification struct {
 	ResultCode   string
 	TransRef     string
 	AmountSatang int64
+	DateTime     time.Time
 }
 
 type VerifiedPayment struct {

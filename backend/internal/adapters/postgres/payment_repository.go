@@ -2,9 +2,7 @@ package postgres
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"time"
@@ -110,27 +108,26 @@ func (r *paymentRepository) TryLockQRGeneration(
 	ctx context.Context,
 	paymentID uuid.UUID,
 ) (payment.QRGenerationLock, bool, error) {
-	conn, err := r.db.Conn(ctx)
+	// A single short statement claims the payment; no pooled connection is held
+	// while the provider is called. A crashed holder is superseded after the TTL.
+	result, err := r.db.NewUpdate().
+		Model((*pgmodel.Payment)(nil)).
+		Set("qr_generating_at = clock_timestamp()").
+		Where("id = ?", paymentID).
+		Where("(qr_generating_at IS NULL OR qr_generating_at < clock_timestamp() - make_interval(secs => ?))",
+			qrGenerationClaimTTL.Seconds()).
+		Exec(ctx)
 	if err != nil {
-		return nil, false, apperror.Internal("failed to acquire QR generation connection", err)
+		return nil, false, apperror.Internal("failed to claim QR generation", err)
 	}
-	key := advisoryLockKey(paymentID)
-	var acquired bool
-	if err := conn.NewSelect().
-		ColumnExpr("pg_try_advisory_lock(?)", key).
-		Scan(ctx, &acquired); err != nil {
-		return nil, false, apperror.Internal(
-			"failed to acquire QR generation lock",
-			errors.Join(err, conn.Close()),
-		)
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return nil, false, apperror.Internal("failed to claim QR generation", err)
 	}
-	if !acquired {
-		if err := conn.Close(); err != nil {
-			return nil, false, apperror.Internal("failed to release unused QR generation connection", err)
-		}
+	if rows != 1 {
 		return nil, false, nil
 	}
-	return &qrGenerationLock{conn: conn, key: key}, true, nil
+	return &qrGenerationClaim{db: r.db, paymentID: paymentID}, true, nil
 }
 
 func (r *paymentRepository) SaveQRPayload(
@@ -143,6 +140,7 @@ func (r *paymentRepository) SaveQRPayload(
 		result, err := idb.NewUpdate().
 			Model((*pgmodel.Payment)(nil)).
 			Set("qr_payload = ?", payload).
+			Set("qr_generating_at = NULL").
 			Set("updated_at = clock_timestamp()").
 			Where("id = ?", paymentID).
 			Where("status = ?", string(payment.StatusPending)).
@@ -297,6 +295,7 @@ func (r *paymentRepository) GetPaymentForVerification(
 		OrderStatus  string     `bun:"order_status"`
 		QRPayload    *string    `bun:"qr_payload"`
 		QRExpire     *time.Time `bun:"qr_expire"`
+		CreatedAt    time.Time  `bun:"created_at"`
 	}
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		return idb.NewSelect().
@@ -308,6 +307,7 @@ func (r *paymentRepository) GetPaymentForVerification(
 			ColumnExpr("o.status AS order_status").
 			ColumnExpr("p.qr_payload").
 			ColumnExpr("p.qr_expire").
+			ColumnExpr("p.created_at").
 			Join("JOIN orders AS o ON o.id = p.order_id").
 			Where("p.order_id = ?", orderID).
 			Where("o.customer_id = ?", customerID).
@@ -327,6 +327,7 @@ func (r *paymentRepository) GetPaymentForVerification(
 		OrderStatus:  item.OrderStatus,
 		QRPayload:    item.QRPayload,
 		QRExpire:     item.QRExpire,
+		CreatedAt:    item.CreatedAt,
 	}, nil
 }
 
@@ -464,29 +465,27 @@ func isPaymentDomainError(err error) bool {
 	return errors.As(err, &appErr)
 }
 
-func advisoryLockKey(paymentID uuid.UUID) int64 {
-	sum := sha256.Sum256(paymentID[:])
-	return int64(binary.BigEndian.Uint64(sum[:8]))
+// qrGenerationClaimTTL must exceed the provider client timeout so a live
+// generation is never superseded.
+const qrGenerationClaimTTL = 30 * time.Second
+
+type qrGenerationClaim struct {
+	db        *bun.DB
+	paymentID uuid.UUID
 }
 
-type qrGenerationLock struct {
-	conn bun.Conn
-	key  int64
-}
-
-func (l *qrGenerationLock) Release() error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+// Release clears the claim. If it fails, the claim simply expires after the TTL.
+func (c *qrGenerationClaim) Release() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-
-	var released bool
-	unlockErr := l.conn.NewSelect().
-		ColumnExpr("pg_advisory_unlock(?)", l.key).
-		Scan(ctx, &released)
-	if unlockErr == nil && !released {
-		unlockErr = fmt.Errorf("PostgreSQL QR generation lock was not held")
+	if _, err := c.db.NewUpdate().
+		Model((*pgmodel.Payment)(nil)).
+		Set("qr_generating_at = NULL").
+		Where("id = ?", c.paymentID).
+		Exec(ctx); err != nil {
+		return fmt.Errorf("release QR generation claim: %w", err)
 	}
-	closeErr := l.conn.Close()
-	return errors.Join(unlockErr, closeErr)
+	return nil
 }
 
 func paymentFromModel(m *pgmodel.Payment) *payment.Payment {

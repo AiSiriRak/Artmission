@@ -2,6 +2,7 @@ package payment
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -48,5 +49,6 @@ type QRProvider interface {
 		image []byte,
 		contentType string,
 		amountSatang int64,
+		notBefore time.Time,
 	) (SlipVerification, error)
 }

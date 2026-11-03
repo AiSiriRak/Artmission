@@ -61,7 +61,7 @@ func Wire(cfg Config) *httpserver.Server {
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx, cfg.ObjectStorage.Public)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private)
-	paymentUsecase := payment.NewUsecase(paymentRepo, newSlip2GoProvider(cfg.Slip2Go))
+	paymentUsecase := payment.NewPaymentUsecase(paymentRepo, newSlip2GoProvider(cfg.Slip2Go))
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
@@ -90,7 +90,7 @@ func WireWorkers(cfg Config) []worker.Worker {
 	orderRepo := postgres.NewOrderRepository(cfg.DB)
 	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private)
 	paymentRepo := postgres.NewPaymentRepository(cfg.DB)
-	paymentUsecase := payment.NewUsecase(paymentRepo, newSlip2GoProvider(cfg.Slip2Go))
+	paymentUsecase := payment.NewPaymentUsecase(paymentRepo, newSlip2GoProvider(cfg.Slip2Go))
 
 	return []worker.Worker{
 		worker.NewOrderExpiryWorker(orderUsecase, orderExpiryInterval, cfg.Logger),

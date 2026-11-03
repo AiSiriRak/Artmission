@@ -19,6 +19,82 @@ import (
 	"github.com/google/uuid"
 )
 
+func TestQRGenerationClaimDoesNotHoldPoolConnection(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	pg := apptest.StartPostgres(ctx, t)
+	s3Config := apptest.StartObjectStorage(ctx, t)
+	db, err := database.NewPostgresDB(config.Database{DSN: pg.DSN})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	storage, err := objectstorage.NewS3Client(ctx, s3Config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := seed.Up(ctx, db, storage); err != nil {
+		t.Fatalf("seed fixtures: %v", err)
+	}
+
+	var orderID uuid.UUID
+	if err := db.NewSelect().Table("orders").Column("id").
+		Where("name = ?", "Anime avatar").Where("status = ?", payment.EligibleOrderStatus).
+		Scan(ctx, &orderID); err != nil {
+		t.Fatalf("load unpaid order: %v", err)
+	}
+	repo := postgres.NewPaymentRepository(db)
+	item, err := repo.GetQRForOrder(ctx, orderID)
+	if err != nil {
+		t.Fatalf("load payment: %v", err)
+	}
+
+	first, acquired, err := repo.TryLockQRGeneration(ctx, item.ID)
+	if err != nil || !acquired {
+		t.Fatalf("first claim = %v, %v; want acquired", acquired, err)
+	}
+	// A claim is just a row update, so other queries still work while it is held.
+	if _, err := repo.GetQRForOrder(ctx, orderID); err != nil {
+		t.Fatalf("query while claim is held: %v", err)
+	}
+	if _, acquired, err := repo.TryLockQRGeneration(ctx, item.ID); err != nil || acquired {
+		t.Fatalf("second claim = %v, %v; want not acquired", acquired, err)
+	}
+	if err := first.Release(); err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	again, acquired, err := repo.TryLockQRGeneration(ctx, item.ID)
+	if err != nil || !acquired {
+		t.Fatalf("claim after release = %v, %v; want acquired", acquired, err)
+	}
+
+	// SaveQRPayload clears the claim.
+	if saved, err := repo.SaveQRPayload(ctx, item.ID, "claimed-payload"); err != nil || !saved {
+		t.Fatalf("SaveQRPayload() = %v, %v", saved, err)
+	}
+	var generatingAt *time.Time
+	if err := db.NewSelect().Table("payments").Column("qr_generating_at").
+		Where("id = ?", item.ID).Scan(ctx, &generatingAt); err != nil {
+		t.Fatal(err)
+	}
+	if generatingAt != nil {
+		t.Fatalf("qr_generating_at = %v after save, want NULL", generatingAt)
+	}
+	_ = again.Release()
+
+	// A crashed holder is superseded after the TTL.
+	if _, err := db.NewUpdate().Table("payments").
+		Set("qr_payload = NULL").
+		Set("qr_generating_at = clock_timestamp() - INTERVAL '1 hour'").
+		Where("id = ?", item.ID).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, acquired, err := repo.TryLockQRGeneration(ctx, item.ID); err != nil || !acquired {
+		t.Fatalf("claim over stale holder = %v, %v; want acquired", acquired, err)
+	}
+}
+
 func TestPaymentRepositoryLifecycle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()

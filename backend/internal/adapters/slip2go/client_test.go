@@ -106,11 +106,12 @@ func TestVerifySlipImageChecksReceiverAmountAndDuplicate(t *testing.T) {
 		if !conditions.CheckDuplicate || len(conditions.CheckReceiver) != 1 ||
 			conditions.CheckReceiver[0].AccountType != "02001" ||
 			conditions.CheckReceiver[0].AccountNumber != "0812345678" ||
-			conditions.CheckAmount.Type != "eq" || conditions.CheckAmount.Amount != "12.34" {
+			conditions.CheckAmount.Type != "eq" || conditions.CheckAmount.Amount != "12.34" ||
+			conditions.CheckDate.Type != "gte" || conditions.CheckDate.Date != "2026-11-01T10:20:30.000Z" {
 			t.Errorf("verification conditions = %+v, unexpected receiver/amount/duplicate checks", conditions)
 		}
 
-		_, _ = io.WriteString(w, `{"code":"200000","data":{"transRef":"bank-ref-1","amount":"12.34"}}`)
+		_, _ = io.WriteString(w, `{"code":"200000","data":{"transRef":"bank-ref-1","amount":"12.34","dateTime":"2026-11-03T02:07:18Z"}}`)
 	}))
 	defer server.Close()
 
@@ -119,13 +120,79 @@ func TestVerifySlipImageChecksReceiverAmountAndDuplicate(t *testing.T) {
 		[]byte("image-bytes"),
 		"image/png",
 		1234,
+		time.Date(2026, 11, 1, 10, 20, 30, 0, time.UTC),
 	)
 	if err != nil {
 		t.Fatalf("VerifySlipImage() error = %v", err)
 	}
-	if !got.Valid || got.TransRef != "bank-ref-1" || got.AmountSatang != 1234 || got.ResultCode != "200000" {
+	if !got.Valid || got.TransRef != "bank-ref-1" || got.AmountSatang != 1234 ||
+		got.ResultCode != "200000" || !got.DateTime.Equal(time.Date(2026, 11, 3, 2, 7, 18, 0, time.UTC)) ||
+		got.DateTime.Location() != time.UTC {
 		t.Errorf("VerifySlipImage() = %+v, unexpected verification result", got)
 	}
+}
+
+func TestVerifySlipImageParsesDateTimeAsUTC(t *testing.T) {
+	tests := []struct {
+		name     string
+		dateTime string
+		want     time.Time
+	}{
+		{
+			name:     "UTC timestamp",
+			dateTime: "2026-11-03T02:07:18Z",
+			want:     time.Date(2026, 11, 3, 2, 7, 18, 0, time.UTC),
+		},
+		{
+			name:     "timestamp with milliseconds",
+			dateTime: "2026-11-03T02:07:18.191Z",
+			want:     time.Date(2026, 11, 3, 2, 7, 18, 191000000, time.UTC),
+		},
+		{
+			name:     "timestamp with non-zero offset",
+			dateTime: "2026-11-03T09:07:18.191+07:00",
+			want:     time.Date(2026, 11, 3, 2, 7, 18, 191000000, time.UTC),
+		},
+	}
+
+	gotByName := make(map[string]time.Time, len(tests))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := verifySlipDateTime(t, tt.dateTime)
+			if !got.Equal(tt.want) {
+				t.Errorf("dateTime = %s, want %s", got.Format(time.RFC3339Nano), tt.want.Format(time.RFC3339Nano))
+			}
+			if got.Location() != time.UTC {
+				t.Errorf("dateTime location = %v, want UTC", got.Location())
+			}
+			gotByName[tt.name] = got
+		})
+	}
+
+	if !gotByName["timestamp with milliseconds"].Equal(gotByName["timestamp with non-zero offset"]) {
+		t.Errorf("equivalent UTC and UTC+7 timestamps differ: %s vs %s",
+			gotByName["timestamp with milliseconds"], gotByName["timestamp with non-zero offset"])
+	}
+}
+
+func verifySlipDateTime(t *testing.T, dateTime string) time.Time {
+	t.Helper()
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"code":"200000","data":{"transRef":"bank-ref-1","amount":"12.34","dateTime":"`+dateTime+`"}}`)
+	}))
+	defer server.Close()
+
+	got, err := newClient(testConfig(server.URL), server.Client()).VerifySlipImage(
+		context.Background(),
+		[]byte("image-bytes"),
+		"image/png",
+		1234,
+		time.Date(2026, 11, 1, 10, 20, 30, 0, time.UTC),
+	)
+	if err != nil {
+		t.Fatalf("VerifySlipImage() error = %v", err)
+	}
+	return got.DateTime
 }
 
 func TestVerifySlipImageRejectsDuplicateAndInvalidData(t *testing.T) {
@@ -136,8 +203,8 @@ func TestVerifySlipImageRejectsDuplicateAndInvalidData(t *testing.T) {
 		wantValid bool
 	}{
 		{name: "duplicate result", body: `{"code":"200501"}`},
-		{name: "amount mismatch", body: `{"code":"200000","data":{"transRef":"bank-ref-1","amount":"12.35"}}`},
-		{name: "missing transaction reference", body: `{"code":"200200","data":{"amount":"12.34"}}`, wantErr: true},
+		{name: "amount mismatch", body: `{"code":"200000","data":{"transRef":"bank-ref-1","amount":"12.35","dateTime":"2026-11-03T02:07:18Z"}}`},
+		{name: "missing transaction reference", body: `{"code":"200200","data":{"amount":"12.34","dateTime":"2026-11-03T02:07:18Z"}}`, wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -151,6 +218,7 @@ func TestVerifySlipImageRejectsDuplicateAndInvalidData(t *testing.T) {
 				[]byte("image-bytes"),
 				"image/png",
 				1234,
+				time.Date(2026, 11, 1, 10, 20, 30, 0, time.UTC),
 			)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("VerifySlipImage() error = %v, wantErr %v", err, tt.wantErr)
