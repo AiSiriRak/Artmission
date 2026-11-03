@@ -212,6 +212,83 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		}
 		return c.requireAverage(nil)
 	})
+
+	sc.Step(
+		`^the customer requests "([^"]+)" reviews with limit (\d+) and offset (\d+)$`,
+		func(resource string, limit, offset int) error {
+			var path string
+
+			switch resource {
+			case "artist":
+				path = "/artists/" + c.artist.ID + "/reviews"
+			case "artwork":
+				path = "/artworks/" + c.artworkID.String() + "/reviews"
+			default:
+				return fmt.Errorf("unknown review resource %q", resource)
+			}
+
+			path += fmt.Sprintf("?limit=%d&offset=%d", limit, offset)
+
+			var err error
+			c.response, err = c.client.Do(
+				http.MethodGet,
+				path,
+				nil,
+				map[string]string{
+					"Authorization": "Bearer " + c.customerToken,
+				},
+			)
+			return err
+		},
+	)
+
+	sc.Step(
+		`^the review page contains (\d+) reviews with total (\d+)$`,
+		func(count, total int) error {
+			if err := c.requireStatus(http.StatusOK); err != nil {
+				return err
+			}
+
+			var body struct {
+				Reviews []reviewResponse `json:"reviews"`
+				Total   *int             `json:"total"`
+			}
+			if err := c.response.JSON(&body); err != nil {
+				return err
+			}
+
+			if body.Reviews == nil || len(body.Reviews) != count {
+				return fmt.Errorf("expected an array of %d reviews, got %v", count, body.Reviews)
+			}
+			if body.Total == nil || *body.Total != total {
+				return fmt.Errorf("expected total %d, got %v", total, body.Total)
+			}
+
+			return nil
+		},
+	)
+
+	sc.Step(
+		`^the review page matches the expected order from offset (\d+)$`,
+		func(offset int) error {
+			items, err := c.readReviewList()
+			if err != nil {
+				return err
+			}
+
+			for i, item := range items {
+				position := offset + i
+				if position >= len(c.expectedIDs) {
+					return fmt.Errorf("unexpected review at position %d", position)
+				}
+				if item.ID != c.expectedIDs[position] {
+					return fmt.Errorf("incorrect review at position %d", position)
+				}
+			}
+
+			return nil
+		},
+	)
 }
 
 func checkComment(got *string, want string) error {
@@ -253,8 +330,8 @@ func (c *reviewsContext) readReviewList() ([]reviewResponse, error) {
 	if err := c.response.JSON(&body); err != nil {
 		return nil, err
 	}
-	if body.Total == nil || *body.Total != len(body.Reviews) {
-		return nil, fmt.Errorf("total must match the number of reviews")
+	if body.Total == nil || *body.Total < len(body.Reviews) {
+		return nil, fmt.Errorf("total must be present and not less than the page size")
 	}
 	return body.Reviews, nil
 }
