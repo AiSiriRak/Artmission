@@ -141,6 +141,7 @@ type GetReviewsByArtworkInput struct {
 type GetReviewsByArtworkOutput struct {
 	Body struct {
 		Reviews []reviewDetailView `json:"reviews"`
+		Total   int                `json:"total"`
 	}
 }
 
@@ -256,6 +257,8 @@ func (h *ReviewHandler) getReviewsByArtwork(
 
 	out := &GetReviewsByArtworkOutput{}
 	out.Body.Reviews = views
+	out.Body.Total = len(items)
+	
 	return out, nil
 }
 
