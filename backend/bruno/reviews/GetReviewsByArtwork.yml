@@ -1,0 +1,26 @@
+info:
+  name: GetReviewsByArtwork
+  type: http
+  seq: 4
+  tags:
+    - reviews
+
+http:
+  method: GET
+  url: "{{api_url}}/artworks/:artwork_id/reviews"
+  params:
+    - name: artwork_id
+      value: "{{ArtworkID}}"
+      type: path
+      description: Artwork ID
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+docs: |-
+  Get reviews from orders placed for the artwork, newest to oldest
