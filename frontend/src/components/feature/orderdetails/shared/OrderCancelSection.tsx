@@ -102,7 +102,7 @@ export default function OrderCancelSection({
     <section className="mb-10">
       <WhiteCard
         margin=""
-        padding="p-6 sm:p-8"
+        padding="px-6 pt-6 pb-4 sm:px-8 pt-8 pb-6"
         roundsize="rounded-3xl"
         className="max-w-none bg-status-cancel-pale shadow-none"
       >
@@ -117,7 +117,7 @@ export default function OrderCancelSection({
               <h3 className="text-h3">Order Canceled</h3>
               <h1 className="text-body">{cancelStatement}</h1>
             </div>
-            <dl className="mt-6 space-y-3">
+            <dl className="mt-4 space-y-2">
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <dt className="text-body font-bold">Reason: </dt>
                 <dd className="text-body">{cancelReason.text}</dd>

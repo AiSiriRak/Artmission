@@ -43,9 +43,9 @@ export default function OrderCancelSection({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-h3">Review</h2>
-          {review && (
-            <ReviewStars rating={review.rating} size={22} />
-          )}
+        {review && (
+          <ReviewStars rating={review.rating} size={22} />
+        )}
         {review && (
           <span className="text-small text-primary-400/60">
             {format(new Date(review.created_at), "d MMM yyyy")}

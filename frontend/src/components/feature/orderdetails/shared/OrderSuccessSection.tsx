@@ -30,7 +30,7 @@ export default function OrderSuccessSection({
     <section className="mb-10">
       <WhiteCard
         margin=""
-        padding="p-6 sm:p-8"
+        padding="px-6 pt-6 pb-4 sm:px-8 pt-8 pb-6"
         roundsize="rounded-3xl"
         className="max-w-none bg-status-success-pale shadow-none"
       >
@@ -44,7 +44,7 @@ export default function OrderSuccessSection({
             <div className="flex flex-wrap items-baseline gap-x-3">
               <h3 className="text-h3">Order Completed</h3>
             </div>
-            <dl className="mt-4 space-y-3">
+            <dl className="mt-2 space-y-2">
               <div className="flex flex-wrap items-baseline gap-x-2 text-body">
                 {formatSuccessMethod(draftCount, review)}
               </div>

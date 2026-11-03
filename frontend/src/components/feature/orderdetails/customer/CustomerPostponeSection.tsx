@@ -118,19 +118,19 @@ export default function CustomerPostponeSection({
               The artist has requested to extend the deadline.
             </p>
 
-            <dl className="mt-6 space-y-3">
-              <div>
-                <dt className="text-h3">New Deadline Date</dt>
+            <dl className="mt-4 space-y-2">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <dt className="text-h4">New Deadline Date: </dt>
                 <dd className="text-body">
                   {formatDate(delayRequest.deadline_request_at)}
                 </dd>
               </div>
-              <div>
-                <dt className="text-h3">Reason</dt>
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <dt className="text-h4">Reason: </dt>
                 <dd className="text-body">{formatReason(delayRequest.reason)}</dd>
               </div>
               <div>
-                <dt className="text-h3">Details</dt>
+                <dt className="text-h4">Details</dt>
                 <dd className="whitespace-pre-wrap break-words text-body">
                   {delayRequest.explanation}
                 </dd>

@@ -339,6 +339,22 @@ export default function ArtworkDetail({
     }
   }
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleDescriptionChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>,
+  ) => {
+    const textarea = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      description: textarea.value,
+    }));
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 72)}px`;
+  };
+
   const confirmDelete = () => {
     if (onDelete && artwork?.id) {
       onDelete(String(artwork.id));
@@ -476,11 +492,12 @@ export default function ArtworkDetail({
             {isEditing ? (
               <div className="flex flex-col gap-1">
                 <textarea
+                  ref={textareaRef}
                   name="description"
                   value={formData.description}
-                  onChange={handleInputChange}
-                  rows={4}
-                  className="border border-primary-500 p-3 w-full rounded-lg bg-white resize-none"
+                  onChange={handleDescriptionChange}
+                  rows={3}
+                  className="border border-gray-300 rounded-md bg-white p-2 w-full resize-none overflow-hidden"
                   placeholder="Describe your artwork..."
                 />
                 {errors.description && (
