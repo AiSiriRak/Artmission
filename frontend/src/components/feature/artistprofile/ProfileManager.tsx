@@ -74,31 +74,31 @@ export default function ProfileManager({
     initialReviews.length > 0
       ? initialReviews
       : [
-          {
-            id: 1,
-            reviewerName: "Name",
-            timeAgo: "2 hrs ago",
-            orderName: "Pixel Art",
-            rating: 3.5,
-            comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-          },
-          {
-            id: 2,
-            reviewerName: "Name",
-            timeAgo: "2 hrs ago",
-            orderName: "Pixel Art",
-            rating: 3.5,
-            comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-          },
-          {
-            id: 3,
-            reviewerName: "Name",
-            timeAgo: "2 hrs ago",
-            orderName: "Pixel Art",
-            rating: 3.5,
-            comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-          },
-        ],
+        {
+          id: 1,
+          reviewerName: "Name",
+          timeAgo: "2 hrs ago",
+          orderName: "Pixel Art",
+          rating: 3.5,
+          comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
+        },
+        {
+          id: 2,
+          reviewerName: "Name",
+          timeAgo: "2 hrs ago",
+          orderName: "Pixel Art",
+          rating: 3.5,
+          comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
+        },
+        {
+          id: 3,
+          reviewerName: "Name",
+          timeAgo: "2 hrs ago",
+          orderName: "Pixel Art",
+          rating: 3.5,
+          comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
+        },
+      ],
   );
 
   const handleChange = (
@@ -157,9 +157,9 @@ export default function ProfileManager({
     const artworksList = Array.isArray(res)
       ? res
       : (res as Record<string, unknown>).artworks ||
-        (res as Record<string, unknown>).items ||
-        (res as Record<string, unknown>).data ||
-        [];
+      (res as Record<string, unknown>).items ||
+      (res as Record<string, unknown>).data ||
+      [];
 
     setArtworks(artworksList as Artwork[]);
   };
@@ -168,10 +168,8 @@ export default function ProfileManager({
     payload: CreateArtworkInput | UpdateArtworkInput | Record<string, unknown>,
     artworkId?: string,
   ) => {
-    setIsSaving(true);
     try {
       if (artworkId) {
-        // ถ้าเป็นการแก้ไข (มี ID ส่งมา) -> ใช้ Update API แทนการลบแล้วสร้างใหม่
         await updateArtwork(artworkId, payload as UpdateArtworkInput);
       } else {
         await createArtwork(payload as CreateArtworkInput);
@@ -179,6 +177,7 @@ export default function ProfileManager({
 
       const artistId =
         artistData.artist_id || (artistData as Record<string, unknown>).id;
+
       if (artistId) {
         await refreshArtworks(String(artistId));
       }
@@ -194,9 +193,7 @@ export default function ProfileManager({
         );
       }
 
-      alert("เกิดข้อผิดพลาดในการบันทึกผลงาน");
-    } finally {
-      setIsSaving(false);
+      throw error;
     }
   };
 
@@ -240,7 +237,7 @@ export default function ProfileManager({
     }
   };
 
-  
+
   const derivedCategories = [
     ...new Set(artworks.map((art) => art.category).filter(Boolean)),
   ];
@@ -268,8 +265,8 @@ export default function ProfileManager({
   const avgRating =
     reviews.length > 0
       ? (
-          reviews.reduce((sum, item) => sum + item.rating, 0) / reviews.length
-        ).toFixed(1)
+        reviews.reduce((sum, item) => sum + item.rating, 0) / reviews.length
+      ).toFixed(1)
       : "0.0";
 
   if (isSaving) {

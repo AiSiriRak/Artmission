@@ -43,6 +43,8 @@ interface ArtworkDetailProps {
   onDelete?: (artworkId: string) => void | Promise<void>;
 }
 
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+
 const mockArtworkReviews: ReviewData[] = [
   {
     id: 1,
@@ -85,6 +87,8 @@ export default function ArtworkDetail({
 }: ArtworkDetailProps) {
   const [isEditing, setIsEditing] = useState(!artwork);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [imageError, setImageError] = useState("");
+  const [saveError, setSaveError] = useState("");
 
   const initialPriceTHB = artwork?.price_satang
     ? artwork.price_satang / 100
@@ -93,8 +97,8 @@ export default function ArtworkDetail({
   const initialImages: ImageItem[] =
     artwork?.artwork_samples && artwork.artwork_samples.length > 0
       ? artwork.artwork_samples.map((sample) => ({
-          previewUrl: sample.image_url,
-        }))
+        previewUrl: sample.image_url,
+      }))
       : [];
 
   const [savedData, setSavedData] = useState<ArtworkDraft>({
@@ -167,8 +171,8 @@ export default function ArtworkDetail({
       const imgArray: ImageItem[] =
         artwork.artwork_samples && artwork.artwork_samples.length > 0
           ? artwork.artwork_samples.map((sample) => ({
-              previewUrl: sample.image_url,
-            }))
+            previewUrl: sample.image_url,
+          }))
           : [{ previewUrl: "/placeholder.jpg" }];
 
       const newData = {
@@ -224,11 +228,21 @@ export default function ArtworkDetail({
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const previewUrl = URL.createObjectURL(file);
-      setImages((prev) => [...prev, { previewUrl, file }]);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setImageError("Image size must not exceed 5 MB.");
+      e.target.value = "";
+      return;
     }
+
+    setImageError("");
+
+    const previewUrl = URL.createObjectURL(file);
+    setImages((prev) => [...prev, { previewUrl, file }]);
+
+    e.target.value = "";
   };
 
   const handleRemoveImage = (indexToRemove: number) => {
@@ -247,7 +261,7 @@ export default function ArtworkDetail({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const categoryId = resolveCatalogId(formData.category, availableCategories);
     const styleIds = resolveCatalogIds(formData.styles, availableStyles).filter(
       isUuid,
@@ -266,11 +280,6 @@ export default function ArtworkDetail({
 
     const hasErrors = Object.values(newErrors).some(Boolean);
     if (hasErrors) return;
-
-    setFormData(resolvedForm);
-    setSavedData({ ...resolvedForm });
-    setSavedImages([...images]);
-    setIsEditing(false);
 
     if (onSave) {
       const actualId =
@@ -311,9 +320,24 @@ export default function ArtworkDetail({
         payload.artwork_samples = newImages.length > 0 ? newImages : undefined;
       }
 
-      onSave(payload, artworkId);
+      setSaveError("");
+
+      try {
+        await onSave(payload, artworkId);
+
+        setFormData(resolvedForm);
+        setSavedData({ ...resolvedForm });
+        setSavedImages([...images]);
+        setIsEditing(false);
+      } catch (error) {
+        setSaveError(
+          error instanceof Error
+            ? error.message
+            : "Failed to save artwork."
+        );
+      }
     }
-  };
+  }
 
   const confirmDelete = () => {
     if (onDelete && artwork?.id) {
@@ -400,24 +424,7 @@ export default function ArtworkDetail({
             </div>
 
             {!isCustomerMode &&
-              (isEditing ? (
-                <div className="flex gap-3">
-                  <Button
-                    variant="light"
-                    className="text-cursor !border"
-                    onClick={() => setIsEditing(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="dark"
-                    className="text-cursor"
-                    onClick={handleSave}
-                  >
-                    Save
-                  </Button>
-                </div>
-              ) : (
+              (!isEditing ? (
                 <Button
                   onClick={handleEditClick}
                   variant="transparent"
@@ -429,10 +436,9 @@ export default function ArtworkDetail({
                     />
                   }
                   className="text-button"
-                >
-                  Edit
-                </Button>
-              ))}
+                >Edit</Button>
+              ) : null
+              )}
           </div>
 
           {isEditing && (
@@ -457,6 +463,10 @@ export default function ArtworkDetail({
                 onRemove={removeStyle}
               />
             </div>
+          )}
+
+          {saveError && (
+            <p className="text-small text-error">{saveError}</p>
           )}
 
           <div className="mb-10">
@@ -494,7 +504,12 @@ export default function ArtworkDetail({
             onRemove={handleRemoveImage}
           />
 
+          {imageError && (
+            <p className="mt-2 text-sm text-red-500">{imageError}</p>
+          )}
+
           <div className="flex flex-wrap items-start gap-6 mb-4 mt-6">
+            {/* Minimum deadline */}
             <div>
               <label className="text-body font-bold text-primary-500 block mb-2">
                 Minimum deadline:
@@ -520,7 +535,7 @@ export default function ArtworkDetail({
                   )}
                 </div>
               ) : (
-                <div className="bg-primary-400 text-secondary-200 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2">
+                <div className="bg-primary-400 text-secondary-200 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2 justify-center">
                   <img
                     src="/icons/alarm-clock.svg"
                     alt="Deadline"
@@ -531,6 +546,7 @@ export default function ArtworkDetail({
               )}
             </div>
 
+            {/* Price */}
             <div>
               <label className="text-body font-bold text-primary-500 block mb-2">
                 Price:
@@ -564,25 +580,60 @@ export default function ArtworkDetail({
                 </div>
               )}
             </div>
+          </div>
 
-            {isEditing && artwork?.id && (
-              <div className="flex justify-end mt-12 w-full">
+          {/* Action Button */}
+          {isEditing && (
+            <div className="flex justify-between items-center mt-10">
+              {/* Delete Artwork */}
+              <div>
+                {artwork?.id && (
+                  <Button
+                    variant="error"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    icon={
+                      <img
+                        src="/icons/delete.svg"
+                        alt="Delete"
+                        className="w-4 h-4 object-contain"
+                      />
+                    }
+                  >
+                    Delete Artwork
+                  </Button>
+                )}
+              </div>
+
+              {/* Cancel & Save Buttons */}
+              <div className="flex gap-3">
                 <Button
-                  variant="error"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  icon={
-                    <img
-                      src="/icons/delete.svg"
-                      alt="Delete"
-                      className="w-4 h-4 object-contain"
-                    />
-                  }
+                  variant="light"
+                  className="!border"
+                  onClick={() => {
+                    if (artwork) {
+                      setFormData({ ...savedData });
+                      setImages([...savedImages]);
+                      setIsEditing(false);
+                    } else {
+                      onBack();
+                    }
+
+                    setSaveError("");
+                    setImageError("");
+                  }}
                 >
-                  Delete Artwork
+                  Cancel
+                </Button>
+
+                <Button
+                  variant="dark"
+                  onClick={handleSave}
+                >
+                  Save
                 </Button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-12">
