@@ -1,6 +1,7 @@
-import { test, expect, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { authFile } from "./support/accounts";
 import { findOrderId, placeOrder } from "./support/api";
+import { expect, test } from "./support/test";
 
 const accept = (page: Page) => page.getByRole("button", { name: "Accept", exact: true });
 const reject = (page: Page) => page.getByRole("button", { name: "Reject", exact: true });

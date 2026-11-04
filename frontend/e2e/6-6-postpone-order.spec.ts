@@ -1,13 +1,9 @@
-import {
-  test,
-  expect,
-  type APIRequestContext,
-  type Locator,
-  type Page,
-} from "@playwright/test";
+import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { authFile } from "./support/accounts";
 import { findOrderId } from "./support/api";
 import { displayDate, inputDate } from "./support/dates";
+import { recordWrites } from "./support/network";
+import { expect, test } from "./support/test";
 
 test.use({ storageState: authFile("artistBo") });
 
@@ -51,23 +47,14 @@ async function fillPopup(
   if (form.explanation) await popup.locator("textarea").fill(form.explanation);
 }
 
-// Records POST requests so a test can prove that the form sent nothing.
-function recordPosts(page: Page): string[] {
-  const posts: string[] = [];
-  page.on("request", (request) => {
-    if (request.method() === "POST") posts.push(request.url());
-  });
-  return posts;
-}
-
 async function send(popup: Locator) {
   await popup.getByRole("button", { name: "Send Request" }).click();
 }
 
-async function expectNotSent(page: Page, popup: Locator, posts: string[]) {
+async function expectNotSent(page: Page, popup: Locator, writes: string[]) {
   await expect(popup).toBeVisible();
   await expect(page.getByText("Postpone Request Pending")).toHaveCount(0);
-  expect(posts).toEqual([]);
+  expect(writes).toEqual([]);
 }
 
 // The browser blocks the submit and shows its own validation message at the field.
@@ -119,7 +106,7 @@ for (const { id, what, deadline } of badDeadline) {
   test(`${id} ${what} is not sent`, async ({ page, request }) => {
     await openOrder(page, request, "E2E postpone - validation");
     const popup = await openPopup(page);
-    const posts = recordPosts(page);
+    const writes = recordWrites(page);
     await fillPopup(popup, {
       deadline,
       reason: REASON,
@@ -128,14 +115,14 @@ for (const { id, what, deadline } of badDeadline) {
     await send(popup);
 
     await expectBrowserValidation(popup.locator('input[type="date"]'));
-    await expectNotSent(page, popup, posts);
+    await expectNotSent(page, popup, writes);
   });
 }
 
 test("TC6-6-5 missing reason is not sent", async ({ page, request }) => {
   await openOrder(page, request, "E2E postpone - validation");
   const popup = await openPopup(page);
-  const posts = recordPosts(page);
+  const writes = recordWrites(page);
   await fillPopup(popup, {
     deadline: inputDate(D + 7),
     explanation: EXPLANATION,
@@ -143,18 +130,18 @@ test("TC6-6-5 missing reason is not sent", async ({ page, request }) => {
   await send(popup);
 
   await expect(popup.getByRole("alert")).toHaveText(ALERT);
-  await expectNotSent(page, popup, posts);
+  await expectNotSent(page, popup, writes);
 });
 
 test("TC6-6-6 empty explanation is not sent", async ({ page, request }) => {
   await openOrder(page, request, "E2E postpone - validation");
   const popup = await openPopup(page);
-  const posts = recordPosts(page);
+  const writes = recordWrites(page);
   await fillPopup(popup, { deadline: inputDate(D + 7), reason: REASON });
   await send(popup);
 
   await expectBrowserValidation(popup.locator("textarea"));
-  await expectNotSent(page, popup, posts);
+  await expectNotSent(page, popup, writes);
 });
 
 test("TC6-6-7 explanation of only spaces is not sent", async ({
@@ -163,7 +150,7 @@ test("TC6-6-7 explanation of only spaces is not sent", async ({
 }) => {
   await openOrder(page, request, "E2E postpone - validation");
   const popup = await openPopup(page);
-  const posts = recordPosts(page);
+  const writes = recordWrites(page);
   await fillPopup(popup, {
     deadline: inputDate(D + 7),
     reason: REASON,
@@ -172,7 +159,7 @@ test("TC6-6-7 explanation of only spaces is not sent", async ({
   await send(popup);
 
   await expect(popup.getByRole("alert")).toHaveText(ALERT);
-  await expectNotSent(page, popup, posts);
+  await expectNotSent(page, popup, writes);
 });
 
 test("TC6-6-8 explanation is limited to 300 characters", async ({

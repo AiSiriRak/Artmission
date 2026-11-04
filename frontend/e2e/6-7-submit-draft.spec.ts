@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
-import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 import { authFile } from "./support/accounts";
 import { findOrderId } from "./support/api";
+import { expect, test } from "./support/test";
 
 test.use({ storageState: authFile("artistBo") });
 

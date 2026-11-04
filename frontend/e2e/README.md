@@ -2,6 +2,8 @@
 
 Black-box UI tests for the test plan in `docs/testplan/`. Each test title starts with its test case ID (`TC<epic>-<story>-<n> ...`), so `e2e-report/results.json` maps straight onto the coverage matrix.
 
+Specs import `test` and `expect` from `support/test.ts`. After every test it saves the final page as `e2e-evidence/<test case ID>.png` (git-ignored). Paste these into the test plan as the actual output.
+
 The tests drive the real frontend, API and database. Nothing is mocked.
 
 ## Run

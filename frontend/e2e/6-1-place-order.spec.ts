@@ -1,7 +1,9 @@
-import { test, expect, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { authFile } from "./support/accounts";
 import { findArtworkId } from "./support/api";
 import { inputDate } from "./support/dates";
+import { recordWrites } from "./support/network";
+import { expect, test } from "./support/test";
 
 test.use({ storageState: authFile("customerJane") });
 
@@ -27,17 +29,12 @@ async function fillForm(page: Page, form: { name: string; details: string; deadl
 
 // The form is rejected on the page: message shown, still on the order page, no create request sent.
 async function expectRejected(page: Page, message: string) {
-  const createRequests: string[] = [];
-  page.on("request", (request) => {
-    if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/orders")) {
-      createRequests.push(request.url());
-    }
-  });
+  const writes = recordWrites(page, "/orders");
   await page.getByRole("button", { name: "Create Order" }).click();
 
   await expect(page.getByText(message)).toBeVisible();
   await expect(page).toHaveURL(orderPage);
-  expect(createRequests).toEqual([]);
+  expect(writes).toEqual([]);
 }
 
 test("TC6-1-1 valid order is created as PENDING", async ({ page }) => {
