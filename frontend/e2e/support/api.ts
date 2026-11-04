@@ -37,9 +37,10 @@ export async function apiLogin(request: APIRequestContext, account: AccountKey):
 
 export async function findArtworkId(
   request: APIRequestContext,
-  token: string,
+  account: AccountKey,
   name: string,
 ): Promise<string> {
+  const token = await apiLogin(request, account);
   const body = await call<SearchArtworksOutput>(request, "GET", "/artworks?limit=100", token);
   const artwork = (body.artworks ?? []).find((item) => item.name === name);
   expect(artwork, `artwork "${name}" is not seeded`).toBeDefined();
@@ -52,9 +53,10 @@ export async function placeOrder(
   request: APIRequestContext,
   options: { artworkName?: string; name: string },
 ): Promise<Order> {
-  const token = await apiLogin(request, "customerJane");
+  const customer = "customerJane";
+  const token = await apiLogin(request, customer);
   const order: CreateOrderInput = {
-    artwork_id: await findArtworkId(request, token, options.artworkName ?? "Custom Portrait"),
+    artwork_id: await findArtworkId(request, customer, options.artworkName ?? "Custom Portrait"),
     name: options.name,
     customer_description: "Created by an automated test",
     deadline_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
