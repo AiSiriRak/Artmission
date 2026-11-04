@@ -7,6 +7,7 @@ import type {
   LoginInput,
   Order,
   OrderHistory,
+  RegisterInput,
   SearchArtworksOutput,
 } from "../../src/lib/api/types";
 import { accounts, type AccountKey } from "./accounts";
@@ -15,7 +16,7 @@ const API_BASE_URL = process.env.E2E_API_BASE_URL ?? "http://localhost:8080/api/
 
 async function call<T>(
   request: APIRequestContext,
-  method: "GET" | "POST" | "PUT",
+  method: "GET" | "POST" | "PUT" | "DELETE",
   path: string,
   token: string | undefined,
   data?: object,
@@ -25,8 +26,10 @@ async function call<T>(
     data,
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
-  expect(response.ok(), `${method} ${path} -> ${response.status()} ${await response.text()}`).toBe(true);
-  return (await response.json()) as T;
+  const text = await response.text();
+  expect(response.ok(), `${method} ${path} -> ${response.status()} ${text}`).toBe(true);
+  // Some endpoints (register, delete account) answer with an empty body.
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export async function apiLogin(request: APIRequestContext, account: AccountKey): Promise<string> {
@@ -75,4 +78,47 @@ export async function findOrderId(
   const order = (body.orders ?? []).find((item) => item.name === name);
   expect(order, `order "${name}" is not visible to ${account}; reseed the database`).toBeDefined();
   return order!.id;
+}
+
+export interface NewUser {
+  email: string;
+  password: string;
+  username: string;
+  role: "customer" | "artist";
+  bankName: string;
+  accountHolderName: string;
+  accountNumber: string;
+}
+
+// Deletes the account if it exists and the password is right; does nothing otherwise.
+export async function removeUser(
+  request: APIRequestContext,
+  user: Pick<NewUser, "email" | "password">,
+): Promise<void> {
+  const login = await request.fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    data: { email: user.email, password: user.password } satisfies LoginInput,
+  });
+  if (!login.ok()) return;
+  const { access_token } = (await login.json()) as AuthResult;
+  await call<void>(request, "DELETE", "/users/me", access_token);
+}
+
+// Registers a user through the API, so a test can use an account of its own instead of a
+// shared one. Any leftover with the same email (an aborted earlier run) is deleted first.
+export async function createUser(request: APIRequestContext, user: NewUser): Promise<void> {
+  await removeUser(request, user);
+  const body: RegisterInput = {
+    email: user.email,
+    password: user.password,
+    username: user.username,
+    role: user.role,
+    bank_account: {
+      bank_name: user.bankName,
+      account_holder_name: user.accountHolderName,
+      account_number: user.accountNumber,
+    },
+    ...(user.role === "artist" ? { artist: { description: `${user.username} artist profile` } } : {}),
+  };
+  await call<void>(request, "POST", "/auth/register", undefined, body);
 }

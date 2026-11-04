@@ -2,7 +2,7 @@
 
 Black-box UI tests for the test plan in `docs/testplan/`. Each test title starts with its test case ID (`TC<epic>-<story>-<n> ...`), so `e2e-report/results.json` maps straight onto the coverage matrix.
 
-Specs import `test` and `expect` from `support/test.ts`. After every test it saves the final page as `e2e-evidence/<test case ID>.png` (git-ignored). Paste these into the test plan as the actual output.
+Specs import `test` and `expect` from `support/test.ts`. After every test it saves the final page as `e2e-evidence/<test case ID>.png` (git-ignored); a case whose expected output appears before its last step also saves `e2e-evidence/<ID>-<label>.png`. Paste these into the test plan as the actual output. Cases that rely on a browser's own validation bubble (TC1-4-5) show nothing of it, because browser UI is not part of the page.
 
 The tests drive the real frontend, API and database. Nothing is mocked.
 
@@ -38,3 +38,4 @@ npx playwright show-report e2e-report/html    # HTML report of the last run
 - **PENDING orders** are placed through the real API as the customer (`placeOrder` in `support/api.ts`), so they can be created as often as needed.
 - **Upload files** the tests choose in the browser are in `e2e/fixtures/` (small valid JPEG, PNG and WebP). Invalid or oversized files are built inside the test.
 - **Every other status** is seeded, because `IN_PROCESS` cannot be reached through the API without a real Slip2Go payment. The orders are in `backend/internal/pkg/seed/dataset_e2e.go`. Look one up by name with `findOrderId`; the names are part of the contract, so keep them stable. A test that changes an order needs one of its own; tests that only read or fail validation can share one.
+- **Accounts a test changes** (register, edit, delete) are created with `createUser` and removed with `removeUser` (`support/api.ts`), so parallel tests never share them. The one exception is the seeded artist cleo, deleted by TC1-6-2 and restored by the next reseed.

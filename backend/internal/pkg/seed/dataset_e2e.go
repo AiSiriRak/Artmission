@@ -28,6 +28,12 @@ var e2eDataset = func() dataset {
 			e2eOrder("e2e-not-paid", "E2E not paid order", "Accepted order waiting for payment, for read-only status checks.", "NOT_PAID"),
 			completed,
 			e2eOrder("e2e-cancelled", "E2E cancelled order", "Cancelled order, for read-only status checks.", "CANCEL"),
+			// The only order of artist-3 (cleo), so deleting that account is allowed.
+			{
+				Key: "e2e-artist-3-cancelled", CustomerKey: "customer-1", ArtistKey: "artist-3", ArtworkKey: "artwork-5",
+				Name: "E2E cleo's cancelled order", CustomerDescription: "Only order of an artist whose account is deleted by a test.",
+				Status: "CANCEL", DeadlineDays: 14,
+			},
 		},
 		payments: []paymentSeed{
 			{OrderKey: "e2e-not-paid"},
@@ -38,6 +44,7 @@ var e2eDataset = func() dataset {
 		},
 		cancellations: []cancellationSeed{
 			{OrderKey: "e2e-cancelled", Reason: "NO_LONGER_NEEDED", Explanation: "Cancelled for the automated tests."},
+			{OrderKey: "e2e-artist-3-cancelled", Reason: "NO_LONGER_NEEDED", Explanation: "Cancelled for the automated tests."},
 		},
 		delayRequests: []delayRequestSeed{
 			{

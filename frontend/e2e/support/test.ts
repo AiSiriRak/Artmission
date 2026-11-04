@@ -14,14 +14,21 @@ async function capture(page: Page, name: string) {
   await page.setViewportSize(viewport);
 }
 
+const caseId = (title: string) => /^TC[\d-]+/.exec(title)?.[0];
+
 // Every spec imports `test` from here instead of "@playwright/test". After each test it
 // saves e2e-evidence/<test case ID>.png, the final state of the page, so the result of every
-// test case can be pasted into the test plan.
-export const test = base.extend<{ evidence: void }>({
+// test case can be pasted into the test plan. A test whose expected output appears before
+// its last step also calls `snap("label")` at that moment, which saves
+// e2e-evidence/<test case ID>-<label>.png.
+export const test = base.extend<{ evidence: void; snap: (label: string) => Promise<void> }>({
+  snap: async ({ page }, use, testInfo) => {
+    await use((label) => capture(page, `${caseId(testInfo.title)}-${label}`));
+  },
   evidence: [
     async ({ page }, use, testInfo) => {
       await use();
-      const id = /^TC[\d-]+/.exec(testInfo.title)?.[0];
+      const id = caseId(testInfo.title);
       if (id) await capture(page, id);
     },
     { auto: true },
