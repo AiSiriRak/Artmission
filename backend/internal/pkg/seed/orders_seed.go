@@ -2,8 +2,6 @@ package seed
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
@@ -26,98 +24,16 @@ type orderSeed struct {
 	DeadlineDays        int  // days from now; 0 = the artwork's minimum deadline
 }
 
-var orders = []orderSeed{
-	{
-		Key: "order-1", CustomerKey: "customer-1", ArtistKey: "artist-1", ArtworkKey: "artwork-1",
-		Name: "Portrait for mom's birthday", CustomerDescription: "Please use a warm color palette.",
-		Status: "PENDING",
-	},
-	{
-		Key: "order-2", CustomerKey: "customer-1", ArtistKey: "artist-1", ArtworkKey: "artwork-2",
-		Name: "Anime avatar", CustomerDescription: "Blue hair, casual outfit.",
-		Status: "NOT_PAID",
-	},
-	{
-		Key: "order-3", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-3",
-		Name: "Dream landscape", CustomerDescription: "A mountain valley at sunrise.",
-		Status: "IN_PROCESS",
-	},
-	{
-		Key: "order-4", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
-		Name: "Living room wall art", CustomerDescription: "Calm colors, minimal detail.",
-		Status: "SUCCESS", Completed: true,
-	},
-	{
-		Key: "order-5", CustomerKey: "customer-1", ArtistKey: "artist-3", ArtworkKey: "artwork-5",
-		Name: "Line art self-portrait", CustomerDescription: "Simple black line art.",
-		Status: "CANCEL",
-	},
-	// Orders for the automated UI tests in frontend/e2e. Every test that changes an
-	// order gets its own, so run `seed reseed` before each e2e run. All belong to
-	// artist-2 with a 14-day deadline.
-	{
-		Key: "e2e-postpone-send", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
-		Name: "E2E postpone - send request", CustomerDescription: "Order for the deadline extension request test.",
-		Status: "IN_PROCESS", DeadlineDays: 14,
-	},
-	{
-		Key: "e2e-postpone-validation", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
-		Name: "E2E postpone - validation", CustomerDescription: "Order for the deadline extension validation tests.",
-		Status: "IN_PROCESS", DeadlineDays: 14,
-	},
-	{
-		Key: "e2e-postpone-pending", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
-		Name: "E2E postpone - request pending", CustomerDescription: "Order that already has an extension request awaiting the customer.",
-		Status: "IN_PROCESS", DeadlineDays: 14,
-	},
-	{
-		Key: "e2e-draft-jpg", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
-		Name: "E2E draft - JPEG", CustomerDescription: "Order for submitting a JPEG draft.",
-		Status: "IN_PROCESS", DeadlineDays: 14,
-	},
-	{
-		Key: "e2e-draft-png", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
-		Name: "E2E draft - PNG", CustomerDescription: "Order for submitting a PNG draft.",
-		Status: "IN_PROCESS", DeadlineDays: 14,
-	},
-	{
-		Key: "e2e-draft-webp", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
-		Name: "E2E draft - WebP", CustomerDescription: "Order for submitting a WebP draft.",
-		Status: "IN_PROCESS", DeadlineDays: 14,
-	},
-	{
-		Key: "e2e-draft-validation", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
-		Name: "E2E draft - validation", CustomerDescription: "Order for the draft upload validation tests.",
-		Status: "IN_PROCESS", DeadlineDays: 14,
-	},
-	{
-		Key: "e2e-cancelled", CustomerKey: "customer-1", ArtistKey: "artist-2", ArtworkKey: "artwork-4",
-		Name: "E2E cancelled order", CustomerDescription: "Already cancelled order, for read-only status checks.",
-		Status: "CANCEL", DeadlineDays: 14,
-	},
-}
-
-func orderID(key string) uuid.UUID { return id("order", key) }
-
-func findArtwork(key string) artworkSeed {
-	for _, a := range artworks {
-		if a.Key == key {
-			return a
-		}
-	}
-	// Only reachable from a typo in this file's own seed data.
-	panic("seed: unknown artwork key " + key)
+// paymentSeed is the pending payment (QR issued, waiting for the customer) of a
+// NOT_PAID order, mirroring what the payment flow writes when the order is accepted.
+type paymentSeed struct {
+	OrderKey string
 }
 
 type deliverableSeed struct {
 	OrderKey string
 	Version  int
 	Decision string // "WAIT" | "APPROVED" | "REJECTED"
-}
-
-var deliverables = []deliverableSeed{
-	{OrderKey: "order-3", Version: 1, Decision: "WAIT"},
-	{OrderKey: "order-4", Version: 1, Decision: "APPROVED"},
 }
 
 // Every order seeded with status CANCEL needs a row here, mirroring what
@@ -128,11 +44,6 @@ type cancellationSeed struct {
 	Explanation string
 }
 
-var cancellations = []cancellationSeed{
-	{OrderKey: "order-5", Reason: "NO_LONGER_NEEDED", Explanation: "I changed my mind about the style."},
-	{OrderKey: "e2e-cancelled", Reason: "NO_LONGER_NEEDED", Explanation: "Cancelled for the automated tests."},
-}
-
 type delayRequestSeed struct {
 	OrderKey    string
 	ExtraDays   int // requested deadline = the order's deadline + ExtraDays
@@ -141,11 +52,24 @@ type delayRequestSeed struct {
 	Decision    string // "WAIT" | "APPROVED" | "REJECTED"
 }
 
-var delayRequests = []delayRequestSeed{
-	{
-		OrderKey: "e2e-postpone-pending", ExtraDays: 7,
-		Reason: "NEED_MORE_TIME", Explanation: "I need more time for details.", Decision: "WAIT",
-	},
+func orderID(key string) uuid.UUID { return id("order", key) }
+
+func findArtwork(key string) artworkSeed {
+	for _, a := range artworks {
+		if a.Key == key {
+			return a
+		}
+	}
+	// Only reachable from a typo in this package's own seed data.
+	panic("seed: unknown artwork key " + key)
+}
+
+// deadlineDays returns how many days from now the seeded order is due.
+func deadlineDays(o orderSeed, artwork artworkSeed) int {
+	if o.DeadlineDays > 0 {
+		return o.DeadlineDays
+	}
+	return artwork.MinimumDeadlineDays
 }
 
 func deliverableImageKeys(orderKey string, version int) (original, preview string) {
@@ -155,8 +79,8 @@ func deliverableImageKeys(orderKey string, version int) (original, preview strin
 
 func seedOrdersUp(ctx context.Context, d deps) error {
 	now := time.Now()
-	rows := make([]pgmodel.Order, len(orders))
-	for i, o := range orders {
+	rows := make([]pgmodel.Order, len(d.set.orders))
+	for i, o := range d.set.orders {
 		artwork := findArtwork(o.ArtworkKey)
 		styleIDs := make([]uuid.UUID, len(artwork.StyleKeys))
 		for index, styleKey := range artwork.StyleKeys {
@@ -191,33 +115,95 @@ func seedOrdersUp(ctx context.Context, d deps) error {
 }
 
 func seedPaymentsUp(ctx context.Context, d deps) error {
-	var seededOrder struct {
-		ID           uuid.UUID `bun:"id"`
-		AmountSatang int64     `bun:"price_satang_order"`
-		TransitionAt time.Time `bun:"updated_at"`
-	}
-	if err := d.db.NewSelect().
-		Table("orders").
-		Column("id", "price_satang_order", "updated_at").
-		Where("id = ?", orderID("order-2")).
-		Where("status = ?", "NOT_PAID").
-		Scan(ctx, &seededOrder); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
+	rows := make([]pgmodel.Payment, len(d.set.payments))
+	for i, p := range d.set.payments {
+		var order struct {
+			AmountSatang int64     `bun:"price_satang_order"`
+			TransitionAt time.Time `bun:"updated_at"`
 		}
-		return fmt.Errorf("load NOT_PAID seed order for payment: %w", err)
+		if err := d.db.NewSelect().
+			Table("orders").
+			Column("price_satang_order", "updated_at").
+			Where("id = ?", orderID(p.OrderKey)).
+			Scan(ctx, &order); err != nil {
+			return fmt.Errorf("load seeded order %q for its payment: %w", p.OrderKey, err)
+		}
+		expiresAt := order.TransitionAt.Add(paymentQRValidityPeriod)
+		rows[i] = pgmodel.Payment{
+			ID:           id("payment", p.OrderKey),
+			OrderID:      orderID(p.OrderKey),
+			AmountSatang: order.AmountSatang,
+			Status:       "PENDING",
+			QRExpire:     &expiresAt,
+			CreatedAt:    order.TransitionAt,
+			UpdatedAt:    order.TransitionAt,
+		}
 	}
+	return seedTable(ctx, d, rows, "id")
+}
 
-	expiresAt := seededOrder.TransitionAt.Add(paymentQRValidityPeriod)
-	return seedTable(ctx, d, []pgmodel.Payment{{
-		ID:           id("payment", "order-2"),
-		OrderID:      seededOrder.ID,
-		AmountSatang: seededOrder.AmountSatang,
-		Status:       "PENDING",
-		QRExpire:     &expiresAt,
-		CreatedAt:    seededOrder.TransitionAt,
-		UpdatedAt:    seededOrder.TransitionAt,
-	}}, "id")
+func seedOrderDeliverablesUp(ctx context.Context, d deps) error {
+	now := time.Now()
+	rows := make([]pgmodel.OrderDeliverable, len(d.set.deliverables))
+	for i, del := range d.set.deliverables {
+		seedKey := fmt.Sprintf("%s:v%d", del.OrderKey, del.Version)
+		original, preview := deliverableImageKeys(del.OrderKey, del.Version)
+		if err := uploadPlaceholderPair(ctx, d.storage.Private, seedKey, original, preview); err != nil {
+			return fmt.Errorf("upload deliverable image for %q: %w", seedKey, err)
+		}
+		rows[i] = pgmodel.OrderDeliverable{
+			ID:               id("order_deliverable", seedKey),
+			OrderID:          orderID(del.OrderKey),
+			Version:          del.Version,
+			Decision:         del.Decision,
+			OriginalImageKey: original,
+			PreviewImageKey:  preview,
+			CreatedAt:        now,
+		}
+	}
+	return seedTable(ctx, d, rows, "id")
+}
+
+func seedOrderCancellationsUp(ctx context.Context, d deps) error {
+	now := time.Now()
+	rows := make([]pgmodel.OrderCancellation, len(d.set.cancellations))
+	for i, c := range d.set.cancellations {
+		rows[i] = pgmodel.OrderCancellation{
+			ID:          id("order_cancellation", c.OrderKey),
+			OrderID:     orderID(c.OrderKey),
+			Reason:      c.Reason,
+			Explanation: c.Explanation,
+			CreatedAt:   now,
+		}
+	}
+	return seedTable(ctx, d, rows, "id")
+}
+
+func seedOrderDelayRequestsUp(ctx context.Context, d deps) error {
+	now := time.Now()
+	rows := make([]pgmodel.OrderDelayRequest, len(d.set.delayRequests))
+	for i, r := range d.set.delayRequests {
+		var deadline time.Time
+		if err := d.db.NewSelect().
+			Table("orders").
+			Column("deadline_at").
+			Where("id = ?", orderID(r.OrderKey)).
+			Scan(ctx, &deadline); err != nil {
+			return fmt.Errorf("load deadline of seeded order %q: %w", r.OrderKey, err)
+		}
+		rows[i] = pgmodel.OrderDelayRequest{
+			ID:                 id("order_delay_request", r.OrderKey),
+			OrderID:            orderID(r.OrderKey),
+			OriginalDeadlineAt: deadline,
+			DeadlineRequestAt:  deadline.AddDate(0, 0, r.ExtraDays),
+			Reason:             r.Reason,
+			Explanation:        r.Explanation,
+			CustomerDecision:   r.Decision,
+			CreatedAt:          now,
+			UpdatedAt:          now,
+		}
+	}
+	return seedTable(ctx, d, rows, "id")
 }
 
 // orderIDsOfSeededUsers returns the IDs of every order placed by or assigned to
@@ -280,28 +266,6 @@ func seedOrderDelayRequestsDown(ctx context.Context, d deps) error {
 	return deleteTableRows(ctx, d, "order_delay_requests", "order_id", ids)
 }
 
-func seedOrderDeliverablesUp(ctx context.Context, d deps) error {
-	now := time.Now()
-	rows := make([]pgmodel.OrderDeliverable, len(deliverables))
-	for i, del := range deliverables {
-		seedKey := fmt.Sprintf("%s:v%d", del.OrderKey, del.Version)
-		original, preview := deliverableImageKeys(del.OrderKey, del.Version)
-		if err := uploadPlaceholderPair(ctx, d.storage.Private, seedKey, original, preview); err != nil {
-			return fmt.Errorf("upload deliverable image for %q: %w", seedKey, err)
-		}
-		rows[i] = pgmodel.OrderDeliverable{
-			ID:               id("order_deliverable", seedKey),
-			OrderID:          orderID(del.OrderKey),
-			Version:          del.Version,
-			Decision:         del.Decision,
-			OriginalImageKey: original,
-			PreviewImageKey:  preview,
-			CreatedAt:        now,
-		}
-	}
-	return seedTable(ctx, d, rows, "id")
-}
-
 func seedOrderDeliverablesDown(ctx context.Context, d deps) error {
 	ids, err := orderIDsOfSeededUsers(ctx, d)
 	if err != nil {
@@ -310,61 +274,12 @@ func seedOrderDeliverablesDown(ctx context.Context, d deps) error {
 	if err := deleteModelRows[pgmodel.OrderDeliverable](ctx, d, "order_id", ids); err != nil {
 		return err
 	}
-	for _, del := range deliverables {
+	// Rows go for every order of the seeded users; images only for this dataset.
+	for _, del := range d.set.deliverables {
 		original, preview := deliverableImageKeys(del.OrderKey, del.Version)
 		if err := deletePlaceholderPair(ctx, d.storage.Private, original, preview); err != nil {
 			return fmt.Errorf("delete deliverable image for %s v%d: %w", del.OrderKey, del.Version, err)
 		}
 	}
 	return nil
-}
-
-func seedOrderCancellationsUp(ctx context.Context, d deps) error {
-	now := time.Now()
-	rows := make([]pgmodel.OrderCancellation, len(cancellations))
-	for i, c := range cancellations {
-		rows[i] = pgmodel.OrderCancellation{
-			ID:          id("order_cancellation", c.OrderKey),
-			OrderID:     orderID(c.OrderKey),
-			Reason:      c.Reason,
-			Explanation: c.Explanation,
-			CreatedAt:   now,
-		}
-	}
-	return seedTable(ctx, d, rows, "id")
-}
-
-func seedOrderDelayRequestsUp(ctx context.Context, d deps) error {
-	now := time.Now()
-	rows := make([]pgmodel.OrderDelayRequest, len(delayRequests))
-	for i, r := range delayRequests {
-		var deadline time.Time
-		if err := d.db.NewSelect().
-			Table("orders").
-			Column("deadline_at").
-			Where("id = ?", orderID(r.OrderKey)).
-			Scan(ctx, &deadline); err != nil {
-			return fmt.Errorf("load deadline of seeded order %q: %w", r.OrderKey, err)
-		}
-		rows[i] = pgmodel.OrderDelayRequest{
-			ID:                 id("order_delay_request", r.OrderKey),
-			OrderID:            orderID(r.OrderKey),
-			OriginalDeadlineAt: deadline,
-			DeadlineRequestAt:  deadline.AddDate(0, 0, r.ExtraDays),
-			Reason:             r.Reason,
-			Explanation:        r.Explanation,
-			CustomerDecision:   r.Decision,
-			CreatedAt:          now,
-			UpdatedAt:          now,
-		}
-	}
-	return seedTable(ctx, d, rows, "id")
-}
-
-// deadlineDays returns how many days from now the seeded order is due.
-func deadlineDays(o orderSeed, artwork artworkSeed) int {
-	if o.DeadlineDays > 0 {
-		return o.DeadlineDays
-	}
-	return artwork.MinimumDeadlineDays
 }
