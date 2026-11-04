@@ -173,7 +173,7 @@ Action for every test case: enter the fields of each step and click **Next** (st
 | Test Case ID | Inputs | Expected Output | Actual Output | Classes Covered |
 |---|---|---|---|---|
 | TC1-4-1 | Email: `jane@artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | Home page opens with heading `Browse artists`; the header navigation shows **Home**, **Order** and **Notification** | Pending run | 1, 6 |
-| TC1-4-2 | Email: `ann@artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | Home page opens; the header navigation shows **Order**, **Artist Profile** and **Notification** | Pending run | 2, 6 |
+| TC1-4-2 | Email: `ann@artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | The order history page opens (an artist is sent there after logging in); the header navigation shows **Order**, **Artist Profile** and **Notification** | Pending run | 2, 6 |
 | TC1-4-3 | Email: `jane@artmission.test`<br>Password: `Password123` (wrong)<br>Action: click **Log in** | Text `Cannot login because the email or password is incorrect.` is shown; stays on the Login page | Pending run | 1, 7 |
 | TC1-4-4 | Email: `nobody@artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | Same as TC1-4-3 | Pending run | 3 |
 | TC1-4-5 | Email: `jane.artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | A browser validation message is shown at the Email field; stays on the Login page | Pending run | 4 |
@@ -196,7 +196,7 @@ Action for every test case: enter the fields of each step and click **Next** (st
 | 4 | User clicks **Delete Account** and confirms in the popup | Valid |
 | 5 | User clicks **Delete Account**, then **Cancel** in the popup | Valid |
 
-**Precondition**: the account named in the test case is logged in and has opened the Profile page.
+**Precondition**: the account named in the test case is logged in and has opened the Profile page. `delete1@artmission.test` and `delete2@artmission.test` (password `Delete1234`, no orders) are registered beforehand.
 
 **Test cases**
 
@@ -236,14 +236,14 @@ Action for every test case: enter the fields of each step and click **Next** (st
 
 | Test Case ID | Inputs | Expected Output | Actual Output | Classes Covered |
 |---|---|---|---|---|
-| TC6-1-1 | Order Name: `Portrait for my cat`<br>Request Details: `Black and white cat, watercolor style`<br>Deadline Date: today + 6 days (E)<br>Action: click **Create Order** | Order is created and the order detail page opens, showing the order name and status `PENDING` | Pending run | 1, 4, 7 |
-| TC6-1-2 | Order Name: *(empty)*<br>Request Details: `Black and white cat, watercolor style`<br>Deadline Date: today + 6 days (E)<br>Action: click **Create Order** | Text `Please enter the order name and request details.` is shown; stays on the order page; no order is created | Pending run | 2, 4, 7 |
-| TC6-1-3 | Order Name: `   ` (3 spaces)<br>Request Details: `Black and white cat, watercolor style`<br>Deadline Date: today + 6 days (E)<br>Action: click **Create Order** | Same as TC6-1-2 | Pending run | 3, 4, 7 |
-| TC6-1-4 | Order Name: `Portrait for my cat`<br>Request Details: *(empty)*<br>Deadline Date: today + 6 days (E)<br>Action: click **Create Order** | Same as TC6-1-2 | Pending run | 1, 5, 7 |
-| TC6-1-5 | Order Name: `Portrait for my cat`<br>Request Details: `   ` (3 spaces)<br>Deadline Date: today + 6 days (E)<br>Action: click **Create Order** | Same as TC6-1-2 | Pending run | 1, 6, 7 |
-| TC6-1-6 | Order Name: `Portrait for my cat`<br>Request Details: `Black and white cat, watercolor style`<br>Deadline Date: today + 5 days (E − 1 day)<br>Action: click **Create Order** | Text `Deadline must be at least 5 days from today.` is shown; no order is created | Pending run | 1, 4, 8 |
-| TC6-1-7 | Order Name: `Portrait for my cat`<br>Request Details: `Black and white cat, watercolor style`<br>Deadline Date: yesterday (today − 1 day)<br>Action: click **Create Order** | Text `Deadline must be at least 5 days from today.` is shown; no order is created | Pending run | 1, 4, 9 |
-| TC6-1-8 | Order Name: `Portrait for my cat`<br>Request Details: `Black and white cat, watercolor style`<br>Deadline Date: *(cleared)*<br>Action: click **Create Order** | Text `Deadline must be at least 5 days from today.` is shown; no order is created | Pending run | 1, 4, 10 |
+| TC6-1-1 | Order Name: `Portrait for my cat`<br>Request Details: `Black and white cat, watercolor style`<br>Deadline Date: today + 6 days (E)<br>Action: click **Create Order** | Order is created and the order detail page opens, showing the order name and status `PENDING` | Same as Expected Output. Screenshot: `TC6-1-1.png` | 1, 4, 7 |
+| TC6-1-2 | Order Name: *(empty)*<br>Request Details: `Black and white cat, watercolor style`<br>Deadline Date: today + 6 days (E)<br>Action: click **Create Order** | Text `Please enter the order name and request details.` is shown; stays on the order page; no order is created | Same as Expected Output. Screenshot: `TC6-1-2.png` | 2, 4, 7 |
+| TC6-1-3 | Order Name: `   ` (3 spaces)<br>Request Details: `Black and white cat, watercolor style`<br>Deadline Date: today + 6 days (E)<br>Action: click **Create Order** | Same as TC6-1-2 | Same as Expected Output. Screenshot: `TC6-1-3.png` | 3, 4, 7 |
+| TC6-1-4 | Order Name: `Portrait for my cat`<br>Request Details: *(empty)*<br>Deadline Date: today + 6 days (E)<br>Action: click **Create Order** | Same as TC6-1-2 | Same as Expected Output. Screenshot: `TC6-1-4.png` | 1, 5, 7 |
+| TC6-1-5 | Order Name: `Portrait for my cat`<br>Request Details: `   ` (3 spaces)<br>Deadline Date: today + 6 days (E)<br>Action: click **Create Order** | Same as TC6-1-2 | Same as Expected Output. Screenshot: `TC6-1-5.png` | 1, 6, 7 |
+| TC6-1-6 | Order Name: `Portrait for my cat`<br>Request Details: `Black and white cat, watercolor style`<br>Deadline Date: today + 5 days (E − 1 day)<br>Action: click **Create Order** | Text `Deadline must be at least 5 days from today.` is shown; no order is created | Same as Expected Output. Screenshot: `TC6-1-6.png` | 1, 4, 8 |
+| TC6-1-7 | Order Name: `Portrait for my cat`<br>Request Details: `Black and white cat, watercolor style`<br>Deadline Date: yesterday (today − 1 day)<br>Action: click **Create Order** | Text `Deadline must be at least 5 days from today.` is shown; no order is created | Same as Expected Output. Screenshot: `TC6-1-7.png` | 1, 4, 9 |
+| TC6-1-8 | Order Name: `Portrait for my cat`<br>Request Details: `Black and white cat, watercolor style`<br>Deadline Date: *(cleared)*<br>Action: click **Create Order** | Text `Deadline must be at least 5 days from today.` is shown; no order is created | Same as Expected Output. Screenshot: `TC6-1-8.png` | 1, 4, 10 |
 
 ---
 
@@ -267,14 +267,14 @@ Action for every test case: enter the fields of each step and click **Next** (st
 
 | Test Case ID | Inputs | Expected Output | Actual Output | Classes Covered |
 |---|---|---|---|---|
-| TC6-2-1 | Order status: `PENDING`<br>Action: click **Accept**<br>Then: click **Accept** in popup `Accept this Order?` | Popup closes; status badge shows `NOT PAID`; Accept and Reject buttons are no longer shown | Pending run | 1, 3 |
-| TC6-2-2 | Order status: `PENDING`<br>Action: click **Reject**<br>Then: click **Reject** in popup `Reject this Order?` | Popup closes; status badge shows `CANCEL`; Accept and Reject buttons are no longer shown | Pending run | 1, 4 |
-| TC6-2-3 | Order status: `PENDING`<br>Action: click **Accept**<br>Then: click **Cancel** in popup `Accept this Order?` | Popup closes; status badge still `PENDING`; Accept and Reject buttons still shown | Pending run | 1, 5 |
-| TC6-2-4 | Order status: `PENDING`<br>Action: click **Reject**<br>Then: click **Cancel** in popup `Reject this Order?` | Popup closes; status badge still `PENDING`; Accept and Reject buttons still shown | Pending run | 1, 5 |
-| TC6-2-5 | Order status: `NOT_PAID`<br>Action: open the order | Accept and Reject buttons are not shown | Pending run | 2 |
-| TC6-2-6 | Order status: `IN_PROCESS`<br>Action: open the order | Accept and Reject buttons are not shown | Pending run | 2 |
-| TC6-2-7 | Order status: `SUCCESS`<br>Action: open the order | Accept and Reject buttons are not shown | Pending run | 2 |
-| TC6-2-8 | Order status: `CANCEL`<br>Action: open the order | Accept and Reject buttons are not shown | Pending run | 2 |
+| TC6-2-1 | Order status: `PENDING`<br>Action: click **Accept**<br>Then: click **Accept** in popup `Accept this Order?` | Popup closes; status badge shows `NOT PAID`; Accept and Reject buttons are no longer shown | Same as Expected Output. Screenshot: `TC6-2-1.png` | 1, 3 |
+| TC6-2-2 | Order status: `PENDING`<br>Action: click **Reject**<br>Then: click **Reject** in popup `Reject this Order?` | Popup closes; status badge shows `CANCEL`; Accept and Reject buttons are no longer shown | Same as Expected Output. Screenshot: `TC6-2-2.png` | 1, 4 |
+| TC6-2-3 | Order status: `PENDING`<br>Action: click **Accept**<br>Then: click **Cancel** in popup `Accept this Order?` | Popup closes; status badge still `PENDING`; Accept and Reject buttons still shown | Same as Expected Output. Screenshot: `TC6-2-3.png` | 1, 5 |
+| TC6-2-4 | Order status: `PENDING`<br>Action: click **Reject**<br>Then: click **Cancel** in popup `Reject this Order?` | Popup closes; status badge still `PENDING`; Accept and Reject buttons still shown | Same as Expected Output. Screenshot: `TC6-2-4.png` | 1, 5 |
+| TC6-2-5 | Order status: `NOT_PAID`<br>Action: open the order | Accept and Reject buttons are not shown | Same as Expected Output. Screenshot: `TC6-2-5.png` | 2 |
+| TC6-2-6 | Order status: `IN_PROCESS`<br>Action: open the order | Accept and Reject buttons are not shown | Same as Expected Output. Screenshot: `TC6-2-6.png` | 2 |
+| TC6-2-7 | Order status: `SUCCESS`<br>Action: open the order | Accept and Reject buttons are not shown | Same as Expected Output. Screenshot: `TC6-2-7.png` | 2 |
+| TC6-2-8 | Order status: `CANCEL`<br>Action: open the order | Accept and Reject buttons are not shown | Same as Expected Output. Screenshot: `TC6-2-8.png` | 2 |
 
 ---
 
@@ -306,16 +306,16 @@ Action for every test case: enter the fields of each step and click **Next** (st
 
 | Test Case ID | Inputs | Expected Output | Actual Output | Classes Covered |
 |---|---|---|---|---|
-| TC6-6-1 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 21 days (D + 7 days)<br>Reason for Postponement: `I need more time for details`<br>Explanation: `Need extra time to refine the shading.`<br>Then: click **Send Request** | Popup closes; banner `Postpone Request Pending` is shown with text `You have requested to extend the deadline to <today + 21 days as dd Mon yyyy>. Waiting for the customer's response (Auto declines in 48 hours).`; **Postpone Order** button is disabled | Pending run | 1, 5, 7, 11 |
-| TC6-6-2 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 14 days (D, same date as the current deadline)<br>Reason for Postponement: `I need more time for details`<br>Explanation: `Need extra time to refine the shading.`<br>Then: click **Send Request** | Request is not sent: popup stays open, a browser validation message is shown at the New Proposed Deadline field, and no banner appears | Pending run | 2, 5, 7, 11 |
-| TC6-6-3 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 13 days (D − 1 day)<br>Reason for Postponement: `I need more time for details`<br>Explanation: `Need extra time to refine the shading.`<br>Then: click **Send Request** | Request is not sent: popup stays open, a browser validation message is shown at the New Proposed Deadline field, and no banner appears | Pending run | 3, 5, 7, 11 |
-| TC6-6-4 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: *(empty)*<br>Reason for Postponement: `I need more time for details`<br>Explanation: `Need extra time to refine the shading.`<br>Then: click **Send Request** | Request is not sent: popup stays open, a browser validation message is shown at the New Proposed Deadline field, and no banner appears | Pending run | 4, 5, 7, 11 |
-| TC6-6-5 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 21 days (D + 7 days)<br>Reason for Postponement: *(not selected)*<br>Explanation: `Need extra time to refine the shading.`<br>Then: click **Send Request** | Alert `กรุณาเลือกวันหลัง Deadline เดิม พร้อมเหตุผลและคำอธิบาย` is shown; popup stays open; no banner | Pending run | 1, 6, 7, 11 |
-| TC6-6-6 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 21 days (D + 7 days)<br>Reason for Postponement: `I need more time for details`<br>Explanation: *(empty)*<br>Then: click **Send Request** | Request is not sent: popup stays open, a browser validation message is shown at the Explanation field, and no banner appears | Pending run | 1, 5, 8, 11 |
-| TC6-6-7 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 21 days (D + 7 days)<br>Reason for Postponement: `I need more time for details`<br>Explanation: `   ` (3 spaces)<br>Then: click **Send Request** | Alert `กรุณาเลือกวันหลัง Deadline เดิม พร้อมเหตุผลและคำอธิบาย` is shown; popup stays open; no banner | Pending run | 1, 5, 9, 11 |
-| TC6-6-8 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 21 days (D + 7 days)<br>Reason for Postponement: `I need more time for details`<br>Explanation: 301 characters (the letter `A` repeated 301 times) | Counter shows `300/300`; field contains the first 300 characters only | Pending run | 1, 5, 10, 11 |
-| TC6-6-9 | Order status: `NOT_PAID`<br>Action: open the order | **Postpone Order** button is not shown | Pending run | 12 |
-| TC6-6-10 | Order status: `IN_PROCESS`, with a postponement request awaiting the customer's decision<br>Action: open the order | Banner `Postpone Request Pending` is shown and the **Postpone Order** button is disabled | Pending run | 13 |
+| TC6-6-1 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 21 days (D + 7 days)<br>Reason for Postponement: `I need more time for details`<br>Explanation: `Need extra time to refine the shading.`<br>Then: click **Send Request** | Popup closes; banner `Postpone Request Pending` is shown with text `You have requested to extend the deadline to <today + 21 days as dd Mon yyyy>. Waiting for the customer's response (Auto declines in 48 hours).`; **Postpone Order** button is disabled | Same as Expected Output. Screenshot: `TC6-6-1.png` | 1, 5, 7, 11 |
+| TC6-6-2 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 14 days (D, same date as the current deadline)<br>Reason for Postponement: `I need more time for details`<br>Explanation: `Need extra time to refine the shading.`<br>Then: click **Send Request** | Request is not sent: popup stays open, a browser validation message is shown at the New Proposed Deadline field, and no banner appears | Same as Expected Output. Screenshot: `TC6-6-2.png` (the browser's validation message is not part of the page, so it is not visible in the image) | 2, 5, 7, 11 |
+| TC6-6-3 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 13 days (D − 1 day)<br>Reason for Postponement: `I need more time for details`<br>Explanation: `Need extra time to refine the shading.`<br>Then: click **Send Request** | Request is not sent: popup stays open, a browser validation message is shown at the New Proposed Deadline field, and no banner appears | Same as Expected Output. Screenshot: `TC6-6-3.png` (the browser's validation message is not visible in the image) | 3, 5, 7, 11 |
+| TC6-6-4 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: *(empty)*<br>Reason for Postponement: `I need more time for details`<br>Explanation: `Need extra time to refine the shading.`<br>Then: click **Send Request** | Request is not sent: popup stays open, a browser validation message is shown at the New Proposed Deadline field, and no banner appears | Same as Expected Output. Screenshot: `TC6-6-4.png` (the browser's validation message is not visible in the image) | 4, 5, 7, 11 |
+| TC6-6-5 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 21 days (D + 7 days)<br>Reason for Postponement: *(not selected)*<br>Explanation: `Need extra time to refine the shading.`<br>Then: click **Send Request** | Alert `กรุณาเลือกวันหลัง Deadline เดิม พร้อมเหตุผลและคำอธิบาย` is shown; popup stays open; no banner | Same as Expected Output. Screenshot: `TC6-6-5.png` | 1, 6, 7, 11 |
+| TC6-6-6 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 21 days (D + 7 days)<br>Reason for Postponement: `I need more time for details`<br>Explanation: *(empty)*<br>Then: click **Send Request** | Request is not sent: popup stays open, a browser validation message is shown at the Explanation field, and no banner appears | Same as Expected Output. Screenshot: `TC6-6-6.png` (the browser's validation message is not visible in the image) | 1, 5, 8, 11 |
+| TC6-6-7 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 21 days (D + 7 days)<br>Reason for Postponement: `I need more time for details`<br>Explanation: `   ` (3 spaces)<br>Then: click **Send Request** | Alert `กรุณาเลือกวันหลัง Deadline เดิม พร้อมเหตุผลและคำอธิบาย` is shown; popup stays open; no banner | Same as Expected Output. Screenshot: `TC6-6-7.png` | 1, 5, 9, 11 |
+| TC6-6-8 | Order status: `IN_PROCESS`<br>Action: click **Postpone Order**<br>New Proposed Deadline: today + 21 days (D + 7 days)<br>Reason for Postponement: `I need more time for details`<br>Explanation: 301 characters (the letter `A` repeated 301 times) | Counter shows `300/300`; field contains the first 300 characters only | Same as Expected Output. Screenshot: `TC6-6-8.png` | 1, 5, 10, 11 |
+| TC6-6-9 | Order status: `NOT_PAID`<br>Action: open the order | **Postpone Order** button is not shown | Same as Expected Output. Screenshot: `TC6-6-9.png` | 12 |
+| TC6-6-10 | Order status: `IN_PROCESS`, with a postponement request awaiting the customer's decision<br>Action: open the order | Banner `Postpone Request Pending` is shown and the **Postpone Order** button is disabled | Same as Expected Output. Screenshot: `TC6-6-10.png` | 13 |
 
 ---
 
@@ -348,17 +348,17 @@ Action for every test case: enter the fields of each step and click **Next** (st
 
 | Test Case ID | Inputs | Expected Output | Actual Output | Classes Covered |
 |---|---|---|---|---|
-| TC6-7-1 | Order status: `IN_PROCESS` (no drafts)<br>File: `draft.jpg` (valid JPEG, under 1 MiB)<br>Action: click **Submit**<br>Then: click **Submit** in popup `Submit Draft to Customer?` | Popup closes; a `#1 Draft` card appears with badge `Waiting for Customer Review`; the **Submit Draft** section is no longer shown | Pending run | 1, 4, 9, 12 |
-| TC6-7-2 | Order status: `IN_PROCESS` (no drafts)<br>File: `draft.png` (valid PNG, under 1 MiB)<br>Action: click **Submit**<br>Then: click **Submit** in popup `Submit Draft to Customer?` | Same as TC6-7-1 | Pending run | 1, 5, 9, 12 |
-| TC6-7-3 | Order status: `IN_PROCESS` (no drafts)<br>File: `draft.webp` (valid WebP, under 1 MiB)<br>Action: click **Submit**<br>Then: click **Submit** in popup `Submit Draft to Customer?` | Same as TC6-7-1 | Pending run | 1, 6, 9, 12 |
-| TC6-7-4 | Order status: `IN_PROCESS` (no drafts)<br>File: `draft.gif`<br>Action: choose the file | Alert `เลือกไฟล์ JPG, PNG หรือ WebP เท่านั้น` is shown; no preview and no **Submit** button | Pending run | 1, 7 |
-| TC6-7-5 | Order status: `IN_PROCESS` (no drafts)<br>File: *(none chosen)*<br>Action: open the order | Upload area `Add your artwork` is shown; no **Submit** button | Pending run | 1, 8 |
-| TC6-7-6 | Order status: `IN_PROCESS` (no drafts)<br>File: `fake.png` (a text file renamed to `.png`, under 1 MiB)<br>Action: click **Submit**<br>Then: click **Submit** in popup `Submit Draft to Customer?` | Popup stays open with an error alert; no draft card is created. Expected text `deliverable image must be a JPEG, PNG, or WebP image` | Pending run | 1, 5, 9, 11, 12 |
-| TC6-7-7 | Order status: `IN_PROCESS` (no drafts)<br>File: `big.png` (valid PNG image of 21 MiB)<br>Action: click **Submit**<br>Then: click **Submit** in popup `Submit Draft to Customer?` | Popup stays open with an error alert; no draft card is created. Expected text `deliverable image exceeds the 20 MiB limit` | Pending run | 1, 5, 10, 12 |
-| TC6-7-8 | Order status: `IN_PROCESS` (no drafts)<br>File: `draft.jpg` (valid JPEG, under 1 MiB)<br>Action: click **Submit**<br>Then: click **Cancel** in popup `Submit Draft to Customer?` | Popup closes; preview and **Submit** button still shown; no draft card is created | Pending run | 1, 4, 9, 13 |
-| TC6-7-9 | Order status: `IN_PROCESS` (no drafts)<br>File: `draft.jpg` (valid JPEG, under 1 MiB)<br>Action: click ✕ on the preview | Preview disappears; upload area `Add your artwork` shown again; no **Submit** button | Pending run | 1, 4, 9, 14 |
-| TC6-7-10 | Order status: `NOT_PAID`<br>Action: open the order | **Submit Draft** section is not shown | Pending run | 2 |
-| TC6-7-11 | Order status: `IN_PROCESS`, latest draft awaiting customer review<br>Action: open the order | **Submit Draft** section is not shown; the draft still shows `Waiting for Customer Review` | Pending run | 3 |
+| TC6-7-1 | Order status: `IN_PROCESS` (no drafts)<br>File: `draft.jpg` (valid JPEG, under 1 MiB)<br>Action: click **Submit**<br>Then: click **Submit** in popup `Submit Draft to Customer?` | Popup closes; a `#1 Draft` card appears with badge `Waiting for Customer Review`; the **Submit Draft** section is no longer shown | Same as Expected Output. Screenshot: `TC6-7-1.png` | 1, 4, 9, 12 |
+| TC6-7-2 | Order status: `IN_PROCESS` (no drafts)<br>File: `draft.png` (valid PNG, under 1 MiB)<br>Action: click **Submit**<br>Then: click **Submit** in popup `Submit Draft to Customer?` | Same as TC6-7-1 | Same as Expected Output. Screenshot: `TC6-7-2.png` | 1, 5, 9, 12 |
+| TC6-7-3 | Order status: `IN_PROCESS` (no drafts)<br>File: `draft.webp` (valid WebP, under 1 MiB)<br>Action: click **Submit**<br>Then: click **Submit** in popup `Submit Draft to Customer?` | Same as TC6-7-1 | Same as Expected Output. Screenshot: `TC6-7-3.png` | 1, 6, 9, 12 |
+| TC6-7-4 | Order status: `IN_PROCESS` (no drafts)<br>File: `draft.gif`<br>Action: choose the file | Alert `เลือกไฟล์ JPG, PNG หรือ WebP เท่านั้น` is shown; no preview and no **Submit** button | Same as Expected Output. Screenshot: `TC6-7-4.png` | 1, 7 |
+| TC6-7-5 | Order status: `IN_PROCESS` (no drafts)<br>File: *(none chosen)*<br>Action: open the order | Upload area `Add your artwork` is shown; no **Submit** button | Same as Expected Output. Screenshot: `TC6-7-5.png` | 1, 8 |
+| TC6-7-6 | Order status: `IN_PROCESS` (no drafts)<br>File: `fake.png` (a text file renamed to `.png`, under 1 MiB)<br>Action: click **Submit**<br>Then: click **Submit** in popup `Submit Draft to Customer?` | Popup stays open with an error alert; no draft card is created. Expected text `deliverable image must be a JPEG, PNG, or WebP image` | Same as Expected Output. Screenshot: `TC6-7-6.png` | 1, 5, 9, 11, 12 |
+| TC6-7-7 | Order status: `IN_PROCESS` (no drafts)<br>File: `big.png` (valid PNG image of 21 MiB)<br>Action: click **Submit**<br>Then: click **Submit** in popup `Submit Draft to Customer?` | Popup stays open with an error alert; no draft card is created. Expected text `deliverable image exceeds the 20 MiB limit` | Same as Expected Output. Screenshot: `TC6-7-7.png` | 1, 5, 10, 12 |
+| TC6-7-8 | Order status: `IN_PROCESS` (no drafts)<br>File: `draft.jpg` (valid JPEG, under 1 MiB)<br>Action: click **Submit**<br>Then: click **Cancel** in popup `Submit Draft to Customer?` | Popup closes; preview and **Submit** button still shown; no draft card is created | Same as Expected Output. Screenshot: `TC6-7-8.png` | 1, 4, 9, 13 |
+| TC6-7-9 | Order status: `IN_PROCESS` (no drafts)<br>File: `draft.jpg` (valid JPEG, under 1 MiB)<br>Action: click ✕ on the preview | Preview disappears; upload area `Add your artwork` shown again; no **Submit** button | Same as Expected Output. Screenshot: `TC6-7-9.png` | 1, 4, 9, 14 |
+| TC6-7-10 | Order status: `NOT_PAID`<br>Action: open the order | **Submit Draft** section is not shown | Same as Expected Output. Screenshot: `TC6-7-10.png` | 2 |
+| TC6-7-11 | Order status: `IN_PROCESS`, latest draft awaiting customer review<br>Action: open the order | **Submit Draft** section is not shown; the draft still shows `Waiting for Customer Review` | Same as Expected Output. Screenshot: `TC6-7-11.png` | 3 |
 
 ---
 
@@ -366,11 +366,11 @@ Action for every test case: enter the fields of each step and click **Next** (st
 
 | User Story ID | Test Cases ID | Status |
 |---|---|---|
-| 1-1 | TC1-1-1, TC1-1-2, TC1-1-3, TC1-1-4, TC1-1-5, TC1-1-6, TC1-1-7, TC1-1-8, TC1-1-9, TC1-1-10, TC1-1-11, TC1-1-12, TC1-1-13, TC1-1-14, TC1-1-15, TC1-1-16, TC1-1-17, TC1-1-18, TC1-1-19, TC1-1-20, TC1-1-21, TC1-1-22, TC1-1-23 | Not run |
-| 1-2 | TC1-2-1, TC1-2-2, TC1-2-3, TC1-2-4, TC1-2-5, TC1-2-6, TC1-2-7, TC1-2-8 | Not run |
-| 1-4 | TC1-4-1, TC1-4-2, TC1-4-3, TC1-4-4, TC1-4-5, TC1-4-6, TC1-4-7 | Not run |
-| 1-6 | TC1-6-1, TC1-6-2, TC1-6-3, TC1-6-4 | Not run |
-| 6-1 | TC6-1-1, TC6-1-2, TC6-1-3, TC6-1-4, TC6-1-5, TC6-1-6, TC6-1-7, TC6-1-8 | Not run |
-| 6-2 | TC6-2-1, TC6-2-2, TC6-2-3, TC6-2-4, TC6-2-5, TC6-2-6, TC6-2-7, TC6-2-8 | Not run |
-| 6-6 | TC6-6-1, TC6-6-2, TC6-6-3, TC6-6-4, TC6-6-5, TC6-6-6, TC6-6-7, TC6-6-8, TC6-6-9, TC6-6-10 | Not run |
-| 6-7 | TC6-7-1, TC6-7-2, TC6-7-3, TC6-7-4, TC6-7-5, TC6-7-6, TC6-7-7, TC6-7-8, TC6-7-9, TC6-7-10, TC6-7-11 | Not run |
+| 1-1 | TC1-1-1, TC1-1-2, TC1-1-3, TC1-1-4, TC1-1-5, TC1-1-6, TC1-1-7, TC1-1-8, TC1-1-9, TC1-1-10, TC1-1-11, TC1-1-12, TC1-1-13, TC1-1-14, TC1-1-15, TC1-1-16, TC1-1-17, TC1-1-18, TC1-1-19, TC1-1-20, TC1-1-21, TC1-1-22, TC1-1-23 | P, P, P, P, P, P, P, P, P, P, P, P, P, P, P, P, P, P, P, P, P, P, P |
+| 1-2 | TC1-2-1, TC1-2-2, TC1-2-3, TC1-2-4, TC1-2-5, TC1-2-6, TC1-2-7, TC1-2-8 | P, P, P, P, P, P, P, P |
+| 1-4 | TC1-4-1, TC1-4-2, TC1-4-3, TC1-4-4, TC1-4-5, TC1-4-6, TC1-4-7 | P, P, P, P, P, P, P |
+| 1-6 | TC1-6-1, TC1-6-2, TC1-6-3, TC1-6-4 | P, P, P, P |
+| 6-1 | TC6-1-1, TC6-1-2, TC6-1-3, TC6-1-4, TC6-1-5, TC6-1-6, TC6-1-7, TC6-1-8 | P, P, P, P, P, P, P, P |
+| 6-2 | TC6-2-1, TC6-2-2, TC6-2-3, TC6-2-4, TC6-2-5, TC6-2-6, TC6-2-7, TC6-2-8 | P, P, P, P, P, P, P, P |
+| 6-6 | TC6-6-1, TC6-6-2, TC6-6-3, TC6-6-4, TC6-6-5, TC6-6-6, TC6-6-7, TC6-6-8, TC6-6-9, TC6-6-10 | P, P, P, P, P, P, P, P, P, P |
+| 6-7 | TC6-7-1, TC6-7-2, TC6-7-3, TC6-7-4, TC6-7-5, TC6-7-6, TC6-7-7, TC6-7-8, TC6-7-9, TC6-7-10, TC6-7-11 | P, P, P, P, P, P, P, P, P, P, P |
