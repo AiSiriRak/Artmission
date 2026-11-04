@@ -19,7 +19,7 @@ task e2e-test
 
 # or by hand, from frontend/
 npm run e2e                                   # all
-npx playwright test e2e/smoke.spec.ts         # one file
+npx playwright test e2e/<name>.spec.ts        # one file
 npx playwright show-report e2e-report/html    # HTML report of the last run
 ```
 
@@ -34,6 +34,5 @@ npx playwright show-report e2e-report/html    # HTML report of the last run
 
 - **Accounts** are listed in `support/accounts.ts`. `auth.setup.ts` logs each one in through the login page once and saves the session under `e2e/.auth/` (git-ignored); specs pick one with `test.use({ storageState: authFile("artistBo") })`.
 - **PENDING orders** are placed through the real API as the customer (`placeOrder` in `support/api.ts`), so they can be created as often as needed.
+- **Upload files** the tests choose in the browser are in `e2e/fixtures/` (small valid JPEG, PNG and WebP). Invalid or oversized files are built inside the test.
 - **Every other status** is seeded, because `IN_PROCESS` cannot be reached through the API without a real Slip2Go payment. The orders are in `backend/internal/pkg/seed/dataset_e2e.go`. Look one up by name with `findOrderId`; the names are part of the contract, so keep them stable. A test that changes an order needs one of its own; tests that only read or fail validation can share one.
-
-`fixtures.spec.ts` is a harness check, not a test case: it fails fast if the seed is missing or stale.
