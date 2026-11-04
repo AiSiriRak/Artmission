@@ -32,7 +32,7 @@ Every account exists, in the state described in the table (orders, bank account)
 | Artist | ann@artmission.test | owns the artwork "Custom Portrait" (price 1,500 THB, minimum deadline 5 days) |
 | Artist | bo@artmission.test | |
 
-All passwords are `Password123!`. Order statuses are `PENDING`, `NOT_PAID`, `IN_PROCESS`, `SUCCESS`, `CANCEL`. Test cases that need an order in a given status get their own order in that status, so no test case depends on the result of another.
+All passwords are `Password123!`. Order statuses are `PENDING`, `NOT_PAID`, `IN_PROCESS`, `SUCCESS`, `CANCEL`. Test cases that need an order in a given status get their own order in that status, so no test case depends on the result of another. The automated run uses its own database loaded with the `e2e` seed dataset (see `frontend/e2e/README.md`), so manual testing on the normal database does not affect it.
 
 ## Pages under test
 

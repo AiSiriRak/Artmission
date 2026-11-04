@@ -23,6 +23,7 @@ func id(kind, key string) uuid.UUID {
 type deps struct {
 	db      bun.IDB
 	storage *objectstorage.Client
+	set     dataset
 }
 
 type step func(ctx context.Context, d deps) error
@@ -59,12 +60,16 @@ var downSteps = []step{
 	seedArtworkImagesDown,
 }
 
-// Up seeds every table. Safe to re-run: every insert is ON CONFLICT DO
-// NOTHING against a deterministic primary key, and image uploads
-// overwrite the same deterministic key with identical bytes.
-func Up(ctx context.Context, db *bun.DB, storage *objectstorage.Client) error {
+// Up seeds the shared base and the named dataset (DatasetDev or DatasetE2E). Safe
+// to re-run: every insert is ON CONFLICT DO NOTHING against a deterministic primary
+// key, and image uploads overwrite the same deterministic key with identical bytes.
+func Up(ctx context.Context, db *bun.DB, storage *objectstorage.Client, name string) error {
+	set, err := lookupDataset(name)
+	if err != nil {
+		return err
+	}
 	return db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		d := deps{db: tx, storage: storage}
+		d := deps{db: tx, storage: storage, set: set}
 		for _, s := range upSteps {
 			if err := s(ctx, d); err != nil {
 				return err
@@ -74,9 +79,15 @@ func Up(ctx context.Context, db *bun.DB, storage *objectstorage.Client) error {
 	})
 }
 
-func Down(ctx context.Context, db *bun.DB, storage *objectstorage.Client) error {
+// Down removes the seeded users and every order of theirs (see dataset), plus the
+// named dataset's deliverable images.
+func Down(ctx context.Context, db *bun.DB, storage *objectstorage.Client, name string) error {
+	set, err := lookupDataset(name)
+	if err != nil {
+		return err
+	}
 	return db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		d := deps{db: tx, storage: storage}
+		d := deps{db: tx, storage: storage, set: set}
 		for _, s := range downSteps {
 			if err := s(ctx, d); err != nil {
 				return err
@@ -86,11 +97,11 @@ func Down(ctx context.Context, db *bun.DB, storage *objectstorage.Client) error 
 	})
 }
 
-func Reseed(ctx context.Context, db *bun.DB, storage *objectstorage.Client) error {
-	if err := Down(ctx, db, storage); err != nil {
+func Reseed(ctx context.Context, db *bun.DB, storage *objectstorage.Client, name string) error {
+	if err := Down(ctx, db, storage, name); err != nil {
 		return err
 	}
-	return Up(ctx, db, storage)
+	return Up(ctx, db, storage, name)
 }
 
 // seedTable inserts rows into d.db, doing nothing for any row whose

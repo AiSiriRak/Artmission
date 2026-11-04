@@ -34,7 +34,7 @@ func TestQRGenerationClaimDoesNotHoldPoolConnection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := seed.Up(ctx, db, storage); err != nil {
+	if err := seed.Up(ctx, db, storage, seed.DatasetDev); err != nil {
 		t.Fatalf("seed fixtures: %v", err)
 	}
 
@@ -111,7 +111,7 @@ func TestPaymentRepositoryLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := seed.Up(ctx, db, storage); err != nil {
+	if err := seed.Up(ctx, db, storage, seed.DatasetDev); err != nil {
 		t.Fatalf("seed fixtures: %v", err)
 	}
 

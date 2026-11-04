@@ -4,6 +4,11 @@ version: "3"
 
 vars:
   ENV_FILE: .env
+  # The e2e tasks use their own database in the same Postgres container, so automated
+  # runs and manual testing never touch each other's data. The credentials are the
+  # defaults of docker-compose.yaml and internal/pkg/config/config.yaml.
+  E2E_DB: artmission_e2e
+  E2E_DSN: postgres://user:password@localhost:5432/{{.E2E_DB}}?sslmode=disable
 
 tasks:
   dev:
@@ -39,19 +44,41 @@ tasks:
       - go run . --env-file {{.ENV_FILE}} migrate create {{.CLI_ARGS}}
 
   seed:
-    desc: removes and reloads fixture data
+    desc: removes and reloads the dev fixture data
     cmds:
       - go run . --env-file {{.ENV_FILE}} seed reseed {{.CLI_ARGS}}
 
   seed-up:
-    desc: loads fixture data
+    desc: loads the dev fixture data
     cmds:
       - go run . --env-file {{.ENV_FILE}} seed up {{.CLI_ARGS}}
 
   seed-down:
-    desc: removes fixture data
+    desc: removes the dev fixture data
     cmds:
       - go run . --env-file {{.ENV_FILE}} seed down {{.CLI_ARGS}}
+
+  seed-e2e:
+    desc: removes and reloads the e2e dataset in the e2e database; run it before every e2e test run
+    env:
+      DATABASE_DSN: "{{.E2E_DSN}}"
+    cmds:
+      - go run . seed reseed e2e
+
+  e2e-serve:
+    desc: like dev, but on the e2e database. Prepares and seeds it, then runs the api in the foreground (stop `task dev` first, both use :8080)
+    env:
+      DATABASE_DSN: "{{.E2E_DSN}}"
+    cmds:
+      - task: e2e-db
+      - task: seed-e2e
+      - go run . serve
+
+  e2e-test:
+    desc: reseeds the e2e dataset, then runs the Playwright suite (the api from e2e-serve must be running)
+    cmds:
+      - task: seed-e2e
+      - npm --prefix ../frontend run e2e
 
   check-migrations:
     desc: fails if SQL migrations edit an existing file or insert one out of version order
@@ -84,6 +111,20 @@ tasks:
       - node scripts/gen-report.js
 
   # --- Internal Tasks --- #
+
+  e2e-db:
+    internal: true
+    desc: starts docker infra, creates the e2e database if it is missing, and migrates it
+    env:
+      DATABASE_DSN: "{{.E2E_DSN}}"
+    cmds:
+      # Not `up --wait` for everything: it intermittently fails when the one-shot rustfs-init exits mid-wait.
+      - docker compose up -d --wait postgres rustfs
+      - docker compose run --rm rustfs-init
+      # Postgres has no CREATE DATABASE IF NOT EXISTS; \gexec runs the statement only when the query returns it.
+      # Only echo, a pipe and docker are used, so this also runs under Task's built-in shell on Windows.
+      - echo "SELECT 'CREATE DATABASE {{.E2E_DB}}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '{{.E2E_DB}}')\gexec" | docker compose exec -T postgres psql -U user -d postgres -v ON_ERROR_STOP=1
+      - go run . migrate up
 
   test-bdd-run:
     internal: true
