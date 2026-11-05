@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/payment"
 	"github.com/google/uuid"
 )
 
@@ -95,6 +96,19 @@ type orderNotifier struct {
 }
 
 var _ order.OrderNotifier = (*orderNotifier)(nil)
+var _ payment.Notifier = (*orderNotifier)(nil)
+
+func NewPaymentNotifier(reader OrderNotificationReader, notifications NotificationCreator) payment.Notifier {
+	return &orderNotifier{reader: reader, notifications: notifications}
+}
+
+func (n *orderNotifier) PaymentSecured(ctx context.Context, orderID uuid.UUID) error {
+	return n.NotifyOrder(ctx, order.NotificationEvent{Kind: "PAYMENT_SECURED", OrderID: orderID})
+}
+
+func (n *orderNotifier) PaymentExpired(ctx context.Context, orderID uuid.UUID) error {
+	return n.NotifyOrder(ctx, order.NotificationEvent{Kind: "PAYMENT_EXPIRED", OrderID: orderID})
+}
 
 func NewOrderNotifier(reader OrderNotificationReader, notifications NotificationCreator) order.OrderNotifier {
 	return &orderNotifier{reader: reader, notifications: notifications}
@@ -180,6 +194,12 @@ func (n *orderNotifier) NotifyOrder(ctx context.Context, e order.NotificationEve
 			return err
 		}
 		event, title, message = TypeOrderCanceled, "Order Canceled", "This order was automatically canceled because its confirmation window or deadline expired."
+	case "PAYMENT_EXPIRED":
+		message = "This order was automatically canceled because payment was not completed within 24 hours."
+		if err := n.send(ctx, item, item.CustomerID, TypeOrderCanceled, "Order Canceled", message, e); err != nil {
+			return err
+		}
+		event, title = TypeOrderCanceled, "Order Canceled"
 	case "DELIVERABLE_AUTO_APPROVED":
 		if err := n.send(ctx, item, item.CustomerID, TypeFinalArtworkReady, "Final Artwork Ready", "The review window expired and your artwork was automatically accepted. Please check the order details to download it.", e); err != nil {
 			return err

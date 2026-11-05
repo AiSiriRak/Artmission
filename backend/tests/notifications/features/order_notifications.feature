@@ -20,13 +20,6 @@ Feature: Order notifications
       | accepts  | ORDER_ACCEPTED |
       | declines | ORDER_DECLINED |
 
-  Scenario: Payment bypass notifies the artist only once
-    Given an order with status "NOT_PAID" exists
-    When the customer bypasses payment
-    Then the artist receives a "PAYMENT_SECURED" notification
-    When the customer repeats payment bypass
-    Then the request fails without adding notifications
-
   Scenario: A draft links its source version
     Given an order with status "IN_PROCESS" exists
     When the artist submits a draft

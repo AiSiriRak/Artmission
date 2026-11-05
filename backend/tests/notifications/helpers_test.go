@@ -15,6 +15,7 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/notification"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/payment"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/google/uuid"
@@ -176,14 +177,57 @@ func (n *notificationsContext) orderWithStatus(status string) error {
 	if status != "IN_PROCESS" {
 		return fmt.Errorf("unsupported fixture status %s", status)
 	}
-	return n.bypass()
+	return n.pay()
 }
 func (n *notificationsContext) confirmOrder(decision string) error {
 	return n.request("artist", "PUT", "/orders/"+n.orderID+"/confirm", map[string]bool{"accept": decision == "accepts"}, 200)
 }
-func (n *notificationsContext) bypass() error {
-	return n.request("customer", "PUT", "/orders/"+n.orderID+"/bypass-payment", nil, 200)
+
+// The application still handles QR/slip requests normally; only the external provider is simulated.
+type notificationPaymentProvider struct{}
+
+func (notificationPaymentProvider) GeneratePromptPayQR(_ context.Context, amount int64) (payment.QRImage, error) {
+	return payment.QRImage{Payload: "bdd-test-qr", AmountSatang: amount}, nil
 }
+func (notificationPaymentProvider) VerifySlipImage(_ context.Context, image []byte, _ string, amount int64, _ time.Time) (payment.SlipVerification, error) {
+	valid := !bytes.Contains(image, []byte("invalid-test-slip"))
+	code := "200000"
+	if !valid {
+		code = "200500"
+	}
+	return payment.SlipVerification{Valid: valid, ResultCode: code, AmountSatang: amount, TransRef: uuid.NewString(), DateTime: time.Now()}, nil
+}
+func (n *notificationsContext) sendSlip(valid bool) error {
+	var imageData bytes.Buffer
+	if err := png.Encode(&imageData, image.NewRGBA(image.Rect(0, 0, 32, 32))); err != nil {
+		return err
+	}
+	if !valid {
+		imageData.WriteString("invalid-test-slip")
+	}
+	resp, err := n.clients["customer"].DoMultipart("POST", "/orders/"+n.orderID+"/payment/verify", nil, []apptest.MultipartFile{{FieldName: "file", Filename: "slip.png", ContentType: "image/png", Data: imageData.Bytes()}}, n.headers("customer"))
+	n.resp = resp
+	return err
+}
+func (n *notificationsContext) pay() error {
+	if err := n.request("customer", "POST", "/orders/"+n.orderID+"/payment/qr", nil, 200); err != nil {
+		return err
+	}
+	if err := n.sendSlip(true); err != nil {
+		return err
+	}
+	var result struct {
+		Success bool `json:"success"`
+	}
+	if err := n.resp.JSON(&result); err != nil {
+		return err
+	}
+	if n.resp.StatusCode != 200 || !result.Success {
+		return fmt.Errorf("slip verification failed: %d %s", n.resp.StatusCode, n.resp.Body)
+	}
+	return nil
+}
+
 func (n *notificationsContext) submitDraft() error {
 	var b bytes.Buffer
 	if err := png.Encode(&b, image.NewRGBA(image.Rect(0, 0, 32, 32))); err != nil {

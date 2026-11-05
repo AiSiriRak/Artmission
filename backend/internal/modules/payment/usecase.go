@@ -20,12 +20,31 @@ type paymentUsecase struct {
 	repo     Repository
 	provider QRProvider
 	now      func() time.Time
+	notifier Notifier
+	tx       Transactioner
 }
 
 var _ Usecase = (*paymentUsecase)(nil)
 
-func NewPaymentUsecase(repo Repository, provider QRProvider) Usecase {
-	return &paymentUsecase{repo: repo, provider: provider, now: time.Now}
+func NewPaymentUsecase(repo Repository, provider QRProvider, options ...UsecaseOption) Usecase {
+	u := &paymentUsecase{repo: repo, provider: provider, now: time.Now}
+	for _, option := range options {
+		option(u)
+	}
+	return u
+}
+
+type UsecaseOption func(*paymentUsecase)
+
+func WithNotifications(notifier Notifier, tx Transactioner) UsecaseOption {
+	return func(u *paymentUsecase) { u.notifier = notifier; u.tx = tx }
+}
+
+func (u *paymentUsecase) transaction(ctx context.Context, fn func(context.Context) error) error {
+	if u.tx == nil {
+		return fn(ctx)
+	}
+	return u.tx.Transaction(ctx, fn)
 }
 
 func (u *paymentUsecase) GetQR(
@@ -151,7 +170,19 @@ func (u *paymentUsecase) ExpirePayments(ctx context.Context) ([]uuid.UUID, error
 	cancelledOrders := make([]uuid.UUID, 0, len(paymentIDs))
 	var sweepErr error
 	for _, paymentID := range paymentIDs {
-		orderID, cancelled, expired, err := u.repo.ExpirePayment(ctx, paymentID)
+		var orderID uuid.UUID
+		var cancelled, expired bool
+		err := u.transaction(ctx, func(ctx context.Context) error {
+			var err error
+			orderID, cancelled, expired, err = u.repo.ExpirePayment(ctx, paymentID)
+			if err != nil {
+				return err
+			}
+			if expired && cancelled && u.notifier != nil {
+				return u.notifier.PaymentExpired(ctx, orderID)
+			}
+			return nil
+		})
 		if err != nil {
 			sweepErr = errors.Join(sweepErr, err)
 			continue
@@ -205,7 +236,19 @@ func (u *paymentUsecase) VerifySlip(
 		return nil, apperror.Internal("Slip2Go returned incomplete or mismatched verification data", nil)
 	}
 
-	result, err := u.repo.ConfirmSlipPayment(ctx, customerID, orderID, verification.TransRef)
+	// Provider verification stays outside the transaction; only database writes and notifications commit together.
+	var result *VerifiedPayment
+	err = u.transaction(ctx, func(ctx context.Context) error {
+		var err error
+		result, err = u.repo.ConfirmSlipPayment(ctx, customerID, orderID, verification.TransRef)
+		if err != nil {
+			return err
+		}
+		if u.notifier != nil {
+			return u.notifier.PaymentSecured(ctx, orderID)
+		}
+		return nil
+	})
 	if errors.Is(err, ErrDuplicateSlip) {
 		return nil, newSlipRejection("SLIP_ALREADY_USED", "This slip has already been used.")
 	}

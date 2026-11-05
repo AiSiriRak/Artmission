@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/notification"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/payment"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -42,12 +46,12 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		}
 		return nil
 	})
-	sc.Step(`^the customer bypasses payment$`, func() error { return n.bypass() })
-	sc.Step(`^the customer repeats payment bypass$`, func() error {
+	sc.Step(`^the customer pays with a verified slip$`, func() error { return n.pay() })
+	sc.Step(`^the customer submits the verified slip again$`, func() error {
 		if err := n.rememberTotals(); err != nil {
 			return err
 		}
-		return n.request("customer", "PUT", "/orders/"+n.orderID+"/bypass-payment", nil, 0)
+		return n.sendSlip(true)
 	})
 	sc.Step(`^the request fails without adding notifications$`, func() error {
 		if n.resp.StatusCode < 400 {
@@ -262,10 +266,61 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		if err := n.rememberTotals(); err != nil {
 			return err
 		}
-		paymentID := uuid.New()
-		if err := n.exec("INSERT INTO payments(id,order_id,amount_satang,status) VALUES (?,?,10000,'HELD')", paymentID, n.orderID); err != nil {
+		var paymentID uuid.UUID
+		if err := app.DB.NewSelect().Table("payments").Column("id").Where("order_id = ?", n.orderID).Scan(context.Background(), &paymentID); err != nil {
 			return err
 		}
 		return n.exec("INSERT INTO payment_transactions(id,payment_id,type,amount_satang) VALUES (?,?,'CHARGE',10000)", uuid.New(), paymentID)
 	})
+	sc.Step(`^the customer uploads an invalid slip$`, func() error {
+		if err := n.request("customer", "POST", "/orders/"+n.orderID+"/payment/qr", nil, 200); err != nil {
+			return err
+		}
+		if err := n.rememberTotals(); err != nil {
+			return err
+		}
+		if err := n.sendSlip(false); err != nil {
+			return err
+		}
+		var result struct {
+			Success bool `json:"success"`
+		}
+		if err := n.resp.JSON(&result); err != nil {
+			return err
+		}
+		if n.resp.StatusCode != 200 || result.Success {
+			return fmt.Errorf("invalid slip was not rejected: %s", n.resp.Body)
+		}
+		return nil
+	})
+	sc.Step(`^the order remains unpaid without new notifications$`, func() error {
+		var status string
+		if err := app.DB.NewSelect().Table("orders").Column("status").Where("id=?", n.orderID).Scan(context.Background(), &status); err != nil {
+			return err
+		}
+		if status != "NOT_PAID" {
+			return fmt.Errorf("order became %s after invalid slip", status)
+		}
+		return n.unchanged()
+	})
+	sc.Step(`^the payment QR expires$`, func() error {
+		if err := n.request("customer", "POST", "/orders/"+n.orderID+"/payment/qr", nil, 200); err != nil {
+			return err
+		}
+		return n.exec("UPDATE payments SET qr_expire=? WHERE order_id=?", time.Now().Add(-time.Minute), n.orderID)
+	})
+	sc.Step(`^the payment expiry process runs$`, func() error {
+		actions := payment.NewPaymentUsecase(postgres.NewPaymentRepository(app.DB), notificationPaymentProvider{}, payment.WithNotifications(notification.NewPaymentNotifier(postgres.NewOrderNotificationReader(app.DB), notificationActions()), baserepo.NewTransactioner(app.DB)))
+		_, err := actions.ExpirePayments(context.Background())
+		return err
+	})
+	sc.Step(`^the payment expiry process runs again$`, func() error {
+		if err := n.rememberTotals(); err != nil {
+			return err
+		}
+		actions := payment.NewPaymentUsecase(postgres.NewPaymentRepository(app.DB), notificationPaymentProvider{}, payment.WithNotifications(notification.NewPaymentNotifier(postgres.NewOrderNotificationReader(app.DB), notificationActions()), baserepo.NewTransactioner(app.DB)))
+		_, err := actions.ExpirePayments(context.Background())
+		return err
+	})
+
 }

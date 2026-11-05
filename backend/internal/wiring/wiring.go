@@ -34,12 +34,13 @@ import (
 // App and Auth are the real config package's structs, reused as-is so a
 // config field renamed there can't silently drift out of sync here.
 type Config struct {
-	DB            *bun.DB
-	Logger        *slog.Logger
-	App           config.App
-	Auth          config.Auth
-	Slip2Go       config.Slip2Go
-	ObjectStorage *objectstorage.Client
+	DB              *bun.DB
+	Logger          *slog.Logger
+	App             config.App
+	Auth            config.Auth
+	Slip2Go         config.Slip2Go
+	ObjectStorage   *objectstorage.Client
+	PaymentProvider payment.QRProvider
 }
 
 // Wire builds the entire object graph — adapters, usecases, handlers,
@@ -64,7 +65,7 @@ func Wire(cfg Config) *httpserver.Server {
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx, cfg.ObjectStorage.Public)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private, order.WithNotifications(notification.NewOrderNotifier(postgres.NewOrderNotificationReader(cfg.DB), notificationUsecase), tx))
-	paymentUsecase := payment.NewPaymentUsecase(paymentRepo, newSlip2GoProvider(cfg.Slip2Go))
+	paymentUsecase := payment.NewPaymentUsecase(paymentRepo, paymentProvider(cfg), payment.WithNotifications(notification.NewPaymentNotifier(postgres.NewOrderNotificationReader(cfg.DB), notificationUsecase), tx))
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
@@ -94,14 +95,31 @@ func WireWorkers(cfg Config) []worker.Worker {
 	notificationUsecase := notification.NewNotificationUsecase(postgres.NewNotificationRepository(cfg.DB))
 	tx := baserepo.NewTransactioner(cfg.DB)
 	orderRepo := postgres.NewOrderRepository(cfg.DB)
-	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private, order.WithNotifications(notification.NewOrderNotifier(postgres.NewOrderNotificationReader(cfg.DB), notificationUsecase), tx))
+	orderUsecase := order.NewOrderUsecase(
+		orderRepo,
+		cfg.ObjectStorage.Private,
+		order.WithNotifications(
+			notification.NewOrderNotifier(
+				postgres.NewOrderNotificationReader(cfg.DB),
+				notificationUsecase,
+			),
+			tx,
+		),
+	)
 	paymentRepo := postgres.NewPaymentRepository(cfg.DB)
-	paymentUsecase := payment.NewPaymentUsecase(paymentRepo, newSlip2GoProvider(cfg.Slip2Go))
+	paymentUsecase := payment.NewPaymentUsecase(paymentRepo, paymentProvider(cfg), payment.WithNotifications(notification.NewPaymentNotifier(postgres.NewOrderNotificationReader(cfg.DB), notificationUsecase), tx))
 
 	return []worker.Worker{
 		worker.NewOrderExpiryWorker(orderUsecase, orderExpiryInterval, cfg.Logger),
 		worker.NewPaymentQRWorker(paymentUsecase, orderExpiryInterval, cfg.Logger),
 	}
+}
+
+func paymentProvider(cfg Config) payment.QRProvider {
+	if cfg.PaymentProvider != nil {
+		return cfg.PaymentProvider
+	}
+	return newSlip2GoProvider(cfg.Slip2Go)
 }
 
 func newSlip2GoProvider(cfg config.Slip2Go) payment.QRProvider {

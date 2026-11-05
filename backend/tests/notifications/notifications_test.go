@@ -21,7 +21,7 @@ func TestNotificationsFeatures(t *testing.T) {
 	defer cancel()
 	pg := apptest.StartPostgres(ctx, t)
 	s3Config := apptest.StartObjectStorage(ctx, t)
-	app = apptest.NewAppWithS3(t, pg.DSN, s3Config)
+	app = apptest.NewAppWithS3(t, pg.DSN, s3Config, notificationPaymentProvider{})
 	var err error
 	storage, err = objectstorage.NewS3Client(ctx, s3Config)
 	if err != nil {
