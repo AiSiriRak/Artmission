@@ -270,6 +270,11 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		if err := app.DB.NewSelect().Table("payments").Column("id").Where("order_id = ?", n.orderID).Scan(context.Background(), &paymentID); err != nil {
 			return err
 		}
+		// Payment verification already records CHARGE; replace that fixture row
+		// to exercise a direct ledger insert without duplicating (payment_id, type).
+		if err := n.exec("DELETE FROM payment_transactions WHERE payment_id = ? AND type = 'CHARGE'", paymentID); err != nil {
+			return err
+		}
 		return n.exec("INSERT INTO payment_transactions(id,payment_id,type,amount_satang) VALUES (?,?,'CHARGE',10000)", uuid.New(), paymentID)
 	})
 	sc.Step(`^the customer uploads an invalid slip$`, func() error {

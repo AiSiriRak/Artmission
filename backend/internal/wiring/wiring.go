@@ -82,6 +82,8 @@ func Wire(cfg Config) *httpserver.Server {
 	artistHandler.Register(api)
 	artworkHandler.Register(api)
 	paymentHandler.Register(api)
+	wallet := payment.NewWalletUsecase(postgres.NewWalletRepository(cfg.DB))
+	rest.NewWalletHandler(wallet, authUsecase).Register(api)
 
 	return server
 }

@@ -2,6 +2,7 @@
 
 Audience: backend and frontend team members who integrate with order payment.
 Provider: Slip2Go (PromptPay QR generation and slip verification).
+For automatic wallet credits after order completion/cancellation and the frontend wallet/history responses, see [Wallet and incoming transactions](wallet-api.md). Internal wallet credits do not initiate bank transfers.
 Provider-level details are in [section 9, Provider notes](#9-provider-notes-slip2go). Full Slip2Go API docs: https://slip2go.com/guide.
 
 ## 1. Big picture
@@ -51,9 +52,12 @@ Code map (all under `backend/internal`):
 |---|---|---|
 | `PENDING` | Waiting for payment (QR may or may not be generated yet) | `NOT_PAID` |
 | `HELD` | Slip verified, money held by the platform | `IN_PROCESS` |
-| `EXPIRED` | QR expired without payment | `CANCEL` |
-| `SETTLED` | Reserved for artist payout (not implemented) | – |
+| `EXPIRED` | Unpaid payment window or order deadline expired | `CANCEL` |
+| `CANCELLED` | Unpaid payment closed by an explicit order cancellation | `CANCEL` |
+| `SETTLED` | Paid order settled into recipient wallets | `SUCCESS` or `CANCEL` |
 | `FAILED` | Reserved (not used yet) | – |
+
+Explicit artist/customer cancellation closes only a `PENDING` payment as `CANCELLED` and clears its QR payload/generation claim. Time-based payment/order expiration closes an unpaid payment as `EXPIRED`. Verified `HELD` payments still settle according to the order outcome. Orders still awaiting artist acceptance normally have no payment row; rejection/cancellation does not fabricate one. A rejected slip attempt remains retryable and does not itself change payment to `FAILED`.
 
 ## 4. Endpoints
 

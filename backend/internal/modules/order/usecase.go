@@ -409,6 +409,7 @@ func (u *orderUsecase) CancelOrder(
 		}
 
 		// TODO(notify): Notify the other participant that the order was cancelled.
+		// TODO(notify): Notify recipients about the full refund or 50/50 wallet credits after a paid cancellation.
 		// Include the cancellation reason and explanation in the notification.
 		// Status: CANCEL
 		if err := u.notify(ctx, NotificationEvent{Kind: "ORDER_CANCELED", OrderID: input.OrderID, ActorID: participantID, Participant: participant, Reason: item.Reason, Explanation: item.Explanation}); err != nil {
@@ -438,6 +439,7 @@ func (u *orderUsecase) CancelExpiredOrders(
 		}
 
 		// TODO(notify): Notify the relevant participants for each cancelled order.
+		// TODO(notify): Notify the customer about the full wallet refund after a paid order's deadline expiration.
 		// Status: CANCEL
 		for _, id := range cancelledOrderIDs {
 			if err := u.notify(ctx, NotificationEvent{Kind: "ORDER_EXPIRED", OrderID: id}); err != nil {
@@ -542,6 +544,7 @@ func (u *orderUsecase) CreateDeliverable(
 		created.PreviewImageURL = previewURL
 
 		// TODO(notify): Notify the customer that a new deliverable is available.
+		// TODO(notify): On the final auto-approved version, notify the artist about the wallet payout credit.
 		// Include the order ID and deliverable details in the notification.
 		if err := u.notify(ctx, NotificationEvent{Kind: "DRAFT_SUBMITTED", OrderID: input.OrderID, ActorID: artistID, Participant: ParticipantArtist, DeliverableID: created.ID, Version: created.Version, Decision: string(created.Decision)}); err != nil {
 			return nil, err
@@ -899,6 +902,7 @@ func (u *orderUsecase) ConfirmDeliverable(
 		}
 
 		// TODO(notify): Notify the artist about the customer's deliverable decision.
+		// TODO(notify): On approval, notify the artist about the completed order and wallet payout credit.
 		// If approved, notify that the order status has changed to SUCCESS.
 		// If rejected, notify that the customer requests another draft.
 		if err := u.notify(ctx, NotificationEvent{Kind: "DELIVERABLE_CONFIRMED", OrderID: input.OrderID, ActorID: customerID, Participant: ParticipantCustomer, DeliverableID: input.DeliverableID, Decision: string(decision)}); err != nil {
@@ -927,6 +931,7 @@ func (u *orderUsecase) AutoApproveExpiredDeliverables(
 		}
 
 		// TODO(notify): Notify the artist and customer about auto-approved deliverables.
+		// TODO(notify): Notify the artist about the wallet payout credited on automatic completion.
 		// The deliverable review window has expired, so the deliverable is approved
 		// automatically and the order status changed to SUCCESS.
 		// Use the returned deliverable IDs to identify the affected deliverables.

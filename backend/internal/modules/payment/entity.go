@@ -14,11 +14,18 @@ const QRValidityPeriod = 24 * time.Hour
 type Status string
 
 const (
+	// StatusPending waits for successful payment verification; a failed slip check leaves it retryable.
 	StatusPending Status = "PENDING"
-	StatusHeld    Status = "HELD"
+	// StatusHeld has a verified charge waiting for the order outcome.
+	StatusHeld Status = "HELD"
+	// StatusSettled records completed payout/refund credits in the internal wallets.
 	StatusSettled Status = "SETTLED"
-	StatusFailed  Status = "FAILED"
+	// StatusFailed is reserved for a failed payment; it is distinct from a rejected slip attempt.
+	StatusFailed Status = "FAILED"
+	// StatusExpired closes an unpaid payment when its payment window or order deadline expires.
 	StatusExpired Status = "EXPIRED"
+	// StatusCancelled closes only an unpaid PENDING payment when its order is explicitly cancelled.
+	StatusCancelled Status = "CANCELLED"
 )
 
 type Payment struct {
