@@ -505,6 +505,42 @@ func TestOrderHandlerGetOrderReturnsOrderDetail(t *testing.T) {
 	}
 }
 
+func TestOrderHandlerGetOrderReturnsCancellationDetails(t *testing.T) {
+	const orderID = "00000000-0000-0000-0000-000000000010"
+	detail := &order.OrderDetail{
+		Order: order.Order{
+			ID:     uuid.MustParse(orderID),
+			Status: order.StatusCancel,
+		},
+		Cancellation: &order.OrderCancellation{
+			Reason:      string(order.CancelReasonOther),
+			Explanation: "Circumstances changed",
+		},
+	}
+	usecase := &fakeOrderUsecase{
+		getOrderFunc: func(context.Context, order.Participant, uuid.UUID, uuid.UUID) (*order.OrderDetail, error) {
+			return detail, nil
+		},
+	}
+	handler := newOrderTestHandler(t, user.RoleCustomer, usecase)
+	rec := serveOrderRequest(handler, http.MethodGet, "/orders/"+orderID, true)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("response status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got orderDetailView
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	want := &cancellationView{
+		Reason:      string(order.CancelReasonOther),
+		Explanation: "Circumstances changed",
+	}
+	if !reflect.DeepEqual(got.Cancellation, want) {
+		t.Errorf("Cancellation = %+v, want %+v", got.Cancellation, want)
+	}
+}
+
 func TestOrderHandlerConfirmOrderAcceptsOrRejectsOrder(t *testing.T) {
 	const (
 		orderID = "00000000-0000-0000-0000-000000000010"

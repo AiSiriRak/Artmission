@@ -772,6 +772,48 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 			artistScore,
 		)
 	}
+	if got.Cancellation != nil {
+		t.Errorf("Cancellation = %+v, want nil for an order without cancellation details", got.Cancellation)
+	}
+}
+
+func TestGetOrder_IncludesCancellationDetails(t *testing.T) {
+	orderID := uuid.New()
+	customerID := uuid.New()
+	cancellation := &order.OrderCancellation{
+		ID:          uuid.New(),
+		OrderID:     orderID,
+		Reason:      string(order.CancelReasonOther),
+		Explanation: "Circumstances changed",
+		CreatedAt:   time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC),
+	}
+	repo := &fakeRepo{
+		orderDetailData: &order.OrderDetailData{
+			Order: order.Order{
+				ID:         orderID,
+				CustomerID: customerID,
+				Status:     order.StatusCancel,
+			},
+			Cancellation: cancellation,
+		},
+	}
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+	got, err := usecase.GetOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		customerID,
+		orderID,
+	)
+	if err != nil {
+		t.Fatalf("GetOrder() error = %v, want nil", err)
+	}
+	if got.Cancellation == nil {
+		t.Fatal("Cancellation = nil, want cancellation details")
+	}
+	if *got.Cancellation != *cancellation {
+		t.Errorf("Cancellation = %+v, want %+v", *got.Cancellation, *cancellation)
+	}
 }
 
 func TestGetOrder_ArtistGetsCustomerAsOtherParty(t *testing.T) {
