@@ -214,7 +214,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 
 	sc.Step(
-		`^the customer requests "([^"]+)" reviews with limit (\d+) and offset (\d+)$`,
+		`^the API receives a "([^"]+)" review request with limit (\d+) and offset (\d+)$`,
 		func(resource string, limit, offset int) error {
 			var path string
 
@@ -289,6 +289,80 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 			return nil
 		},
 	)
+
+	sc.Step(`^"([^"]+)" requests the order review$`, func(caller string) error {
+		token, err := c.tokenFor(caller)
+		if err != nil {
+			return err
+		}
+
+		c.response, err = c.client.Do(
+			http.MethodGet,
+			"/orders/"+c.orderID.String()+"/review",
+			nil,
+			map[string]string{
+				"Authorization": "Bearer " + token,
+			},
+		)
+		return err
+	})
+
+	sc.Step(`^the order review response has status (\d+)$`, func(status int) error {
+		if err := c.requireStatus(status); err != nil {
+			return err
+		}
+
+		if status != http.StatusOK {
+			return nil
+		}
+
+		var item reviewResponse
+		if err := c.response.JSON(&item); err != nil {
+			return err
+		}
+
+		if item.ID == uuid.Nil ||
+			item.OrderID != c.orderID ||
+			item.CustomerID.String() != c.customer.ID ||
+			item.ArtistID.String() != c.artist.ID ||
+			item.Rating != 5 ||
+			item.CreatedAt.IsZero() {
+			return fmt.Errorf("incorrect order review: %+v", item)
+		}
+
+		return checkComment(item.Comment, "Original review")
+	})
+
+	sc.Step(`^another artwork by the same artist has a review$`, func() error {
+		other := *c
+		other.artworkID = uuid.New()
+
+		_, err := app.DB.ExecContext(context.Background(), `
+		INSERT INTO artworks (
+			id, artist_id, category_id, name, description,
+			price_satang, minimum_deadline_days
+		)
+		VALUES (?, ?, ?, 'Another artwork', 'Review fixture', 1000, 7)
+	`, other.artworkID, c.artist.ID, c.categoryID)
+		if err != nil {
+			return err
+		}
+
+		orderID, err := other.createOrder("SUCCESS", time.Now().UTC())
+		if err != nil {
+			return err
+		}
+
+		if err := other.submit(
+			orderID,
+			map[string]any{"rating": 1},
+			c.customerToken,
+		); err != nil {
+			return err
+		}
+
+		return other.requireStatus(http.StatusCreated)
+	})
 }
 
 func checkComment(got *string, want string) error {
