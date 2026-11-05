@@ -328,6 +328,7 @@ func (r *orderRepository) GetOrderByID(
 	var model orderDetailModel
 	var deliverableModels []pgmodel.OrderDeliverable
 	var delayRequest *pgmodel.OrderDelayRequest
+	var cancellation *pgmodel.OrderCancellation
 
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		q := idb.NewSelect().
@@ -389,6 +390,23 @@ func (r *orderRepository) GetOrderByID(
 			delayRequest = nil
 		}
 
+		if order.Status(model.Status) == order.StatusCancel {
+			cancellationModel := new(pgmodel.OrderCancellation)
+
+			if err := idb.NewSelect().
+				Model(cancellationModel).
+				Where("ocr.order_id = ?", orderID).
+				Scan(ctx); err != nil {
+				if !errors.Is(err, sql.ErrNoRows) {
+					return err
+				}
+
+				cancellationModel = nil
+			}
+
+			cancellation = cancellationModel
+		}
+
 		return nil
 	})
 
@@ -425,6 +443,18 @@ func (r *orderRepository) GetOrderByID(
 		}
 	}
 
+	var cancellationData *order.OrderCancellation
+
+	if cancellation != nil {
+		cancellationData = &order.OrderCancellation{
+			ID:          cancellation.ID,
+			OrderID:     cancellation.OrderID,
+			Reason:      cancellation.Reason,
+			Explanation: cancellation.Explanation,
+			CreatedAt:   cancellation.CreatedAt,
+		}
+	}
+
 	detail := &order.OrderDetailData{
 		Order: order.Order{
 			ID:                  model.ID,
@@ -458,6 +488,7 @@ func (r *orderRepository) GetOrderByID(
 		},
 		Deliverables:       deliverables,
 		ActiveDelayRequest: activeDelayRequest,
+		Cancellation:       cancellationData,
 	}
 	orders := []order.Order{detail.Order}
 	if err := r.attachPaymentSummaries(ctx, orders); err != nil {

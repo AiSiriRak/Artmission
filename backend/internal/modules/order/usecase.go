@@ -199,6 +199,7 @@ func (u *orderUsecase) GetOrder(
 		ArtworkSnapshot:    data.ArtworkSnapshot,
 		Deliverables:       data.Deliverables,
 		ActiveDelayRequest: data.ActiveDelayRequest,
+		Cancellation:       data.Cancellation,
 	}
 
 	if detail.Status == StatusSuccess && len(data.Deliverables) > 0 {
