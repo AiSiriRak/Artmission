@@ -1679,6 +1679,7 @@ func (o *ordersContext) theSystemShowsTheOrderWithStatus(want string) error {
 // scenario, so scenarios never see each other's cookies or fixtures.
 func InitializeScenario(sc *godog.ScenarioContext) {
 	var o *ordersContext
+	registerPaymentSteps(sc, func() *ordersContext { return o })
 
 	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 		o = &ordersContext{

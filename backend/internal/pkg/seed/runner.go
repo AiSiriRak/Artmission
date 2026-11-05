@@ -50,6 +50,7 @@ var downSteps = []step{
 	seedReviewsDown,
 	seedOrderCancellationsDown,
 	seedOrderDelayRequestsDown,
+	seedWalletEntriesDown,
 	seedPaymentsDown,
 	seedNotificationsDown,
 	seedOrdersDown,
