@@ -1,0 +1,128 @@
+info:
+  name: VerifyPaymentSlip
+  type: http
+  seq: 3
+  tags:
+    - payments
+
+http:
+  method: POST
+  url: "{{api_url}}/orders/:order_id/payment/verify"
+  params:
+    - name: order_id
+      value: "{{OrderID}}"
+      type: path
+      description: NOT_PAID order owned by the authenticated customer.
+  body:
+    type: multipart-form
+    data:
+      - name: file
+        type: file
+        value:
+          - C:\Users\admin\Downloads\example.png
+        contentType: image/png
+        description: JPEG, PNG, or WebP payment slip (maximum 5 MiB).
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 30000
+  followRedirects: false
+  maxRedirects: 0
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Slip verified; payment held for settlement
+    request:
+      url: "{{api_url}}/orders/:order_id/payment/verify"
+      method: POST
+      params:
+        - name: order_id
+          value: ""
+          type: path
+          description: Order ID
+      body:
+        type: multipart-form
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "success": true,
+            "message": "Payment verified successfully.",
+            "order_id": "00000000-0000-0000-0000-000000000000",
+            "payment_id": "00000000-0000-0000-0000-000000000000",
+            "status": "HELD"
+          }
+  - name: 200 Response (slip rejected)
+    description: Slip did not pass; success is false and message explains why
+    request:
+      url: "{{api_url}}/orders/:order_id/payment/verify"
+      method: POST
+      params:
+        - name: order_id
+          value: ""
+          type: path
+          description: Order ID
+      body:
+        type: multipart-form
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "success": false,
+            "reason": "AMOUNT_MISMATCH",
+            "message": "The slip amount (50.00 THB) does not match the order amount (100.00 THB).",
+            "order_id": "00000000-0000-0000-0000-000000000000"
+          }
+  - name: default Response
+    description: Invalid auth, or ineligible/expired order
+    request:
+      url: "{{api_url}}/orders/:order_id/payment/verify"
+      method: POST
+      params:
+        - name: order_id
+          value: ""
+          type: path
+          description: Order ID
+      body:
+        type: multipart-form
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: |-
+  Upload a slip image for an authenticated customer's active NOT_PAID order.
+  Bruno does not expand {{variables}} inside file paths, so the Body > file field holds a
+  literal path (default C:\Users\admin\Downloads\slip.png). Change it to your own JPEG,
+  PNG, or WebP file (max 5 MiB), or click the file field and pick one.
+  The response always has success (true/false) and message. When success is false,
+  reason and message explain why the slip was not accepted.
+  The backend checks the recipient, exact order amount, provider duplicate result,
+  order status, payment status, and QR expiration before accepting the verification.
+  A successful result changes the payment to HELD and the order to IN_PROCESS.

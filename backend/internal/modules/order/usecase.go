@@ -1082,35 +1082,6 @@ func (u *orderUsecase) CancelExpiredDelayRequest(
 	})
 }
 
-// for sprint 2
-// BypassOrderPayment transitions order status from NOT_PAID to IN_PROCESS for dev.
-func (u *orderUsecase) BypassOrderPayment(
-	ctx context.Context,
-	customerID uuid.UUID,
-	orderID uuid.UUID,
-) error {
-	return orderTransactionError(ctx, u, func(ctx context.Context) error {
-		if customerID == uuid.Nil {
-			return ErrMissingParticipantID
-		}
-
-		if orderID == uuid.Nil {
-			return ErrMissingOrderID
-		}
-
-		err := u.repo.BypassOrderPayment(
-			ctx,
-			customerID,
-			orderID,
-		)
-		if err != nil {
-			return err
-		}
-
-		return u.notify(ctx, NotificationEvent{Kind: "PAYMENT_SECURED", OrderID: orderID, ActorID: customerID, Participant: ParticipantCustomer})
-	})
-}
-
 type UsecaseOption func(*orderUsecase)
 
 // Omitting this option keeps standalone usecases independent of notification storage.

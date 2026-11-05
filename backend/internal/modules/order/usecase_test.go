@@ -96,12 +96,6 @@ type fakeRepo struct {
 	expireDelayRequestCutoff time.Time
 	expireDelayRequestIDs    []uuid.UUID
 	expireDelayRequestErr    error
-
-	// for sprint 2
-	bypassPaymentCustomerID uuid.UUID
-	bypassPaymentOrderID    uuid.UUID
-	bypassPaymentErr        error
-	bypassPaymentCalled     bool
 }
 
 func (f *fakeRepo) ListOrders(
@@ -271,18 +265,6 @@ func (f *fakeRepo) CancelExpiredRequest(
 	f.expireDelayRequestNow = now
 	f.expireDelayRequestCutoff = expiringCutoff
 	return f.expireDelayRequestIDs, f.expireDelayRequestErr
-}
-
-// for sprint 2
-func (f *fakeRepo) BypassOrderPayment(
-	_ context.Context,
-	customerID uuid.UUID,
-	orderID uuid.UUID,
-) error {
-	f.bypassPaymentCalled = true
-	f.bypassPaymentCustomerID = customerID
-	f.bypassPaymentOrderID = orderID
-	return f.bypassPaymentErr
 }
 
 var _ order.OrderRepository = (*fakeRepo)(nil)
@@ -2411,74 +2393,6 @@ func TestCancelExpiredDelayRequest_PropagatesRepositoryError(t *testing.T) {
 	}
 }
 
-// for sprint 2
-func TestBypassOrderPayment(t *testing.T) {
-	customerID := uuid.New()
-	orderID := uuid.New()
-	repoErr := errors.New("database unavailable")
-
-	for _, tt := range []struct {
-		name         string
-		customerID   uuid.UUID
-		orderID      uuid.UUID
-		repoErr      error
-		wantErr      error
-		wantRepoCall bool
-	}{
-		{
-			name:         "delegates payment bypass to repository",
-			customerID:   customerID,
-			orderID:      orderID,
-			wantRepoCall: true,
-		},
-		{
-			name:    "rejects missing customer ID",
-			orderID: orderID,
-			wantErr: order.ErrMissingParticipantID,
-		},
-		{
-			name:       "rejects missing order ID",
-			customerID: customerID,
-			wantErr:    order.ErrMissingOrderID,
-		},
-		{
-			name:         "propagates repository error",
-			customerID:   customerID,
-			orderID:      orderID,
-			repoErr:      repoErr,
-			wantErr:      repoErr,
-			wantRepoCall: true,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			repo := &fakeRepo{bypassPaymentErr: tt.repoErr}
-			usecase := newTestOrderUsecase(repo, fakeStorage{})
-
-			err := usecase.BypassOrderPayment(
-				context.Background(),
-				tt.customerID,
-				tt.orderID,
-			)
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("BypassOrderPayment() error = %v, want %v", err, tt.wantErr)
-			}
-			if repo.bypassPaymentCalled != tt.wantRepoCall {
-				t.Errorf("repository called = %t, want %t", repo.bypassPaymentCalled, tt.wantRepoCall)
-			}
-			if tt.wantRepoCall &&
-				(repo.bypassPaymentCustomerID != customerID || repo.bypassPaymentOrderID != orderID) {
-				t.Errorf(
-					"repository args = customer %s, order %s; want %s, %s",
-					repo.bypassPaymentCustomerID,
-					repo.bypassPaymentOrderID,
-					customerID,
-					orderID,
-				)
-			}
-		})
-	}
-}
-
 func TestDraftNotificationFailureCleansUploadedImages(t *testing.T) {
 	storage := &recordingStorage{}
 	sink := &eventSink{err: errors.New("notification unavailable")}
@@ -2511,19 +2425,19 @@ func (t *eventTx) Transaction(ctx context.Context, fn func(context.Context) erro
 	return err
 }
 
-func TestNotificationAfterSuccessfulBypass(t *testing.T) {
+func TestNotificationAfterSuccessfulConfirmation(t *testing.T) {
 	for _, failure := range []string{"", "order", "notification"} {
 		t.Run(failure, func(t *testing.T) {
 			repo, sink, tx := &fakeRepo{}, &eventSink{}, &eventTx{}
 			if failure == "order" {
-				repo.bypassPaymentErr = errors.New("write failed")
+				repo.confirmErr = errors.New("write failed")
 			}
 			if failure == "notification" {
 				sink.err = errors.New("notify failed")
 			}
 			uc := order.NewOrderUsecase(repo, nil, order.WithNotifications(sink, tx))
 			id := uuid.New()
-			err := uc.BypassOrderPayment(context.Background(), uuid.New(), id)
+			_, err := uc.ConfirmOrder(context.Background(), uuid.New(), id, order.ConfirmOrderInput{Accept: true})
 			if failure != "" {
 				if err == nil || tx.committed {
 					t.Fatal("failure must not commit")
@@ -2533,7 +2447,7 @@ func TestNotificationAfterSuccessfulBypass(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || !tx.committed || len(sink.events) != 1 || sink.events[0].Kind != "PAYMENT_SECURED" || sink.events[0].OrderID != id {
+			if err != nil || !tx.committed || len(sink.events) != 1 || sink.events[0].Kind != "ORDER_CONFIRMED" || sink.events[0].OrderID != id {
 				t.Fatalf("%v %+v", err, sink.events)
 			}
 		})

@@ -58,8 +58,4 @@ func (w *OrderExpiryWorker) sweep(ctx context.Context) {
 	}
 }
 
-type Worker interface {
-	Run(ctx context.Context)
-}
-
 var _ Worker = (*OrderExpiryWorker)(nil)
