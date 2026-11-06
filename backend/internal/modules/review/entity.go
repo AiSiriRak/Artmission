@@ -3,7 +3,6 @@ package review
 import (
 	"time"
 
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/google/uuid"
 )
 
@@ -27,13 +26,6 @@ type SubmitReviewInput struct {
 	OrderID uuid.UUID
 	Rating  int
 	Comment *string
-}
-
-type OrderForReview struct {
-	ID         uuid.UUID
-	CustomerID uuid.UUID
-	ArtistID   uuid.UUID
-	Status     order.Status
 }
 
 type ListQuery struct {
