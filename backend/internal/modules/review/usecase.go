@@ -70,7 +70,7 @@ func (u *reviewUsecase) GetArtistReviews(
 	return u.repo.ListByArtistID(ctx, artistID, query)
 }
 
-// retrieves an order's review for its customer or artist.
+// GetOrderReview validates identities before requesting the order's review.
 func (u *reviewUsecase) GetOrderReview(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -83,27 +83,7 @@ func (u *reviewUsecase) GetOrderReview(
 		return nil, apperror.InvalidInput("order ID is required", nil)
 	}
 
-	orderData, err := u.repo.GetOrderForReview(ctx, orderID)
-	if err != nil {
-		return nil, err
-	}
-	if orderData == nil {
-		return nil, ErrOrderNotFound
-	}
-
-	if userID != orderData.CustomerID && userID != orderData.ArtistID {
-		return nil, ErrNotOrderParticipant
-	}
-
-	item, err := u.repo.GetByOrderID(ctx, orderID)
-	if err != nil {
-		return nil, err
-	}
-	if item == nil {
-		return nil, ErrReviewNotFound
-	}
-
-	return item, nil
+	return u.repo.GetReviewByOrderID(ctx, userID, orderID)
 }
 
 // GetReviewsByArtwork retrieves a page of artwork reviews, newest first.
