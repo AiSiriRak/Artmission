@@ -163,8 +163,7 @@ func newReviewDetailQuery(idb bun.IDB) *bun.SelectQuery {
 		ColumnExpr("customer.username AS username").
 		ColumnExpr("o.artwork_snapshot->>'artwork_name' AS order_name").
 		Join("JOIN users AS customer ON customer.id = r.customer_id").
-		Join("JOIN orders AS o ON o.id = r.order_id").
-		Join("LEFT JOIN artworks AS a ON a.id = o.artwork_id")
+		Join("JOIN orders AS o ON o.id = r.order_id")
 }
 
 // toDomain converts a database result into review details.
