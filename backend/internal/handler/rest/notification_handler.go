@@ -6,7 +6,6 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/notification"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
-	"net/http"
 	"time"
 )
 
@@ -29,7 +28,7 @@ func (h *NotificationHandler) Register(api huma.API) {
 	}
 	huma.Get(api, "/notifications", h.listMine, huma.OperationTags("notifications"), operation("list-notifications", "ListNotifications", "List your notifications, newest first"))
 	huma.Get(api, "/notifications/unread-count", h.countUnread, huma.OperationTags("notifications"), operation("count-unread-notifications", "CountUnreadNotifications", "Count your unread notifications"))
-	huma.Patch(api, "/notifications/{id}/read", h.markRead, huma.OperationTags("notifications"), operation("mark-notification-read", "MarkNotificationRead", "Mark your notification read"), func(o *huma.Operation) { o.DefaultStatus = http.StatusNoContent })
+	huma.Patch(api, "/notifications/{id}/read", h.markRead, huma.OperationTags("notifications"), operation("mark-notification-read", "MarkNotificationRead", "Mark your notification read"))
 }
 
 type notificationView struct {
@@ -81,7 +80,15 @@ type markNotificationReadInput struct {
 	ID uuid.UUID `path:"id"`
 }
 
-func (h *NotificationHandler) markRead(ctx context.Context, in *markNotificationReadInput) (*struct{}, error) {
+type markNotificationReadOutput struct {
+	Body struct {
+		ID      uuid.UUID `json:"id"`
+		IsRead  bool      `json:"is_read"`
+		Message string    `json:"message"`
+	}
+}
+
+func (h *NotificationHandler) markRead(ctx context.Context, in *markNotificationReadInput) (*markNotificationReadOutput, error) {
 	info, ok := authInfoFromContext(ctx)
 	if !ok {
 		return nil, huma.Error401Unauthorized("missing authentication")
@@ -89,7 +96,9 @@ func (h *NotificationHandler) markRead(ctx context.Context, in *markNotification
 	if err := h.usecase.MarkRead(ctx, in.ID, info.UserID); err != nil {
 		return nil, mapAppError(err)
 	}
-	return nil, nil
+	out := &markNotificationReadOutput{}
+	out.Body.ID, out.Body.IsRead, out.Body.Message = in.ID, true, "Notification marked as read."
+	return out, nil
 }
 
 type unreadNotificationsOutput struct {

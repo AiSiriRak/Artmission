@@ -3,10 +3,13 @@ package notification
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/payment"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/google/uuid"
 )
@@ -275,5 +278,98 @@ func TestOrderNotificationReaderFailure(t *testing.T) {
 	notifier := NewOrderNotifier(orderReaderFake{err: want}, NewNotificationUsecase(&fakeRepository{}))
 	if err := notifier.NotifyOrder(context.Background(), order.NotificationEvent{}); !errors.Is(err, want) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestWalletSettlementCards(t *testing.T) {
+	for _, tc := range []struct {
+		name, kind, decision string
+		outcome              payment.SettlementOutcome
+		refund, payout       int64
+	}{
+		{"artist cancellation", "ORDER_CANCELED", "", payment.ArtistCancelled, 10001, 0},
+		{"customer cancellation", "ORDER_CANCELED", "", payment.CustomerCancelled, 5000, 5001},
+		{"deadline expiry", "ORDER_EXPIRED", "", payment.DeadlineExpired, 10001, 0},
+		{"customer acceptance", "DELIVERABLE_CONFIRMED", "APPROVED", payment.Completed, 0, 10001},
+		{"final draft", "DRAFT_SUBMITTED", "APPROVED", payment.Completed, 0, 10001},
+		{"review expiry", "DELIVERABLE_AUTO_APPROVED", "", payment.Completed, 0, 10001},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			artist, customer, id := uuid.New(), uuid.New(), uuid.New()
+			success := payment.TransferSuccess
+			summary := &payment.Summary{Status: "SETTLED", SettlementOutcome: &tc.outcome,
+				RefundSatang: tc.refund, ArtistPayoutSatang: tc.payout}
+			if tc.refund > 0 {
+				transactionID := uuid.New()
+				summary.RefundTransactionID = &transactionID
+				summary.RefundTransferStatus = &success
+			}
+			if tc.payout > 0 {
+				transactionID := uuid.New()
+				summary.ArtistPayoutTransactionID = &transactionID
+				summary.ArtistPayoutTransferStatus = &success
+			}
+			repo := &fakeRepository{}
+			n := NewOrderNotifier(orderReaderFake{detail: order.OrderDetailData{Order: order.Order{ID: id, Name: "Portrait", ArtistID: artist, CustomerID: customer, Payment: summary}}}, NewNotificationUsecase(repo))
+			if err := n.NotifyOrder(context.Background(), order.NotificationEvent{Kind: tc.kind, Decision: tc.decision}); err != nil {
+				t.Fatal(err)
+			}
+			for _, credit := range []struct {
+				kind   Type
+				owner  uuid.UUID
+				amount int64
+			}{{"REFUND_CREDITED", customer, tc.refund}, {"WALLET_CREDITED", artist, tc.payout}} {
+				count := 0
+				for _, card := range repo.rows {
+					if card.Type != credit.kind {
+						continue
+					}
+					count++
+					amount := fmt.Sprintf("%d.%02d THB", credit.amount/100, credit.amount%100)
+					if card.UserID != credit.owner || card.OrderID == nil || *card.OrderID != id || !strings.Contains(card.Message, amount) || !strings.Contains(card.Message, "wallet") {
+						t.Fatalf("incorrect credit notification: %+v", card)
+					}
+				}
+				want := 0
+				if credit.amount > 0 {
+					want = 1
+				}
+				if count != want {
+					t.Fatalf("%s count %d want %d", credit.kind, count, want)
+				}
+			}
+		})
+	}
+}
+
+func TestWalletCardsRequireSuccessfulRecordedCredit(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(*payment.Summary)
+	}{
+		{"unpaid", func(p *payment.Summary) { p.Status = "PENDING" }},
+		{"held", func(p *payment.Summary) { p.Status = "HELD" }},
+		{"missing outcome", func(p *payment.Summary) { p.SettlementOutcome = nil }},
+		{"missing transaction", func(p *payment.Summary) { p.RefundTransactionID = nil }},
+		{"zero transaction", func(p *payment.Summary) { p.RefundTransactionID = &uuid.Nil }},
+		{"missing transfer status", func(p *payment.Summary) { p.RefundTransferStatus = nil }},
+		{"pending transfer", func(p *payment.Summary) { status := payment.TransferPending; p.RefundTransferStatus = &status }},
+		{"failed transfer", func(p *payment.Summary) { status := payment.TransferFailed; p.RefundTransferStatus = &status }},
+		{"zero amount", func(p *payment.Summary) { p.RefundSatang = 0 }},
+		{"negative amount", func(p *payment.Summary) { p.RefundSatang = -1 }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			outcome, status, transactionID := payment.ArtistCancelled, payment.TransferSuccess, uuid.New()
+			p := &payment.Summary{Status: "SETTLED", SettlementOutcome: &outcome, RefundSatang: 10001, RefundTransactionID: &transactionID, RefundTransferStatus: &status}
+			tc.mutate(p)
+			repo := &fakeRepository{}
+			n := NewOrderNotifier(orderReaderFake{detail: order.OrderDetailData{Order: order.Order{ID: uuid.New(), ArtistID: uuid.New(), CustomerID: uuid.New(), Name: "Portrait", Payment: p}}}, NewNotificationUsecase(repo))
+			if err := n.NotifyOrder(context.Background(), order.NotificationEvent{Kind: "ORDER_CANCELED"}); err != nil {
+				t.Fatal(err)
+			}
+			if len(repo.rows) != 1 || repo.rows[0].Type != TypeOrderCanceled {
+				t.Fatalf("unexpected wallet card: %+v", repo.rows)
+			}
+		})
 	}
 }

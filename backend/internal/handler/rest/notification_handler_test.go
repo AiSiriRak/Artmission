@@ -12,7 +12,51 @@ import (
 type notificationTestUsecase struct {
 	notification.NotificationUsecase
 	recipient uuid.UUID
+	markedID  uuid.UUID
+	markError error
 	page      notification.Page
+}
+
+func (u *notificationTestUsecase) MarkRead(_ context.Context, id, recipient uuid.UUID) error {
+	u.markedID, u.recipient = id, recipient
+	return u.markError
+}
+
+func TestMarkNotificationReadReturnsJSON(t *testing.T) {
+	id, owner := uuid.New(), uuid.New()
+	uc := &notificationTestUsecase{}
+	out, err := NewNotificationHandler(uc, nil).markRead(withAuthInfo(context.Background(), AuthInfo{UserID: owner}), &markNotificationReadInput{ID: id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Body struct {
+			ID      uuid.UUID `json:"id"`
+			IsRead  bool      `json:"is_read"`
+			Message string    `json:"message"`
+		}
+	}
+	if err := json.Unmarshal(encoded, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Body.ID != id || !result.Body.IsRead || result.Body.Message != "Notification marked as read." {
+		t.Fatalf("missing read confirmation: %s", encoded)
+	}
+	if uc.markedID != id || uc.recipient != owner {
+		t.Fatal("must mark the requested notification for the authenticated recipient")
+	}
+}
+
+func TestMarkNotificationReadDoesNotReturnSuccessForMissingNotification(t *testing.T) {
+	uc := &notificationTestUsecase{markError: notification.ErrNotFound}
+	out, err := NewNotificationHandler(uc, nil).markRead(withAuthInfo(context.Background(), AuthInfo{UserID: uuid.New()}), &markNotificationReadInput{ID: uuid.New()})
+	if err == nil || out != nil {
+		t.Fatal("missing notification must return an error without success JSON")
+	}
 }
 
 func (u *notificationTestUsecase) ListMine(_ context.Context, id uuid.UUID, _ notification.ListQuery) (notification.Page, error) {

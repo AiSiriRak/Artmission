@@ -15,6 +15,8 @@ const (
 	TypeOrderCreated      Type = "ORDER_CREATED"
 	TypeOrderAccepted     Type = "ORDER_ACCEPTED"
 	TypePaymentSecured    Type = "PAYMENT_SECURED"
+	TypeWalletCredited    Type = "WALLET_CREDITED"
+	TypeRefundCredited    Type = "REFUND_CREDITED"
 	TypeOrderDeclined     Type = "ORDER_DECLINED"
 	TypeOrderCanceled     Type = "ORDER_CANCELED"
 	TypeDraftSubmitted    Type = "DRAFT_SUBMITTED"
@@ -30,7 +32,7 @@ func (e Type) IsValid() bool {
 	switch e {
 	case TypeGeneral, TypeOrderCreated, TypeOrderAccepted, TypePaymentSecured, TypeOrderDeclined, TypeOrderCanceled,
 		TypeDraftSubmitted, TypeRevisionRequested, TypeOrderCompleted, TypeFinalArtworkReady,
-		TypeDeadlineRequested, TypeDeadlineApproved, TypeDeadlineRejected:
+		TypeDeadlineRequested, TypeDeadlineApproved, TypeDeadlineRejected, TypeWalletCredited, TypeRefundCredited:
 		return true
 	}
 	return false

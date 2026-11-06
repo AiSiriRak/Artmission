@@ -213,5 +213,57 @@ func (n *orderNotifier) NotifyOrder(ctx context.Context, e order.NotificationEve
 	default:
 		return ErrInvalidType
 	}
-	return n.send(ctx, item, recipient, event, title, message, e)
+	if err := n.send(ctx, item, recipient, event, title, message, e); err != nil {
+		return err
+	}
+	switch e.Kind {
+	case "ORDER_CANCELED", "ORDER_EXPIRED", "DELIVERABLE_AUTO_APPROVED":
+		return n.notifyWalletCredits(ctx, item)
+	case "DRAFT_SUBMITTED", "DELIVERABLE_CONFIRMED":
+		if e.Decision == string(order.DeliverableDecisionApproved) {
+			return n.notifyWalletCredits(ctx, item)
+		}
+	}
+	return nil
+}
+
+func (n *orderNotifier) notifyWalletCredits(ctx context.Context, item order.Order) error {
+	p := item.Payment
+	if p == nil || p.Status != string(payment.StatusSettled) || p.SettlementOutcome == nil {
+		return nil
+	}
+	var reason string
+	switch *p.SettlementOutcome {
+	case payment.Completed:
+		reason = "the order was completed"
+	case payment.ArtistCancelled:
+		reason = "the artist canceled the order"
+	case payment.CustomerCancelled:
+		reason = "the customer canceled the order"
+	case payment.DeadlineExpired:
+		reason = "the order deadline expired"
+	default:
+		return nil
+	}
+	for _, credit := range []struct {
+		recipient     uuid.UUID
+		typeName      Type
+		title         string
+		amount        int64
+		transactionID *uuid.UUID
+		status        *payment.TransferStatus
+	}{
+		{item.ArtistID, TypeWalletCredited, "Payment Credited", p.ArtistPayoutSatang, p.ArtistPayoutTransactionID, p.ArtistPayoutTransferStatus},
+		{item.CustomerID, TypeRefundCredited, "Refund Credited", p.RefundSatang, p.RefundTransactionID, p.RefundTransferStatus},
+	} {
+		// An allocation is not proof of a credit; only committed successful transfers qualify.
+		if credit.amount <= 0 || credit.transactionID == nil || *credit.transactionID == uuid.Nil || credit.status == nil || *credit.status != payment.TransferSuccess {
+			continue
+		}
+		message := fmt.Sprintf("%d.%02d THB has been credited to your wallet because %s.", credit.amount/100, credit.amount%100, reason)
+		if err := n.send(ctx, item, credit.recipient, credit.typeName, credit.title, message, order.NotificationEvent{}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

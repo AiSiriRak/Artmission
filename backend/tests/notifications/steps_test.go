@@ -118,8 +118,19 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 			return err
 		}
 		for i := 0; i < 2; i++ {
-			if err := n.request("artist", "PATCH", "/notifications/"+n.card.ID+"/read", nil, 204); err != nil {
+			if err := n.request("artist", "PATCH", "/notifications/"+n.card.ID+"/read", nil, 200); err != nil {
 				return err
+			}
+			var confirmation struct {
+				ID      string `json:"id"`
+				IsRead  bool   `json:"is_read"`
+				Message string `json:"message"`
+			}
+			if err := n.resp.JSON(&confirmation); err != nil {
+				return err
+			}
+			if confirmation.ID != n.card.ID || !confirmation.IsRead || confirmation.Message != "Notification marked as read." {
+				return fmt.Errorf("unexpected mark-read response: %+v", confirmation)
 			}
 		}
 		return nil

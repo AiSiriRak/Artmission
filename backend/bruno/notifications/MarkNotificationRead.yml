@@ -6,7 +6,7 @@ http:
   method: PATCH
   url: "{{api_url}}/notifications/{{notification_id}}/read"
   auth: inherit
-docs: Set notification_id to an ID returned by ListNotifications. Success returns 204.
+docs: Set notification_id to an ID returned by ListNotifications. Success returns 200 JSON containing id, is_read and message.
 runtime:
   variables:
     - name: notification_id
