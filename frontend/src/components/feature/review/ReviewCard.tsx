@@ -1,5 +1,31 @@
-import { ReviewData } from "../../../app/artist-profile/types";
-import { ReviewStars } from "../orderdetails/shared/OrderReview";
+import type { ReviewData } from "@/lib/api/reviews";
+
+export function ReviewStars({ rating, size = 24 }: { rating: number; size?: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      {[...Array(5)].map((_, index) => {
+        const filled = index < rating;
+
+        return (
+          <img
+            key={index}
+            src={
+              filled
+                ? "/icons/Star_filled.svg"
+                : "/icons/Star_light.svg"
+            }
+            alt=""
+            style={{
+              width: filled ? size : size * 1.3,
+              height: filled ? size : size * 1.3,
+            }}
+            className="shrink-0 object-contain"
+          />
+        );
+      })}
+    </div>
+  );
+}
 
 export default function ReviewCard({ review }: { review: ReviewData }) {
   return (

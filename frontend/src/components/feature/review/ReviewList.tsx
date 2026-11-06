@@ -1,5 +1,5 @@
-import { ReviewData } from "../../../app/artist-profile/types";
-import ReviewCard from "./ReviewCard"; // 📍 หากนำ ReviewCard ไปไว้ใน components/ui อย่าลืมอัปเดต Path ตรงนี้นะครับ
+import type { ReviewData } from "@/lib/api/reviews";
+import ReviewCard from "./ReviewCard";
 
 interface ReviewListProps {
   title?: string;
@@ -7,7 +7,6 @@ interface ReviewListProps {
 }
 
 export default function ReviewList({ title, reviews }: ReviewListProps) {
-  // 📍 ถ้าไม่มีรีวิวเลย ไม่ต้องเรนเดอร์กล่องเปล่าๆ ให้รก UI
   if (!reviews || reviews.length === 0) return null;
 
   return (

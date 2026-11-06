@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { } from "./types";
+import { format, formatDistanceToNow } from "date-fns";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -36,6 +36,16 @@ export interface Review {
   rating: number;
   comment?: string;
   created_at: string;
+}
+
+export interface ReviewData {
+  id: string | number;
+  reviewerName: string;
+  timeAgo: string;
+  orderName: string;
+  rating: number;
+  comment: string;
+  avatarUrl?: string;
 }
 
 export const mockReviews: Review[] = [
@@ -106,4 +116,28 @@ export async function createReview(
   }
 
   return review;
+}
+
+export function getArtistReviews(artistId: string): ReviewData[] {
+  return mockReviews
+    .map((review) => ({
+      id: review.id,
+      reviewerName: `Customer`,
+      timeAgo: formatDistanceToNow(new Date(review.created_at)),
+      orderName: "Artwork Order",
+      rating: review.rating,
+      comment: review.comment ?? "",
+    }));
+}
+
+export function getArtworkReviews(artworkId: string): ReviewData[] {
+  return mockReviews
+    .map((review) => ({
+      id: review.id,
+      reviewerName: `Customer`,
+      timeAgo: formatDistanceToNow(new Date(review.created_at)),
+      orderName: "Artwork Order",
+      rating: review.rating,
+      comment: review.comment ?? "",
+    }));
 }

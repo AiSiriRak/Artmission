@@ -6,7 +6,7 @@ import type {
 } from "@/lib/api/types";
 import { Button } from "@/components/ui/Button";
 import TagList from "./TagList";
-import ReviewList from "./ReviewList";
+import ReviewList from "../review/ReviewList";
 import DeleteArtworkModal from "./DeleteArtworkModal";
 import ArtworkSampleGallery from "./ArtworkSampleGallery";
 import CatalogPicker from "./CatalogPicker";
@@ -22,15 +22,7 @@ import {
   resolveCatalogIds,
   type CatalogOption,
 } from "./artworkCatalog";
-
-interface ReviewData {
-  id: number;
-  reviewerName: string;
-  timeAgo: string;
-  orderName: string;
-  rating: number;
-  comment: string;
-}
+import { getArtworkReviews } from "@/lib/api/reviews";
 
 interface ArtworkDetailProps {
   artwork?: (Artwork & { id?: string | number }) | null;
@@ -44,25 +36,6 @@ interface ArtworkDetailProps {
 }
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
-
-const mockArtworkReviews: ReviewData[] = [
-  {
-    id: 1,
-    reviewerName: "Name",
-    timeAgo: "2 hrs ago",
-    orderName: "Pixel Art",
-    rating: 3.5,
-    comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-  },
-  {
-    id: 2,
-    reviewerName: "Name",
-    timeAgo: "2 hrs ago",
-    orderName: "Pixel Art",
-    rating: 3.5,
-    comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-  },
-];
 
 interface ImageItem {
   previewUrl: string;
@@ -391,6 +364,8 @@ export default function ArtworkDetail({
     (img) => img.previewUrl,
   );
 
+  const reviews = artwork ? getArtworkReviews(artwork.id) : null;
+
   return (
     <>
       <div className="max-w-5xl mx-auto px-8 pt-10 pb-20">
@@ -653,16 +628,17 @@ export default function ArtworkDetail({
           )}
         </div>
 
-        <div className="mt-12">
-          <div className="flex items-center gap-3 mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Order Reviews</h2>
-            <span className="text-sm font-normal text-gray-400">
-              {mockArtworkReviews.length} reviews
-            </span>
+        {reviews && (
+          <div className="mt-12">
+            <div className="flex items-center gap-3 mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Order Reviews</h2>
+              <span className="text-sm font-normal text-gray-400">
+                {reviews.length} reviews
+              </span>
+            </div>
+            <ReviewList reviews={reviews} />
           </div>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <ReviewList reviews={mockArtworkReviews as any} />
-        </div>
+        )}
       </div>
 
       <DeleteArtworkModal

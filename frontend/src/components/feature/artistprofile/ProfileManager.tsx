@@ -33,7 +33,8 @@ import EditorField from "./EditorField";
 import ArtworkCard from "./ArtworkCard";
 import TagList from "./TagList";
 import ArtworkDetail from "./ArtworkDetail";
-import ReviewList from "./ReviewList";
+import ReviewList from "../review/ReviewList";
+import { getArtistReviews } from "@/lib/api/reviews";
 import ArtistProfileView from "./ArtistProfileView";
 
 // Shared UI Components
@@ -43,13 +44,11 @@ import { Loading } from "@/components/ui/Loading";
 interface ProfileManagerProps {
   initialProfile: ArtistProfile;
   initialArtworks: Artwork[];
-  initialReviews?: ReviewData[];
 }
 
 export default function ProfileManager({
   initialProfile,
   initialArtworks,
-  initialReviews = [],
 }: ProfileManagerProps) {
   const router = useRouter();
 
@@ -69,37 +68,7 @@ export default function ProfileManager({
     null,
   );
 
-  // Mock Review - Removed setReviews as it was never used
-  const [reviews] = useState<ReviewData[]>(
-    initialReviews.length > 0
-      ? initialReviews
-      : [
-        {
-          id: 1,
-          reviewerName: "Name",
-          timeAgo: "2 hrs ago",
-          orderName: "Pixel Art",
-          rating: 3.5,
-          comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-        },
-        {
-          id: 2,
-          reviewerName: "Name",
-          timeAgo: "2 hrs ago",
-          orderName: "Pixel Art",
-          rating: 3.5,
-          comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-        },
-        {
-          id: 3,
-          reviewerName: "Name",
-          timeAgo: "2 hrs ago",
-          orderName: "Pixel Art",
-          rating: 3.5,
-          comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-        },
-      ],
-  );
+  const reviews = getArtistReviews(initialProfile.artist_id);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
