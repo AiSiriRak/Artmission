@@ -541,6 +541,31 @@ func (c *reviewsContext) countOrderReviews() (int, error) {
 }
 
 func (c *reviewsContext) requireAverage(want *float64) error {
+	var stored struct {
+		Score *float64 `bun:"review_score"`
+	}
+
+	if err := app.DB.NewSelect().
+		Table("artist_profiles").
+		Column("review_score").
+		Where("user_id = ?", c.artist.ID).
+		Scan(context.Background(), &stored); err != nil {
+		return err
+	}
+
+	if want == nil {
+		if stored.Score != nil {
+			return fmt.Errorf("expected stored score to be NULL, got %v", *stored.Score)
+		}
+	} else {
+		if stored.Score == nil {
+			return fmt.Errorf("expected stored score %v, got NULL", *want)
+		}
+		if *stored.Score != *want {
+			return fmt.Errorf("stored score = %v, want %v", *stored.Score, *want)
+		}
+	}
+
 	response, err := c.client.Do(http.MethodGet, "/artists/"+c.artist.ID, nil, nil)
 	if err != nil {
 		return err
