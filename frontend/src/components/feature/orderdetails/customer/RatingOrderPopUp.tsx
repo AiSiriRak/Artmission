@@ -14,8 +14,8 @@ interface RatingOrderPopup {
 }
 
 export function RatingOrderPopup({ isOpen, onConfirm }: RatingOrderPopup) {
-    const [rating, setRating] = useState(0); 
-    const [review, setReview] = useState("");
+  const [rating, setRating] = useState(1);
+  const [review, setReview] = useState("");
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -44,36 +44,41 @@ export function RatingOrderPopup({ isOpen, onConfirm }: RatingOrderPopup) {
             </p>
             {/* Star */}
             <div className="mt-[24px]">
-                <div className="flex items-center gap-2">
-                    {[...Array(5)].map((_, index) => (
-                        <img
-                            key={index}
-                            src={
-                            index < rating
-                                ? "/icons/Star_filled.svg"
-                                : "/icons/Star_light.svg"
-                            }
-                            alt={index < rating ? "Filled Star" : "Light Star"}
-                            className="cursor-pointer w-[40px] h-[40px] object-contain object-center transition-transform hover:scale-110"
-                            onClick={() => setRating(index + 1)}
-                        />
-                    ))}
-                </div>
+              <div className="flex items-center gap-2">
+                {[...Array(5)].map((_, index) => (
+                  <img
+                    key={index}
+                    src={
+                      index < rating
+                        ? "/icons/Star_filled.svg"
+                        : "/icons/Star_light.svg"
+                    }
+                    alt={index < rating ? "Filled Star" : "Light Star"}
+                    className="cursor-pointer w-[40px] h-[40px] object-contain object-center transition-transform hover:scale-110"
+                    onClick={() => setRating(index + 1)}
+                  />
+                ))}
+              </div>
             </div>
             {/* TextInput */}
             <div className="mt-[24px]">
-                <TextInput
-                    multiline
-                    value={review}
-                    onChange={setReview}
-                    placeholder="Describe your Review"
-                    style={{ width: '520px', height: '146px' }}
-                    className="rounded-lg border-2 border-primary-500 px-4 py-3 text-small placeholder:text-neutral-500"
-                    />
+              <TextInput
+                multiline
+                value={review}
+                onChange={setReview}
+                placeholder="Describe your Review"
+                style={{ width: '520px', height: '146px' }}
+                className="rounded-lg border-2 border-primary-500 px-4 py-3 text-small placeholder:text-neutral-500"
+              />
             </div>
             {/* Buttons */}
             <div className="mt-[20px] flex w-full justify-center">
-              <Button variant="accent-500" className="w-full py-[12px]" onClick={onConfirm}>
+              <Button
+                variant="accent-500"
+                className="w-full py-[12px]"
+                onClick={onConfirm}
+                disabled={rating === 0}
+              >
                 Submit
               </Button>
             </div>
