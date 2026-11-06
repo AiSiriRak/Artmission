@@ -161,7 +161,7 @@ func newReviewDetailQuery(idb bun.IDB) *bun.SelectQuery {
 		TableExpr("reviews AS r").
 		ColumnExpr("r.*").
 		ColumnExpr("customer.username AS username").
-		ColumnExpr("COALESCE(NULLIF(o.artwork_snapshot->>'artwork_name', ''), a.name, o.name) AS order_name").
+		ColumnExpr("o.artwork_snapshot->>'artwork_name' AS order_name").
 		Join("JOIN users AS customer ON customer.id = r.customer_id").
 		Join("JOIN orders AS o ON o.id = r.order_id").
 		Join("LEFT JOIN artworks AS a ON a.id = o.artwork_id")
