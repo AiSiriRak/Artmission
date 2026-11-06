@@ -190,6 +190,10 @@ func TestTransferScenarios(t *testing.T) {
 		assertWallet(t, f, f.artist, 0, 0)
 	})
 	t.Run("CancelledStatusRollbackPreservesData", func(t *testing.T) {
+		// Target the payment migration even when newer migrations exist.
+		if err := goose.DownToContext(ctx, db.DB, ".", 20261105000000); err != nil {
+			t.Fatal(err)
+		}
 		if err := goose.DownContext(ctx, db.DB, "."); err == nil {
 			t.Fatal("rollback silently removed CANCELLED status")
 		}
