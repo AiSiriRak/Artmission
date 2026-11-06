@@ -40,7 +40,7 @@ export default function CustomerPaymentPage() {
       <div className="mx-auto max-w-3xl space-y-6 px-6 py-12">
         <h1 className="text-h2">Payment</h1>
         <p role="alert" className="text-body">{result.error}</p>
-        <Link href={routes.order.detail(orderId)} className="underline">Back to order</Link>
+        <Link href={routes.order.detail(orderId)} replace className="underline">Back to order</Link>
       </div>
     </MainLayout>
   );
