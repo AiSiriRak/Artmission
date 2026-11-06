@@ -19,6 +19,7 @@ import (
 type reviewRepository struct {
 	base baserepo.BaseRepo[pgmodel.Review]
 	exec baserepo.Executor
+	tx   baserepo.Transactioner
 }
 
 var _ review.ReviewRepository = (*reviewRepository)(nil)
@@ -28,6 +29,7 @@ func NewReviewRepository(db *bun.DB) review.ReviewRepository {
 	return &reviewRepository{
 		base: baserepo.NewBaseRepo[pgmodel.Review](db, "review"),
 		exec: baserepo.NewExecutor(db),
+		tx:   baserepo.NewTransactioner(db),
 	}
 }
 
@@ -95,12 +97,45 @@ func newReviewModel(item *review.Review) *pgmodel.Review {
 	}
 }
 
-// Create inserts a review and translates duplicate-order conflicts.
+// Create saves the review and refreshes the artist score in one transaction.
 func (r *reviewRepository) Create(
 	ctx context.Context,
 	item *review.Review,
 ) error {
-	err := r.base.Create(ctx, newReviewModel(item))
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			var artistID uuid.UUID
+			
+			// serialize review submission for the same artist
+			err := idb.NewRaw(`
+				SELECT user_id
+				FROM artist_profiles
+				WHERE user_id = ?
+				FOR UPDATE
+			`, item.ArtistID).Scan(ctx, &artistID)
+
+			if err != nil {
+				return err
+			}
+
+			if err := r.base.Create(ctx, newReviewModel(item)); err != nil {
+				return err
+			}
+
+			_,err = idb.NewRaw(`
+				UPDATE artist_profiles
+				SET review_score = (
+					SELECT ROUND(AVG(rating)::numeric, 1)
+					FROM reviews
+					WHERE artist_id = ?
+				)
+				WHERE user_id = ?
+			`, item.ArtistID, item.ArtistID).Exec(ctx)
+
+			return err
+		})
+	})
+
 	if err == nil {
 		return nil
 	}
@@ -112,7 +147,7 @@ func (r *reviewRepository) Create(
 		return review.ErrReviewAlreadyExists
 	}
 
-	return apperror.Internal("failed to create review", err)
+	return apperror.Internal("failed to create review and update artist score", err)
 }
 
 type reviewDetailRow struct {
