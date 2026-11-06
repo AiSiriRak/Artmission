@@ -33,9 +33,9 @@ type ReviewUsecase interface {
 }
 
 type ReviewRepository interface {
+	// SubmitReview checks order eligibility, saves the review, and refreshes the score atomically.
+	SubmitReview(ctx context.Context, customerID uuid.UUID, input SubmitReviewInput) (*Review, error)
 	GetOrderForReview(ctx context.Context, orderID uuid.UUID) (*OrderForReview, error)
-	ExistsByOrderID(ctx context.Context, orderID uuid.UUID) (bool, error)
-	Create(ctx context.Context, review *Review) error
 	ListByArtistID(ctx context.Context, artistID uuid.UUID, query ListQuery) (*ReviewPage, error)
 	GetByOrderID(ctx context.Context, orderID uuid.UUID) (*ReviewDetail, error)
 	ListByArtworkID(ctx context.Context, artworkID uuid.UUID, query ListQuery) (*ReviewPage, error)
