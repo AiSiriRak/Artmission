@@ -173,7 +173,7 @@ func (artistContext *artistsContext) seedReviews() error {
 		if _, err := app.DB.ExecContext(context.Background(), `
 			INSERT INTO artworks (id, artist_id, category_id, name, description, price_satang, minimum_deadline_days)
 			VALUES (?, ?, ?, ?, 'Historical artwork', 1000, 7)
-		`, artworkID, artistID, categoryID, orderNames[index]); err != nil {
+		`, artworkID, artistID, categoryID, "Artwork "+orderNames[index]); err != nil {
 			return err
 		}
 		if _, err := app.DB.ExecContext(context.Background(), `
@@ -185,7 +185,7 @@ func (artistContext *artistsContext) seedReviews() error {
 				jsonb_build_object('artwork_name', ?, 'category_id', ?, 'style_ids', '[]'::jsonb),
 				1000, ?, 'Please create this', ?, 'SUCCESS', ?, ?
 			)
-		`, orderID, customerID, artistID, artworkID, orderNames[index], categoryID, orderNames[index], createdAt.AddDate(0, 0, 7), createdAt, createdAt); err != nil {
+		`, orderID, customerID, artistID, artworkID, "Artwork "+orderNames[index], categoryID, orderNames[index], createdAt.AddDate(0, 0, 7), createdAt, createdAt); err != nil {
 			return err
 		}
 		if _, err := app.DB.ExecContext(context.Background(), `

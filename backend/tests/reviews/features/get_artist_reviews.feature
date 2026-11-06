@@ -7,7 +7,7 @@ Feature: Artist review history
     Given a commission in status "SUCCESS"
     And the artist has reviews whose order dates differ from their review dates
     When "<caller>" requests the artist reviews
-    Then the artist reviews contain the customer and purchased artwork names
+    Then the reviews contain the customer and order names
     And the artist reviews are returned newest first
     And reviews from other artists are excluded
 

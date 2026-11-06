@@ -157,7 +157,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		}
 		return c.listReviews(token)
 	})
-	sc.Step(`^the artist reviews contain the customer and purchased artwork names$`, func() error {
+	sc.Step(`^the reviews contain the customer and order names$`, func() error {
 		items, err := c.readReviewList()
 		if err != nil {
 			return err
@@ -166,7 +166,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 			return fmt.Errorf("expected review details")
 		}
 		for _, item := range items {
-			if item.Username != c.customer.Username || item.Order != "Purchased artwork name" || item.Rating != 5 || item.Comment == nil || *item.Comment != "Original review" || item.CreatedAt.IsZero() || item.ArtistID.String() != c.artist.ID {
+			if item.Username != c.customer.Username || item.Order != "Customer commission title" || item.Rating != 5 || item.Comment == nil || *item.Comment != "Original review" || item.CreatedAt.IsZero() || item.ArtistID.String() != c.artist.ID {
 				return fmt.Errorf("incorrect review details: %+v", item)
 			}
 		}

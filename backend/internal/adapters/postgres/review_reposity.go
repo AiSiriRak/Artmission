@@ -155,13 +155,13 @@ type reviewDetailRow struct {
 	OrderName string `bun:"order_name"`
 }
 
-// newReviewDetailQuery selects reviews with customer and artwork names.
+// newReviewDetailQuery selects reviews with customer and order names.
 func newReviewDetailQuery(idb bun.IDB) *bun.SelectQuery {
 	return idb.NewSelect().
 		TableExpr("reviews AS r").
 		ColumnExpr("r.*").
 		ColumnExpr("customer.username AS username").
-		ColumnExpr("o.artwork_snapshot->>'artwork_name' AS order_name").
+		ColumnExpr("o.name AS order_name").
 		Join("JOIN users AS customer ON customer.id = r.customer_id").
 		Join("JOIN orders AS o ON o.id = r.order_id")
 }
@@ -239,10 +239,9 @@ func (r *reviewRepository) GetReviewByOrderID(
 			ColumnExpr("r.*").
 			ColumnExpr("o.customer_id AS order_customer_id, o.artist_id AS order_artist_id").
 			ColumnExpr("customer.username AS username").
-			ColumnExpr("COALESCE(NULLIF(o.artwork_snapshot->>'artwork_name', ''), a.name, o.name) AS order_name").
+			ColumnExpr("o.name AS order_name").
 			Join("LEFT JOIN reviews AS r ON r.order_id = o.id").
 			Join("JOIN users AS customer ON customer.id = o.customer_id").
-			Join("LEFT JOIN artworks AS a ON a.id = o.artwork_id").
 			Where("o.id = ?", orderID).
 			Scan(ctx, &row)
 	})

@@ -102,11 +102,10 @@ func (r *artistRepository) GetByUserID(
 		reviewQuery := idb.NewSelect().
 			TableExpr("reviews AS r").
 			ColumnExpr("reviewer.username AS username").
-			ColumnExpr("COALESCE(NULLIF(o.artwork_snapshot->>'artwork_name', ''), a.name, o.name) AS order_name").
+			ColumnExpr("o.name AS order_name").
 			ColumnExpr("r.rating").
 			Join("JOIN users AS reviewer ON reviewer.id = r.customer_id").
 			Join("JOIN orders AS o ON o.id = r.order_id").
-			Join("LEFT JOIN artworks AS a ON a.id = o.artwork_id").
 			Where("r.artist_id = ?", userID).
 			OrderExpr("r.created_at DESC, r.id DESC").
 			Limit(query.Limit).
