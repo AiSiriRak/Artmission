@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
@@ -62,28 +63,6 @@ func (r *reviewRepository) GetOrderForReview(
 	}, nil
 }
 
-// ExistsByOrderID checks whether the order already has a review.
-func (r *reviewRepository) ExistsByOrderID(
-	ctx context.Context,
-	orderID uuid.UUID,
-) (bool, error) {
-	var exists bool
-
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		var err error
-		exists, err = idb.NewSelect().
-			Model(new(pgmodel.Review)).
-			Where("r.order_id = ?", orderID).
-			Exists(ctx)
-		return err
-	})
-	if err != nil {
-		return false, apperror.Internal("failed to check existing review", err)
-	}
-
-	return exists, nil
-}
-
 // newReviewModel converts a domain review into a database model.
 func newReviewModel(item *review.Review) *pgmodel.Review {
 	return &pgmodel.Review{
@@ -97,28 +76,72 @@ func newReviewModel(item *review.Review) *pgmodel.Review {
 	}
 }
 
-// Create saves the review and refreshes the artist score in one transaction.
-func (r *reviewRepository) Create(
+// SubmitReview checks the order, saves the review, and refreshes the score atomically.
+func (r *reviewRepository) SubmitReview(
 	ctx context.Context,
-	item *review.Review,
-) error {
+	customerID uuid.UUID,
+	input review.SubmitReviewInput,
+) (*review.Review, error) {
+	var result *review.Review
+
 	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
 		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			row := new(pgmodel.Order)
+			// Keep ownership and status stable until the review is committed.
+			err := idb.NewSelect().
+				Model(row).
+				Column("id", "customer_id", "artist_id", "status").
+				Where("o.id = ?", input.OrderID).
+				For("UPDATE").
+				Scan(ctx)
+			if errors.Is(err, sql.ErrNoRows) {
+				return review.ErrOrderNotFound
+			}
+			if err != nil {
+				return err
+			}
+			if row.CustomerID != customerID {
+				return review.ErrNotOrderOwner
+			}
+			if order.Status(row.Status) != order.StatusSuccess {
+				return review.ErrOrderNotCompleted
+			}
+
+			exists, err := idb.NewSelect().
+				Model(new(pgmodel.Review)).
+				Where("r.order_id = ?", input.OrderID).
+				Exists(ctx)
+			if err != nil {
+				return err
+			}
+			if exists {
+				return review.ErrReviewAlreadyExists
+			}
+
 			var artistID uuid.UUID
 
-			// serialize review submission for the same artist
-			err := idb.NewRaw(`
+			// Serialize score updates from different orders for the same artist.
+			err = idb.NewRaw(`
 				SELECT user_id
 				FROM artist_profiles
 				WHERE user_id = ?
 				FOR UPDATE
-			`, item.ArtistID).Scan(ctx, &artistID)
+			`, row.ArtistID).Scan(ctx, &artistID)
 
 			if err != nil {
 				return err
 			}
 
-			if err := r.base.Create(ctx, newReviewModel(item)); err != nil {
+			result = &review.Review{
+				ID:         uuid.New(),
+				OrderID:    row.ID,
+				CustomerID: customerID,
+				ArtistID:   row.ArtistID,
+				Rating:     input.Rating,
+				Comment:    input.Comment,
+				CreatedAt:  time.Now(),
+			}
+			if err := r.base.Create(ctx, newReviewModel(result)); err != nil {
 				return err
 			}
 
@@ -130,24 +153,29 @@ func (r *reviewRepository) Create(
 					WHERE artist_id = ?
 				)
 				WHERE user_id = ?
-			`, item.ArtistID, item.ArtistID).Exec(ctx)
+			`, row.ArtistID, row.ArtistID).Exec(ctx)
 
 			return err
 		})
 	})
 
 	if err == nil {
-		return nil
+		return result, nil
+	}
+
+	var appErr *apperror.Error
+	if errors.As(err, &appErr) {
+		return nil, appErr
 	}
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) &&
 		pgErr.Code == pgerrcode.UniqueViolation &&
 		pgErr.ConstraintName == "reviews_order_id_key" {
-		return review.ErrReviewAlreadyExists
+		return nil, review.ErrReviewAlreadyExists
 	}
 
-	return apperror.Internal("failed to create review and update artist score", err)
+	return nil, apperror.Internal("failed to submit review and update artist score", err)
 }
 
 type reviewDetailRow struct {
