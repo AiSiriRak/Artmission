@@ -3,9 +3,7 @@ package review
 import (
 	"context"
 	"strings"
-	"time"
 
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/google/uuid"
 )
@@ -19,7 +17,7 @@ func NewReviewUsecase(repo ReviewRepository) ReviewUsecase {
 	return &reviewUsecase{repo: repo}
 }
 
-// SubmitReview validates ownership, order status, and rating, then creates a review
+// SubmitReview validates input and normalizes the optional comment before submission.
 func (u *reviewUsecase) SubmitReview(
 	ctx context.Context,
 	customerID uuid.UUID,
@@ -37,30 +35,6 @@ func (u *reviewUsecase) SubmitReview(
 		return nil, ErrInvalidRating
 	}
 
-	orderData, err := u.repo.GetOrderForReview(ctx, input.OrderID)
-	if err != nil {
-		return nil, err
-	}
-	if orderData == nil {
-		return nil, ErrOrderNotFound
-	}
-
-	if orderData.CustomerID != customerID {
-		return nil, ErrNotOrderOwner
-	}
-
-	if orderData.Status != order.StatusSuccess {
-		return nil, ErrOrderNotCompleted
-	}
-
-	exists, err := u.repo.ExistsByOrderID(ctx, input.OrderID)
-	if err != nil {
-		return nil, err
-	}
-	if exists {
-		return nil, ErrReviewAlreadyExists
-	}
-
 	var comment *string
 	if input.Comment != nil {
 		trimmed := strings.TrimSpace(*input.Comment)
@@ -69,21 +43,8 @@ func (u *reviewUsecase) SubmitReview(
 		}
 	}
 
-	result := &Review{
-		ID:         uuid.New(),
-		OrderID:    orderData.ID,
-		CustomerID: customerID,
-		ArtistID:   orderData.ArtistID,
-		Rating:     input.Rating,
-		Comment:    comment,
-		CreatedAt:  time.Now(),
-	}
-
-	if err := u.repo.Create(ctx, result); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	input.Comment = comment
+	return u.repo.SubmitReview(ctx, customerID, input)
 }
 
 // GetArtistReviews retrieves a page of artist reviews, newest first.
