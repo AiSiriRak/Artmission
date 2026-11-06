@@ -42,19 +42,19 @@
   --shadow-card: 0 4.5px 12px 0 rgba(0, 0, 0, 0.5);
 
   /* Typography */
-  --text-h1: 42px;
+  --text-h1: 40px;
   --text-h1--line-height: 64px;
   --text-h1--font-weight: 700;
 
-  --text-h2: 30px;
+  --text-h2: 29px;
   --text-h2--line-height: 36px;
-  --text-h2--font-weight: 700;
+  --text-h2--font-weight: 680;
 
-  --text-h3: 24px;
+  --text-h3: 23px;
   --text-h3--line-height: 31px;
-  --text-h3--font-weight: 700;
+  --text-h3--font-weight: 680;
 
-  --text-h4: 21px;
+  --text-h4: 20px;
   --text-h4--line-height: 28px;
   --text-h4--font-weight: 650;
 

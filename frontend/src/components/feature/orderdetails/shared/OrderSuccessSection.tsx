@@ -30,22 +30,26 @@ export default function OrderSuccessSection({
     <section className="mb-10">
       <WhiteCard
         margin=""
-        padding="px-6 pt-6 pb-4 sm:px-8 pt-8 pb-6"
+        padding="px-5 pt-3 pb-3 sm:px-7 pt-5 pb-5"
         roundsize="rounded-3xl"
         className="max-w-none bg-status-success-pale shadow-none"
       >
         <div className="flex items-start gap-4">
-          <img
-            src="/icons/Bell_light.svg"
-            alt=""
-            className="h-8 w-8 shrink-0"
-          />
-          <div className="min-w-0 flex-1">
+          <div className="flex flex-col">
+            <div className="pt-2" />
+            <img
+              src="/icons/Bell_light.svg"
+              alt=""
+              className="h-6 w-6 shrink-0"
+            />
+          </div>
+
+          <div className="min-w-0">
             <div className="flex flex-wrap items-baseline gap-x-3">
-              <h3 className="text-h3">Order Completed</h3>
+              <h3 className="text-h4">Order Completed</h3>
             </div>
             <dl className="mt-2 space-y-2">
-              <div className="flex flex-wrap items-baseline gap-x-2 text-body">
+              <div className="flex flex-wrap items-baseline gap-x-2 text-caption">
                 {formatSuccessMethod(draftCount, review)}
               </div>
             </dl>

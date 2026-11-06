@@ -102,29 +102,33 @@ export default function OrderCancelSection({
     <section className="mb-10">
       <WhiteCard
         margin=""
-        padding="px-6 pt-6 pb-4 sm:px-8 pt-8 pb-6"
+        padding="px-5 pt-3 pb-3 sm:px-7 pt-5 pb-5"
         roundsize="rounded-3xl"
         className="max-w-none bg-status-cancel-pale shadow-none"
       >
         <div className="flex items-start gap-4">
-          <img
-            src="/icons/Bell_light.svg"
-            alt=""
-            className="h-8 w-8 shrink-0"
-          />
-          <div className="min-w-0 flex-1">
+          <div className="flex flex-col">
+            <div className="pt-2" />
+            <img
+              src="/icons/Bell_light.svg"
+              alt=""
+              className="h-6 w-6 shrink-0"
+            />
+          </div>
+
+          <div className="min-w-0">
             <div className="flex flex-wrap items-baseline gap-x-3">
-              <h3 className="text-h3">Order Canceled</h3>
-              <h1 className="text-body">{cancelStatement}</h1>
+              <h3 className="text-h4">Order Canceled</h3>
+              <h1 className="text-caption">{cancelStatement}</h1>
             </div>
-            <dl className="mt-4 space-y-2">
+            <dl className="mt-2">
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <dt className="text-body font-bold">Reason: </dt>
-                <dd className="text-body">{cancelReason.text}</dd>
+                <dd className="text-caption">{cancelReason.text}</dd>
               </div>
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <dt className="text-body font-bold">Explanation:</dt>
-                <dd className="text-body">{cancellation.explanation}</dd>
+                <dd className="text-caption">{cancellation.explanation}</dd>
               </div>
             </dl>
           </div>

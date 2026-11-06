@@ -47,16 +47,16 @@ function ArtworkDetailContent() {
   return (
     <MainLayout usertype="customer">
 
-      <div className="p-20">
+      <div className="px-13 py-8">
         <Button
           variant="light"
           onClick={() => router.back()}
-          className="text-button mb-10 flex items-center gap-2 !border"
+          className="text-button mb-8 flex items-center gap-2 !border"
         >
           <span>←</span> Back
         </Button>
 
-        <h2 className="text-h2 mb-10 font-bold text-gray-900">Artwork Detail Page</h2>
+        <h2 className="text-h2 mb-5 font-bold text-gray-900">Artwork Detail Page</h2>
 
         {error && <p className="text-body text-red-600">{error}</p>}
         {!error && (!artwork || !artist) && <Loading />}

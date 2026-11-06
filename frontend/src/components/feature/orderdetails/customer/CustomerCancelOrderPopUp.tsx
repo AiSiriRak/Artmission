@@ -180,6 +180,7 @@ export function CustomerCancelOrderPopUp({
               placeholder="Briefly explain why you're cancelling..."
               className="h-20 w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small"
             />
+            
             {validation && (
               <p role="alert" className="mt-1 text-small text-error">
                 {validation}

@@ -66,7 +66,7 @@ function DateLine({ label, value }: { label: string; value: string }) {
 
 function ArtworkPreview({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="mx-auto mt-8 w-full max-w-[940px] p-6">
+    <div className="mx-auto mt-8 w-full max-w-[940px]">
       <div className="mx-auto w-fit max-w-full border border-neutral bg-white">
         <img src={src} alt={alt} className="block h-auto w-auto max-h-[632px] max-w-full object-contain" />
       </div>
