@@ -12,8 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { getArtistProfile, getArtistArtworks } from "@/lib/api/artists";
 import { isApiError } from "@/lib/api/error";
 import type { ArtistProfile, Artwork } from "@/lib/api/types";
-import type { ReviewData } from "@/app/artist-profile/types";
-
+import { getArtistReviews } from "@/lib/api/reviews";
 
 interface CustomerArtistProfileProps {
   artistId: string;
@@ -86,16 +85,7 @@ export default function CustomerArtistProfile({
 
   const { profile, artworks } = state;
 
-  const reviews: ReviewData[] = (profile.reviews ?? []).map(
-    (review, index) => ({
-      id: `${artistId}-${index}`,
-      reviewerName: review.username,
-      orderName: review.order,
-      rating: review.rating,
-      timeAgo: "",
-      comment: "",
-    }),
-  );
+  const reviews = getArtistReviews(artistId);
 
   return (
     <MainLayout usertype="customer">
