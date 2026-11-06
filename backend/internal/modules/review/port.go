@@ -3,7 +3,6 @@ package review
 import (
 	"context"
 
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/google/uuid"
 )
 
@@ -19,7 +18,7 @@ type ReviewUsecase interface {
 		artistID uuid.UUID,
 		query ListQuery,
 	) (*ReviewPage, error)
-	
+
 	GetOrderReview(
 		ctx context.Context,
 		userID uuid.UUID,
@@ -37,30 +36,7 @@ type ReviewRepository interface {
 	GetOrderForReview(ctx context.Context, orderID uuid.UUID) (*OrderForReview, error)
 	ExistsByOrderID(ctx context.Context, orderID uuid.UUID) (bool, error)
 	Create(ctx context.Context, review *Review) error
-	ListByArtistID(ctx context.Context,artistID uuid.UUID,query ListQuery) (*ReviewPage, error)
-	GetByOrderID(ctx context.Context,orderID uuid.UUID,) (*ReviewDetail, error)
-	ListByArtworkID(ctx context.Context,artworkID uuid.UUID,query ListQuery) (*ReviewPage, error)
-}
-
-type SubmitReviewInput struct {
-	OrderID uuid.UUID
-	Rating  int
-	Comment *string
-}
-
-type OrderForReview struct {
-	ID         uuid.UUID
-	CustomerID uuid.UUID
-	ArtistID   uuid.UUID
-	Status     order.Status
-}
-
-type ListQuery struct {
-	Limit int
-	Offset int
-}
-
-type ReviewPage struct {
-	Reviews []ReviewDetail
-	Total   int
+	ListByArtistID(ctx context.Context, artistID uuid.UUID, query ListQuery) (*ReviewPage, error)
+	GetByOrderID(ctx context.Context, orderID uuid.UUID) (*ReviewDetail, error)
+	ListByArtworkID(ctx context.Context, artworkID uuid.UUID, query ListQuery) (*ReviewPage, error)
 }
