@@ -25,18 +25,18 @@ type reviewAuthStub struct {
 
 type reviewUsecaseStub struct {
 	review.ReviewUsecase
-	submitCalls  int
-	reviews      []review.ReviewDetail
-	listCalls    int
-	listArtistID uuid.UUID
-	listArtworkID uuid.UUID
+	submitCalls    int
+	reviews        []review.ReviewDetail
+	listCalls      int
+	listArtistID   uuid.UUID
+	listArtworkID  uuid.UUID
 	orderReview    *review.ReviewDetail
 	orderReviewErr error
 	getOrderCalls  int
 	getOrderID     uuid.UUID
 	getOrderUserID uuid.UUID
-	listQuery review.ListQuery
-	total int
+	listQuery      review.ListQuery
+	total          int
 }
 
 func (s reviewAuthStub) Authenticate(
@@ -82,7 +82,7 @@ func (s *reviewUsecaseStub) GetArtistReviews(
 
 	return &review.ReviewPage{
 		Reviews: s.reviews,
-		Total: s.total,
+		Total:   s.total,
 	}, nil
 }
 
@@ -97,7 +97,7 @@ func (s *reviewUsecaseStub) GetReviewsByArtwork(
 
 	return &review.ReviewPage{
 		Reviews: s.reviews,
-		Total: s.total,
+		Total:   s.total,
 	}, nil
 }
 

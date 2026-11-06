@@ -105,7 +105,7 @@ func (r *reviewRepository) Create(
 	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
 		return r.exec.Run(ctx, func(idb bun.IDB) error {
 			var artistID uuid.UUID
-			
+
 			// serialize review submission for the same artist
 			err := idb.NewRaw(`
 				SELECT user_id
@@ -122,7 +122,7 @@ func (r *reviewRepository) Create(
 				return err
 			}
 
-			_,err = idb.NewRaw(`
+			_, err = idb.NewRaw(`
 				UPDATE artist_profiles
 				SET review_score = (
 					SELECT ROUND(AVG(rating)::numeric, 1)

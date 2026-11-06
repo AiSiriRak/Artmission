@@ -138,8 +138,8 @@ type GetOrderReviewOutput struct {
 
 type GetReviewsByArtworkInput struct {
 	ArtworkID uuid.UUID `path:"artwork_id"`
-	Limit    int       `query:"limit" minimum:"1" maximum:"100" default:"20"`
-	Offset   int       `query:"offset" minimum:"0" default:"0"`
+	Limit     int       `query:"limit" minimum:"1" maximum:"100" default:"20"`
+	Offset    int       `query:"offset" minimum:"0" default:"0"`
 }
 
 type GetReviewsByArtworkOutput struct {

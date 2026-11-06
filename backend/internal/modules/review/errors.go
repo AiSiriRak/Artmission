@@ -3,11 +3,11 @@ package review
 import "github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 
 var (
-	ErrInvalidRating = apperror.InvalidInput("rating must be between 1 and 5",nil)
-	ErrOrderNotFound = apperror.NotFound("order not found")
-	ErrNotOrderOwner = apperror.Forbidden("only the order's customer can submit a review")
-	ErrOrderNotCompleted = apperror.Conflict("order must be successful before submitting a review")
+	ErrInvalidRating       = apperror.InvalidInput("rating must be between 1 and 5", nil)
+	ErrOrderNotFound       = apperror.NotFound("order not found")
+	ErrNotOrderOwner       = apperror.Forbidden("only the order's customer can submit a review")
+	ErrOrderNotCompleted   = apperror.Conflict("order must be successful before submitting a review")
 	ErrReviewAlreadyExists = apperror.Conflict("this order already has a review")
-	ErrReviewNotFound = apperror.NotFound("review not found")
-	ErrNotOrderParticipant = apperror.Forbidden("only the order's customer or artist can view its review",)
+	ErrReviewNotFound      = apperror.NotFound("review not found")
+	ErrNotOrderParticipant = apperror.Forbidden("only the order's customer or artist can view its review")
 )

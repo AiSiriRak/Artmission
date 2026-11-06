@@ -200,6 +200,20 @@ func (artistContext *artistsContext) seedReviews() error {
 			return err
 		}
 	}
+
+	// Refresh artist's review score average
+	if _, err := app.DB.ExecContext(context.Background(), `
+		UPDATE artist_profiles
+		SET review_score = (
+			SELECT ROUND(AVG(rating)::numeric, 1)
+			FROM reviews
+			WHERE artist_id = ?
+		)
+		WHERE user_id = ?
+	`, artistID, artistID); err != nil {
+		return err
+	}
+
 	return nil
 }
 
