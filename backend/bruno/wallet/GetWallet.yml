@@ -1,0 +1,22 @@
+info:
+  name: GetWallet
+  type: http
+  seq: 1
+  tags:
+    - wallet
+
+http:
+  method: GET
+  url: "{{api_url}}/wallet/me"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 15000
+  followRedirects: false
+
+docs: |-
+  Login as a customer or artist first. Returns only the authenticated user's internal wallet.
+  No body or user_id is accepted. Amounts use integer satang (100 satang = 1 THB).
+  Empty wallet: {"user_id":"<current-user-id>","currency":"THB","balance_satang":0,"updated_at":null}.
+  Completing/cancelling a paid order credits recipients automatically; GET does not execute transfers.

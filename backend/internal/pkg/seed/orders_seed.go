@@ -212,6 +212,25 @@ func seedPaymentsDown(ctx context.Context, d deps) error {
 	return deleteTableRows(ctx, d, "payments", "order_id", ids)
 }
 
+func seedWalletEntriesDown(ctx context.Context, d deps) error {
+	userIDs := make([]uuid.UUID, len(users))
+	for i, u := range users {
+		userIDs[i] = userID(u.Key)
+	}
+	_, err := d.db.NewRaw(`WITH removed AS (DELETE FROM wallet_entries WHERE user_id IN (?) OR payment_transaction_id IN (
+		SELECT t.id FROM payment_transactions t JOIN payments p ON p.id = t.payment_id
+		JOIN orders o ON o.id = p.order_id WHERE o.customer_id IN (?) OR o.artist_id IN (?)
+	) RETURNING user_id, amount_satang), totals AS (
+		SELECT user_id, SUM(amount_satang) AS amount FROM removed GROUP BY user_id
+	) UPDATE wallets w SET balance_satang = w.balance_satang - totals.amount, updated_at = NOW()
+	FROM totals WHERE w.user_id = totals.user_id`, bun.List(userIDs), bun.List(userIDs), bun.List(userIDs)).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = d.db.NewRaw(`DELETE FROM wallets WHERE user_id IN (?)`, bun.List(userIDs)).Exec(ctx)
+	return err
+}
+
 func seedOrderDelayRequestsDown(ctx context.Context, d deps) error {
 	ids, err := orderIDsOfSeededUsers(ctx, d)
 	if err != nil {
