@@ -1,0 +1,114 @@
+info:
+  name: CreatePaymentQR
+  type: http
+  seq: 1
+  tags:
+    - payments
+
+http:
+  method: POST
+  url: "{{api_url}}/orders/:order_id/payment/qr"
+  params:
+    - name: order_id
+      value: "{{OrderID}}"
+      type: path
+      description: Order ID owned by the authenticated customer; must be NOT_PAID.
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 15000
+  followRedirects: false
+  maxRedirects: 0
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Newly generated (or already stored) PromptPay QR payload and expiry
+    request:
+      url: "{{api_url}}/orders/:order_id/payment/qr"
+      method: POST
+      params:
+        - name: order_id
+          value: ""
+          type: path
+          description: Order ID
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "success": true,
+            "message": "Payment QR generated successfully.",
+            "already_generated": false,
+            "payment_id": "00000000-0000-0000-0000-000000000000",
+            "order_id": "00000000-0000-0000-0000-000000000000",
+            "qr_payload": "<PromptPay QR payload>",
+            "qr_expire": "2026-11-02T10:00:00Z"
+          }
+  - name: 200 Response (already generated)
+    description: A QR already exists; Slip2Go was not called again and the stored QR is returned
+    request:
+      url: "{{api_url}}/orders/:order_id/payment/qr"
+      method: POST
+      params:
+        - name: order_id
+          value: ""
+          type: path
+          description: Order ID
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "success": true,
+            "message": "Payment QR was already generated; returning the existing QR.",
+            "already_generated": true,
+            "payment_id": "00000000-0000-0000-0000-000000000000",
+            "order_id": "00000000-0000-0000-0000-000000000000",
+            "qr_payload": "<PromptPay QR payload>",
+            "qr_expire": "2026-11-02T10:00:00Z"
+          }
+  - name: default Response
+    description: Missing/invalid auth, order not found or ineligible, QR generation in progress (409), QR expired (410), or provider failure
+    request:
+      url: "{{api_url}}/orders/:order_id/payment/qr"
+      method: POST
+      params:
+        - name: order_id
+          value: ""
+          type: path
+          description: Order ID
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: |-
+  Generate the PromptPay QR payload for an authenticated customer's NOT_PAID order.
+  The amount comes from the database, never from the request. The QR is generated once:
+  repeated or concurrent calls return the stored payload without calling Slip2Go again.
+  Provider failures store nothing and are not retried automatically; call again to retry.
+  Use GET on the same path to read the stored QR.

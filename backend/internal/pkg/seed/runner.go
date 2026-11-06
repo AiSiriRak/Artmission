@@ -37,6 +37,7 @@ var upSteps = []step{
 	seedArtworkImagesUp,
 	seedArtworkStylesUp,
 	seedOrdersUp,
+	seedPaymentsUp,
 	seedOrderDeliverablesUp,
 	seedOrderCancellationsUp,
 }
