@@ -48,35 +48,30 @@ type Config struct {
 // the server's lifecycle.
 func Wire(cfg Config) *httpserver.Server {
 	userRepo := postgres.NewUserRepository(cfg.DB)
-	notificationRepo := postgres.NewNotificationRepository(cfg.DB)
-	notificationUsecase := notification.NewNotificationUsecase(notificationRepo)
 	bankRepo := postgres.NewBankAccountRepository(cfg.DB)
 	artistRepo := postgres.NewArtistRepository(cfg.DB)
 	artworkRepo := postgres.NewArtworkRepository(cfg.DB)
 	sessionRepo := postgres.NewSessionRepository(cfg.DB)
-	orderRepo := postgres.NewOrderRepository(cfg.DB)
-	paymentRepo := postgres.NewPaymentRepository(cfg.DB)
 	accountDeletionRepo := postgres.NewAccountDeletionRepository(cfg.DB)
 	tokenIssuer := token.NewJWTIssuer(cfg.Auth.JWTSecret)
 	tx := baserepo.NewTransactioner(cfg.DB)
+	workflow := newOrderPaymentUsecases(cfg, tx)
 
 	artistUsecase := artist.NewProfileUsecase(artistRepo, cfg.ObjectStorage.Public)
 	artworkUsecase := artwork.NewUsecase(artworkRepo, tx, cfg.ObjectStorage.Public)
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx, cfg.ObjectStorage.Public)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
-	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private, order.WithNotifications(notification.NewOrderNotifier(postgres.NewOrderNotificationReader(cfg.DB), notificationUsecase), tx))
-	paymentUsecase := payment.NewPaymentUsecase(paymentRepo, paymentProvider(cfg), payment.WithNotifications(notification.NewPaymentNotifier(postgres.NewOrderNotificationReader(cfg.DB), notificationUsecase), tx))
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
-	orderHandler := rest.NewOrderHandler(orderUsecase, artworkUsecase, authUsecase)
+	orderHandler := rest.NewOrderHandler(workflow.order, artworkUsecase, authUsecase)
 	artistHandler := rest.NewArtistHandler(artistUsecase, authUsecase)
 	artworkHandler := rest.NewArtworkHandler(artworkUsecase, authUsecase)
-	paymentHandler := rest.NewPaymentHandler(paymentUsecase, authUsecase)
+	paymentHandler := rest.NewPaymentHandler(workflow.payment, authUsecase)
 
 	api, server := httpserver.New(cfg.App.Address, cfg.App.BasePath, cfg.App.AllowedOrigins, cfg.Logger, []httpserver.Pinger{cfg.DB, cfg.ObjectStorage})
 	authHandler.Register(api)
-	rest.NewNotificationHandler(notificationUsecase, authUsecase).Register(api)
+	rest.NewNotificationHandler(workflow.notifications, authUsecase).Register(api)
 	userHandler.Register(api)
 	orderHandler.Register(api)
 	artistHandler.Register(api)
@@ -94,26 +89,29 @@ const orderExpiryInterval = time.Minute
 // the BDD suite's in-process server doesn't start timers it can't control;
 // cmd_serve.go is the only caller.
 func WireWorkers(cfg Config) []worker.Worker {
-	notificationUsecase := notification.NewNotificationUsecase(postgres.NewNotificationRepository(cfg.DB))
-	tx := baserepo.NewTransactioner(cfg.DB)
-	orderRepo := postgres.NewOrderRepository(cfg.DB)
-	orderUsecase := order.NewOrderUsecase(
-		orderRepo,
-		cfg.ObjectStorage.Private,
-		order.WithNotifications(
-			notification.NewOrderNotifier(
-				postgres.NewOrderNotificationReader(cfg.DB),
-				notificationUsecase,
-			),
-			tx,
-		),
-	)
-	paymentRepo := postgres.NewPaymentRepository(cfg.DB)
-	paymentUsecase := payment.NewPaymentUsecase(paymentRepo, paymentProvider(cfg), payment.WithNotifications(notification.NewPaymentNotifier(postgres.NewOrderNotificationReader(cfg.DB), notificationUsecase), tx))
+	workflow := newOrderPaymentUsecases(cfg, baserepo.NewTransactioner(cfg.DB))
 
 	return []worker.Worker{
-		worker.NewOrderExpiryWorker(orderUsecase, orderExpiryInterval, cfg.Logger),
-		worker.NewPaymentQRWorker(paymentUsecase, orderExpiryInterval, cfg.Logger),
+		worker.NewOrderExpiryWorker(workflow.order, orderExpiryInterval, cfg.Logger),
+		worker.NewPaymentQRWorker(workflow.payment, orderExpiryInterval, cfg.Logger),
+	}
+}
+
+type orderPaymentUsecases struct {
+	order         order.OrderUsecase
+	payment       payment.Usecase
+	notifications notification.NotificationUsecase
+}
+
+func newOrderPaymentUsecases(cfg Config, tx baserepo.Transactioner) orderPaymentUsecases {
+	notifications := notification.NewNotificationUsecase(postgres.NewNotificationRepository(cfg.DB))
+	reader := postgres.NewOrderNotificationReader(cfg.DB)
+	return orderPaymentUsecases{
+		order: order.NewOrderUsecase(postgres.NewOrderRepository(cfg.DB), cfg.ObjectStorage.Private,
+			order.WithNotifications(notification.NewOrderNotifier(reader, notifications), tx)),
+		payment: payment.NewPaymentUsecase(postgres.NewPaymentRepository(cfg.DB), paymentProvider(cfg),
+			payment.WithNotifications(notification.NewPaymentNotifier(reader, notifications), tx)),
+		notifications: notifications,
 	}
 }
 

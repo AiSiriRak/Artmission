@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"strings"
 	"testing"
@@ -14,6 +16,7 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/notification"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/objectstorage"
+	"github.com/AiSiriRak/Artmission/backend/internal/wiring"
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -43,6 +46,48 @@ func TestNotificationsFeatures(t *testing.T) {
 		t.Fatal("notification feature scenarios failed")
 	}
 	t.Run("WalletCredits", testWalletCredits)
+	t.Run("WiredWorkers", testWiredWorkers)
+}
+
+func testWiredWorkers(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	orderContext, paymentContext := &notificationsContext{}, &notificationsContext{}
+	for _, n := range []*notificationsContext{orderContext, paymentContext} {
+		mustNotificationStep(t, n.registerAccounts())
+	}
+	mustNotificationStep(t, orderContext.orderWithStatus("PENDING"))
+	mustNotificationStep(t, orderContext.exec("UPDATE orders SET created_at = ? WHERE id = ?", time.Now().Add(-order.PendingConfirmationTTL-time.Hour), orderContext.orderID))
+	mustNotificationStep(t, paymentContext.orderWithStatus("NOT_PAID"))
+	mustNotificationStep(t, paymentContext.exec("UPDATE payments SET qr_expire = ? WHERE order_id = ?", time.Now().Add(-time.Hour), paymentContext.orderID))
+	workers := wiring.WireWorkers(wiring.Config{DB: app.DB, ObjectStorage: storage,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), PaymentProvider: notificationPaymentProvider{}})
+	done := make(chan struct{}, len(workers))
+	for _, w := range workers {
+		go func() { w.Run(ctx); done <- struct{}{} }()
+	}
+	t.Cleanup(func() {
+		cancel()
+		for range workers {
+			<-done
+		}
+	})
+	for {
+		var count int
+		mustNotificationStep(t, app.DB.NewRaw("SELECT COUNT(*) FROM notifications WHERE order_id IN (?, ?) AND type = 'ORDER_CANCELED'", orderContext.orderID, paymentContext.orderID).Scan(context.Background(), &count))
+		if count == 4 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("wired workers did not notify both recipients: got %d cards", count)
+		case <-time.After(25 * time.Millisecond):
+		}
+	}
+	for _, n := range []*notificationsContext{orderContext, paymentContext} {
+		mustNotificationStep(t, n.receives("artist", "ORDER_CANCELED"))
+		mustNotificationStep(t, n.receives("customer", "ORDER_CANCELED"))
+	}
 }
 
 func testWalletCredits(t *testing.T) {

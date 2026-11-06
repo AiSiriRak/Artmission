@@ -133,19 +133,21 @@ func (n *orderNotifier) NotifyOrder(ctx context.Context, e order.NotificationEve
 		return err
 	}
 	item := detail.Order
+	foundDeliverable := false
 	for _, d := range detail.Deliverables {
 		if d.ID == e.DeliverableID {
 			e.Version = d.Version
+			foundDeliverable = true
 			break
 		}
 	}
-	recipient := item.ArtistID
+	recipients := []uuid.UUID{item.ArtistID}
 	event, title, message := TypeGeneral, "", ""
 	switch e.Kind {
 	case "ORDER_CREATED":
 		event, title, message = TypeOrderCreated, "New Order", "The customer has placed a new order. Please check the order details to review the brief."
 	case "ORDER_CONFIRMED":
-		recipient = item.CustomerID
+		recipients = []uuid.UUID{item.CustomerID}
 		if e.Decision == string(order.StatusNotPaid) {
 			event, title, message = TypeOrderAccepted, "Order Accepted", "The artist has accepted your order! Please complete the payment to secure your commission."
 		} else {
@@ -156,12 +158,12 @@ func (n *orderNotifier) NotifyOrder(ctx context.Context, e order.NotificationEve
 	case "ORDER_CANCELED":
 		actor := "customer"
 		if e.Participant == order.ParticipantArtist {
-			recipient = item.CustomerID
+			recipients = []uuid.UUID{item.CustomerID}
 			actor = "artist"
 		}
 		event, title, message = TypeOrderCanceled, "Order Canceled", fmt.Sprintf("The %s canceled this order. Reason: %s. %s", actor, e.Reason, e.Explanation)
 	case "DRAFT_SUBMITTED":
-		recipient = item.CustomerID
+		recipients = []uuid.UUID{item.CustomerID}
 		if e.Decision == string(order.DeliverableDecisionApproved) {
 			event, title, message = TypeFinalArtworkReady, "Final Artwork Ready", "Your final artwork is complete and ready. Please check the order details to review and download it."
 		} else {
@@ -172,16 +174,13 @@ func (n *orderNotifier) NotifyOrder(ctx context.Context, e order.NotificationEve
 			event, title, message = TypeOrderCompleted, "Order Completed", "The customer has accepted your artwork!"
 		} else {
 			message = "The customer has requested changes. Please review their feedback in the order details."
-			for _, d := range detail.Deliverables {
-				if d.ID == e.DeliverableID {
-					message = fmt.Sprintf("The customer has requested changes for #%d Draft. Please review their feedback in the order details.", d.Version)
-					break
-				}
+			if foundDeliverable {
+				message = fmt.Sprintf("The customer has requested changes for #%d Draft. Please review their feedback in the order details.", e.Version)
 			}
 			event, title = TypeRevisionRequested, "Revision Requested"
 		}
 	case "DEADLINE_EXTENSION_REQUESTED":
-		recipient = item.CustomerID
+		recipients = []uuid.UUID{item.CustomerID}
 		event, title, message = TypeDeadlineRequested, "Deadline Extension Requested", "The artist has requested a deadline extension. Please review the request in the order details."
 	case "DEADLINE_EXTENSION_DECIDED":
 		if e.Decision == string(order.DelayDecisionApproved) {
@@ -190,15 +189,11 @@ func (n *orderNotifier) NotifyOrder(ctx context.Context, e order.NotificationEve
 			event, title, message = TypeDeadlineRejected, "Postpone Request Declined", "Your postpone request was declined. Your deadline remains unchanged."
 		}
 	case "ORDER_EXPIRED":
-		if err := n.send(ctx, item, item.CustomerID, TypeOrderCanceled, "Order Canceled", "This order was automatically canceled because its confirmation window or deadline expired.", e); err != nil {
-			return err
-		}
+		recipients = []uuid.UUID{item.CustomerID, item.ArtistID}
 		event, title, message = TypeOrderCanceled, "Order Canceled", "This order was automatically canceled because its confirmation window or deadline expired."
 	case "PAYMENT_EXPIRED":
+		recipients = []uuid.UUID{item.CustomerID, item.ArtistID}
 		message = "This order was automatically canceled because payment was not completed within 24 hours."
-		if err := n.send(ctx, item, item.CustomerID, TypeOrderCanceled, "Order Canceled", message, e); err != nil {
-			return err
-		}
 		event, title = TypeOrderCanceled, "Order Canceled"
 	case "DELIVERABLE_AUTO_APPROVED":
 		if err := n.send(ctx, item, item.CustomerID, TypeFinalArtworkReady, "Final Artwork Ready", "The review window expired and your artwork was automatically accepted. Please check the order details to download it.", e); err != nil {
@@ -213,7 +208,7 @@ func (n *orderNotifier) NotifyOrder(ctx context.Context, e order.NotificationEve
 	default:
 		return ErrInvalidType
 	}
-	if err := n.send(ctx, item, recipient, event, title, message, e); err != nil {
+	if err := n.sendTo(ctx, item, recipients, event, title, message, e); err != nil {
 		return err
 	}
 	switch e.Kind {
@@ -222,6 +217,15 @@ func (n *orderNotifier) NotifyOrder(ctx context.Context, e order.NotificationEve
 	case "DRAFT_SUBMITTED", "DELIVERABLE_CONFIRMED":
 		if e.Decision == string(order.DeliverableDecisionApproved) {
 			return n.notifyWalletCredits(ctx, item)
+		}
+	}
+	return nil
+}
+
+func (n *orderNotifier) sendTo(ctx context.Context, item order.Order, recipients []uuid.UUID, event Type, title, message string, source order.NotificationEvent) error {
+	for _, recipient := range recipients {
+		if err := n.send(ctx, item, recipient, event, title, message, source); err != nil {
+			return err
 		}
 	}
 	return nil

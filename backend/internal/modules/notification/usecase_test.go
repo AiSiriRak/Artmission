@@ -237,6 +237,7 @@ func TestOrderEventCards(t *testing.T) {
 		{"DEADLINE_EXTENSION_DECIDED", "APPROVED", TypeDeadlineApproved, false, 1},
 		{"DEADLINE_EXTENSION_DECIDED", "REJECTED", TypeDeadlineRejected, false, 1},
 		{"ORDER_EXPIRED", "", TypeOrderCanceled, false, 2},
+		{"PAYMENT_EXPIRED", "", TypeOrderCanceled, false, 2},
 		{"DELIVERABLE_AUTO_APPROVED", "", TypeOrderCompleted, false, 2},
 		{"DELAY_REQUEST_EXPIRED", "", TypeDeadlineRejected, false, 2},
 		{"ORDER_CANCELED", "", TypeOrderCanceled, false, 1},
@@ -278,6 +279,32 @@ func TestOrderNotificationReaderFailure(t *testing.T) {
 	notifier := NewOrderNotifier(orderReaderFake{err: want}, NewNotificationUsecase(&fakeRepository{}))
 	if err := notifier.NotifyOrder(context.Background(), order.NotificationEvent{}); !errors.Is(err, want) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestRevisionMessageUsesMatchedDeliverableOrFallback(t *testing.T) {
+	id := uuid.New()
+	for _, tc := range []struct {
+		name         string
+		deliverables []order.Deliverable
+		want         string
+	}{
+		{"matched", []order.Deliverable{{ID: uuid.New(), Version: 1}, {ID: id, Version: 2}}, "The customer has requested changes for #2 Draft. Please review their feedback in the order details."},
+		{"not found", []order.Deliverable{{ID: uuid.New(), Version: 1}}, "The customer has requested changes. Please review their feedback in the order details."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeRepository{}
+			notifier := NewOrderNotifier(orderReaderFake{detail: order.OrderDetailData{
+				Order:        order.Order{ID: uuid.New(), ArtistID: uuid.New(), CustomerID: uuid.New(), Name: "Portrait"},
+				Deliverables: tc.deliverables,
+			}}, NewNotificationUsecase(repo))
+			if err := notifier.NotifyOrder(context.Background(), order.NotificationEvent{Kind: "DELIVERABLE_CONFIRMED", DeliverableID: id, Version: 99, Decision: "REJECTED"}); err != nil {
+				t.Fatal(err)
+			}
+			if len(repo.rows) != 1 || repo.rows[0].Message != tc.want {
+				t.Fatalf("revision fallback changed: %+v", repo.rows)
+			}
+		})
 	}
 }
 
