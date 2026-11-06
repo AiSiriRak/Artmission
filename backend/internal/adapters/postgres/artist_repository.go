@@ -69,7 +69,7 @@ func (r *artistRepository) GetByUserID(
 			ColumnExpr("u.username AS artist_name").
 			ColumnExpr("(SELECT MIN(a.price_satang) FROM artworks AS a WHERE a.artist_id = ap.user_id) AS min_price_satang").
 			ColumnExpr("(SELECT MAX(a.price_satang) FROM artworks AS a WHERE a.artist_id = ap.user_id) AS max_price_satang").
-			ColumnExpr("(SELECT ROUND(AVG(r.rating)::numeric, 1)::double precision FROM reviews AS r WHERE r.artist_id = ap.user_id) AS review_score").
+			ColumnExpr("ap.review_score").
 			Join("JOIN users AS u ON u.id = ap.user_id AND u.deleted_at IS NULL").
 			Where("ap.user_id = ?", userID).
 			Scan(ctx); err != nil {
