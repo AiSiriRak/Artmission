@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/review"
 	"github.com/google/uuid"
 )
@@ -13,6 +12,8 @@ import (
 type fakeRepo struct {
 	order          *review.OrderForReview
 	created        *review.Review
+	submitCalls    int
+	submitErr      error
 	reviews        []review.ReviewDetail
 	listArtistID   uuid.UUID
 	listErr        error
@@ -37,19 +38,22 @@ func (f *fakeRepo) GetOrderForReview(
 	return f.order, nil
 }
 
-func (f *fakeRepo) ExistsByOrderID(
+func (f *fakeRepo) SubmitReview(
 	_ context.Context,
-	orderID uuid.UUID,
-) (bool, error) {
-	return f.created != nil && f.created.OrderID == orderID, nil
-}
-
-func (f *fakeRepo) Create(
-	_ context.Context,
-	item *review.Review,
-) error {
-	f.created = item
-	return nil
+	customerID uuid.UUID,
+	input review.SubmitReviewInput,
+) (*review.Review, error) {
+	f.submitCalls++
+	if f.submitErr != nil {
+		return nil, f.submitErr
+	}
+	f.created = &review.Review{
+		OrderID:    input.OrderID,
+		CustomerID: customerID,
+		Rating:     input.Rating,
+		Comment:    input.Comment,
+	}
+	return f.created, nil
 }
 
 func (f *fakeRepo) ListByArtistID(
@@ -110,17 +114,9 @@ func (f *fakeRepo) ListByArtworkID(
 // verifies that a rating alone can create a review
 func TestSubmitReview_WithoutComment(t *testing.T) {
 	customerID := uuid.New()
-	artistID := uuid.New()
 	orderID := uuid.New()
 
-	repo := &fakeRepo{
-		order: &review.OrderForReview{
-			ID:         orderID,
-			CustomerID: customerID,
-			ArtistID:   artistID,
-			Status:     order.StatusSuccess,
-		},
-	}
+	repo := &fakeRepo{}
 	uc := review.NewReviewUsecase(repo)
 
 	result, err := uc.SubmitReview(
@@ -138,13 +134,9 @@ func TestSubmitReview_WithoutComment(t *testing.T) {
 	if result == nil || repo.created == nil {
 		t.Fatal("expected a saved review")
 	}
-	if result.ID == uuid.Nil || result.CreatedAt.IsZero() {
-		t.Fatal("expected a generated ID and creation time")
-	}
-	if result.OrderID != orderID ||
-		result.CustomerID != customerID ||
-		result.ArtistID != artistID {
-		t.Fatal("review does not match the order's participants")
+	if repo.submitCalls != 1 || result != repo.created ||
+		result.OrderID != orderID || result.CustomerID != customerID {
+		t.Fatal("expected one repository submission with the customer and order IDs")
 	}
 	if result.Rating != 5 {
 		t.Errorf("rating = %d, want 5", result.Rating)
@@ -170,116 +162,65 @@ func TestSubmitReview_MissingRating(t *testing.T) {
 	if !errors.Is(err, review.ErrInvalidRating) {
 		t.Fatalf("error = %v, want ErrInvalidRating", err)
 	}
-	if result != nil || repo.created != nil {
+	if result != nil || repo.created != nil || repo.submitCalls != 0 {
 		t.Fatal("an invalid review must not be saved")
 	}
 }
 
-// rejects reviews from another customer
-func TestSubmitReview_NotOrderOwner(t *testing.T) {
-	ownerID := uuid.New()
-	anotherCustomerID := uuid.New()
-	orderID := uuid.New()
-
-	repo := &fakeRepo{
-		order: &review.OrderForReview{
-			ID:         orderID,
-			CustomerID: ownerID,
-			ArtistID:   uuid.New(),
-			Status:     order.StatusSuccess,
-		},
+// TestSubmitReview_RepositoryError preserves eligibility and storage errors.
+func TestSubmitReview_RepositoryError(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+	}{
+		{name: "missing order", err: review.ErrOrderNotFound},
+		{name: "not the owner", err: review.ErrNotOrderOwner},
+		{name: "unfinished order", err: review.ErrOrderNotCompleted},
+		{name: "duplicate review", err: review.ErrReviewAlreadyExists},
+		{name: "database failure", err: errors.New("database unavailable")},
 	}
-	uc := review.NewReviewUsecase(repo)
 
-	result, err := uc.SubmitReview(
-		context.Background(),
-		anotherCustomerID,
-		review.SubmitReviewInput{
-			OrderID: orderID,
-			Rating:  5,
-		},
-	)
-
-	if !errors.Is(err, review.ErrNotOrderOwner) {
-		t.Fatalf("error = %v, want ErrNotOrderOwner", err)
-	}
-	if result != nil || repo.created != nil {
-		t.Fatal("another customer's review must not be saved")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeRepo{submitErr: tc.err}
+			result, err := review.NewReviewUsecase(repo).SubmitReview(
+				context.Background(),
+				uuid.New(),
+				review.SubmitReviewInput{OrderID: uuid.New(), Rating: 5},
+			)
+			if !errors.Is(err, tc.err) || result != nil {
+				t.Fatalf("expected repository error %v, got %v, %v", tc.err, result, err)
+			}
+			if repo.submitCalls != 1 || repo.created != nil {
+				t.Fatal("expected one unsuccessful repository submission")
+			}
+		})
 	}
 }
 
-// rejects reviews for unfinished orders
-func TestSubmitReview_OrderNotCompleted(t *testing.T) {
-	customerID := uuid.New()
-	orderID := uuid.New()
-
-	repo := &fakeRepo{
-		order: &review.OrderForReview{
-			ID:         orderID,
-			CustomerID: customerID,
-			ArtistID:   uuid.New(),
-			Status:     order.StatusInProcess,
-		},
-	}
-	uc := review.NewReviewUsecase(repo)
-
-	result, err := uc.SubmitReview(
-		context.Background(),
-		customerID,
-		review.SubmitReviewInput{
-			OrderID: orderID,
-			Rating:  5,
-		},
-	)
-
-	if !errors.Is(err, review.ErrOrderNotCompleted) {
-		t.Fatalf("error = %v, want ErrOrderNotCompleted", err)
-	}
-	if result != nil || repo.created != nil {
-		t.Fatal("a review for an unfinished order must not be saved")
-	}
-}
-
-// rejects a second review for the same order
-func TestSubmitReview_Duplicate(t *testing.T) {
-	customerID := uuid.New()
-	orderID := uuid.New()
-
-	existingReview := &review.Review{
-		ID:         uuid.New(),
-		OrderID:    orderID,
-		CustomerID: customerID,
-		Rating:     4,
+// TestSubmitReview_MissingIDs rejects missing identities before querying the repository.
+func TestSubmitReview_MissingIDs(t *testing.T) {
+	cases := []struct {
+		name       string
+		customerID uuid.UUID
+		orderID    uuid.UUID
+	}{
+		{name: "missing customer", orderID: uuid.New()},
+		{name: "missing order ID", customerID: uuid.New()},
 	}
 
-	repo := &fakeRepo{
-		order: &review.OrderForReview{
-			ID:         orderID,
-			CustomerID: customerID,
-			ArtistID:   uuid.New(),
-			Status:     order.StatusSuccess,
-		},
-		created: existingReview,
-	}
-	uc := review.NewReviewUsecase(repo)
-
-	result, err := uc.SubmitReview(
-		context.Background(),
-		customerID,
-		review.SubmitReviewInput{
-			OrderID: orderID,
-			Rating:  5,
-		},
-	)
-
-	if !errors.Is(err, review.ErrReviewAlreadyExists) {
-		t.Fatalf("error = %v, want ErrReviewAlreadyExists", err)
-	}
-	if result != nil {
-		t.Fatal("a duplicate review must not be returned")
-	}
-	if repo.created != existingReview {
-		t.Fatal("the existing review must not be replaced")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeRepo{}
+			result, err := review.NewReviewUsecase(repo).SubmitReview(
+				context.Background(),
+				tc.customerID,
+				review.SubmitReviewInput{OrderID: tc.orderID, Rating: 5},
+			)
+			if err == nil || result != nil || repo.submitCalls != 0 {
+				t.Fatal("missing IDs must be rejected before the repository is called")
+			}
+		})
 	}
 }
 
@@ -474,14 +415,7 @@ func TestSubmitReview_RatingRange(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			customerID, orderID := uuid.New(), uuid.New()
-			repo := &fakeRepo{
-				order: &review.OrderForReview{
-					ID:         orderID,
-					CustomerID: customerID,
-					ArtistID:   uuid.New(),
-					Status:     order.StatusSuccess,
-				},
-			}
+			repo := &fakeRepo{}
 
 			result, err := review.NewReviewUsecase(repo).SubmitReview(
 				context.Background(),
@@ -496,7 +430,7 @@ func TestSubmitReview_RatingRange(t *testing.T) {
 				if !errors.Is(err, review.ErrInvalidRating) {
 					t.Fatalf("error = %v, want ErrInvalidRating", err)
 				}
-				if result != nil || repo.created != nil {
+				if result != nil || repo.created != nil || repo.submitCalls != 0 {
 					t.Fatal("an invalid rating must not be saved")
 				}
 				return
@@ -530,14 +464,7 @@ func TestSubmitReview_Comment(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			customerID, orderID := uuid.New(), uuid.New()
-			repo := &fakeRepo{
-				order: &review.OrderForReview{
-					ID:         orderID,
-					CustomerID: customerID,
-					ArtistID:   uuid.New(),
-					Status:     order.StatusSuccess,
-				},
-			}
+			repo := &fakeRepo{}
 
 			result, err := review.NewReviewUsecase(repo).SubmitReview(
 				context.Background(),
