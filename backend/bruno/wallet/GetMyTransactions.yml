@@ -1,0 +1,30 @@
+info:
+  name: GetMyTransactions
+  type: http
+  seq: 2
+  tags:
+    - wallet
+
+http:
+  method: GET
+  url: "{{api_url}}/transaction/me"
+  params:
+    - name: limit
+      value: "20"
+      type: query
+    - name: offset
+      value: "0"
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 15000
+  followRedirects: false
+
+docs: |-
+  Returns the logged-in customer's or artist's credited order payouts/refunds, newest first.
+  limit defaults to 20 (1-100), offset defaults to 0 (non-negative).
+  Response: {"transactions":[],"total":0,"limit":20,"offset":0}.
+  Each item contains id, order_id, order_name, type, amount_satang, settlement_outcome, created_at.
+  type is RELEASE_TO_ARTIST or REFUND_TO_CUSTOMER. No pending allocations, charges or other users' credits.

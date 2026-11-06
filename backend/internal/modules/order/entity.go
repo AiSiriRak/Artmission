@@ -5,6 +5,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/payment"
 	"github.com/google/uuid"
 )
 
@@ -12,11 +13,16 @@ import (
 type Status string
 
 const (
-	StatusPending   Status = "PENDING"
-	StatusNotPaid   Status = "NOT_PAID"
+	// StatusPending waits for the artist's decision; no payment is created yet.
+	StatusPending Status = "PENDING"
+	// StatusNotPaid means the artist accepted and a PENDING payment is waiting for verification.
+	StatusNotPaid Status = "NOT_PAID"
+	// StatusInProcess means payment is confirmed and the artist can work on the order.
 	StatusInProcess Status = "IN_PROCESS"
-	StatusSuccess   Status = "SUCCESS"
-	StatusCancel    Status = "CANCEL"
+	// StatusSuccess is terminal; held payment is settled into the artist's wallet.
+	StatusSuccess Status = "SUCCESS"
+	// StatusCancel is terminal; unpaid payments close and held payments settle by cancellation outcome.
+	StatusCancel Status = "CANCEL"
 )
 
 // IsValid reports whether s is a supported order status.
@@ -55,6 +61,7 @@ func AutoCancellableStatuses() []Status {
 // It also contains the latest deliverable preview information when populated
 // by the repository and usecase.
 type Order struct {
+	Payment             *payment.Summary
 	ID                  uuid.UUID
 	CustomerID          uuid.UUID
 	ArtistID            uuid.UUID

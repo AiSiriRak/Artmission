@@ -166,17 +166,18 @@ func (h *OrderHandler) Register(api huma.API) {
 
 // orderSummaryView represents an order summary in the REST response.
 type orderSummaryView struct {
-	ID                    string     `json:"id"`
-	CustomerID            string     `json:"customer_id"`
-	ArtistID              string     `json:"artist_id"`
-	Name                  string     `json:"name"`
-	PriceSatang           int64      `json:"price_satang"`
-	DeadlineAt            time.Time  `json:"deadline_at"`
-	Status                string     `json:"status"`
-	DeliverablePreviewURL *string    `json:"deliverable_preview_url" doc:"Presigned URL of the most recently submitted deliverable's preview image, regardless of order status; null if none has been submitted yet."`
-	CompletedAt           *time.Time `json:"completed_at,omitempty"`
-	CreatedAt             time.Time  `json:"created_at"`
-	UpdatedAt             time.Time  `json:"updated_at"`
+	Payment               *paymentSummaryView `json:"payment,omitempty"`
+	ID                    string              `json:"id"`
+	CustomerID            string              `json:"customer_id"`
+	ArtistID              string              `json:"artist_id"`
+	Name                  string              `json:"name"`
+	PriceSatang           int64               `json:"price_satang"`
+	DeadlineAt            time.Time           `json:"deadline_at"`
+	Status                string              `json:"status"`
+	DeliverablePreviewURL *string             `json:"deliverable_preview_url" doc:"Presigned URL of the most recently submitted deliverable's preview image, regardless of order status; null if none has been submitted yet."`
+	CompletedAt           *time.Time          `json:"completed_at,omitempty"`
+	CreatedAt             time.Time           `json:"created_at"`
+	UpdatedAt             time.Time           `json:"updated_at"`
 }
 
 // orderPartyView represents the participant on the opposite side of the authenticated user's order.
@@ -220,6 +221,7 @@ type delayRequestView struct {
 
 // orderDetailView represents the complete order detail returned to the authenticated participant.
 type orderDetailView struct {
+	Payment             *paymentSummaryView `json:"payment,omitempty"`
 	ID                  string              `json:"id"`
 	CustomerID          string              `json:"customer_id"`
 	ArtistID            string              `json:"artist_id"`
@@ -725,6 +727,7 @@ func participantForRole(role user.Role) order.Participant {
 // toOrderSummaryView converts a domain order to its list response view.
 func toOrderSummaryView(o *order.Order) orderSummaryView {
 	return orderSummaryView{
+		Payment:               toPaymentSummaryView(o.Payment),
 		ID:                    o.ID.String(),
 		CustomerID:            o.CustomerID.String(),
 		ArtistID:              o.ArtistID.String(),
@@ -765,6 +768,7 @@ func toOrderDetailView(
 	}
 
 	return orderDetailView{
+		Payment:    toPaymentSummaryView(o.Payment),
 		ID:         o.ID.String(),
 		CustomerID: o.CustomerID.String(),
 		ArtistID:   o.ArtistID.String(),
