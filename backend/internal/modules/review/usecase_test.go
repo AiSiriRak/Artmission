@@ -10,7 +10,6 @@ import (
 )
 
 type fakeRepo struct {
-	order          *review.OrderForReview
 	created        *review.Review
 	submitCalls    int
 	submitErr      error
@@ -21,21 +20,11 @@ type fakeRepo struct {
 	orderReviewErr error
 	getReviewCalls int
 	getOrderID     uuid.UUID
+	getUserID      uuid.UUID
 	artworkReviews []review.ReviewDetail
 	listArtworkID  uuid.UUID
 	artworkErr     error
 	listQuery      review.ListQuery
-}
-
-func (f *fakeRepo) GetOrderForReview(
-	_ context.Context,
-	orderID uuid.UUID,
-) (*review.OrderForReview, error) {
-	if f.order == nil || f.order.ID != orderID {
-		return nil, review.ErrOrderNotFound
-	}
-
-	return f.order, nil
 }
 
 func (f *fakeRepo) SubmitReview(
@@ -79,12 +68,14 @@ func (f *fakeRepo) ListByArtistID(
 	}, nil
 }
 
-func (f *fakeRepo) GetByOrderID(
+func (f *fakeRepo) GetReviewByOrderID(
 	_ context.Context,
+	userID uuid.UUID,
 	orderID uuid.UUID,
 ) (*review.ReviewDetail, error) {
 	f.getReviewCalls++
 	f.getOrderID = orderID
+	f.getUserID = userID
 	return f.orderReview, f.orderReviewErr
 }
 
@@ -305,63 +296,69 @@ func TestGetArtistReviews_RepositoryError(t *testing.T) {
 	}
 }
 
-// TestGetOrderReview_Participants allows both parties to read the order's review.
-func TestGetOrderReview_Participants(t *testing.T) {
-	customerID, artistID, orderID := uuid.New(), uuid.New(), uuid.New()
-	for _, userID := range []uuid.UUID{customerID, artistID} {
-		t.Run(userID.String(), func(t *testing.T) {
-			item := &review.ReviewDetail{
-				Review:   review.Review{ID: uuid.New(), OrderID: orderID, Rating: 5},
-				Username: "Customer", Order: "Cat artwork",
+// TestGetOrderReview_Success forwards the caller and order IDs and returns the repository result.
+func TestGetOrderReview_Success(t *testing.T) {
+	userID, orderID := uuid.New(), uuid.New()
+	item := &review.ReviewDetail{
+		Review:   review.Review{ID: uuid.New(), OrderID: orderID, Rating: 5},
+		Username: "Customer", Order: "Cat artwork",
+	}
+	repo := &fakeRepo{orderReview: item}
+
+	result, err := review.NewReviewUsecase(repo).GetOrderReview(context.Background(), userID, orderID)
+	if err != nil || result != item {
+		t.Fatalf("expected the repository review, got %v, %v", result, err)
+	}
+	if repo.getReviewCalls != 1 || repo.getUserID != userID || repo.getOrderID != orderID {
+		t.Fatal("expected one repository call with the user and order IDs")
+	}
+}
+
+// TestGetOrderReview_RepositoryError preserves access, missing-data, and storage errors.
+func TestGetOrderReview_RepositoryError(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+	}{
+		{name: "missing order", err: review.ErrOrderNotFound},
+		{name: "not a participant", err: review.ErrNotOrderParticipant},
+		{name: "missing review", err: review.ErrReviewNotFound},
+		{name: "database failure", err: errors.New("review query failed")},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeRepo{orderReviewErr: tc.err}
+			result, err := review.NewReviewUsecase(repo).GetOrderReview(context.Background(), uuid.New(), uuid.New())
+			if !errors.Is(err, tc.err) || result != nil {
+				t.Fatalf("expected error %v, got %v, %v", tc.err, result, err)
 			}
-			repo := &fakeRepo{
-				order:       &review.OrderForReview{ID: orderID, CustomerID: customerID, ArtistID: artistID},
-				orderReview: item,
-			}
-			result, err := review.NewReviewUsecase(repo).GetOrderReview(context.Background(), userID, orderID)
-			if err != nil || result != item || repo.getOrderID != orderID {
-				t.Fatalf("expected the order's review, got %v, %v", result, err)
+			if repo.getReviewCalls != 1 {
+				t.Fatal("expected one repository call")
 			}
 		})
 	}
 }
 
-// TestGetOrderReview_Outsider rejects other users before reading the review.
-func TestGetOrderReview_Outsider(t *testing.T) {
-	orderID := uuid.New()
-	repo := &fakeRepo{order: &review.OrderForReview{
-		ID: orderID, CustomerID: uuid.New(), ArtistID: uuid.New(),
-	}}
-	result, err := review.NewReviewUsecase(repo).GetOrderReview(context.Background(), uuid.New(), orderID)
-	if !errors.Is(err, review.ErrNotOrderParticipant) || result != nil {
-		t.Fatalf("expected ErrNotOrderParticipant, got %v, %v", result, err)
+// TestGetOrderReview_MissingIDs rejects missing identities before querying the repository.
+func TestGetOrderReview_MissingIDs(t *testing.T) {
+	cases := []struct {
+		name    string
+		userID  uuid.UUID
+		orderID uuid.UUID
+	}{
+		{name: "missing user", orderID: uuid.New()},
+		{name: "missing order ID", userID: uuid.New()},
 	}
-	if repo.getReviewCalls != 0 {
-		t.Fatal("must not read the review for an unrelated user")
-	}
-}
 
-// TestGetOrderReview_MissingReview reports when the order has no review yet.
-func TestGetOrderReview_MissingReview(t *testing.T) {
-	customerID, orderID := uuid.New(), uuid.New()
-	repo := &fakeRepo{order: &review.OrderForReview{ID: orderID, CustomerID: customerID}}
-	result, err := review.NewReviewUsecase(repo).GetOrderReview(context.Background(), customerID, orderID)
-	if !errors.Is(err, review.ErrReviewNotFound) || result != nil {
-		t.Fatalf("expected ErrReviewNotFound, got %v, %v", result, err)
-	}
-}
-
-// TestGetOrderReview_RepositoryError preserves errors returned while reading a review.
-func TestGetOrderReview_RepositoryError(t *testing.T) {
-	customerID, orderID := uuid.New(), uuid.New()
-	expectedErr := errors.New("review query failed")
-	repo := &fakeRepo{
-		order:          &review.OrderForReview{ID: orderID, CustomerID: customerID},
-		orderReviewErr: expectedErr,
-	}
-	result, err := review.NewReviewUsecase(repo).GetOrderReview(context.Background(), customerID, orderID)
-	if !errors.Is(err, expectedErr) || result != nil {
-		t.Fatalf("expected repository error, got %v, %v", result, err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeRepo{}
+			result, err := review.NewReviewUsecase(repo).GetOrderReview(context.Background(), tc.userID, tc.orderID)
+			if err == nil || result != nil || repo.getReviewCalls != 0 {
+				t.Fatal("missing IDs must be rejected before the repository is called")
+			}
+		})
 	}
 }
 
