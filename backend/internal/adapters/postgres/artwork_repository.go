@@ -214,8 +214,8 @@ var artworkSearchOrderExpr = map[artwork.SearchSort]string{
 	artwork.SearchSortNameAsc:         "a.name ASC, a.id ASC",
 	artwork.SearchSortPriceAsc:        "a.price_satang ASC, a.name ASC, a.id ASC",
 	artwork.SearchSortPriceDesc:       "a.price_satang DESC, a.name ASC, a.id ASC",
-	artwork.SearchSortReviewScoreAsc:  "rs.review_score ASC NULLS FIRST, a.name ASC, a.id ASC",
-	artwork.SearchSortReviewScoreDesc: "rs.review_score DESC NULLS LAST, a.name ASC, a.id ASC",
+	artwork.SearchSortReviewScoreAsc:  "ap.review_score ASC NULLS FIRST, a.name ASC, a.id ASC",
+	artwork.SearchSortReviewScoreDesc: "ap.review_score DESC NULLS LAST, a.name ASC, a.id ASC",
 }
 
 // applyArtworkSearchFilters applies the supported filters to an artwork search query.
@@ -243,7 +243,7 @@ func applyArtworkSearchFilters(q *bun.SelectQuery, query artwork.SearchQuery) *b
 		q = q.Where("a.price_satang <= ?", *query.MaxPriceSatang)
 	}
 	if query.MinReviewScore != nil {
-		q = q.Where("rs.review_score >= ?", *query.MinReviewScore)
+		q = q.Where("ap.review_score >= ?", *query.MinReviewScore)
 	}
 	return q
 }
@@ -680,11 +680,10 @@ func (repo *artworkRepository) Search(
 			ColumnExpr("c.label AS category").
 			ColumnExpr("u.username AS artist_name").
 			ColumnExpr("u.profile_image_key").
-			ColumnExpr("rs.review_score").
+			ColumnExpr("ap.review_score").
 			Join("JOIN artist_profiles AS ap ON ap.user_id = a.artist_id").
 			Join("JOIN users AS u ON u.id = ap.user_id AND u.deleted_at IS NULL").
-			Join("JOIN categories AS c ON c.id = a.category_id").
-			Join("LEFT JOIN (SELECT artist_id, ROUND(AVG(rating)::numeric, 1)::double precision AS review_score FROM reviews GROUP BY artist_id) AS rs ON rs.artist_id = a.artist_id")
+			Join("JOIN categories AS c ON c.id = a.category_id")
 		q = applyArtworkSearchFilters(q, query)
 		return q.OrderExpr(orderExpr)
 	}, baserepo.PaginationInput{Limit: query.Limit, Offset: query.Offset})
