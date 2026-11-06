@@ -34,35 +34,6 @@ func NewReviewRepository(db *bun.DB) review.ReviewRepository {
 	}
 }
 
-// GetOrderForReview loads the order's participants and current status.
-func (r *reviewRepository) GetOrderForReview(
-	ctx context.Context,
-	orderID uuid.UUID,
-) (*review.OrderForReview, error) {
-	row := new(pgmodel.Order)
-
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return idb.NewSelect().
-			Model(row).
-			Column("id", "customer_id", "artist_id", "status").
-			Where("o.id = ?", orderID).
-			Scan(ctx)
-	})
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, review.ErrOrderNotFound
-		}
-		return nil, apperror.Internal("failed to get order for review", err)
-	}
-
-	return &review.OrderForReview{
-		ID:         row.ID,
-		CustomerID: row.CustomerID,
-		ArtistID:   row.ArtistID,
-		Status:     order.Status(row.Status),
-	}, nil
-}
-
 // newReviewModel converts a domain review into a database model.
 func newReviewModel(item *review.Review) *pgmodel.Review {
 	return &pgmodel.Review{
@@ -248,26 +219,53 @@ func (r *reviewRepository) ListByArtistID(
 	}, nil
 }
 
-// GetByOrderID retrieves the review associated with an order.
-func (r *reviewRepository) GetByOrderID(
+// GetReviewByOrderID retrieves an order's review for its customer or artist.
+func (r *reviewRepository) GetReviewByOrderID(
 	ctx context.Context,
+	userID uuid.UUID,
 	orderID uuid.UUID,
 ) (*review.ReviewDetail, error) {
-	var row reviewDetailRow
+	var row struct {
+		pgmodel.Review
+		OrderCustomerID uuid.UUID `bun:"order_customer_id"`
+		OrderArtistID   uuid.UUID `bun:"order_artist_id"`
+		Username        string    `bun:"username"`
+		OrderName       string    `bun:"order_name"`
+	}
 
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return newReviewDetailQuery(idb).
-			Where("r.order_id = ?", orderID).
+		// Keep the order when no review exists so access and missing-review errors stay distinct.
+		return idb.NewSelect().
+			TableExpr("orders AS o").
+			ColumnExpr("r.*").
+			ColumnExpr("o.customer_id AS order_customer_id, o.artist_id AS order_artist_id").
+			ColumnExpr("customer.username AS username").
+			ColumnExpr("COALESCE(NULLIF(o.artwork_snapshot->>'artwork_name', ''), a.name, o.name) AS order_name").
+			Join("LEFT JOIN reviews AS r ON r.order_id = o.id").
+			Join("JOIN users AS customer ON customer.id = o.customer_id").
+			Join("LEFT JOIN artworks AS a ON a.id = o.artwork_id").
+			Where("o.id = ?", orderID).
 			Scan(ctx, &row)
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, review.ErrReviewNotFound
+			return nil, review.ErrOrderNotFound
 		}
 		return nil, apperror.Internal("failed to get order review", err)
 	}
 
-	item := row.toDomain()
+	if userID != row.OrderCustomerID && userID != row.OrderArtistID {
+		return nil, review.ErrNotOrderParticipant
+	}
+	if row.ID == uuid.Nil {
+		return nil, review.ErrReviewNotFound
+	}
+
+	item := reviewDetailRow{
+		Review:    row.Review,
+		Username:  row.Username,
+		OrderName: row.OrderName,
+	}.toDomain()
 	return &item, nil
 }
 
