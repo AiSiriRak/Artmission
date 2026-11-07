@@ -35,7 +35,7 @@ export default function OrderCancelSection({
             roundsize="rounded-3xl"
             className="max-w-none border border-primary-500 bg-secondary-200 shadow-none"
           >
-            <div className="break-words text-body">
+            <div className="break-words text-caption">
               {review.comment}
             </div>
           </WhiteCard>

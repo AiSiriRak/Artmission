@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { updateArtistProfile, getArtistArtworks } from "@/lib/api/artists";
 import {
@@ -34,7 +34,10 @@ import ArtworkCard from "./ArtworkCard";
 import TagList from "./TagList";
 import ArtworkDetail from "./ArtworkDetail";
 import ReviewList from "../review/ReviewList";
-import { getArtistReviews } from "@/lib/api/reviews";
+import {
+  getArtistReviews,
+  type ArtistReviewData,
+} from "@/lib/api/reviews";
 import ArtistProfileView from "./ArtistProfileView";
 
 // Shared UI Components
@@ -68,7 +71,32 @@ export default function ProfileManager({
     null,
   );
 
-  const reviews = getArtistReviews(initialProfile.artist_id);
+  const [reviews, setReviews] = useState<ArtistReviewData[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchReviews = async () => {
+      try {
+        const data = await getArtistReviews(initialProfile.artist_id);
+
+        if (!cancelled) {
+          setReviews(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch artist reviews:", error);
+
+        if (!cancelled) {
+          setReviews([]);
+        }
+      }
+    };
+
+    fetchReviews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialProfile.artist_id]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,

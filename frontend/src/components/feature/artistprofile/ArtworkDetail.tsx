@@ -22,7 +22,10 @@ import {
   resolveCatalogIds,
   type CatalogOption,
 } from "./artworkCatalog";
-import { getArtworkReviews } from "@/lib/api/reviews";
+import {
+  getArtworkReviews,
+  type ReviewData,
+} from "@/lib/api/reviews";
 
 interface ArtworkDetailProps {
   artwork?: (Artwork & { id?: string | number }) | null;
@@ -106,6 +109,7 @@ export default function ArtworkDetail({
     price: "",
   });
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [reviews, setReviews] = useState<ReviewData[]>([]);
 
   useEffect(() => {
     catalogRef.current = {
@@ -372,7 +376,35 @@ export default function ArtworkDetail({
     (img) => img.previewUrl,
   );
 
-  const reviews = artwork ? getArtworkReviews(artwork.id) : null;
+  useEffect(() => {
+    if (!artwork?.id) {
+      setReviews([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchReviews = async () => {
+      try {
+        const data = await getArtworkReviews(artwork.id);
+
+        if (!cancelled) {
+          setReviews(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch artwork reviews:", error);
+        if (!cancelled) {
+          setReviews([]);
+        }
+      }
+    };
+
+    fetchReviews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [artwork?.id]);
 
   return (
     <>

@@ -32,7 +32,6 @@ import {
   getReviewByOrderId,
   createReview,
   type Review,
-  mockReviews,
 } from "@/lib/api/reviews";
 import FinalArtworkActions from "./FinalArtworkActions";
 
@@ -134,20 +133,26 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
   }, [initialOrder.artist_id]);
 
   useEffect(() => {
-    let active = true;
+    let cancelled = false;
 
-    getReviewByOrderId(order.id)
-      .then((result) => {
-        if (active) {
-          setReview(result);
+    const fetchReview = async () => {
+      try {
+        const data = await getReviewByOrderId(order.id);
+
+        if (!cancelled) {
+          setReview(data);
         }
-      })
-      .catch((error) => {
-        console.error("Failed to load review:", error);
-      });
+      } catch (error) {
+        if (!cancelled) {
+          setReview(null);
+        }
+      }
+    };
+
+    fetchReview();
 
     return () => {
-      active = false;
+      cancelled = true;
     };
   }, [order.id]);
 
@@ -264,11 +269,8 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
           </div>
         }
         review={
-          // order.review && 
-          order.status === "SUCCESS" ? (
-            <OrderReview
-              review={hasReviewed ? mockReviews[1] : null}
-            />
+          hasReviewed && order.status === "SUCCESS" ? (
+            <OrderReview review={review} />
           ) : null
         }
       >
@@ -314,19 +316,12 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
         isOpen={reviewStep === "rating"}
         status="default"
         onCancel={() => setReviewStep("none")}
-        onConfirm={async () => {
-          const newReview: Review = {
-            id: crypto.randomUUID(),
-            order_id: order.id,
-            customer_id: "mock-customer",
-            artist_id: order.artist_id,
-            rating: 5,
-            comment: "Great artwork!",
-            created_at: new Date().toISOString(),
-          };
-
+        onConfirm={async (rating, comment) => {
           try {
-            const savedReview = await createReview(newReview);
+            const savedReview = await createReview(order.id, {
+              rating,
+              ...(comment !== null && { comment }),
+            });
 
             setReview(savedReview);
             setReviewStep("thanks");

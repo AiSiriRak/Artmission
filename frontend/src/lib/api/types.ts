@@ -90,3 +90,13 @@ export type SearchArtworksSort = NonNullable<SearchArtworksQuery["sort"]>;
 // Type from multipart/form-data from path
 export type CreateArtworkInput = RequestBody<"/artworks", "post">;
 export type UpdateArtworkInput = RequestBody<"/artworks/{artwork_id}", "put">;
+
+// Review
+export type Review = components["schemas"]["ReviewView"];
+export type SubmitReviewInput = components["schemas"]["SubmitReviewInputBody"];
+export type ReviewDetail = components["schemas"]["ReviewDetailView"];
+export type ArtistReviewDetailView = components["schemas"]["ArtistReviewDetailView"];
+export type ArtworkReviewsOutput =
+  components["schemas"]["GetReviewsByArtworkOutputBody"];
+export type ArtistReviewsOutput =
+  components["schemas"]["GetArtistReviewsOutputBody"];

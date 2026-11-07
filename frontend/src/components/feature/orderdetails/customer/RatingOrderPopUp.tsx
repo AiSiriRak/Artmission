@@ -6,16 +6,28 @@ import { Button } from "@/components/ui/Button";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import { TextInput } from "@/components/ui/TextInput";
 
-interface RatingOrderPopup {
+interface RatingOrderPopupProps {
   isOpen: boolean;
   status: string;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (rating: number, comment: string | null) => void;
 }
 
-export function RatingOrderPopup({ isOpen, onConfirm }: RatingOrderPopup) {
-  const [rating, setRating] = useState(1);
+export function RatingOrderPopup({ isOpen, onConfirm }: RatingOrderPopupProps) {
+  const [rating, setRating] = useState(0);
   const [review, setReview] = useState("");
+  const [error, setError] = useState("");
+
+  const handleConfirm = () => {
+    if (rating === 0) {
+      setError("Please select a rating.");
+      return;
+    }
+
+    setError("");
+    onConfirm(rating, review.trim() || null);
+  };
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -60,6 +72,7 @@ export function RatingOrderPopup({ isOpen, onConfirm }: RatingOrderPopup) {
                 ))}
               </div>
             </div>
+
             {/* TextInput */}
             <div className="mt-[24px]">
               <TextInput
@@ -71,12 +84,13 @@ export function RatingOrderPopup({ isOpen, onConfirm }: RatingOrderPopup) {
                 className="rounded-lg border-2 border-primary-500 px-4 py-3 text-small placeholder:text-neutral-500"
               />
             </div>
+
             {/* Buttons */}
             <div className="mt-[20px] flex w-full justify-center">
               <Button
                 variant="accent-500"
                 className="w-full py-[12px]"
-                onClick={onConfirm}
+                onClick={handleConfirm}
                 disabled={rating === 0}
               >
                 Submit
