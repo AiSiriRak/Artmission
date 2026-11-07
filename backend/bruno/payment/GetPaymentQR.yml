@@ -1,0 +1,85 @@
+info:
+  name: GetPaymentQR
+  type: http
+  seq: 2
+  tags:
+    - payments
+
+http:
+  method: GET
+  url: "{{api_url}}/orders/:order_id/payment/qr"
+  params:
+    - name: order_id
+      value: "{{OrderID}}"
+      type: path
+      description: Order ID owned by the authenticated customer; must be NOT_PAID.
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 15000
+  followRedirects: false
+  maxRedirects: 0
+  forwardAuthorizationHeader: true
+
+examples:
+  - name: 200 Response
+    description: Existing PromptPay QR payload and expiry
+    request:
+      url: "{{api_url}}/orders/:order_id/payment/qr"
+      method: GET
+      params:
+        - name: order_id
+          value: ""
+          type: path
+          description: Order ID
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "success": true,
+            "message": "Payment QR retrieved.",
+            "payment_id": "00000000-0000-0000-0000-000000000000",
+            "order_id": "00000000-0000-0000-0000-000000000000",
+            "qr_payload": "<PromptPay QR payload>",
+            "qr_expire": "2026-11-02T10:00:00Z"
+          }
+  - name: default Response
+    description: Missing/invalid auth, order not found or ineligible, QR not generated (404, call POST first), or QR expired (410)
+    request:
+      url: "{{api_url}}/orders/:order_id/payment/qr"
+      method: GET
+      params:
+        - name: order_id
+          value: ""
+          type: path
+          description: Order ID
+    response:
+      headers:
+        - name: Content-Type
+          value: application/problem+json
+      body:
+        type: json
+        data: |-
+          {
+            "$schema": "",
+            "detail": "",
+            "errors": "",
+            "instance": "",
+            "status": 0,
+            "title": "",
+            "type": ""
+          }
+
+docs: |-
+  Retrieve the stored QR payload for an authenticated customer's NOT_PAID order.
+  GET is read-only: it never generates a QR or calls Slip2Go. If no QR exists yet it
+  returns 404 "payment QR has not been generated"; create it with POST on the same path.
+  The QR expires 24 hours after the NOT_PAID transition and is not returned once expired.
+  Use the customer login request first so inherited Authorization uses a valid access token.

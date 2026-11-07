@@ -41,6 +41,7 @@ export function ArtworkCard({
             width={320}
             height={320}
             className="h-full w-full object-cover"
+            unoptimized
           />
         </div>
         <div className="space-y-2 p-6">{children}</div>
