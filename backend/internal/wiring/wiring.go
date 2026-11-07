@@ -11,12 +11,15 @@ import (
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres"
+	"github.com/AiSiriRak/Artmission/backend/internal/adapters/slip2go"
 	"github.com/AiSiriRak/Artmission/backend/internal/adapters/token"
 	"github.com/AiSiriRak/Artmission/backend/internal/handler/rest"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/artist"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/artwork"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/auth"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/payment"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/review"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/config"
@@ -35,6 +38,7 @@ type Config struct {
 	Logger        *slog.Logger
 	App           config.App
 	Auth          config.Auth
+	Slip2Go       config.Slip2Go
 	ObjectStorage *objectstorage.Client
 }
 
@@ -48,6 +52,8 @@ func Wire(cfg Config) *httpserver.Server {
 	artworkRepo := postgres.NewArtworkRepository(cfg.DB)
 	sessionRepo := postgres.NewSessionRepository(cfg.DB)
 	orderRepo := postgres.NewOrderRepository(cfg.DB)
+	reviewRepo := postgres.NewReviewRepository(cfg.DB)
+	paymentRepo := postgres.NewPaymentRepository(cfg.DB)
 	accountDeletionRepo := postgres.NewAccountDeletionRepository(cfg.DB)
 	tokenIssuer := token.NewJWTIssuer(cfg.Auth.JWTSecret)
 	tx := baserepo.NewTransactioner(cfg.DB)
@@ -57,19 +63,27 @@ func Wire(cfg Config) *httpserver.Server {
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx, cfg.ObjectStorage.Public)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private)
+	reviewUsecase := review.NewReviewUsecase(reviewRepo)
+	paymentUsecase := payment.NewPaymentUsecase(paymentRepo, newSlip2GoProvider(cfg.Slip2Go))
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	orderHandler := rest.NewOrderHandler(orderUsecase, artworkUsecase, authUsecase)
+	reviewHandler := rest.NewReviewHandler(reviewUsecase, authUsecase)
 	artistHandler := rest.NewArtistHandler(artistUsecase, authUsecase)
 	artworkHandler := rest.NewArtworkHandler(artworkUsecase, authUsecase)
+	paymentHandler := rest.NewPaymentHandler(paymentUsecase, authUsecase)
 
 	api, server := httpserver.New(cfg.App.Address, cfg.App.BasePath, cfg.App.AllowedOrigins, cfg.Logger, []httpserver.Pinger{cfg.DB, cfg.ObjectStorage})
 	authHandler.Register(api)
 	userHandler.Register(api)
 	orderHandler.Register(api)
+	reviewHandler.Register(api)
 	artistHandler.Register(api)
 	artworkHandler.Register(api)
+	paymentHandler.Register(api)
+	wallet := payment.NewWalletUsecase(postgres.NewWalletRepository(cfg.DB))
+	rest.NewWalletHandler(wallet, authUsecase).Register(api)
 
 	return server
 }
@@ -82,8 +96,21 @@ const orderExpiryInterval = time.Minute
 func WireWorkers(cfg Config) []worker.Worker {
 	orderRepo := postgres.NewOrderRepository(cfg.DB)
 	orderUsecase := order.NewOrderUsecase(orderRepo, cfg.ObjectStorage.Private)
+	paymentRepo := postgres.NewPaymentRepository(cfg.DB)
+	paymentUsecase := payment.NewPaymentUsecase(paymentRepo, newSlip2GoProvider(cfg.Slip2Go))
 
 	return []worker.Worker{
 		worker.NewOrderExpiryWorker(orderUsecase, orderExpiryInterval, cfg.Logger),
+		worker.NewPaymentQRWorker(paymentUsecase, orderExpiryInterval, cfg.Logger),
 	}
+}
+
+func newSlip2GoProvider(cfg config.Slip2Go) payment.QRProvider {
+	return slip2go.NewClient(slip2go.Config{
+		APIBaseURL:    cfg.APIBaseURL,
+		SecretKey:     cfg.SecretKey,
+		PromptPayCode: cfg.PromptPayCode,
+		PromptPayType: cfg.PromptPayType,
+		AccountName:   cfg.AccountName,
+	})
 }

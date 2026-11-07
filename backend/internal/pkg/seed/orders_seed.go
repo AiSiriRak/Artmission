@@ -2,6 +2,8 @@ package seed
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )
+
+const paymentQRValidityPeriod = 24 * time.Hour
 
 type orderSeed struct {
 	Key                 string
@@ -126,6 +130,36 @@ func seedOrdersUp(ctx context.Context, d deps) error {
 	return seedTable(ctx, d, rows, "id")
 }
 
+func seedPaymentsUp(ctx context.Context, d deps) error {
+	var seededOrder struct {
+		ID           uuid.UUID `bun:"id"`
+		AmountSatang int64     `bun:"price_satang_order"`
+		TransitionAt time.Time `bun:"updated_at"`
+	}
+	if err := d.db.NewSelect().
+		Table("orders").
+		Column("id", "price_satang_order", "updated_at").
+		Where("id = ?", orderID("order-2")).
+		Where("status = ?", "NOT_PAID").
+		Scan(ctx, &seededOrder); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("load NOT_PAID seed order for payment: %w", err)
+	}
+
+	expiresAt := seededOrder.TransitionAt.Add(paymentQRValidityPeriod)
+	return seedTable(ctx, d, []pgmodel.Payment{{
+		ID:           id("payment", "order-2"),
+		OrderID:      seededOrder.ID,
+		AmountSatang: seededOrder.AmountSatang,
+		Status:       "PENDING",
+		QRExpire:     &expiresAt,
+		CreatedAt:    seededOrder.TransitionAt,
+		UpdatedAt:    seededOrder.TransitionAt,
+	}}, "id")
+}
+
 // orderIDsOfSeededUsers returns the IDs of every order placed by or assigned to
 // a seeded user, including orders created later through the app. The down
 // steps must clear all of them: orders.customer_id and orders.artist_id are
@@ -176,6 +210,25 @@ func seedPaymentsDown(ctx context.Context, d deps) error {
 		return err
 	}
 	return deleteTableRows(ctx, d, "payments", "order_id", ids)
+}
+
+func seedWalletEntriesDown(ctx context.Context, d deps) error {
+	userIDs := make([]uuid.UUID, len(users))
+	for i, u := range users {
+		userIDs[i] = userID(u.Key)
+	}
+	_, err := d.db.NewRaw(`WITH removed AS (DELETE FROM wallet_entries WHERE user_id IN (?) OR payment_transaction_id IN (
+		SELECT t.id FROM payment_transactions t JOIN payments p ON p.id = t.payment_id
+		JOIN orders o ON o.id = p.order_id WHERE o.customer_id IN (?) OR o.artist_id IN (?)
+	) RETURNING user_id, amount_satang), totals AS (
+		SELECT user_id, SUM(amount_satang) AS amount FROM removed GROUP BY user_id
+	) UPDATE wallets w SET balance_satang = w.balance_satang - totals.amount, updated_at = NOW()
+	FROM totals WHERE w.user_id = totals.user_id`, bun.List(userIDs), bun.List(userIDs), bun.List(userIDs)).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = d.db.NewRaw(`DELETE FROM wallets WHERE user_id IN (?)`, bun.List(userIDs)).Exec(ctx)
+	return err
 }
 
 func seedOrderDelayRequestsDown(ctx context.Context, d deps) error {

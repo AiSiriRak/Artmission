@@ -394,6 +394,7 @@ func (u *orderUsecase) CancelOrder(
 	}
 
 	// TODO(notify): Notify the other participant that the order was cancelled.
+	// TODO(notify): Notify recipients about the full refund or 50/50 wallet credits after a paid cancellation.
 	// Include the cancellation reason and explanation in the notification.
 	// Status: CANCEL
 
@@ -419,6 +420,7 @@ func (u *orderUsecase) CancelExpiredOrders(
 	}
 
 	// TODO(notify): Notify the relevant participants for each cancelled order.
+	// TODO(notify): Notify the customer about the full wallet refund after a paid order's deadline expiration.
 	// Status: CANCEL
 
 	return cancelledOrderIDs, nil
@@ -524,6 +526,7 @@ func (u *orderUsecase) CreateDeliverable(
 	created.PreviewImageURL = previewURL
 
 	// TODO(notify): Notify the customer that a new deliverable is available.
+	// TODO(notify): On the final auto-approved version, notify the artist about the wallet payout credit.
 	// Include the order ID and deliverable details in the notification.
 
 	return created, nil
@@ -869,6 +872,7 @@ func (u *orderUsecase) ConfirmDeliverable(
 	}
 
 	// TODO(notify): Notify the artist about the customer's deliverable decision.
+	// TODO(notify): On approval, notify the artist about the completed order and wallet payout credit.
 	// If approved, notify that the order status has changed to SUCCESS.
 	// If rejected, notify that the customer requests another draft.
 
@@ -892,6 +896,7 @@ func (u *orderUsecase) AutoApproveExpiredDeliverables(
 	}
 
 	// TODO(notify): Notify the artist and customer about auto-approved deliverables.
+	// TODO(notify): Notify the artist about the wallet payout credited on automatic completion.
 	// The deliverable review window has expired, so the deliverable is approved
 	// automatically and the order status changed to SUCCESS.
 	// Use the returned deliverable IDs to identify the affected deliverables.
@@ -1022,31 +1027,4 @@ func (u *orderUsecase) CancelExpiredDelayRequest(
 	// Use the returned delay request IDs to identify the affected requests.
 
 	return ids, nil
-}
-
-// for sprint 2
-// BypassOrderPayment transitions order status from NOT_PAID to IN_PROCESS for dev.
-func (u *orderUsecase) BypassOrderPayment(
-	ctx context.Context,
-	customerID uuid.UUID,
-	orderID uuid.UUID,
-) error {
-	if customerID == uuid.Nil {
-		return ErrMissingParticipantID
-	}
-
-	if orderID == uuid.Nil {
-		return ErrMissingOrderID
-	}
-
-	err := u.repo.BypassOrderPayment(
-		ctx,
-		customerID,
-		orderID,
-	)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
