@@ -75,3 +75,8 @@ jobs:
             AUTH_JWT_SECRET=${{ secrets.AUTH_JWT_SECRET }}
             S3_ACCESS_KEY_ID=${{ secrets.S3_ACCESS_KEY_ID }}
             S3_SECRET_ACCESS_KEY=${{ secrets.S3_SECRET_ACCESS_KEY }}
+            SLIP2GO_SECRET_KEY=${{ secrets.SLIP2GO_SECRET_KEY }}
+            SLIP2GO_API_BASE_URL=${{ vars.SLIP2GO_API_BASE_URL }}
+            SLIP2GO_PROMPTPAY_CODE=${{ secrets.SLIP2GO_PROMPTPAY_CODE }}
+            SLIP2GO_PROMPTPAY_TYPE=${{ vars.SLIP2GO_PROMPTPAY_TYPE }}
+            SLIP2GO_ACCOUNT_NAME=${{ vars.SLIP2GO_ACCOUNT_NAME }}

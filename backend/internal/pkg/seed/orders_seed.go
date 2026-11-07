@@ -2,6 +2,8 @@ package seed
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )
+
+const paymentQRValidityPeriod = 24 * time.Hour
 
 type orderSeed struct {
 	Key                 string
@@ -124,6 +128,36 @@ func seedOrdersUp(ctx context.Context, d deps) error {
 		}
 	}
 	return seedTable(ctx, d, rows, "id")
+}
+
+func seedPaymentsUp(ctx context.Context, d deps) error {
+	var seededOrder struct {
+		ID           uuid.UUID `bun:"id"`
+		AmountSatang int64     `bun:"price_satang_order"`
+		TransitionAt time.Time `bun:"updated_at"`
+	}
+	if err := d.db.NewSelect().
+		Table("orders").
+		Column("id", "price_satang_order", "updated_at").
+		Where("id = ?", orderID("order-2")).
+		Where("status = ?", "NOT_PAID").
+		Scan(ctx, &seededOrder); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("load NOT_PAID seed order for payment: %w", err)
+	}
+
+	expiresAt := seededOrder.TransitionAt.Add(paymentQRValidityPeriod)
+	return seedTable(ctx, d, []pgmodel.Payment{{
+		ID:           id("payment", "order-2"),
+		OrderID:      seededOrder.ID,
+		AmountSatang: seededOrder.AmountSatang,
+		Status:       "PENDING",
+		QRExpire:     &expiresAt,
+		CreatedAt:    seededOrder.TransitionAt,
+		UpdatedAt:    seededOrder.TransitionAt,
+	}}, "order_id")
 }
 
 // orderIDsOfSeededUsers returns the IDs of every order placed by or assigned to
