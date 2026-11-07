@@ -1,4 +1,7 @@
-import type { ReviewData } from "@/lib/api/reviews";
+import type {
+  ReviewData,
+  ArtistReviewData,
+} from "@/lib/api/reviews";
 
 export function ReviewStars({ rating, size = 24 }: { rating: number; size?: number }) {
   return (
@@ -27,10 +30,10 @@ export function ReviewStars({ rating, size = 24 }: { rating: number; size?: numb
   );
 }
 
-export default function ReviewCard({ review }: { review: ReviewData }) {
+export default function ReviewCard({ review }: { review: ReviewData | ArtistReviewData }) {
   return (
     <div className="bg-secondary-300 rounded-2xl p-5 flex items-start gap-4">
-      {/* รูปโปรไฟล์คนรีวิว */}
+      {/* Profile Image */}
       <div className="w-12 h-12 rounded-full bg-gray-300 flex-shrink-0 overflow-hidden">
         {review.avatarUrl && (
           <img
@@ -41,7 +44,7 @@ export default function ReviewCard({ review }: { review: ReviewData }) {
         )}
       </div>
 
-      {/* ข้อมูลรีวิว */}
+      {/* Review Information */}
       <div className="flex-1 text-sm text-gray-800 leading-relaxed gap-4">
         <div className="flex items-center gap-2 mb-1">
           <span className="font-bold text-gray-900">
@@ -51,6 +54,16 @@ export default function ReviewCard({ review }: { review: ReviewData }) {
             • {review.timeAgo || "2 hrs ago"}
           </span>
         </div>
+
+        {/* Artwork Name - Artist page only */}
+        {"artworkName" in review && (
+          <p className="font-semibold text-gray-900">
+            Artwork:{" "}
+            <span className="font-normal">
+              {review.artworkName}
+            </span>
+          </p>
+        )}
 
         <p className="font-semibold text-gray-900">
           Order:{" "}

@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 
-import type { ReviewData } from "@/lib/api/reviews";
 import ReviewCard from "./ReviewCard";
+import type {
+  ReviewData,
+  ArtistReviewData,
+} from "@/lib/api/reviews";
 
 interface ReviewListProps {
   title?: string;
-  reviews: ReviewData[];
+  reviews: (ReviewData | ArtistReviewData)[];
 }
 
 const INITIAL_COUNT = 5;

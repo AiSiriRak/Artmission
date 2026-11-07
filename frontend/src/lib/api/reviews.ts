@@ -48,6 +48,10 @@ export interface ReviewData {
   avatarUrl?: string;
 }
 
+export interface ArtistReviewData extends ReviewData {
+  artworkName: string;
+}
+
 export const mockReviews: Review[] = [
   {
     id: "review-004",
@@ -231,6 +235,49 @@ export const mockReviews: Review[] = [
   },
 ];
 
+interface MockArtwork {
+  id: string;
+  name: string;
+}
+
+export const mockArtworks: MockArtwork[] = [
+  {
+    id: "artwork-001",
+    name: "Sunset in the Mountains",
+  },
+  {
+    id: "artwork-002",
+    name: "A Quiet Afternoon",
+  },
+  {
+    id: "artwork-003",
+    name: "Dreamy Garden",
+  },
+];
+
+const mockReviewArtworkMap: Record<string, string> = {
+  "review-004": "artwork-001",
+  "review-005": "artwork-002",
+  "review-006": "artwork-003",
+  "review-007": "artwork-001",
+  "review-008": "artwork-002",
+  "review-009": "artwork-003",
+  "review-010": "artwork-001",
+  "review-011": "artwork-002",
+  "review-012": "artwork-003",
+  "review-013": "artwork-001",
+  "review-014": "artwork-002",
+  "review-015": "artwork-003",
+  "review-016": "artwork-001",
+  "review-017": "artwork-002",
+  "review-018": "artwork-003",
+  "review-019": "artwork-001",
+  "review-020": "artwork-002",
+  "review-021": "artwork-003",
+  "review-022": "artwork-001",
+  "review-023": "artwork-002",
+};
+
 export async function getReviews(
   artistId: string,
 ): Promise<Review[]> {
@@ -271,24 +318,41 @@ export async function createReview(
   return review;
 }
 
-export function getArtistReviews(artistId: string): ReviewData[] {
+export function getArtistReviews(
+  artistId: string,
+): ArtistReviewData[] {
   return mockReviews
-    .map((review) => ({
-      id: review.id,
-      reviewerName: `Customer`,
-      timeAgo: formatDistanceToNow(new Date(review.created_at)),
-      orderName: "Artwork Order",
-      rating: review.rating,
-      comment: review.comment ?? "",
-    }));
+    // .filter((review) => review.artist_id === artistId)
+    .map((review) => {
+      const artworkId = mockReviewArtworkMap[review.id];
+      const artwork = mockArtworks.find(
+        (item) => item.id === artworkId,
+      );
+
+      return {
+        id: review.id,
+        reviewerName: "Customer",
+        timeAgo: formatDistanceToNow(
+          new Date(review.created_at),
+        ),
+        orderName: "Artwork Order",
+        artworkName: artwork?.name ?? "Unknown Artwork",
+        rating: review.rating,
+        comment: review.comment ?? "",
+      };
+    });
 }
 
-export function getArtworkReviews(artworkId: string): ReviewData[] {
+export function getArtworkReviews(
+  artworkId: string,
+): ReviewData[] {
   return mockReviews
     .map((review) => ({
       id: review.id,
-      reviewerName: `Customer`,
-      timeAgo: formatDistanceToNow(new Date(review.created_at)),
+      reviewerName: "Customer",
+      timeAgo: formatDistanceToNow(
+        new Date(review.created_at),
+      ),
       orderName: "Artwork Order",
       rating: review.rating,
       comment: review.comment ?? "",
