@@ -32,12 +32,12 @@ export default function ArtworkDetailCard({ artwork }: ArtworkDetailCardProps) {
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-h3">Description</h3>
-            <p className="text-body break-words">{artwork.description}</p>
+            <h3 className="text-h4">Description</h3>
+            <p className="text-caption break-words">{artwork.description}</p>
           </div>
 
           {/* Artwork Sample Gallery section */}
-          <h3 className="text-h3">Artwork Samples</h3>
+          <h3 className="text-h4">Artwork Samples</h3>
           <div className="flex justify-center items-center gap-2">
             <div className="flex flex-wrap justify-center gap-4">
               {(artwork.artwork_samples ?? []).map(({ image_url: imgUrl }, index) => (
