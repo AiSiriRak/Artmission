@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import MainLayout from "@/components/feature/main/MainLayout";
 import { Button } from "@/components/ui/Button";
+import { routes } from "@/lib/routes";
 
 interface OrderDetailsProps {
   usertype: "artist" | "customer";
@@ -32,7 +33,7 @@ export default function OrderDetails({
         <Button
           type="button"
           className="!border w-24"
-          onClick={() => router.back()}
+          onClick={() => router.replace(routes.order.history)}
           icon={
             <img
               src="/icons/Arrow_left.svg"
