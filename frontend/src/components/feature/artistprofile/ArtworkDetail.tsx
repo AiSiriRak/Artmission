@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type {
   Artwork,
   CreateArtworkInput,
@@ -109,7 +109,15 @@ export default function ArtworkDetail({
     price: "",
   });
   const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [reviews, setReviews] = useState<ReviewData[]>([]);
+  const [reviewState, setReviewState] = useState<{
+    artworkId: string;
+    reviews: ReviewData[];
+  } | null>(null);
+
+  const reviews: ReviewData[] =
+    reviewState && reviewState.artworkId === artwork?.id
+      ? reviewState.reviews
+      : [];
 
   useEffect(() => {
     catalogRef.current = {
@@ -377,29 +385,35 @@ export default function ArtworkDetail({
   );
 
   useEffect(() => {
-    if (!artwork?.id) {
-      setReviews([]);
-      return;
-    }
+    const artworkId = artwork?.id;
+
+    if (!artworkId) return;
 
     let cancelled = false;
 
     const fetchReviews = async () => {
       try {
-        const data = await getArtworkReviews(artwork.id);
+        const data = await getArtworkReviews(artworkId);
 
         if (!cancelled) {
-          setReviews(data);
+          setReviewState({
+            artworkId,
+            reviews: data,
+          });
         }
       } catch (error) {
         console.error("Failed to fetch artwork reviews:", error);
+
         if (!cancelled) {
-          setReviews([]);
+          setReviewState({
+            artworkId,
+            reviews: [],
+          });
         }
       }
     };
 
-    fetchReviews();
+    void fetchReviews();
 
     return () => {
       cancelled = true;
@@ -668,7 +682,7 @@ export default function ArtworkDetail({
           )}
         </div>
 
-        {reviews && (
+        {artwork?.id && (
           <div className="mt-12">
             <div className="flex items-center gap-3 mb-6">
               <h2 className="text-xl font-bold text-gray-900">Order Reviews</h2>

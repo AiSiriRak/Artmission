@@ -57,7 +57,7 @@ export default function OrderCancelSection({
                 className="h-18 w-18 shrink-0"
               />
               <div className="mt-2 break-words text-body text-neutral">
-                waiting for customer's review
+                waiting for customer&apos;s review
               </div>
             </div>
           </WhiteCard>
