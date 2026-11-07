@@ -157,7 +157,7 @@ func seedPaymentsUp(ctx context.Context, d deps) error {
 		QRExpire:     &expiresAt,
 		CreatedAt:    seededOrder.TransitionAt,
 		UpdatedAt:    seededOrder.TransitionAt,
-	}}, "id")
+	}}, "order_id")
 }
 
 // orderIDsOfSeededUsers returns the IDs of every order placed by or assigned to
