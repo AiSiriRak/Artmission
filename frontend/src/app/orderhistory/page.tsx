@@ -34,32 +34,51 @@ export default function HomePage() {
     sort: OrderSortField;
     order: OrderSortOrder;
     label: string;
+    orderText: string;
   };
 
-  const sortOrder_list: SortOrderOption[] = [
+  const SORT_OPTIONS: SortOrderOption[] = [
     {
       value: "update-asc",
       sort: "updated_at",
       order: "desc",
-      label: "None",
+      label: "Recently Updated",
+      orderText: "",
     },
     {
       value: "deadline-asc",
       sort: "deadline",
       order: "asc",
-      label: "Sooner to Later",
+      label: "Deadline: Soonest First",
+      orderText: "Soonest First",
     },
     {
       value: "deadline-desc",
       sort: "deadline",
       order: "desc",
-      label: "Later to Sooner",
+      label: "Deadline: Latest First",
+      orderText: "Latest First",
+    },
+    {
+      value: "price-asc",
+      sort: "price",
+      order: "asc",
+      label: "Price: Lowest First",
+      orderText: "Lowest First",
+    },
+    {
+      value: "price-desc",
+      sort: "price",
+      order: "desc",
+      label: "Price: Highest First",
+      orderText: "Highest First",
     },
   ];
 
   const [order, setOrder] = useState<OrderHistory | null>(null);
   const [role, setRole] = useState<"artist" | "customer" | null>(null);
   const [accountError, setAccountError] = useState("");
+  const [sort, setSort] = useState("update-asc");
 
   useEffect(() => {
     let active = true;
@@ -74,28 +93,48 @@ export default function HomePage() {
     });
     return () => { active = false; };
   }, [router]);
-  const [sortOrder, setSortOrder] = useState<string | null>("update-asc");
-  const selectedSortOrder = sortOrder_list.find(
-    (option) => option.value === sortOrder,
+
+  const selectedSort = SORT_OPTIONS.find(
+    (option) => option.value === sort,
   );
+
+  const availableSortOptions =
+    role === "artist"
+      ? SORT_OPTIONS
+      : SORT_OPTIONS.filter((option) => option.sort !== "price");
+
   const [status, setStatus] = useState<OrderStatus[]>(
     status_list.map((option) => option.value as OrderStatus),
   );
 
   useEffect(() => {
+    if (!role) return;
+
     let active = true;
     let loading = false;
     const controller = new AbortController();
-    async function loadUser() {
+
+    async function loadOrders() {
       if (loading) return;
       loading = true;
+
       try {
-        const orderdata = await getOrderHistory({
-          status: status,
-          sort: selectedSortOrder?.sort,
-          order: selectedSortOrder?.order,
-        }, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]), cache: "no-store" });
-        if (active) setOrder(orderdata);
+        const result = await getOrderHistory(
+          {
+            status,
+            sort: selectedSort?.sort,
+            order: selectedSort?.order,
+          },
+          {
+            signal: AbortSignal.any([
+              controller.signal,
+              AbortSignal.timeout(15000),
+            ]),
+            cache: "no-store",
+          },
+        );
+
+        if (active) setOrder(result);
       } catch (error: unknown) {
         if (active && isApiError(error) && error.status === 401) {
           router.replace(routes.login);
@@ -104,8 +143,13 @@ export default function HomePage() {
         loading = false;
       }
     }
-    void loadUser();
-    const stopRefresh = startAutoRefresh(() => { void loadUser(); });
+
+    void loadOrders();
+
+    const stopRefresh = startAutoRefresh(() => {
+      void loadOrders();
+    });
+
     return () => {
       active = false;
       controller.abort();
@@ -113,10 +157,11 @@ export default function HomePage() {
     };
   }, [
     status,
-    sortOrder,
+    sort,
+    role,
     router,
-    selectedSortOrder?.sort,
-    selectedSortOrder?.order,
+    selectedSort?.sort,
+    selectedSort?.order,
   ]);
 
   if (accountError) return <p role="alert" className="p-12 text-center text-error">{accountError}</p>;
@@ -126,31 +171,59 @@ export default function HomePage() {
   return (
     <MainLayout usertype={role}>
       <div className="min-h-screen w-full px-4 py-6 sm:px-6 md:px-10 md:py-8">
-        <div className="mb-5 flex items-center justify-between md:mb-6">
-          <p className="truncate text-primary-500 text-h2 ">Recently Orders</p>
-          <div className="flex space-x-8">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4 md:mb-6">
+          <p className="truncate text-primary-500 text-h2">
+            Recently Orders
+          </p>
+
+          <div className="flex flex-wrap items-end gap-4 sm:gap-8">
+            {/* Status */}
             <div className="w-48">
-              <p className="text-small">Status</p>
+              <p className="mb-1 text-small">Status</p>
               <CheckboxDropdown
                 options={status_list}
                 onChange={(selected) => {
                   setStatus(selected as OrderStatus[]);
                 }}
+                buttonClassName="font-bold"
               />
             </div>
-            <div className="w-48">
-              <p className="text-small">Deadline</p>
+
+            {/* Sort */}
+            <div className="w-64">
+              <p className="mb-1 text-small">Sort</p>
               <SelectInput
-                buttonClassName="mt-1"
-                value={sortOrder || "deadline-asc"}
-                onChange={(value) => {
-                  setSortOrder(value);
+                className="w-full"
+                value={sort}
+                options={availableSortOptions}
+                formatSelectedLabel={() => {
+                  if (!selectedSort) return "Select";
+
+                  if (!selectedSort.orderText) {
+                    return (
+                      <span className="font-bold">
+                        {selectedSort.label}
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <span className="font-bold">
+                        {selectedSort.label.split(":")[0]}
+                      </span>
+                      <span className="font-normal">
+                        : {selectedSort.orderText}
+                      </span>
+                    </>
+                  );
                 }}
-                options={sortOrder_list}
+                onChange={setSort}
               />
             </div>
           </div>
         </div>
+
         {/* Order List */}
         {status.length != 0 && (
           <div className="relative">
