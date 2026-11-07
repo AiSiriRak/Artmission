@@ -3,6 +3,7 @@ package payment_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -186,6 +187,112 @@ func (f *fakeRepository) ConfirmSlipPayment(
 
 type fakeQRLock struct {
 	release func() error
+}
+
+type notificationTx struct{ active, committed bool }
+
+func (tx *notificationTx) Transaction(ctx context.Context, fn func(context.Context) error) error {
+	tx.active = true
+	defer func() { tx.active = false }()
+	err := fn(ctx)
+	tx.committed = err == nil
+	return err
+}
+
+type paymentNotice struct {
+	secured, expired []uuid.UUID
+	fail             error
+	tx               *notificationTx
+}
+
+func (n *paymentNotice) PaymentSecured(_ context.Context, id uuid.UUID) error {
+	if !n.tx.active {
+		return errors.New("notification is outside transaction")
+	}
+	n.secured = append(n.secured, id)
+	return n.fail
+}
+func (n *paymentNotice) PaymentExpired(_ context.Context, id uuid.UUID) error {
+	if !n.tx.active {
+		return errors.New("notification is outside transaction")
+	}
+	n.expired = append(n.expired, id)
+	return n.fail
+}
+
+type externalVerification struct {
+	fakeProvider
+	tx *notificationTx
+}
+
+func (p *externalVerification) VerifySlipImage(ctx context.Context, image []byte, contentType string, amount int64, notBefore time.Time) (payment.SlipVerification, error) {
+	if p.tx.active {
+		return payment.SlipVerification{}, errors.New("external provider called inside transaction")
+	}
+	return p.fakeProvider.VerifySlipImage(ctx, image, contentType, amount, notBefore)
+}
+func TestVerifySlipNotificationTransaction(t *testing.T) {
+	for _, scenario := range []string{"success", "notification failure", "write failure", "rejected slip"} {
+		t.Run(scenario, func(t *testing.T) {
+			payload, deadline := "qr", time.Now().Add(time.Hour)
+			orderID := uuid.New()
+			repo := &fakeRepository{verification: &payment.PaymentForVerification{PaymentID: uuid.New(), OrderID: orderID, AmountSatang: 10000, Status: payment.StatusPending, OrderStatus: payment.EligibleOrderStatus, QRPayload: &payload, QRExpire: &deadline}}
+			tx := &notificationTx{}
+			sink := &paymentNotice{tx: tx}
+			provider := &externalVerification{tx: tx, fakeProvider: fakeProvider{verification: payment.SlipVerification{Valid: true, TransRef: "bank-reference", AmountSatang: 10000}}}
+			wantErr := errors.New("storage unavailable")
+			if scenario == "notification failure" {
+				sink.fail = wantErr
+			}
+			if scenario == "write failure" {
+				repo.confirmErr = wantErr
+			}
+			if scenario == "rejected slip" {
+				provider.verification.Valid = false
+			}
+			_, err := payment.NewPaymentUsecase(repo, provider, payment.WithNotifications(sink, tx)).VerifySlip(context.Background(), uuid.New(), orderID, []byte("test-slip"), "image/png")
+			if scenario == "success" {
+				if err != nil || !tx.committed || len(sink.secured) != 1 || sink.secured[0] != orderID {
+					t.Fatalf("success: %v %+v", err, sink)
+				}
+				return
+			}
+			if err == nil || tx.committed {
+				t.Fatalf("failed flow committed: %v", err)
+			}
+			if scenario != "rejected slip" && !errors.Is(err, wantErr) {
+				t.Fatalf("unexpected failure: %v", err)
+			}
+			if scenario == "rejected slip" || scenario == "write failure" {
+				if len(sink.secured) != 0 {
+					t.Fatal("unsuccessful payment notified artist")
+				}
+			}
+		})
+	}
+}
+func TestPaymentExpiryNotificationTransaction(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		t.Run(fmt.Sprint(fail), func(t *testing.T) {
+			orderID := uuid.New()
+			repo := &fakeRepository{expiredIDs: []uuid.UUID{uuid.New()}, expiredOrderID: orderID, orderCancelled: true, qr: &payment.Payment{Status: payment.StatusPending}}
+			tx := &notificationTx{}
+			sink := &paymentNotice{tx: tx}
+			if fail {
+				sink.fail = errors.New("notification unavailable")
+			}
+			ids, err := payment.NewPaymentUsecase(repo, nil, payment.WithNotifications(sink, tx)).ExpirePayments(context.Background())
+			if fail {
+				if err == nil || tx.committed || len(ids) != 0 {
+					t.Fatal("expiry notification failure must roll back")
+				}
+				return
+			}
+			if err != nil || !tx.committed || len(ids) != 1 || ids[0] != orderID || len(sink.expired) != 1 {
+				t.Fatalf("expiry: %v %+v", err, sink)
+			}
+		})
+	}
 }
 
 func (l fakeQRLock) Release() error { return l.release() }

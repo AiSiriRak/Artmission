@@ -8,4 +8,3 @@ request:
     - name: OrderID
       value: 00000000-0000-0000-0000-000000000000
       description: An order owned by the authenticated customer with status NOT_PAID and no existing payment.
-      

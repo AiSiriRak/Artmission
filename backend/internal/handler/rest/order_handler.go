@@ -219,6 +219,12 @@ type delayRequestView struct {
 	UpdatedAt          time.Time                  `json:"updated_at"`
 }
 
+// cancellationView represents the cancellation details of an order.
+type cancellationView struct {
+	Reason      string `json:"reason"`
+	Explanation string `json:"explanation"`
+}
+
 // orderDetailView represents the complete order detail returned to the authenticated participant.
 type orderDetailView struct {
 	Payment             *paymentSummaryView `json:"payment,omitempty"`
@@ -238,6 +244,7 @@ type orderDetailView struct {
 	OtherParty          orderPartyView      `json:"other_party"`
 	Deliverables        []deliverableView   `json:"deliverables"`
 	ActiveDelayRequest  *delayRequestView   `json:"active_delay_request"`
+	Cancellation        *cancellationView   `json:"cancellation"`
 	OriginalImageURL    *string             `json:"original_image_url,omitempty"`
 }
 
@@ -767,6 +774,12 @@ func toOrderDetailView(
 		activeDelayRequest = new(toDelayRequestView(o.ActiveDelayRequest))
 	}
 
+	var cancellation *cancellationView
+
+	if o.Cancellation != nil {
+		cancellation = new(toCancellationView(o.Cancellation))
+	}
+
 	return orderDetailView{
 		Payment:    toPaymentSummaryView(o.Payment),
 		ID:         o.ID.String(),
@@ -794,6 +807,7 @@ func toOrderDetailView(
 		},
 		Deliverables:       deliverables,
 		ActiveDelayRequest: activeDelayRequest,
+		Cancellation:       cancellation,
 		OriginalImageURL:   o.OriginalImageURL,
 	}
 }
@@ -823,5 +837,13 @@ func toDelayRequestView(item *order.OrderDelayRequest) delayRequestView {
 		CustomerDecision:   item.CustomerDecision,
 		CreatedAt:          item.CreatedAt,
 		UpdatedAt:          item.UpdatedAt,
+	}
+}
+
+// toCancellationView converts a cancellation entity into its API response representation.
+func toCancellationView(item *order.OrderCancellation) cancellationView {
+	return cancellationView{
+		Reason:      item.Reason,
+		Explanation: item.Explanation,
 	}
 }
