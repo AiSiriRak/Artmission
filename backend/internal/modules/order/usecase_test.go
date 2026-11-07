@@ -772,6 +772,48 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 			artistScore,
 		)
 	}
+	if got.Cancellation != nil {
+		t.Errorf("Cancellation = %+v, want nil for an order without cancellation details", got.Cancellation)
+	}
+}
+
+func TestGetOrder_IncludesCancellationDetails(t *testing.T) {
+	orderID := uuid.New()
+	customerID := uuid.New()
+	cancellation := &order.OrderCancellation{
+		ID:          uuid.New(),
+		OrderID:     orderID,
+		Reason:      string(order.CancelReasonOther),
+		Explanation: "Circumstances changed",
+		CreatedAt:   time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC),
+	}
+	repo := &fakeRepo{
+		orderDetailData: &order.OrderDetailData{
+			Order: order.Order{
+				ID:         orderID,
+				CustomerID: customerID,
+				Status:     order.StatusCancel,
+			},
+			Cancellation: cancellation,
+		},
+	}
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+	got, err := usecase.GetOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		customerID,
+		orderID,
+	)
+	if err != nil {
+		t.Fatalf("GetOrder() error = %v, want nil", err)
+	}
+	if got.Cancellation == nil {
+		t.Fatal("Cancellation = nil, want cancellation details")
+	}
+	if *got.Cancellation != *cancellation {
+		t.Errorf("Cancellation = %+v, want %+v", *got.Cancellation, *cancellation)
+	}
 }
 
 func TestGetOrder_ArtistGetsCustomerAsOtherParty(t *testing.T) {
@@ -2390,5 +2432,94 @@ func TestCancelExpiredDelayRequest_PropagatesRepositoryError(t *testing.T) {
 
 	if _, err := usecase.CancelExpiredDelayRequest(context.Background()); !errors.Is(err, wantErr) {
 		t.Fatalf("err = %v, want %v", err, wantErr)
+	}
+}
+
+func TestDraftNotificationFailureCleansUploadedImages(t *testing.T) {
+	storage := &recordingStorage{}
+	sink := &eventSink{err: errors.New("notification unavailable")}
+	tx := &eventTx{}
+	uc := order.NewOrderUsecase(&fakeRepo{}, storage, order.WithNotifications(sink, tx))
+	created, err := uc.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{OrderID: uuid.New(), DeliverableImage: bytes.NewReader(testDeliverablePNG(t))})
+	if err == nil || created != nil || tx.committed {
+		t.Fatal("notification failure must abort draft")
+	}
+	if len(storage.deletes) != 2 {
+		t.Fatalf("orphan images: %v", storage.deletes)
+	}
+}
+
+type eventSink struct {
+	events []order.NotificationEvent
+	err    error
+}
+
+func (s *eventSink) NotifyOrder(ctx context.Context, e order.NotificationEvent) error {
+	s.events = append(s.events, e)
+	return s.err
+}
+
+type eventTx struct{ committed bool }
+
+func (t *eventTx) Transaction(ctx context.Context, fn func(context.Context) error) error {
+	err := fn(ctx)
+	t.committed = err == nil
+	return err
+}
+
+func TestNotificationAfterSuccessfulConfirmation(t *testing.T) {
+	for _, failure := range []string{"", "order", "notification"} {
+		t.Run(failure, func(t *testing.T) {
+			repo, sink, tx := &fakeRepo{}, &eventSink{}, &eventTx{}
+			if failure == "order" {
+				repo.confirmErr = errors.New("write failed")
+			}
+			if failure == "notification" {
+				sink.err = errors.New("notify failed")
+			}
+			uc := order.NewOrderUsecase(repo, nil, order.WithNotifications(sink, tx))
+			id := uuid.New()
+			_, err := uc.ConfirmOrder(context.Background(), uuid.New(), id, order.ConfirmOrderInput{Accept: true})
+			if failure != "" {
+				if err == nil || tx.committed {
+					t.Fatal("failure must not commit")
+				}
+				if failure == "order" && len(sink.events) != 0 {
+					t.Fatal("failed write notified")
+				}
+				return
+			}
+			if err != nil || !tx.committed || len(sink.events) != 1 || sink.events[0].Kind != "ORDER_CONFIRMED" || sink.events[0].OrderID != id {
+				t.Fatalf("%v %+v", err, sink.events)
+			}
+		})
+	}
+}
+
+func TestExpiryEmitsOnlyChangedIDs(t *testing.T) {
+	ids := []uuid.UUID{uuid.New(), uuid.New()}
+	for _, kind := range []string{"ORDER_EXPIRED", "DELIVERABLE_AUTO_APPROVED", "DELAY_REQUEST_EXPIRED"} {
+		t.Run(kind, func(t *testing.T) {
+			repo := &fakeRepo{expireIDs: ids, expireDeliverablesIDs: ids, expireDelayRequestIDs: ids}
+			sink, tx := &eventSink{}, &eventTx{}
+			uc := order.NewOrderUsecase(repo, nil, order.WithNotifications(sink, tx))
+			var err error
+			switch kind {
+			case "ORDER_EXPIRED":
+				_, err = uc.CancelExpiredOrders(context.Background())
+			case "DELIVERABLE_AUTO_APPROVED":
+				_, err = uc.AutoApproveExpiredDeliverables(context.Background())
+			default:
+				_, err = uc.CancelExpiredDelayRequest(context.Background())
+			}
+			if err != nil || !tx.committed || len(sink.events) != 2 {
+				t.Fatalf("%v %+v", err, sink.events)
+			}
+			for _, e := range sink.events {
+				if e.Kind != kind {
+					t.Fatalf("wrong event: %+v", e)
+				}
+			}
+		})
 	}
 }
