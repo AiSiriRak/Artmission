@@ -1,47 +1,39 @@
 import { apiFetch } from "./client";
 import {
+  MarkNotificationReadOutput,
   NotificationList,
   NotificationUnreadCount,
-  Notification,
 } from "./types";
 
-let mockNotifications: NotificationList = [];
-
 export async function getNotifications(): Promise<NotificationList> {
-  return mockNotifications;
-
-  //   return apiFetch<NotificationList>("/notifications");
+  return apiFetch<NotificationList>("/notifications");
 }
 
 export async function getUnreadCount(): Promise<NotificationUnreadCount> {
-  return {
-    count: mockNotifications.filter((n) => !n.is_read).length,
-  } as NotificationUnreadCount;
-  //   return apiFetch<NotificationUnreadCount>("/notifications/unread-count");
+  return apiFetch<NotificationUnreadCount>("/notifications/unread-count");
 }
 
-export async function markNotificationAsRead(id: string) {
-  mockNotifications = mockNotifications.map((n) =>
-    n.id === id ? { ...n, is_read: true } : n,
-  );
-  //   return apiFetch<void>(`/notifications/${id}/read`, {
-  //     method: "PUT",
-  //   });
+export async function markNotificationAsRead(
+  id: string,
+): Promise<MarkNotificationReadOutput> {
+  return apiFetch<MarkNotificationReadOutput>(`/notifications/${id}/read`, {
+    method: "PATCH",
+  });
 }
 
-// TEMP FOR TESTING
-export async function createMockNotification(
-  notification: Omit<Notification, "id" | "is_read" | "created_at" | "user_id">,
-) {
-  const newNotification: Notification = {
-    ...notification,
-    id: crypto.randomUUID(),
-    user_id: "mock-user",
-    is_read: false,
-    created_at: new Date().toISOString(),
-  };
-
-  mockNotifications.unshift(newNotification);
-
-  return newNotification;
-}
+export type NotificationType =
+  | "GENERAL"
+  | "ORDER_CREATED"
+  | "ORDER_ACCEPTED"
+  | "PAYMENT_SECURED"
+  | "WALLET_CREDITED"
+  | "REFUND_CREDITED"
+  | "ORDER_DECLINED"
+  | "ORDER_CANCELED"
+  | "DRAFT_SUBMITTED"
+  | "REVISION_REQUESTED"
+  | "ORDER_COMPLETED"
+  | "FINAL_ARTWORK_READY"
+  | "DEADLINE_EXTENSION_REQUESTED"
+  | "DEADLINE_EXTENSION_APPROVED"
+  | "DEADLINE_EXTENSION_REJECTED";

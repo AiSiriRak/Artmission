@@ -1,33 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 import { getAccount } from "@/lib/api/users";
 import { routes } from "@/lib/routes";
 import { isApiError } from "@/lib/api/error";
+import { UserAccount, NotificationList, Notification } from "@/lib/api/types";
 import {
   getNotifications,
   markNotificationAsRead,
+  NotificationType,
 } from "@/lib/api/notification";
-import { UserAccount, NotificationList, Notification } from "@/lib/api/types";
-import { NOTI_TYPE } from "@/lib/types";
 
 import { Loading } from "@/components/ui/Loading";
 import MainLayout from "@/components/feature/main/MainLayout";
 import { NotificationCard } from "@/components/feature/notification/NotificationCard";
-import NotiTest from "@/components/feature/notification/NotiTest";
 
 export default function NotificationPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserAccount | null>(null);
-  const [notification, setNotification] = useState<NotificationList>([]);
+  const [notification, setNotification] = useState<NotificationList>();
 
-  const notiRouteMap: Record<string, string> = {
-    [NOTI_TYPE.review]: routes.home,
-    [NOTI_TYPE.order_update]: routes.order.history,
-    [NOTI_TYPE.pospone]: routes.settings,
-    [NOTI_TYPE.payment]: routes.order.history,
+  const notiRouteMap = (type: NotificationType, order?: string): string => {
+    if (type === "WALLET_CREDITED" || type === "REFUND_CREDITED") {
+      return routes.settings;
+    }
+    if (type === "GENERAL" || !order) {
+      return routes.order.history;
+    }
+    return routes.order.detail(order);
   };
 
   const fetchNotifications = async () => {
@@ -40,20 +43,22 @@ export default function NotificationPage() {
   };
 
   useEffect(() => {
-    async function loadUser() {
+    async function loadUserAndData() {
       try {
         const accountdata = await getAccount();
         setUser(accountdata);
 
-        await fetchNotifications();
+        const notificationdata = await getNotifications();
+        setNotification(notificationdata);
       } catch (error: unknown) {
         if (isApiError(error) && error.status === 401) {
           router.replace(routes.login);
         }
       }
     }
-    loadUser();
-  }, [router, fetchNotifications]);
+
+    loadUserAndData();
+  }, [router]);
 
   if (!user) {
     return <Loading />;
@@ -62,6 +67,7 @@ export default function NotificationPage() {
   const handleClick = async (
     e: React.MouseEvent,
     notificaion: Notification,
+    orderId: string,
   ) => {
     e.preventDefault();
 
@@ -69,23 +75,39 @@ export default function NotificationPage() {
 
     await fetchNotifications();
 
-    router.replace(notiRouteMap[notificaion.type]);
+    router.replace(notiRouteMap(notificaion.type as NotificationType, orderId));
   };
 
   return (
     <MainLayout usertype={user.role}>
       <p className="mx-20 my-10 text-h2">Recently Notifications</p>
       <div className="space-y-6 mx-20 my-10">
-        <NotiTest />
-        {notification.map((option) => (
+        {notification?.items?.map((option) => (
           <NotificationCard
             key={option.id}
             notification={option}
+            orderId={option.order_id}
             onClick={(e) => {
-              handleClick(e, option);
+              handleClick(e, option, option.order_id);
             }}
           />
         ))}
+        {(!notification ||
+          !notification.items ||
+          notification?.items.length == 0) && (
+          <div className="w-full relative flex flex-col items-center justify-center gap-6 my-30">
+            <Image
+              src="/icons/notification/bell-off.svg"
+              alt={""}
+              width={96}
+              height={96}
+            />
+            <p className="text-h1 text-neutral">No notifications yet</p>
+            <p className="text-body text-neutral">
+              Updates about your commissions will appear here.
+            </p>
+          </div>
+        )}
       </div>
     </MainLayout>
   );

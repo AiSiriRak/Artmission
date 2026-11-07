@@ -29,23 +29,7 @@ export default function MainLayout({
       {/* ถ้า showFooter เป็น true จะแสดง Footer */}
       {showFooter && <Footer />}
       <NotificationListener />
-      <Toaster
-        position="top-right"
-        closeButton
-        expand
-        toastOptions={{
-          unstyled: true,
-          classNames: {
-            toast:
-              "rounded-xl shadow-card bg-secondary-200 font-sans relative flex flex-col relative p-3",
-            title: "text-body font-semibold line-clamp-1",
-            description: "text-small opacity-80 line-clamp-3",
-            icon: "hidden",
-            closeButton:
-              "absolute  bg-secondary-200 rounded-full top-3 right-3 w-5 aspect-[1/1] items-center justify-center flex hover:brightness-90",
-          },
-        }}
-      />
+      <Toaster position="bottom-right" expand />
     </div>
   );
 }

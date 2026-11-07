@@ -2,32 +2,55 @@
 
 import { formatDistanceToNowStrict } from "date-fns";
 import Image from "next/image";
-import { ButtonHTMLAttributes } from "react";
+import { ButtonHTMLAttributes, useEffect, useState } from "react";
 
-import { Notification } from "@/lib/api/types";
-import { NOTI_TYPE } from "@/lib/types";
+import { Notification, OrderDetail } from "@/lib/api/types";
+
+import { NotificationType } from "@/lib/api/notification";
+import { getOrderById } from "@/lib/api/orders";
 
 interface NotificationCard extends ButtonHTMLAttributes<HTMLButtonElement> {
   notification: Notification;
+  orderId: string;
 }
 
-export function NotificationCard({ notification, ...props }: NotificationCard) {
+export function NotificationCard({
+  notification,
+  orderId,
+  ...props
+}: NotificationCard) {
+  const [order, setOrder] = useState<OrderDetail | null>(null);
+  const [payment, setPayment] = useState<number | null>(null);
+
   const bgColor =
-    notification.type === NOTI_TYPE.payment
+    notification.type === "WALLET_CREDITED" || "REFUND_CREDITED"
       ? "bg-secondary-300"
       : "bg-secondary-200";
 
   const textColor = notification.is_read ? "text-neutral" : "text-primary-500";
 
-  const notiIconMap: Record<string, string> = {
-    [NOTI_TYPE.review]: "/icons/notification/pencil.svg",
-    [NOTI_TYPE.order_update]: "/icons/notification/order.svg",
-    [NOTI_TYPE.pospone]: "/icons/notification/hourglass.svg",
-    [NOTI_TYPE.payment]: "/icons/notification/wallet.svg",
+  const notiIconMap = (type: NotificationType): string => {
+    if (
+      type === "WALLET_CREDITED" ||
+      type === "REFUND_CREDITED" ||
+      type === "PAYMENT_SECURED"
+    ) {
+      return "/icons/notification/wallet.svg";
+    }
+    if (
+      type === "DEADLINE_EXTENSION_REQUESTED" ||
+      type === "DEADLINE_EXTENSION_APPROVED" ||
+      type === "DEADLINE_EXTENSION_REJECTED"
+    ) {
+      return "/icons/notification/hourglass.svg";
+    }
+    if (type === "REVISION_REQUESTED" || type === "DRAFT_SUBMITTED") {
+      return "/icons/notification/pencil.svg";
+    }
+    return "/icons/notification/order.svg";
   };
 
-  const notiIcon =
-    notiIconMap[notification.type] ?? "/icons/notification/order.svg";
+  const notiIcon = notiIconMap(notification.type as NotificationType);
 
   const statusColor: Record<string, string> = {
     PENDING: "bg-status-pending-pale",
@@ -36,6 +59,22 @@ export function NotificationCard({ notification, ...props }: NotificationCard) {
     SUCCESS: "bg-status-success-pale",
     CANCEL: "bg-status-cancel-pale",
   };
+
+  if (orderId != null)
+    useEffect(() => {
+      async function loadOrder() {
+        try {
+          const orderdata = await getOrderById(orderId);
+          setOrder(orderdata);
+          if (order?.payment) {
+            notification.type === "WALLET_CREDITED"
+              ? setPayment(order.payment.artist_payout_satang)
+              : setPayment(order.payment.refund_satang);
+          }
+        } catch (error: unknown) {}
+      }
+      loadOrder();
+    }, [orderId]);
 
   return (
     <button
@@ -58,13 +97,17 @@ export function NotificationCard({ notification, ...props }: NotificationCard) {
         <div className="flex-1 min-w-0 space-y-4">
           <div className="flex min-w-0 space-x-5">
             {/* If this is order noti, show order's status */}
-            {notification.type === NOTI_TYPE.order_update &&
-              notification.order && (
+            {(notification.type === "ORDER_CREATED" ||
+              notification.type === "ORDER_ACCEPTED" ||
+              notification.type === "ORDER_DECLINED" ||
+              notification.type === "ORDER_CANCELED" ||
+              notification.type === "ORDER_COMPLETED") &&
+              order && (
                 <div
-                  className={`${statusColor[notification.order.status]} opacity-${notification.is_read ? "50" : "100"} flex w-50 p-1.5 border rounded-full justify-center`}
+                  className={`${statusColor[order.status]} opacity-${notification.is_read ? "50" : "100"} flex w-50 p-1.5 border rounded-full justify-center`}
                 >
                   <p className="text-caption text-primary-500">
-                    {notification.order.status}
+                    {order.status}
                   </p>
                 </div>
               )}
@@ -72,13 +115,14 @@ export function NotificationCard({ notification, ...props }: NotificationCard) {
             <p className={`${textColor} text-left text-h3 truncate`}>
               {notification.title}
             </p>
-            {notification.type === NOTI_TYPE.payment &&
-              notification.payment && (
+            {(notification.type === "WALLET_CREDITED" ||
+              notification.type === "REFUND_CREDITED") &&
+              payment && (
                 <p
                   className={`${notification.is_read ? "text-accent-300" : "text-accent-500"} text-left text-h3 truncate`}
                 >
-                  [{notification.payment.amount < 0 ? "-" : "+"}
-                  {notification.payment.amount} THB]
+                  [{payment < 0 ? "-" : "+"}
+                  {payment} THB]
                 </p>
               )}
           </div>

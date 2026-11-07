@@ -91,29 +91,11 @@ export type SearchArtworksSort = NonNullable<SearchArtworksQuery["sort"]>;
 export type CreateArtworkInput = RequestBody<"/artworks", "post">;
 export type UpdateArtworkInput = RequestBody<"/artworks/{artwork_id}", "put">;
 
-// *** TEMP NOTIFICATION TYPE ***
 // Notification
-export type Notification = {
-  id: string;
-  user_id: string;
-  title: string;
-  message: string;
-  type: NotificationType;
-  is_read: boolean;
-  created_at: string;
-  order?: {
-    status: string;
-  };
-  payment?: {
-    amount: number;
-  };
-};
-export type NotificationList = Notification[];
-export type NotificationUnreadCount = {
-  count: number;
-};
-export type NotificationType =
-  | "ORDER_UPDATE"
-  | "REVIEW"
-  | "POSPONE"
-  | "PAYMENT";
+export type Notification = components["schemas"]["NotificationView"];
+export type NotificationList =
+  components["schemas"]["ListNotificationsOutputBody"];
+export type NotificationUnreadCount =
+  components["schemas"]["UnreadNotificationsOutputBody"];
+export type MarkNotificationReadOutput =
+  components["schemas"]["MarkNotificationReadOutputBody"];
