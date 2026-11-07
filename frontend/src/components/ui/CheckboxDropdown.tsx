@@ -9,9 +9,10 @@ interface CheckboxDropdown {
     label: string;
   }[];
   onChange?: (selected: string[]) => void;
+  buttonClassName?: string;
 }
 
-export function CheckboxDropdown({ options, onChange }: CheckboxDropdown) {
+export function CheckboxDropdown({ options, onChange, buttonClassName }: CheckboxDropdown) {
   const [isOpen, setIsOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>(
     options.map((option) => option.value),
@@ -54,12 +55,14 @@ export function CheckboxDropdown({ options, onChange }: CheckboxDropdown) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="mt-1 w-full rounded border-2 px-3 py-2 text-small text-primary-500 text-left bg-white hover:brightness-90"
+        className="w-full rounded border-2 px-3 py-2 text-small text-primary-500 text-left bg-white hover:brightness-90"
       >
         <div className="flex justify-between items-center">
-          {selected.length === options.length
-            ? "All selected"
-            : `${selected.length} selected`}
+          <span className={buttonClassName}>
+            {selected.length === options.length
+              ? "All selected"
+              : `${selected.length} selected`}
+          </span>
           <Image
             src={"/icons/downarrow.svg"}
             width={12}

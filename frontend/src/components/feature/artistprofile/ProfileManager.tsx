@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { updateArtistProfile, getArtistArtworks } from "@/lib/api/artists";
 import {
@@ -33,7 +33,11 @@ import EditorField from "./EditorField";
 import ArtworkCard from "./ArtworkCard";
 import TagList from "./TagList";
 import ArtworkDetail from "./ArtworkDetail";
-import ReviewList from "./ReviewList";
+import ReviewList from "../review/ReviewList";
+import {
+  getArtistReviews,
+  type ArtistReviewData,
+} from "@/lib/api/reviews";
 import ArtistProfileView from "./ArtistProfileView";
 
 // Shared UI Components
@@ -43,13 +47,11 @@ import { Loading } from "@/components/ui/Loading";
 interface ProfileManagerProps {
   initialProfile: ArtistProfile;
   initialArtworks: Artwork[];
-  initialReviews?: ReviewData[];
 }
 
 export default function ProfileManager({
   initialProfile,
   initialArtworks,
-  initialReviews = [],
 }: ProfileManagerProps) {
   const router = useRouter();
 
@@ -69,37 +71,32 @@ export default function ProfileManager({
     null,
   );
 
-  // Mock Review - Removed setReviews as it was never used
-  const [reviews] = useState<ReviewData[]>(
-    initialReviews.length > 0
-      ? initialReviews
-      : [
-          {
-            id: 1,
-            reviewerName: "Name",
-            timeAgo: "2 hrs ago",
-            orderName: "Pixel Art",
-            rating: 3.5,
-            comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-          },
-          {
-            id: 2,
-            reviewerName: "Name",
-            timeAgo: "2 hrs ago",
-            orderName: "Pixel Art",
-            rating: 3.5,
-            comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-          },
-          {
-            id: 3,
-            reviewerName: "Name",
-            timeAgo: "2 hrs ago",
-            orderName: "Pixel Art",
-            rating: 3.5,
-            comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-          },
-        ],
-  );
+  const [reviews, setReviews] = useState<ArtistReviewData[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchReviews = async () => {
+      try {
+        const data = await getArtistReviews(initialProfile.artist_id);
+
+        if (!cancelled) {
+          setReviews(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch artist reviews:", error);
+
+        if (!cancelled) {
+          setReviews([]);
+        }
+      }
+    };
+
+    fetchReviews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialProfile.artist_id]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -157,9 +154,9 @@ export default function ProfileManager({
     const artworksList = Array.isArray(res)
       ? res
       : (res as Record<string, unknown>).artworks ||
-        (res as Record<string, unknown>).items ||
-        (res as Record<string, unknown>).data ||
-        [];
+      (res as Record<string, unknown>).items ||
+      (res as Record<string, unknown>).data ||
+      [];
 
     setArtworks(artworksList as Artwork[]);
   };
@@ -168,10 +165,8 @@ export default function ProfileManager({
     payload: CreateArtworkInput | UpdateArtworkInput | Record<string, unknown>,
     artworkId?: string,
   ) => {
-    setIsSaving(true);
     try {
       if (artworkId) {
-        // ถ้าเป็นการแก้ไข (มี ID ส่งมา) -> ใช้ Update API แทนการลบแล้วสร้างใหม่
         await updateArtwork(artworkId, payload as UpdateArtworkInput);
       } else {
         await createArtwork(payload as CreateArtworkInput);
@@ -179,6 +174,7 @@ export default function ProfileManager({
 
       const artistId =
         artistData.artist_id || (artistData as Record<string, unknown>).id;
+
       if (artistId) {
         await refreshArtworks(String(artistId));
       }
@@ -194,9 +190,7 @@ export default function ProfileManager({
         );
       }
 
-      alert("เกิดข้อผิดพลาดในการบันทึกผลงาน");
-    } finally {
-      setIsSaving(false);
+      throw error;
     }
   };
 
@@ -240,7 +234,7 @@ export default function ProfileManager({
     }
   };
 
-  
+
   const derivedCategories = [
     ...new Set(artworks.map((art) => art.category).filter(Boolean)),
   ];
@@ -268,8 +262,8 @@ export default function ProfileManager({
   const avgRating =
     reviews.length > 0
       ? (
-          reviews.reduce((sum, item) => sum + item.rating, 0) / reviews.length
-        ).toFixed(1)
+        reviews.reduce((sum, item) => sum + item.rating, 0) / reviews.length
+      ).toFixed(1)
       : "0.0";
 
   if (isSaving) {

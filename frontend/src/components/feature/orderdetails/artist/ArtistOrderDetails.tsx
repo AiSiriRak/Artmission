@@ -21,6 +21,13 @@ import ConfirmOrderPopup from "./popups/ConfirmOrderPopup";
 import CancelOrderPopup from "./popups/CancelOrderPopup";
 import PostponeOrderPopup from "./popups/PostponeOrderPopup";
 import PostponeNotice from "./PostponeNotice";
+import OrderReview from "../shared/OrderReview"
+import OrderCancelSection from "../shared/OrderCancelSection";
+import OrderSuccessSection from "../shared/OrderSuccessSection";
+import {
+  getReviewByOrderId,
+  type Review
+} from "@/lib/api/reviews";
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -71,6 +78,31 @@ export default function ArtistOrderDetails() {
   const mutationPending = useRef(false);
   const mutationVersion = useRef(0);
   const activeOrderId = useRef<string | null>(null);
+  const [review, setReview] = useState<Review | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchReview = async () => {
+      try {
+        const data = await getReviewByOrderId(orderId);
+
+        if (!cancelled) {
+          setReview(data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setReview(null);
+        }
+      }
+    };
+
+    fetchReview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId]);
 
   useEffect(() => {
     activeOrderId.current = orderId;
@@ -203,6 +235,8 @@ export default function ArtistOrderDetails() {
       <OrderDetails
         usertype="artist"
         notice={pendingPostpone ? <PostponeNotice deadline={pendingPostpone.deadline_request_at} /> : undefined}
+        cancelSection={order.status === "CANCEL" ? (<OrderCancelSection />) : null}
+        successSection={order.status === "SUCCESS" ? (<OrderSuccessSection draftCount={order.deliverables?.length ?? 0} review={review !== null} />) : null}
         description={
           <OrderDescription
             orderName={order.name}
@@ -225,13 +259,20 @@ export default function ArtistOrderDetails() {
           </>
         }
         userInfo={<UserInfo title="Customer Info" name={order.other_party.name} email={order.other_party.email} />}
+        review={
+          order.status === "SUCCESS" ? (
+            <OrderReview review={review} />
+          ) : null
+        }
       >
         {canSubmit && (
           <SubmitDraft disabled={busy} onSubmit={(file) => runMutation(async () => {
             const deliverable = await submitOrderDraft(orderId, file);
-            return (previous) => ({ ...previous, deliverables: [
-              ...(previous.deliverables ?? []).filter((item) => item.id !== deliverable.id), deliverable,
-            ] });
+            return (previous) => ({
+              ...previous, deliverables: [
+                ...(previous.deliverables ?? []).filter((item) => item.id !== deliverable.id), deliverable,
+              ]
+            });
           })} />
         )}
         {drafts.length > 0 && <DraftHistory drafts={drafts} />}

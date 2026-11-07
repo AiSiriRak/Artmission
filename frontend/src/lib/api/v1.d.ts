@@ -64,6 +64,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/artists/{artist_id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetArtistReviews
+         * @description Get an artist's reviews from newest to oldest.
+         */
+        get: operations["get-artist-reviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/artworks": {
         parameters: {
             query?: never;
@@ -111,6 +131,26 @@ export interface paths {
          * @description Delete portfolio artwork owned by the authenticated artist
          */
         delete: operations["delete-artwork"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/artworks/{artwork_id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetReviewsByArtwork
+         * @description Get reviews from orders placed for the artwork, newest first.
+         */
+        get: operations["get-reviews-by-artwork"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -380,6 +420,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders/{order_id}/payment/qr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetPaymentQR
+         * @description Retrieve the authenticated customer's existing, unexpired payment QR payload.
+         */
+        get: operations["get-payment-qr"];
+        put?: never;
+        /**
+         * GeneratePaymentQR
+         * @description Generate the payment QR once for the authenticated customer's NOT_PAID order. Repeated calls return the stored QR without calling Slip2Go again.
+         */
+        post: operations["generate-payment-qr"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{order_id}/payment/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * VerifyPaymentSlip
+         * @description Verify a slip image for the authenticated customer's active order payment.
+         */
+        post: operations["verify-payment-slip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{order_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetOrderReview
+         * @description Get an order's review as its customer or artist.
+         */
+        get: operations["get-order-review"];
+        put?: never;
+        /**
+         * SubmitReview
+         * @description Submit a review for a successful order as its customer.
+         */
+        post: operations["submit-review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/styles": {
         parameters: {
             query?: never;
@@ -392,6 +500,26 @@ export interface paths {
          * @description List artwork styles
          */
         get: operations["list-styles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transaction/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetWalletTransactions
+         * @description List the authenticated user's credited order payouts and refunds, newest first.
+         */
+        get: operations["get-wallet-transactions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -472,6 +600,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wallet/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetWallet
+         * @description Get the authenticated user's internal wallet balance in satang.
+         */
+        get: operations["get-wallet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -527,6 +675,20 @@ export interface components {
         ArtistReferenceView: {
             id: string;
             label: string;
+        };
+        ArtistReviewDetailView: {
+            artist_id: string;
+            artwork_name: string;
+            comment: string | null;
+            /** Format: date-time */
+            created_at: string;
+            customer_id: string;
+            id: string;
+            order: string;
+            order_id: string;
+            /** Format: int64 */
+            rating: number;
+            username: string;
         };
         ArtistReviewView: {
             order: string;
@@ -779,6 +941,24 @@ export interface components {
              */
             type: string;
         };
+        GeneratedPaymentQRView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/GeneratedPaymentQRView.json
+             */
+            readonly $schema?: string;
+            /** @description true when an existing QR was returned and Slip2Go was not called */
+            already_generated: boolean;
+            message: string;
+            order_id: string;
+            payment_id: string;
+            /** Format: date-time */
+            qr_expire: string;
+            qr_payload: string;
+            /** @description true when a usable QR payload is returned */
+            success: boolean;
+        };
         GetArtistArtworksOutputBody: {
             /**
              * Format: uri
@@ -787,6 +967,43 @@ export interface components {
              */
             readonly $schema?: string;
             artworks: components["schemas"]["ArtistArtworkView"][] | null;
+        };
+        GetArtistReviewsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/GetArtistReviewsOutputBody.json
+             */
+            readonly $schema?: string;
+            reviews: components["schemas"]["ArtistReviewDetailView"][] | null;
+            /** Format: int64 */
+            total: number;
+        };
+        GetReviewsByArtworkOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/GetReviewsByArtworkOutputBody.json
+             */
+            readonly $schema?: string;
+            reviews: components["schemas"]["ReviewDetailView"][] | null;
+            /** Format: int64 */
+            total: number;
+        };
+        GetWalletTransactionsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/GetWalletTransactionsOutputBody.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+            transactions: components["schemas"]["WalletTransactionView"][] | null;
         };
         LoginInputBody: {
             /**
@@ -799,7 +1016,6 @@ export interface components {
             email: string;
             password: string;
         };
-        // TODO : update original url
         OrderDetailView: {
             /**
              * Format: uri
@@ -822,8 +1038,9 @@ export interface components {
             deliverables: components["schemas"]["DeliverableView"][] | null;
             id: string;
             name: string;
-            other_party: components["schemas"]["OrderPartyView"];
             original_image_url?: string;
+            other_party: components["schemas"]["OrderPartyView"];
+            payment?: components["schemas"]["PaymentSummaryView"];
             /** Format: int64 */
             price_satang: number;
             status: string;
@@ -856,11 +1073,46 @@ export interface components {
             deliverable_preview_url: string | null;
             id: string;
             name: string;
+            payment?: components["schemas"]["PaymentSummaryView"];
             /** Format: int64 */
             price_satang: number;
             status: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        PaymentQRView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/PaymentQRView.json
+             */
+            readonly $schema?: string;
+            message: string;
+            order_id: string;
+            payment_id: string;
+            /** Format: date-time */
+            qr_expire: string;
+            qr_payload: string;
+            /** @description true when a usable QR payload is returned */
+            success: boolean;
+        };
+        PaymentSummaryView: {
+            /** Format: int64 */
+            amount_satang: number;
+            /** Format: int64 */
+            artist_payout_satang: number;
+            artist_payout_transaction_id: string;
+            artist_payout_transfer_status: string | null;
+            payment_status: string;
+            /** Format: int64 */
+            refund_satang: number;
+            refund_transaction_id: string;
+            refund_transfer_status: string | null;
+            /** Format: date-time */
+            settled_at: string | null;
+            settlement_outcome: string | null;
+            /** @description MOCK_WALLET means simulated credits only; EXTERNAL is historical/external accounting. */
+            source: string;
         };
         RegisterArtistBody: {
             description?: string;
@@ -885,6 +1137,36 @@ export interface components {
             /** @enum {string} */
             role: "customer" | "artist";
             username: string;
+        };
+        ReviewDetailView: {
+            artist_id: string;
+            comment: string | null;
+            /** Format: date-time */
+            created_at: string;
+            customer_id: string;
+            id: string;
+            order: string;
+            order_id: string;
+            /** Format: int64 */
+            rating: number;
+            username: string;
+        };
+        ReviewView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ReviewView.json
+             */
+            readonly $schema?: string;
+            artist_id: string;
+            comment: string | null;
+            /** Format: date-time */
+            created_at: string;
+            customer_id: string;
+            id: string;
+            order_id: string;
+            /** Format: int64 */
+            rating: number;
         };
         SearchArtistView: {
             artist_id: string;
@@ -923,6 +1205,17 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        SubmitReviewInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/SubmitReviewInputBody.json
+             */
+            readonly $schema?: string;
+            comment?: string;
+            /** Format: int64 */
+            rating: number;
+        };
         UpdateAccountInputBody: {
             /**
              * Format: uri
@@ -945,6 +1238,23 @@ export interface components {
             account_number: string;
             bank_name: string;
         };
+        VerifiedPaymentView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/VerifiedPaymentView.json
+             */
+            readonly $schema?: string;
+            /** @description Human-readable result; explains why the slip was not accepted */
+            message: string;
+            order_id: string;
+            payment_id?: string;
+            /** @description Machine-readable rejection reason when success is false */
+            reason?: string;
+            status?: string;
+            /** @description true when the slip passed and the payment was recorded */
+            success: boolean;
+        };
         ViewOrdersOutputBody: {
             /**
              * Format: uri
@@ -955,6 +1265,31 @@ export interface components {
             orders: components["schemas"]["OrderSummaryView"][] | null;
             /** Format: int64 */
             total: number;
+        };
+        WalletTransactionView: {
+            /** Format: int64 */
+            amount_satang: number;
+            /** Format: date-time */
+            created_at: string;
+            id: string;
+            order_id: string;
+            order_name: string;
+            settlement_outcome: string | null;
+            type: string;
+        };
+        WalletView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/WalletView.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            balance_satang: number;
+            currency: string;
+            /** Format: date-time */
+            updated_at: string | null;
+            user_id: string;
         };
     };
     responses: never;
@@ -1057,6 +1392,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GetArtistArtworksOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-artist-reviews": {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                artist_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetArtistReviewsOutputBody"];
                 };
             };
             /** @description Error */
@@ -1253,6 +1622,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-reviews-by-artwork": {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                artwork_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetReviewsByArtworkOutputBody"];
+                };
             };
             /** @description Error */
             default: {
@@ -1738,6 +2141,172 @@ export interface operations {
             };
         };
     };
+    "get-payment-qr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentQRView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "generate-payment-qr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneratedPaymentQRView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "verify-payment-slip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifiedPaymentView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-order-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "submit-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitReviewInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-styles": {
         parameters: {
             query?: never;
@@ -1754,6 +2323,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArtistReferenceView"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-wallet-transactions": {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetWalletTransactionsOutputBody"];
                 };
             };
             /** @description Error */
@@ -1943,6 +2544,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccountView"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletView"];
                 };
             };
             /** @description Error */

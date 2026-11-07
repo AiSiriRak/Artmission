@@ -31,7 +31,7 @@ export default function OrderDescription({
           <TagList items={category ? [category] : []} variant="category" />
           <TagList items={styles} variant="style" />
         </div>
-        <h4 className="mb-3 text-h3">Request Detail</h4>
+        <h4 className="mb-3 text-h4">Request Detail</h4>
         <p className="whitespace-pre-wrap break-words text-caption">{requestDetail}</p>
       </WhiteCard>
     </>

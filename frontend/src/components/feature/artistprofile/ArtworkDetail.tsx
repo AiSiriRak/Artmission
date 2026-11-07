@@ -6,7 +6,7 @@ import type {
 } from "@/lib/api/types";
 import { Button } from "@/components/ui/Button";
 import TagList from "./TagList";
-import ReviewList from "./ReviewList";
+import ReviewList from "../review/ReviewList";
 import DeleteArtworkModal from "./DeleteArtworkModal";
 import ArtworkSampleGallery from "./ArtworkSampleGallery";
 import CatalogPicker from "./CatalogPicker";
@@ -22,15 +22,10 @@ import {
   resolveCatalogIds,
   type CatalogOption,
 } from "./artworkCatalog";
-
-interface ReviewData {
-  id: number;
-  reviewerName: string;
-  timeAgo: string;
-  orderName: string;
-  rating: number;
-  comment: string;
-}
+import {
+  getArtworkReviews,
+  type ReviewData,
+} from "@/lib/api/reviews";
 
 interface ArtworkDetailProps {
   artwork?: (Artwork & { id?: string | number }) | null;
@@ -43,24 +38,7 @@ interface ArtworkDetailProps {
   onDelete?: (artworkId: string) => void | Promise<void>;
 }
 
-const mockArtworkReviews: ReviewData[] = [
-  {
-    id: 1,
-    reviewerName: "Name",
-    timeAgo: "2 hrs ago",
-    orderName: "Pixel Art",
-    rating: 3.5,
-    comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-  },
-  {
-    id: 2,
-    reviewerName: "Name",
-    timeAgo: "2 hrs ago",
-    orderName: "Pixel Art",
-    rating: 3.5,
-    comment: "งานน่ารักมากๆๆๆ ❤️❤️❤️",
-  },
-];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
 interface ImageItem {
   previewUrl: string;
@@ -85,6 +63,8 @@ export default function ArtworkDetail({
 }: ArtworkDetailProps) {
   const [isEditing, setIsEditing] = useState(!artwork);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [imageError, setImageError] = useState("");
+  const [saveError, setSaveError] = useState("");
 
   const initialPriceTHB = artwork?.price_satang
     ? artwork.price_satang / 100
@@ -93,8 +73,8 @@ export default function ArtworkDetail({
   const initialImages: ImageItem[] =
     artwork?.artwork_samples && artwork.artwork_samples.length > 0
       ? artwork.artwork_samples.map((sample) => ({
-          previewUrl: sample.image_url,
-        }))
+        previewUrl: sample.image_url,
+      }))
       : [];
 
   const [savedData, setSavedData] = useState<ArtworkDraft>({
@@ -129,6 +109,15 @@ export default function ArtworkDetail({
     price: "",
   });
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [reviewState, setReviewState] = useState<{
+    artworkId: string;
+    reviews: ReviewData[];
+  } | null>(null);
+
+  const reviews: ReviewData[] =
+    reviewState && reviewState.artworkId === artwork?.id
+      ? reviewState.reviews
+      : [];
 
   useEffect(() => {
     catalogRef.current = {
@@ -167,8 +156,8 @@ export default function ArtworkDetail({
       const imgArray: ImageItem[] =
         artwork.artwork_samples && artwork.artwork_samples.length > 0
           ? artwork.artwork_samples.map((sample) => ({
-              previewUrl: sample.image_url,
-            }))
+            previewUrl: sample.image_url,
+          }))
           : [{ previewUrl: "/placeholder.jpg" }];
 
       const newData = {
@@ -224,11 +213,21 @@ export default function ArtworkDetail({
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const previewUrl = URL.createObjectURL(file);
-      setImages((prev) => [...prev, { previewUrl, file }]);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setImageError("Image size must not exceed 5 MB.");
+      e.target.value = "";
+      return;
     }
+
+    setImageError("");
+
+    const previewUrl = URL.createObjectURL(file);
+    setImages((prev) => [...prev, { previewUrl, file }]);
+
+    e.target.value = "";
   };
 
   const handleRemoveImage = (indexToRemove: number) => {
@@ -247,7 +246,7 @@ export default function ArtworkDetail({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const categoryId = resolveCatalogId(formData.category, availableCategories);
     const styleIds = resolveCatalogIds(formData.styles, availableStyles).filter(
       isUuid,
@@ -266,11 +265,6 @@ export default function ArtworkDetail({
 
     const hasErrors = Object.values(newErrors).some(Boolean);
     if (hasErrors) return;
-
-    setFormData(resolvedForm);
-    setSavedData({ ...resolvedForm });
-    setSavedImages([...images]);
-    setIsEditing(false);
 
     if (onSave) {
       const actualId =
@@ -311,8 +305,47 @@ export default function ArtworkDetail({
         payload.artwork_samples = newImages.length > 0 ? newImages : undefined;
       }
 
-      onSave(payload, artworkId);
+      setSaveError("");
+
+      try {
+        await onSave(payload, artworkId);
+
+        setFormData(resolvedForm);
+        setSavedData({ ...resolvedForm });
+        setSavedImages([...images]);
+        setIsEditing(false);
+      } catch (error) {
+        setSaveError(
+          error instanceof Error
+            ? error.message
+            : "Failed to save artwork."
+        );
+      }
     }
+  }
+
+  const resizeTextarea = (textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 72)}px`;
+  };
+
+  const textareaRef = (textarea: HTMLTextAreaElement | null) => {
+    resizeTextarea(textarea);
+  };
+
+  const handleDescriptionChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>,
+  ) => {
+    const textarea = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      description: textarea.value,
+    }));
+
+    resizeTextarea(textarea);
   };
 
   const confirmDelete = () => {
@@ -350,6 +383,42 @@ export default function ArtworkDetail({
   const displayImages = (isEditing ? images : savedImages).map(
     (img) => img.previewUrl,
   );
+
+  useEffect(() => {
+    const artworkId = artwork?.id;
+
+    if (!artworkId) return;
+
+    let cancelled = false;
+
+    const fetchReviews = async () => {
+      try {
+        const data = await getArtworkReviews(artworkId);
+
+        if (!cancelled) {
+          setReviewState({
+            artworkId,
+            reviews: data,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch artwork reviews:", error);
+
+        if (!cancelled) {
+          setReviewState({
+            artworkId,
+            reviews: [],
+          });
+        }
+      }
+    };
+
+    void fetchReviews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [artwork?.id]);
 
   return (
     <>
@@ -400,24 +469,7 @@ export default function ArtworkDetail({
             </div>
 
             {!isCustomerMode &&
-              (isEditing ? (
-                <div className="flex gap-3">
-                  <Button
-                    variant="light"
-                    className="text-cursor !border"
-                    onClick={() => setIsEditing(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="dark"
-                    className="text-cursor"
-                    onClick={handleSave}
-                  >
-                    Save
-                  </Button>
-                </div>
-              ) : (
+              (!isEditing ? (
                 <Button
                   onClick={handleEditClick}
                   variant="transparent"
@@ -429,10 +481,9 @@ export default function ArtworkDetail({
                     />
                   }
                   className="text-button"
-                >
-                  Edit
-                </Button>
-              ))}
+                >Edit</Button>
+              ) : null
+              )}
           </div>
 
           {isEditing && (
@@ -459,6 +510,10 @@ export default function ArtworkDetail({
             </div>
           )}
 
+          {saveError && (
+            <p className="text-small text-error">{saveError}</p>
+          )}
+
           <div className="mb-10">
             <label className="text-body font-bold text-primary-500 block mb-2">
               Description
@@ -466,11 +521,12 @@ export default function ArtworkDetail({
             {isEditing ? (
               <div className="flex flex-col gap-1">
                 <textarea
+                  ref={textareaRef}
                   name="description"
                   value={formData.description}
-                  onChange={handleInputChange}
-                  rows={4}
-                  className="border border-primary-500 p-3 w-full rounded-lg bg-white resize-none"
+                  onChange={handleDescriptionChange}
+                  rows={3}
+                  className="border border-gray-300 rounded-md bg-white p-2 w-full resize-none overflow-hidden"
                   placeholder="Describe your artwork..."
                 />
                 {errors.description && (
@@ -494,7 +550,12 @@ export default function ArtworkDetail({
             onRemove={handleRemoveImage}
           />
 
+          {imageError && (
+            <p className="mt-2 text-sm text-red-500">{imageError}</p>
+          )}
+
           <div className="flex flex-wrap items-start gap-6 mb-4 mt-6">
+            {/* Minimum deadline */}
             <div>
               <label className="text-body font-bold text-primary-500 block mb-2">
                 Minimum deadline:
@@ -520,7 +581,7 @@ export default function ArtworkDetail({
                   )}
                 </div>
               ) : (
-                <div className="bg-primary-400 text-secondary-200 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2">
+                <div className="bg-primary-400 text-secondary-200 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2 justify-center">
                   <img
                     src="/icons/alarm-clock.svg"
                     alt="Deadline"
@@ -531,6 +592,7 @@ export default function ArtworkDetail({
               )}
             </div>
 
+            {/* Price */}
             <div>
               <label className="text-body font-bold text-primary-500 block mb-2">
                 Price:
@@ -564,37 +626,73 @@ export default function ArtworkDetail({
                 </div>
               )}
             </div>
+          </div>
 
-            {isEditing && artwork?.id && (
-              <div className="flex justify-end mt-12 w-full">
+          {/* Action Button */}
+          {isEditing && (
+            <div className="flex justify-between items-center mt-10">
+              {/* Delete Artwork */}
+              <div>
+                {artwork?.id && (
+                  <Button
+                    variant="error"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    icon={
+                      <img
+                        src="/icons/delete.svg"
+                        alt="Delete"
+                        className="w-4 h-4 object-contain"
+                      />
+                    }
+                  >
+                    Delete Artwork
+                  </Button>
+                )}
+              </div>
+
+              {/* Cancel & Save Buttons */}
+              <div className="flex gap-3">
                 <Button
-                  variant="error"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  icon={
-                    <img
-                      src="/icons/delete.svg"
-                      alt="Delete"
-                      className="w-4 h-4 object-contain"
-                    />
-                  }
+                  variant="light"
+                  className="!border"
+                  onClick={() => {
+                    if (artwork) {
+                      setFormData({ ...savedData });
+                      setImages([...savedImages]);
+                      setIsEditing(false);
+                    } else {
+                      onBack();
+                    }
+
+                    setSaveError("");
+                    setImageError("");
+                  }}
                 >
-                  Delete Artwork
+                  Cancel
+                </Button>
+
+                <Button
+                  variant="dark"
+                  onClick={handleSave}
+                >
+                  Save
                 </Button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        <div className="mt-12">
-          <div className="flex items-center gap-3 mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Order Reviews</h2>
-            <span className="text-sm font-normal text-gray-400">
-              {mockArtworkReviews.length} reviews
-            </span>
+        {artwork?.id && (
+          <div className="mt-12">
+            <div className="flex items-center gap-3 mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Order Reviews</h2>
+              <span className="text-sm font-normal text-gray-400">
+                {reviews.length} reviews
+              </span>
+            </div>
+            <ReviewList reviews={reviews} />
           </div>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <ReviewList reviews={mockArtworkReviews as any} />
-        </div>
+        )}
       </div>
 
       <DeleteArtworkModal
