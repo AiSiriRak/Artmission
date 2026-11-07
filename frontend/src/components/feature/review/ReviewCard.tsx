@@ -5,11 +5,18 @@ import type {
   ArtistReviewData,
 } from "@/lib/api/reviews";
 
-export function ReviewStars({ rating, size = 24 }: { rating: number; size?: number }) {
+export function ReviewStars({
+  rating,
+  size = 24,
+}: {
+  rating: number;
+  size?: number;
+}) {
   return (
     <div className="flex items-center gap-2">
       {[...Array(5)].map((_, index) => {
         const filled = index < rating;
+        const starSize = filled ? size : size * 1.3;
 
         return (
           <Image
@@ -20,9 +27,11 @@ export function ReviewStars({ rating, size = 24 }: { rating: number; size?: numb
                 : "/icons/Star_light.svg"
             }
             alt=""
+            width={starSize}
+            height={starSize}
             style={{
-              width: filled ? size : size * 1.3,
-              height: filled ? size : size * 1.3,
+              width: starSize,
+              height: starSize,
             }}
             className="shrink-0 object-contain"
           />
@@ -41,7 +50,9 @@ export default function ReviewCard({ review }: { review: ReviewData | ArtistRevi
           <Image
             src={review.avatarUrl}
             alt={review.reviewerName || "Reviewer"}
-            className="w-full h-full object-cover"
+            width={48}
+            height={48}
+            className="w-auto h-full object-cover"
           />
         )}
       </div>

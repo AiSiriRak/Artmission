@@ -45,6 +45,8 @@ export default function ProfileSidebar({
                 <Image
                   src="/icons/edit.svg"
                   alt="Edit"
+                  width={16}
+                  height={16}
                   className="w-4 h-4 object-contain"
                 />
               }
@@ -60,6 +62,8 @@ export default function ProfileSidebar({
                   <Image
                     src="/icons/preview.svg"
                     alt="Preview"
+                    width={16}
+                    height={16}
                     className="w-4 h-4 object-contain brightness-0 invert"
                   />
                 </div>

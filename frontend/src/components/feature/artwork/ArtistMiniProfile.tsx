@@ -18,6 +18,8 @@ export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
         <Image
           src={artist.profile_url || "/default-avatar.png"}
           alt="Artist Avatar"
+          width={128}
+          height={128}
           className="w-full h-full object-cover"
         />
       </div>
@@ -35,6 +37,8 @@ export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
               <Image
                 src="/icons/external-link-icon.svg"
                 alt="external link icon"
+                width={16}
+                height={16}
                 className="w-4 h-4"
               />{" "}
               View Profile

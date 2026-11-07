@@ -39,21 +39,23 @@ export default function ArtworkDetailCard({ artwork }: ArtworkDetailCardProps) {
 
           {/* Artwork Sample Gallery section */}
           <h3 className="text-h4">Artwork Samples</h3>
-          <div className="flex justify-center items-center gap-2">
-            <div className="flex flex-wrap justify-center gap-4">
-              {(artwork.artwork_samples ?? []).map(({ image_url: imgUrl }, index) => (
+          <div className="flex gap-4 overflow-x-auto pb-3">
+            {(artwork.artwork_samples ?? []).map(
+              ({ image_url: imgUrl }, index) => (
                 <div
                   key={index}
-                  className="w-96 h-96 bg-white border border-gray-200 rounded-xl relative p-2 flex items-center justify-center"
+                  className="relative h-48 w-fit flex-none overflow-hidden rounded-xl"
                 >
                   <Image
                     src={imgUrl}
                     alt={`sample-${index}`}
-                    className="max-w-full max-h-full object-contain"
+                    width={400}
+                    height={400}
+                    className="h-48 w-auto max-w-none object-contain"
                   />
                 </div>
-              ))}
-            </div>
+              ),
+            )}
           </div>
         </div>
       </div>

@@ -55,6 +55,8 @@ export default function OrderCancelSection({
               <Image
                 src="/icons/message-circle-off.svg"
                 alt=""
+                width={72}
+                height={72}
                 className="h-18 w-18 shrink-0"
               />
               <div className="mt-2 break-words text-body text-neutral">

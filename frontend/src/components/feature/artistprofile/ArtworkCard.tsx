@@ -31,6 +31,8 @@ export default function ArtworkCard({
         <Image
           src={imageUrl}
           alt={artwork.name || "Artwork"}
+          width={400}
+          height={224}
           className="w-full h-56 object-cover"
         />
 
@@ -39,6 +41,8 @@ export default function ArtworkCard({
             <Image
               src="/icons/edit.svg"
               alt="Edit"
+              width={24}
+              height={24}
               className="w-6 h-6 object-contain drop-shadow-md hover:scale-110 transition-transform"
             />
           </div>

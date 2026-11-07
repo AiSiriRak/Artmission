@@ -64,6 +64,8 @@ export default function SubmitDraft({ onSubmit, disabled = false }: { onSubmit: 
               <Image
                 src={draft.previewUrl}
                 alt="Draft preview"
+                width={632}
+                height={632}
                 className="block h-auto w-auto max-h-[632px] max-w-full object-contain"
               />
             </div>

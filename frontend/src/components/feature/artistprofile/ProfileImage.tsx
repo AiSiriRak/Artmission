@@ -55,6 +55,8 @@ export default function ProfileImage({
       <Image
         src={currentSrc}
         alt="Profile"
+        width={128}
+        height={128}
         onError={() => {
           setImgError(true);
         }}

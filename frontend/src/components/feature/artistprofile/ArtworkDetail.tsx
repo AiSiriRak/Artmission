@@ -479,6 +479,8 @@ export default function ArtworkDetail({
                     <Image
                       src="/icons/edit.svg"
                       alt="Edit"
+                      width={16}
+                      height={16}
                       className="w-4 h-4 object-contain"
                     />
                   }
@@ -587,6 +589,8 @@ export default function ArtworkDetail({
                   <Image
                     src="/icons/alarm-clock.svg"
                     alt="Deadline"
+                    width={16}
+                    height={16}
                     className="w-4 h-4 object-contain brightness-0 invert"
                   />
                   {savedData.minimum_deadline_days} days
@@ -622,6 +626,8 @@ export default function ArtworkDetail({
                   <Image
                     src="/icons/banknote.svg"
                     alt="Price"
+                    width={16}
+                    height={16}
                     className="w-4 h-4 object-contain"
                   />
                   {savedData.price.toLocaleString()} THB
@@ -643,6 +649,8 @@ export default function ArtworkDetail({
                       <Image
                         src="/icons/delete.svg"
                         alt="Delete"
+                        width={16}
+                        height={16}
                         className="w-4 h-4 object-contain"
                       />
                     }

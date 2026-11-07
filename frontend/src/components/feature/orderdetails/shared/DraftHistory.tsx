@@ -68,8 +68,14 @@ function DateLine({ label, value }: { label: string; value: string }) {
 function ArtworkPreview({ src, alt }: { src: string; alt: string }) {
   return (
     <div className="mx-auto mt-8 w-full max-w-[940px]">
-      <div className="mx-auto w-fit max-w-full border border-neutral bg-white">
-        <Image src={src} alt={alt} className="block h-auto w-auto max-h-[632px] max-w-full object-contain" />
+      <div className="w-full">
+        <Image
+          src={src}
+          alt={alt}
+          width={400}
+          height={632}
+          className="block w-full h-auto max-h-[632px] object-contain"
+        />
       </div>
     </div>
   );
@@ -150,7 +156,7 @@ export default function DraftHistory({
   const waitingDraft = drafts.reduce<Draft | undefined>(
     (latest, draft) =>
       draft.status === "WAITING_FOR_CUSTOMER_COMMENT" &&
-      (!latest || draft.draftNumber > latest.draftNumber)
+        (!latest || draft.draftNumber > latest.draftNumber)
         ? draft
         : latest,
     undefined,

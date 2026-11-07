@@ -76,6 +76,8 @@ export default function FinalArtworkActions({
           <Image
             src="/icons/fail.svg"
             alt=""
+            width={16}
+            height={16}
             className="h-4 w-4 shrink-0"
           />
           <p className="text-caption">

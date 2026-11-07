@@ -113,6 +113,8 @@ export default function OrderCancelSection({
             <Image
               src="/icons/Bell_light.svg"
               alt=""
+              width={24}
+              height={24}
               className="h-6 w-6 shrink-0"
             />
           </div>

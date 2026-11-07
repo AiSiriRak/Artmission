@@ -67,6 +67,8 @@ export function RatingOrderPopup({ isOpen, onConfirm }: RatingOrderPopupProps) {
                         : "/icons/Star_light.svg"
                     }
                     alt={index < rating ? "Filled Star" : "Light Star"}
+                    width={40}
+                    height={40}
                     className="cursor-pointer w-[40px] h-[40px] object-contain object-center transition-transform hover:scale-110"
                     onClick={() => setRating(index + 1)}
                   />

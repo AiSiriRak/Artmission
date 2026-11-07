@@ -10,7 +10,7 @@ interface OrderDetailsProps {
   usertype: "artist" | "customer";
   description: ReactNode;
   info: ReactNode;
-  postponeSection?: ReactNode; 
+  postponeSection?: ReactNode;
   cancelSection?: ReactNode;
   successSection?: ReactNode;
   userInfo?: ReactNode;
@@ -44,6 +44,8 @@ export default function OrderDetails({
             <Image
               src="/icons/Arrow_left.svg"
               alt=""
+              width={16}
+              height={16}
               className="w-4 h-4 object-contain"
             />
           }
