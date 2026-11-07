@@ -1,4 +1,7 @@
+import Image from "next/image";
+
 import type { Artwork } from "@/lib/api/types";
+import { formatPriceFromSatang } from "@/lib/format-price";
 
 interface ArtworkCardProps {
   artwork: Artwork;
@@ -14,10 +17,9 @@ export default function ArtworkCard({
   const imageUrl =
     artwork.artwork_samples?.[0]?.image_url || "/placeholder.png";
 
-  // Satang to Bath
   const displayPrice =
     artwork.price_satang != null
-      ? (artwork.price_satang / 100).toLocaleString()
+      ? formatPriceFromSatang(artwork.price_satang)
       : "0";
 
   return (
@@ -26,17 +28,21 @@ export default function ArtworkCard({
       onClick={onClick}
     >
       <div className="relative">
-        <img
+        <Image
           src={imageUrl}
           alt={artwork.name || "Artwork"}
+          width={400}
+          height={224}
           className="w-full h-56 object-cover"
         />
 
         {showEditControls && (
           <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-            <img
+            <Image
               src="/icons/edit.svg"
               alt="Edit"
+              width={24}
+              height={24}
               className="w-6 h-6 object-contain drop-shadow-md hover:scale-110 transition-transform"
             />
           </div>

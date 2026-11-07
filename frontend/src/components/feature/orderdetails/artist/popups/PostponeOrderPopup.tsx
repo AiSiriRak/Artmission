@@ -54,8 +54,17 @@ export default function PostponeOrderPopup({ orderSummary, currentDeadline, curr
         event.preventDefault();
         if (busy) return;
         const selectedReason = reasons.find((item) => item.value === reason);
-        if (!deadline || deadline <= currentDeadline || !selectedReason || !description.trim()) {
-          setError("กรุณาเลือกวันหลัง Deadline เดิม พร้อมเหตุผลและคำอธิบาย"); return;
+        if (!deadline || deadline <= currentDeadline) {
+          setError("Please choose a proposed deadline after the current deadline.");
+          return;
+        }
+        if (!selectedReason) {
+          setError("Please select a reason for postponement.");
+          return;
+        }
+        if (!description.trim()) {
+          setError("Please explain your reason.");
+          return;
         }
         setError("");
         onConfirm({ deadline, reason: selectedReason.value, description: description.trim() });
@@ -74,16 +83,16 @@ export default function PostponeOrderPopup({ orderSummary, currentDeadline, curr
             required
             min={minDate}
             value={deadline}
-            onChange={(event) => setDeadline(event.target.value)}
+            onChange={(event) => { setDeadline(event.target.value); setError(""); }}
             onClick={(event) => event.currentTarget.showPicker?.()}
             className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
           />
         </div>
         <p className="mt-1 text-small text-neutral">* Must be later than the current deadline</p>
         <p className="mb-2 mt-3 text-caption">Reason for Postponement <span className="text-error">*</span></p>
-        <SelectInput options={reasons} value={reason} onChange={setReason} formatSelectedLabel={(label) => reason ? label : "Select reason for postpone"} buttonClassName="rounded-lg border-neutral-400" />
+        <SelectInput options={reasons} value={reason} onChange={(value) => { setReason(value); setError(""); }} formatSelectedLabel={(label) => reason ? label : "Select reason for postpone"} buttonClassName="rounded-lg border-neutral-400" />
         <label htmlFor={fieldId + "-description"} className="mb-2 mt-3 block text-caption">Please explain your reason <span className="text-error">*</span></label>
-        <textarea id={fieldId + "-description"} required maxLength={300} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Briefly explain why you need more time..." className="h-18 w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small" />
+        <textarea id={fieldId + "-description"} required maxLength={300} value={description} onChange={(event) => { setDescription(event.target.value); setError(""); }} placeholder="Briefly explain why you need more time..." className="h-18 w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small" />
         <p className="mt-1 text-right text-small text-neutral">{description.length}/300</p>
         <div className="mt-3 flex items-center gap-3 rounded-xl bg-neutral-400 px-4 py-2 text-small">
           <Image src="/icons/Info.svg" alt="" width={32} height={32} className="h-8 w-8 shrink-0" />

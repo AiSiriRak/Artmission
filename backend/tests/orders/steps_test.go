@@ -46,12 +46,11 @@ type ordersContext struct {
 	otherDeliverableID        string
 	lastDeliverablePreviewKey string // most recently seeded deliverable version's preview_image_key
 	lastOriginalImageKey      string // most recently seeded deliverable version's original_image_key
-	// for sprint 2
-	sprint2BypassMessage     string
-	autoApprovedDeliverables []uuid.UUID
-	delayRequestDeadline     time.Time
-	lastDelayRequestID       string
-	targetArtworkID          string
+	autoApprovedDeliverables  []uuid.UUID
+	expiredDelayRequestIDs    []uuid.UUID
+	delayRequestDeadline      time.Time
+	lastDelayRequestID        string
+	targetArtworkID           string
 
 	resp         *apptest.Response
 	page         viewOrdersOutput // last response decoded while resp.StatusCode == 200
@@ -117,6 +116,23 @@ func (o *ordersContext) theUserHasAnOrder() error {
 	}
 	o.seededOrders[id] = "PENDING"
 	o.lastOrderID = id
+	return nil
+}
+
+func (o *ordersContext) theOtherPartyHasAProfileImage() error {
+	counterpart, err := o.sharedCounterpart()
+	if err != nil {
+		return err
+	}
+
+	_, err = app.DB.NewUpdate().
+		Table("users").
+		Set("profile_image_key = ?", getOrderProfileImageKey).
+		Where("id = ?", uuid.MustParse(counterpart.ID)).
+		Exec(context.Background())
+	if err != nil {
+		return fmt.Errorf("set other party profile image key: %w", err)
+	}
 	return nil
 }
 
@@ -588,6 +604,82 @@ func (o *ordersContext) seedPendingDelayRequest(orderID string) error {
 	return err
 }
 
+func (o *ordersContext) thePendingDelayRequestWasCreatedMoreThanDaysAgo(days int) error {
+	if days < 0 {
+		return fmt.Errorf("days = %d, want a non-negative number", days)
+	}
+	if o.lastDelayRequestID == "" {
+		return fmt.Errorf("no pending delay request is available to age")
+	}
+	createdAt := time.Now().Add(-time.Duration(days)*24*time.Hour - time.Hour)
+	_, err := app.DB.NewUpdate().
+		Table("order_delay_requests").
+		Set("created_at = ?", createdAt).
+		Where("id = ?", uuid.MustParse(o.lastDelayRequestID)).
+		Exec(context.Background())
+	if err != nil {
+		return fmt.Errorf("age pending delay request: %w", err)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemAutoExpiresDelayRequests() error {
+	usecase := ordermod.NewOrderUsecase(postgres.NewOrderRepository(app.DB), nil)
+	ids, err := usecase.CancelExpiredDelayRequest(context.Background())
+	if err != nil {
+		return err
+	}
+	o.expiredDelayRequestIDs = ids
+	return nil
+}
+
+func (o *ordersContext) theSystemLeavesTheDelayRequestPending() error {
+	for _, id := range o.expiredDelayRequestIDs {
+		if id == uuid.MustParse(o.lastDelayRequestID) {
+			return fmt.Errorf("delay request %s was unexpectedly expired", id)
+		}
+	}
+
+	var decision string
+	if err := app.DB.NewSelect().
+		Table("order_delay_requests").
+		Column("customer_decision").
+		Where("id = ?", uuid.MustParse(o.lastDelayRequestID)).
+		Scan(context.Background(), &decision); err != nil {
+		return fmt.Errorf("read delay request decision: %w", err)
+	}
+	if decision != string(ordermod.DelayDecisionWait) {
+		return fmt.Errorf("delay request decision = %q, want %q", decision, ordermod.DelayDecisionWait)
+	}
+	return nil
+}
+
+func (o *ordersContext) theSystemShowsTheDelayRequestAsRejected() error {
+	found := false
+	for _, id := range o.expiredDelayRequestIDs {
+		if id == uuid.MustParse(o.lastDelayRequestID) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("expired delay request %s was not returned by the expiration sweep", o.lastDelayRequestID)
+	}
+
+	var decision string
+	if err := app.DB.NewSelect().
+		Table("order_delay_requests").
+		Column("customer_decision").
+		Where("id = ?", uuid.MustParse(o.lastDelayRequestID)).
+		Scan(context.Background(), &decision); err != nil {
+		return fmt.Errorf("read expired delay request decision: %w", err)
+	}
+	if decision != string(ordermod.DelayDecisionRejected) {
+		return fmt.Errorf("delay request decision = %q, want %q", decision, ordermod.DelayDecisionRejected)
+	}
+	return nil
+}
+
 func (o *ordersContext) orderDeadline(orderID string) (time.Time, error) {
 	var deadline time.Time
 	err := app.DB.NewSelect().
@@ -706,69 +798,6 @@ func (o *ordersContext) theUserCancelsAnotherUsersOrder() error {
 	return o.cancelOrder(o.otherOrderID, true)
 }
 
-// for sprint 2
-func (o *ordersContext) bypassPaymentForLastOrder(authenticated bool) error {
-	headers := map[string]string(nil)
-	if authenticated {
-		headers = map[string]string{"Authorization": "Bearer " + o.accessToken}
-	}
-	resp, err := o.client.Do(
-		http.MethodPut,
-		"/orders/"+o.lastOrderID+"/bypass-payment",
-		nil,
-		headers,
-	)
-	if err != nil {
-		return err
-	}
-	o.resp = resp
-	if resp.StatusCode == http.StatusOK {
-		var output struct {
-			Message string `json:"message"`
-		}
-		if err := resp.JSON(&output); err != nil {
-			return fmt.Errorf("decode bypass-payment response: %w (body: %s)", err, resp.Body)
-		}
-		o.sprint2BypassMessage = output.Message
-	}
-	return nil
-}
-
-// for sprint 2
-func (o *ordersContext) theUserBypassesPaymentForTheirLastOrder() error {
-	return o.bypassPaymentForLastOrder(true)
-}
-
-// for sprint 2
-func (o *ordersContext) theUserAttemptsToBypassPaymentWithoutLoggingIn() error {
-	return o.bypassPaymentForLastOrder(false)
-}
-
-// for sprint 2
-func (o *ordersContext) theSystemConfirmsPaymentBypassAndMovesOrderToInProcess() error {
-	if err := o.expectStatus(http.StatusOK); err != nil {
-		return err
-	}
-	if o.sprint2BypassMessage != "Payment bypassed successfully" {
-		return fmt.Errorf("bypass response message = %q, want success message", o.sprint2BypassMessage)
-	}
-	if err := o.getOrder(o.lastOrderID, true); err != nil {
-		return err
-	}
-	if o.resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("get order after payment bypass: status %d (body: %s)", o.resp.StatusCode, o.resp.Body)
-	}
-	if o.orderDetail.Status != string(ordermod.StatusInProcess) {
-		return fmt.Errorf("order status = %q, want %q", o.orderDetail.Status, ordermod.StatusInProcess)
-	}
-	return nil
-}
-
-// for sprint 2
-func (o *ordersContext) theSystemForbidsPaymentBypass() error {
-	return o.expectStatus(http.StatusForbidden)
-}
-
 // getOrder sends GET /orders/{id} and decodes a successful detail response.
 func (o *ordersContext) getOrder(orderID string, authenticated bool) error {
 	headers := map[string]string(nil)
@@ -875,6 +904,7 @@ type orderDetailOutput struct {
 	OtherParty          orderPartyOutput      `json:"other_party"`
 	Deliverables        []deliverableOutput   `json:"deliverables"`
 	ActiveDelayRequest  *delayRequestOutput   `json:"active_delay_request"`
+	Cancellation        *cancellationOutput   `json:"cancellation"`
 	OriginalImageURL    *string               `json:"original_image_url"`
 }
 
@@ -897,6 +927,11 @@ type delayRequestOutput struct {
 	UpdatedAt          time.Time `json:"updated_at"`
 }
 
+type cancellationOutput struct {
+	Reason      string `json:"reason"`
+	Explanation string `json:"explanation"`
+}
+
 type cancelOrderOutput struct {
 	OrderID     string `json:"order_id"`
 	Reason      string `json:"reason"`
@@ -913,8 +948,11 @@ type orderPartyOutput struct {
 	ID                string   `json:"id"`
 	Name              string   `json:"name"`
 	Email             string   `json:"email"`
+	ProfileImageURL   *string  `json:"profile_image_url"`
 	ArtistReviewScore *float64 `json:"artist_review_score"`
 }
+
+const getOrderProfileImageKey = "profiles/order-counterpart.png"
 
 func idsOf(orders []orderSummaryView) []string {
 	ids := make([]string, len(orders))
@@ -1175,6 +1213,31 @@ func (o *ordersContext) theSystemShowsTheOrderDetailsForTheUser() error {
 		got.OtherParty.Email != expectedParty.Email {
 		return fmt.Errorf("other_party = %+v; want account ID %q, username %q, email %q", got.OtherParty, expectedParty.ID, expectedParty.Username, expectedParty.Email)
 	}
+	if got.OtherParty.ProfileImageURL != nil {
+		return fmt.Errorf("other_party profile_image_url = %q, want nil when no profile image key is set", *got.OtherParty.ProfileImageURL)
+	}
+	return nil
+}
+
+func (o *ordersContext) theOrderDetailShowsTheOtherPartyPublicProfileImageURL() error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if o.orderDetail.OtherParty.ProfileImageURL == nil {
+		return fmt.Errorf("order detail has no other_party.profile_image_url: %+v", o.orderDetail.OtherParty)
+	}
+
+	profileURL, err := url.Parse(*o.orderDetail.OtherParty.ProfileImageURL)
+	if err != nil {
+		return fmt.Errorf("parse other_party.profile_image_url: %w", err)
+	}
+	if profileURL.Scheme == "" || profileURL.Host == "" ||
+		!strings.HasSuffix(profileURL.Path, "/"+getOrderProfileImageKey) {
+		return fmt.Errorf("other_party.profile_image_url = %q, want public URL ending in %q", profileURL, "/"+getOrderProfileImageKey)
+	}
+	if profileURL.RawQuery != "" {
+		return fmt.Errorf("other_party.profile_image_url = %q, want stable public URL without query parameters", profileURL)
+	}
 	return nil
 }
 
@@ -1243,6 +1306,9 @@ func (o *ordersContext) theSystemConfirmsTheOrderWithStatus(status string) error
 	}
 	if o.orderDetail.Status != status {
 		return fmt.Errorf("order status = %q, want %q", o.orderDetail.Status, status)
+	}
+	if status == string(ordermod.StatusCancel) && o.orderDetail.Cancellation != nil {
+		return fmt.Errorf("rejected order has cancellation details, want none: %+v", o.orderDetail.Cancellation)
 	}
 	return nil
 }
@@ -1510,6 +1576,19 @@ func (o *ordersContext) theSystemCancelsTheOrder() error {
 	return nil
 }
 
+func (o *ordersContext) theOrderDetailShowsTheCancellationReasonAndExplanation() error {
+	if o.orderDetail.Cancellation == nil {
+		return fmt.Errorf("order detail has no cancellation details: %+v", o.orderDetail)
+	}
+	if o.orderDetail.Cancellation.Reason != "OTHER" {
+		return fmt.Errorf("cancellation reason = %q, want OTHER", o.orderDetail.Cancellation.Reason)
+	}
+	if o.orderDetail.Cancellation.Explanation != "Circumstances changed" {
+		return fmt.Errorf("cancellation explanation = %q, want %q", o.orderDetail.Cancellation.Explanation, "Circumstances changed")
+	}
+	return nil
+}
+
 func (o *ordersContext) theSystemCancelsTheOrderAndRejectsPendingWork() error {
 	if err := o.theSystemCancelsTheOrder(); err != nil {
 		return err
@@ -1744,6 +1823,7 @@ func (o *ordersContext) theSystemShowsTheOrderWithStatus(want string) error {
 // scenario, so scenarios never see each other's cookies or fixtures.
 func InitializeScenario(sc *godog.ScenarioContext) {
 	var o *ordersContext
+	registerPaymentSteps(sc, func() *ordersContext { return o })
 
 	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 		o = &ordersContext{
@@ -1759,6 +1839,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user has logged in$`, func() error { return o.theUserHasLoggedIn() })
 	sc.Step(`^the user has one or more orders$`, func() error { return o.theUserHasOneOrMoreOrders() })
 	sc.Step(`^the user has an order$`, func() error { return o.theUserHasAnOrder() })
+	sc.Step(`^the other party has a profile image$`, func() error {
+		return o.theOtherPartyHasAProfileImage()
+	})
 	sc.Step(`^the user has an order with status "([^"]*)"$`, func(status string) error { return o.theUserHasAnOrderWithStatus(status) })
 	sc.Step(`^the user has an order with status "([^"]*)" and (\d+) submitted deliverable versions$`, func(status string, n int) error {
 		return o.theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersions(status, n)
@@ -1811,6 +1894,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user has an order with status "([^"]*)" and a pending delay request$`, func(status string) error {
 		return o.theUserHasAnOrderWithStatusAndPendingDelayRequest(status)
 	})
+	sc.Step(`^the pending delay request was created more than (\d+) days ago$`, func(days int) error {
+		return o.thePendingDelayRequestWasCreatedMoreThanDaysAgo(days)
+	})
 	sc.Step(`^the user has an order with a pending deliverable and delay request$`, func() error {
 		return o.theUserHasAnOrderWithPendingDeliverableAndDelayRequest()
 	})
@@ -1829,6 +1915,15 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user attempts to approve the pending delay request without logging in$`, func() error {
 		return o.theUserAttemptsToApproveThePendingDelayRequestWithoutLoggingIn()
 	})
+	sc.Step(`^the system auto-expires delay requests$`, func() error {
+		return o.theSystemAutoExpiresDelayRequests()
+	})
+	sc.Step(`^the system leaves the delay request pending$`, func() error {
+		return o.theSystemLeavesTheDelayRequestPending()
+	})
+	sc.Step(`^the system shows the delay request as rejected$`, func() error {
+		return o.theSystemShowsTheDelayRequestAsRejected()
+	})
 	sc.Step(`^the artist requests a deadline extension for their last order$`, func() error {
 		return o.theArtistRequestsADeadlineExtensionForTheirLastOrder()
 	})
@@ -1843,14 +1938,6 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		return o.theUserCancelsTheirLastOrderWithoutLoggingIn()
 	})
 	sc.Step(`^the user cancels another user's order$`, func() error { return o.theUserCancelsAnotherUsersOrder() })
-	// for sprint 2
-	sc.Step(`^the user bypasses payment for their last order$`, func() error {
-		return o.theUserBypassesPaymentForTheirLastOrder()
-	})
-	// for sprint 2
-	sc.Step(`^the user attempts to bypass payment without logging in$`, func() error {
-		return o.theUserAttemptsToBypassPaymentWithoutLoggingIn()
-	})
 	sc.Step(`^the user views their orders filtered by status "([^"]*)"$`, func(status string) error {
 		return o.theUserViewsTheirOrdersFilteredByStatus(status)
 	})
@@ -1908,6 +1995,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system shows the order details for the user$`, func() error {
 		return o.theSystemShowsTheOrderDetailsForTheUser()
 	})
+	sc.Step(`^the order detail shows the other party's public profile image URL$`, func() error {
+		return o.theOrderDetailShowsTheOtherPartyPublicProfileImageURL()
+	})
 	sc.Step(`^the system shows the latest original image URL for the successful order$`, func() error {
 		return o.theSystemShowsTheLatestOriginalImageURLForSuccessfulOrder()
 	})
@@ -1963,6 +2053,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		return o.theSystemHidesTheDeliverableFromTheUser()
 	})
 	sc.Step(`^the system cancels the order$`, func() error { return o.theSystemCancelsTheOrder() })
+	sc.Step(`^the order detail shows the cancellation reason and explanation$`, func() error {
+		return o.theOrderDetailShowsTheCancellationReasonAndExplanation()
+	})
 	sc.Step(`^the system cancels the order and rejects its pending deliverable and delay request$`, func() error {
 		return o.theSystemCancelsTheOrderAndRejectsPendingWork()
 	})
@@ -1977,14 +2070,6 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 	sc.Step(`^the system hides the order from the user$`, func() error {
 		return o.theSystemHidesTheOrderFromTheUser()
-	})
-	// for sprint 2
-	sc.Step(`^the system confirms payment bypass and moves the order to IN_PROCESS$`, func() error {
-		return o.theSystemConfirmsPaymentBypassAndMovesOrderToInProcess()
-	})
-	// for sprint 2
-	sc.Step(`^the system forbids payment bypass$`, func() error {
-		return o.theSystemForbidsPaymentBypass()
 	})
 	sc.Step(`^the system rejects the request due to an invalid offset$`, func() error { return o.expectClientError() })
 	sc.Step(`^the system rejects the request due to an invalid status$`, func() error { return o.expectClientError() })

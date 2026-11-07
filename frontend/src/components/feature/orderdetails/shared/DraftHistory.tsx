@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 
 export type DraftStatus =
@@ -58,7 +59,7 @@ function HistoryCard({ children }: { children: ReactNode }) {
 function DateLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-4">
-      <dt className="text-h3">{label}</dt>
+      <dt className="text-h4">{label}</dt>
       <dd className="text-body">{value}</dd>
     </div>
   );
@@ -66,9 +67,15 @@ function DateLine({ label, value }: { label: string; value: string }) {
 
 function ArtworkPreview({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="mx-auto mt-8 w-full max-w-[940px] p-6">
-      <div className="mx-auto w-fit max-w-full border border-neutral bg-white">
-        <img src={src} alt={alt} className="block h-auto w-auto max-h-[632px] max-w-full object-contain" />
+    <div className="mx-auto mt-8 w-full max-w-[940px]">
+      <div className="w-full">
+        <Image
+          src={src}
+          alt={alt}
+          width={400}
+          height={632}
+          className="block w-full h-auto max-h-[632px] object-contain"
+        />
       </div>
     </div>
   );
@@ -149,7 +156,7 @@ export default function DraftHistory({
   const waitingDraft = drafts.reduce<Draft | undefined>(
     (latest, draft) =>
       draft.status === "WAITING_FOR_CUSTOMER_COMMENT" &&
-      (!latest || draft.draftNumber > latest.draftNumber)
+        (!latest || draft.draftNumber > latest.draftNumber)
         ? draft
         : latest,
     undefined,

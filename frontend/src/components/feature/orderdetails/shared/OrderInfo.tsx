@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { OrderStatus } from "@/lib/api/types";
+import { formatPriceFromSatang } from "@/lib/format-price";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 
 interface OrderInfoProps {
@@ -49,22 +50,22 @@ export default function OrderInfo({
         className="max-w-none overflow-hidden border border-primary-500 bg-secondary-200 shadow-none"
       >
         <div className="flex items-center justify-between gap-4 border-b border-primary-500 px-6 py-5">
-          <span className="text-h3">Status</span>
+          <span className="text-h4">Status</span>
           <div className={`${statusColors[status]} flex w-30 p-1.5 border rounded-full justify-center`}>
             <p className="text-caption text-primary-500">{statusLabels[status]}</p>
           </div>
         </div>
         <dl className={`space-y-3 px-6 pt-5 ${hasActions ? "pb-2" : "pb-5"}`}>
           <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-h3">Total Amount</dt>
-            <dd className="text-body text-right">{(priceSatang / 100).toLocaleString("en-US")} THB</dd>
+            <dt className="text-h4">Total Amount</dt>
+            <dd className="text-body text-right">{formatPriceFromSatang(priceSatang)} THB</dd>
           </div>
           <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-h3">Order Date</dt>
+            <dt className="text-h4">Order Date</dt>
             <dd className="text-body text-right">{orderDate}</dd>
           </div>
           <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-h3">Deadline</dt>
+            <dt className="text-h4">Deadline</dt>
             <dd className="text-right">
               <p className="text-body">{deadlineDate}</p>
               {deadlineNote && <p className="mt-1 text-small text-neutral">{deadlineNote}</p>}

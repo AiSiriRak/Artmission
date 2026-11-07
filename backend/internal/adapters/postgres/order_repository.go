@@ -9,6 +9,7 @@ import (
 
 	pgmodel "github.com/AiSiriRak/Artmission/backend/internal/adapters/postgres/model"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/payment"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
 	"github.com/google/uuid"
@@ -85,11 +86,13 @@ type orderDetailModel struct {
 	CreatedAt           time.Time               `bun:"created_at,nullzero"`
 	UpdatedAt           time.Time               `bun:"updated_at,nullzero"`
 
-	CustomerName  string `bun:"customer_name,scanonly"`
-	CustomerEmail string `bun:"customer_email,scanonly"`
+	CustomerName            string  `bun:"customer_name,scanonly"`
+	CustomerEmail           string  `bun:"customer_email,scanonly"`
+	CustomerProfileImageKey *string `bun:"customer_profile_image_key"`
 
-	ArtistName  string `bun:"artist_name,scanonly"`
-	ArtistEmail string `bun:"artist_email,scanonly"`
+	ArtistName            string  `bun:"artist_name,scanonly"`
+	ArtistEmail           string  `bun:"artist_email,scanonly"`
+	ArtistProfileImageKey *string `bun:"artist_profile_image_key"`
 
 	ArtistReviewScore *float64 `bun:"artist_review_score,scanonly"`
 }
@@ -305,6 +308,9 @@ func (r *orderRepository) ListOrders(ctx context.Context, query order.ListQuery)
 		return order.Page{}, apperror.Internal("failed to attach deliverable preview keys", err)
 	}
 
+	if err := r.attachPaymentSummaries(ctx, orders); err != nil {
+		return order.Page{}, apperror.Internal("failed to attach payments", err)
+	}
 	return order.Page{Orders: orders, Total: page.Total}, nil
 }
 
@@ -324,6 +330,7 @@ func (r *orderRepository) GetOrderByID(
 	var model orderDetailModel
 	var deliverableModels []pgmodel.OrderDeliverable
 	var delayRequest *pgmodel.OrderDelayRequest
+	var cancellation *pgmodel.OrderCancellation
 
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		q := idb.NewSelect().
@@ -345,8 +352,10 @@ func (r *orderRepository) GetOrderByID(
 			).
 			ColumnExpr("customer.username AS customer_name").
 			ColumnExpr("customer.email AS customer_email").
+			ColumnExpr("customer.profile_image_key AS customer_profile_image_key").
 			ColumnExpr("artist.username AS artist_name").
 			ColumnExpr("artist.email AS artist_email").
+			ColumnExpr("artist.profile_image_key AS artist_profile_image_key").
 			ColumnExpr("artist_profiles.review_score AS artist_review_score").
 			Join("JOIN users AS customer ON customer.id = o.customer_id").
 			Join("JOIN users AS artist ON artist.id = o.artist_id").
@@ -385,6 +394,23 @@ func (r *orderRepository) GetOrderByID(
 			delayRequest = nil
 		}
 
+		if order.Status(model.Status) == order.StatusCancel {
+			cancellationModel := new(pgmodel.OrderCancellation)
+
+			if err := idb.NewSelect().
+				Model(cancellationModel).
+				Where("ocr.order_id = ?", orderID).
+				Scan(ctx); err != nil {
+				if !errors.Is(err, sql.ErrNoRows) {
+					return err
+				}
+
+				cancellationModel = nil
+			}
+
+			cancellation = cancellationModel
+		}
+
 		return nil
 	})
 
@@ -421,7 +447,19 @@ func (r *orderRepository) GetOrderByID(
 		}
 	}
 
-	return &order.OrderDetailData{
+	var cancellationData *order.OrderCancellation
+
+	if cancellation != nil {
+		cancellationData = &order.OrderCancellation{
+			ID:          cancellation.ID,
+			OrderID:     cancellation.OrderID,
+			Reason:      cancellation.Reason,
+			Explanation: cancellation.Explanation,
+			CreatedAt:   cancellation.CreatedAt,
+		}
+	}
+
+	detail := &order.OrderDetailData{
 		Order: order.Order{
 			ID:                  model.ID,
 			CustomerID:          model.CustomerID,
@@ -442,19 +480,28 @@ func (r *orderRepository) GetOrderByID(
 			StyleIDs:    model.ArtworkSnapshot.StyleIDs,
 		},
 		Customer: order.OrderParty{
-			ID:    model.CustomerID,
-			Name:  model.CustomerName,
-			Email: model.CustomerEmail,
+			ID:              model.CustomerID,
+			Name:            model.CustomerName,
+			Email:           model.CustomerEmail,
+			ProfileImageKey: model.CustomerProfileImageKey,
 		},
 		Artist: order.OrderParty{
 			ID:                model.ArtistID,
 			Name:              model.ArtistName,
 			Email:             model.ArtistEmail,
+			ProfileImageKey:   model.ArtistProfileImageKey,
 			ArtistReviewScore: model.ArtistReviewScore,
 		},
 		Deliverables:       deliverables,
 		ActiveDelayRequest: activeDelayRequest,
-	}, nil
+		Cancellation:       cancellationData,
+	}
+	orders := []order.Order{detail.Order}
+	if err := r.attachPaymentSummaries(ctx, orders); err != nil {
+		return nil, apperror.Internal("failed to attach payment", err)
+	}
+	detail.Order = orders[0]
+	return detail, nil
 }
 
 // ConfirmOrder transitions a pending order to the given status,
@@ -465,49 +512,70 @@ func (r *orderRepository) ConfirmOrder(
 	orderID uuid.UUID,
 	status order.Status,
 ) error {
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		existing := new(pgmodel.Order)
-		err := idb.NewSelect().
-			Model(existing).
-			Column("id", "status").
-			Where("id = ?", orderID).
-			Where("artist_id = ?", artistID).
-			Scan(ctx)
-
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return order.ErrOrderNotFound
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			existing := new(pgmodel.Order)
+			if err := idb.NewSelect().
+				Model(existing).
+				Column("o.id", "o.price_satang_order", "o.status").
+				Where("o.id = ?", orderID).
+				Where("o.artist_id = ?", artistID).
+				For("UPDATE").
+				Scan(ctx); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return order.ErrOrderNotFound
+				}
+				return err
 			}
-			return err
-		}
+			if existing.Status != string(order.StatusPending) {
+				return order.ErrInvalidOrderStatus
+			}
 
-		if existing.Status != string(order.StatusPending) {
-			return order.ErrInvalidOrderStatus
-		}
+			update := idb.NewUpdate().
+				Model((*pgmodel.Order)(nil)).
+				Set("status = ?", string(status)).
+				Set("updated_at = clock_timestamp()").
+				Where("id = ?", orderID).
+				Where("artist_id = ?", artistID).
+				Where("status = ?", string(order.StatusPending))
 
-		result, err := idb.NewUpdate().
-			Model((*pgmodel.Order)(nil)).
-			Set("status = ?", string(status)).
-			Set("updated_at = NOW()").
-			Where("id = ?", orderID).
-			Where("artist_id = ?", artistID).
-			Where("status = ?", string(order.StatusPending)).
-			Exec(ctx)
+			if status == order.StatusNotPaid {
+				var transitionAt time.Time
+				if err := update.Returning("updated_at").Scan(ctx, &transitionAt); err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						return order.ErrInvalidOrderStatus
+					}
+					return err
+				}
+				expiresAt := transitionAt.Add(payment.QRValidityPeriod)
+				_, err := idb.NewInsert().Model(&pgmodel.Payment{
+					ID:           uuid.New(),
+					OrderID:      orderID,
+					AmountSatang: existing.PriceSatangOrder,
+					Status:       string(payment.StatusPending),
+					QRExpire:     &expiresAt,
+					CreatedAt:    transitionAt,
+					UpdatedAt:    transitionAt,
+				}).Exec(ctx)
+				return err
+			}
 
-		if err != nil {
-			return err
-		}
-
-		rows, err := result.RowsAffected()
-		if err != nil {
-			return err
-		}
-
-		if rows == 0 {
-			return order.ErrInvalidOrderStatus
-		}
-
-		return nil
+			result, err := update.Exec(ctx)
+			if err != nil {
+				return err
+			}
+			rows, err := result.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if rows == 0 {
+				return order.ErrInvalidOrderStatus
+			}
+			if status == order.StatusCancel {
+				return closeOrderPaymentsTx(ctx, idb, []uuid.UUID{orderID}, payment.StatusCancelled)
+			}
+			return nil
+		})
 	})
 
 	if err != nil {
@@ -517,6 +585,23 @@ func (r *orderRepository) ConfirmOrder(
 		return apperror.Internal("failed to confirm order", err)
 	}
 	return nil
+}
+
+func closeOrderPaymentsTx(ctx context.Context, idb bun.IDB, orderIDs []uuid.UUID, pendingStatus payment.Status) error {
+	if len(orderIDs) == 0 {
+		return nil
+	}
+	_, err := idb.NewUpdate().
+		Model((*pgmodel.Payment)(nil)).
+		Set("status = CASE WHEN status = ? THEN ? ELSE status END", string(payment.StatusPending), string(pendingStatus)).
+		Set("qr_payload = NULL").
+		Set("qr_generating_at = NULL").
+		Set("updated_at = clock_timestamp()").
+		Where("order_id IN (?)", bun.List(orderIDs)).
+		Where("(status = ? OR qr_payload IS NOT NULL OR qr_generating_at IS NOT NULL)", string(payment.StatusPending)).
+		Where("EXISTS (SELECT 1 FROM orders o WHERE o.id = p.order_id AND o.status = ?)", string(order.StatusCancel)).
+		Exec(ctx)
+	return err
 }
 
 // CancelOrder transitions an order to CANCEL when it belongs to the participant.
@@ -561,9 +646,6 @@ func (r *orderRepository) CancelOrder(
 				return order.ErrInvalidOrderStatus
 			}
 
-			// TODO: Process payment refund/transaction here before updating order status
-			// e.g., if err := r.paymentService.Refund(...); err != nil { return err }
-
 			// Update Order status to cancel
 			updateOrder := idb.NewUpdate().
 				Model((*pgmodel.Order)(nil)).
@@ -586,6 +668,17 @@ func (r *orderRepository) CancelOrder(
 
 			if rows == 0 {
 				return order.ErrInvalidOrderStatus
+			}
+
+			if err := closeOrderPaymentsTx(ctx, idb, []uuid.UUID{item.OrderID}, payment.StatusCancelled); err != nil {
+				return err
+			}
+			outcome := payment.ArtistCancelled
+			if participant == order.ParticipantCustomer {
+				outcome = payment.CustomerCancelled
+			}
+			if err := settlePaymentTx(ctx, idb, []uuid.UUID{item.OrderID}, outcome); err != nil {
+				return err
 			}
 
 			// Reject any deliverable still waiting for the customer's decision.
@@ -693,13 +786,12 @@ func (r *orderRepository) CancelExpired(
 			ids = append(ids, unconfirmedIDs...)
 			ids = append(ids, overdueIDs...)
 
-			// TODO (Payment): If payment integration is added, process refund or void transactions for all canceled order IDs here.
-			// Example:
-			// for _, orderID := range ids {
-			//     if err := r.paymentService.ProcessRefund(ctx, idb, orderID); err != nil {
-			//         return fmt.Errorf("failed to process refund for order %s: %w", orderID, err)
-			//     }
-			// }
+			if err := closeOrderPaymentsTx(ctx, idb, ids, payment.StatusExpired); err != nil {
+				return err
+			}
+			if err := settlePaymentTx(ctx, idb, overdueIDs, payment.DeadlineExpired); err != nil {
+				return err
+			}
 
 			// Reject any deliverable still waiting for the customer's decision.
 			if _, err := idb.NewUpdate().
@@ -874,6 +966,9 @@ func (r *orderRepository) CreateDeliverable(
 					Exec(ctx); err != nil {
 					return err
 				}
+				if err := settlePaymentTx(ctx, idb, []uuid.UUID{orderID}, payment.Completed); err != nil {
+					return err
+				}
 			}
 
 			// Return the version assigned by the repository.
@@ -956,6 +1051,7 @@ func (r *orderRepository) ConfirmDeliverable(
 				Where("od.id = ?", deliverableID).
 				Where("od.order_id = ?", orderID).
 				Where("o.customer_id = ?", customerID).
+				For("UPDATE OF o, od").
 				Scan(ctx, &existing.ID, &existing.Decision, &orderStatus)
 
 			if err != nil {
@@ -1007,7 +1103,7 @@ func (r *orderRepository) ConfirmDeliverable(
 			}
 
 			if decision == order.DeliverableDecisionApproved {
-				_, err := idb.NewUpdate().
+				result, err := idb.NewUpdate().
 					Model((*pgmodel.Order)(nil)).
 					Set("status = ?", string(order.StatusSuccess)).
 					Set("completed_at = NOW()").
@@ -1020,13 +1116,17 @@ func (r *orderRepository) ConfirmDeliverable(
 				if err != nil {
 					return err
 				}
+				changed, err := result.RowsAffected()
+				if err != nil {
+					return err
+				}
+				if changed != 1 {
+					return order.ErrInvalidOrderStatus
+				}
+				if err := settlePaymentTx(ctx, idb, []uuid.UUID{orderID}, payment.Completed); err != nil {
+					return err
+				}
 			}
-
-			// TODO (Payment): Release held funds / transfer payout to artist upon successful deliverable confirmation.
-			// Example:
-			// if err := r.paymentService.ReleasePayout(ctx, idb, orderID); err != nil {
-			//     return fmt.Errorf("failed to process artist payout for order %s: %w", orderID, err)
-			// }
 
 			return nil
 		})
@@ -1099,7 +1199,10 @@ func (r *orderRepository) AutoApproveExpiredDeliverables(
 				Where("id IN (?)", bun.List(orderIDs)).
 				Where("status = ?", string(order.StatusInProcess)).
 				Exec(ctx)
-			return err
+			if err != nil {
+				return err
+			}
+			return settlePaymentTx(ctx, idb, orderIDs, payment.Completed)
 		})
 	})
 	if err != nil {
@@ -1345,62 +1448,34 @@ func (r *orderRepository) CancelExpiredRequest(
 ) ([]uuid.UUID, error) {
 	var ids []uuid.UUID
 
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return idb.NewUpdate().
-			Model((*pgmodel.OrderDelayRequest)(nil)).
-			Set("customer_decision = ?", string(order.DelayDecisionRejected)).
-			Set("updated_at = ?", now).
-			Where("customer_decision = ?", string(order.DelayDecisionWait)).
-			Where("created_at <= ?", expiringCutoff).
-			Returning("id").
-			Scan(ctx, &ids)
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			// ConfirmDelayRequest locks the order before its request. Keep that order
+			// through notification creation, and sort parent locks across the batch.
+			var orderIDs []uuid.UUID
+			if err := idb.NewSelect().TableExpr("orders AS o").Column("o.id").
+				Where("EXISTS (SELECT 1 FROM order_delay_requests AS r WHERE r.order_id = o.id AND r.customer_decision = ? AND r.created_at <= ?)", string(order.DelayDecisionWait), expiringCutoff).
+				OrderExpr("o.id ASC").For("UPDATE OF o").Scan(ctx, &orderIDs); err != nil {
+				return err
+			}
+			if len(orderIDs) == 0 {
+				return nil
+			}
+			// A customer may have answered while we waited for the order lock.
+			return idb.NewUpdate().
+				Model((*pgmodel.OrderDelayRequest)(nil)).
+				Set("customer_decision = ?", string(order.DelayDecisionRejected)).
+				Set("updated_at = ?", now).
+				Where("order_id IN (?)", bun.List(orderIDs)).
+				Where("customer_decision = ?", string(order.DelayDecisionWait)).
+				Where("created_at <= ?", expiringCutoff).
+				Returning("id").
+				Scan(ctx, &ids)
+		})
 	})
 	if err != nil {
 		return nil, apperror.Internal("failed to cancel expired delay requests", err)
 	}
 
 	return ids, nil
-}
-
-// for sprint 2
-// BypassOrderPayment temporarily bypasses payment for an order owned by the customer.
-func (r *orderRepository) BypassOrderPayment(
-	ctx context.Context,
-	customerID uuid.UUID,
-	orderID uuid.UUID,
-) error {
-	return r.exec.Run(ctx, func(idb bun.IDB) error {
-		existing := new(pgmodel.Order)
-
-		if err := idb.NewSelect().
-			Model(existing).
-			Column("id", "status").
-			Where("id = ?", orderID).
-			Where("customer_id = ?", customerID).
-			For("UPDATE").
-			Scan(ctx); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return order.ErrOrderNotFound
-			}
-			return err
-		}
-
-		if existing.Status != string(order.StatusNotPaid) {
-			return order.ErrInvalidOrderStatus
-		}
-
-		_, err := idb.NewUpdate().
-			Model((*pgmodel.Order)(nil)).
-			Set("status = ?", string(order.StatusInProcess)).
-			Set("updated_at = NOW()").
-			Where("status = ?", string(order.StatusNotPaid)).
-			Where("customer_id = ?", customerID).
-			Where("id = ?", orderID).
-			Exec(ctx)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
 }

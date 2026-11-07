@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/Button";
 import { WhiteCard } from "@/components/ui/WhiteCard";
@@ -11,7 +12,7 @@ interface ThankYouOrderPopup {
   onClose: () => void;
 }
 
-export function ThankYouOrderPopup({ isOpen, onClose}: ThankYouOrderPopup) {
+export function ThankYouOrderPopup({ isOpen, onClose }: ThankYouOrderPopup) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -33,24 +34,28 @@ export function ThankYouOrderPopup({ isOpen, onClose}: ThankYouOrderPopup) {
         padding="px-[30px] py-[40px]"
       >
         {isOpen && (
-            <div className="flex flex-col items-center w-full">
+          <div className="flex flex-col items-center w-full">
             {/* Success Icon */}
-                <div className="mt-[40px]">
-                    <img 
-                        src="/icons/success_pink.svg" 
-                        alt="Success" 
-                        className="w-[64px] h-[64px] object-contain" 
-                    />
-                </div>
+            <div className="mt-[40px]">
+              <Image
+                src="/icons/success_pink.svg"
+                alt="Success"
+                width={64}
+                height={64}
+                className="w-[64px] h-[64px] object-contain"
+              />
+            </div>
+
             {/* Title */}
             <p className="mt-[25px] text-center text-h3 text-primary-500">
-                 Thanks For Your Order!
+              Thanks For Your Order!
             </p>
-            
+
             {/* Description */}
             <p className="mt-[25px] text-center text-small text-primary-500 w-full">
               Your commission has been successfully completed. You can download the final artwork.
             </p>
+
             {/* Buttons */}
             <div className="mt-[25px] flex w-full justify-center">
               <Button variant="transparent" className="w-full" onClick={onClose}>

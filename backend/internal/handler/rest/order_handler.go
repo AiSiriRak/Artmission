@@ -162,36 +162,22 @@ func (h *OrderHandler) Register(api huma.API) {
 		},
 	)
 
-	huma.Put(api, "/orders/{order_id}/bypass-payment", h.bypassOrderPayment,
-		huma.OperationTags("orders"),
-		func(o *huma.Operation) {
-			o.OperationID = "bypass-order-payment"
-			o.Summary = "Bypass Order Payment (temporary)"
-			o.Description = "Temporary endpoint for Sprint 2 testing. " +
-				"Bypasses payment processing and must be removed when payment is implemented."
-			o.DefaultStatus = http.StatusOK
-			o.Middlewares = append(
-				o.Middlewares,
-				requireAuth(api, h.authUsecase),
-				requireRole(api, user.RoleCustomer),
-			)
-		},
-	)
 }
 
 // orderSummaryView represents an order summary in the REST response.
 type orderSummaryView struct {
-	ID                    string     `json:"id"`
-	CustomerID            string     `json:"customer_id"`
-	ArtistID              string     `json:"artist_id"`
-	Name                  string     `json:"name"`
-	PriceSatang           int64      `json:"price_satang"`
-	DeadlineAt            time.Time  `json:"deadline_at"`
-	Status                string     `json:"status"`
-	DeliverablePreviewURL *string    `json:"deliverable_preview_url" doc:"Presigned URL of the most recently submitted deliverable's preview image, regardless of order status; null if none has been submitted yet."`
-	CompletedAt           *time.Time `json:"completed_at,omitempty"`
-	CreatedAt             time.Time  `json:"created_at"`
-	UpdatedAt             time.Time  `json:"updated_at"`
+	Payment               *paymentSummaryView `json:"payment,omitempty"`
+	ID                    string              `json:"id"`
+	CustomerID            string              `json:"customer_id"`
+	ArtistID              string              `json:"artist_id"`
+	Name                  string              `json:"name"`
+	PriceSatang           int64               `json:"price_satang"`
+	DeadlineAt            time.Time           `json:"deadline_at"`
+	Status                string              `json:"status"`
+	DeliverablePreviewURL *string             `json:"deliverable_preview_url" doc:"Presigned URL of the most recently submitted deliverable's preview image, regardless of order status; null if none has been submitted yet."`
+	CompletedAt           *time.Time          `json:"completed_at,omitempty"`
+	CreatedAt             time.Time           `json:"created_at"`
+	UpdatedAt             time.Time           `json:"updated_at"`
 }
 
 // orderPartyView represents the participant on the opposite side of the authenticated user's order.
@@ -199,6 +185,7 @@ type orderPartyView struct {
 	ID                string   `json:"id"`
 	Name              string   `json:"name"`
 	Email             string   `json:"email"`
+	ProfileImageURL   *string  `json:"profile_image_url,omitempty"`
 	ArtistReviewScore *float64 `json:"artist_review_score,omitempty"`
 }
 
@@ -233,8 +220,15 @@ type delayRequestView struct {
 	UpdatedAt          time.Time                  `json:"updated_at"`
 }
 
+// cancellationView represents the cancellation details of an order.
+type cancellationView struct {
+	Reason      string `json:"reason"`
+	Explanation string `json:"explanation"`
+}
+
 // orderDetailView represents the complete order detail returned to the authenticated participant.
 type orderDetailView struct {
+	Payment             *paymentSummaryView `json:"payment,omitempty"`
 	ID                  string              `json:"id"`
 	CustomerID          string              `json:"customer_id"`
 	ArtistID            string              `json:"artist_id"`
@@ -251,6 +245,7 @@ type orderDetailView struct {
 	OtherParty          orderPartyView      `json:"other_party"`
 	Deliverables        []deliverableView   `json:"deliverables"`
 	ActiveDelayRequest  *delayRequestView   `json:"active_delay_request"`
+	Cancellation        *cancellationView   `json:"cancellation"`
 	OriginalImageURL    *string             `json:"original_image_url,omitempty"`
 }
 
@@ -725,44 +720,6 @@ func (h *OrderHandler) confirmDelayRequest(
 	return out, nil
 }
 
-// for sprint 2
-// BypassOrderPaymentInput contains the order ID requested by the authenticated participant.
-type BypassOrderPaymentInput struct {
-	OrderID uuid.UUID `path:"order_id"`
-}
-
-// BypassOrderPaymentOutput contains the result of bypassing payment for an order.
-type BypassOrderPaymentOutput struct {
-	Body struct {
-		Message string `json:"message"`
-	}
-}
-
-// bypassOrderPayment temporarily bypasses payment for an order.
-func (h *OrderHandler) bypassOrderPayment(
-	ctx context.Context,
-	input *BypassOrderPaymentInput,
-) (*BypassOrderPaymentOutput, error) {
-	info, ok := authInfoFromContext(ctx)
-	if !ok {
-		return nil, huma.Error401Unauthorized("missing authentication")
-	}
-
-	err := h.orderUsecase.BypassOrderPayment(
-		ctx,
-		info.UserID,
-		input.OrderID,
-	)
-	if err != nil {
-		return nil, mapAppError(err)
-	}
-
-	output := &BypassOrderPaymentOutput{}
-	output.Body.Message = "Payment bypassed successfully"
-
-	return output, nil
-}
-
 // participantForRole converts an authenticated account role to its order scope.
 func participantForRole(role user.Role) order.Participant {
 	switch role {
@@ -778,6 +735,7 @@ func participantForRole(role user.Role) order.Participant {
 // toOrderSummaryView converts a domain order to its list response view.
 func toOrderSummaryView(o *order.Order) orderSummaryView {
 	return orderSummaryView{
+		Payment:               toPaymentSummaryView(o.Payment),
 		ID:                    o.ID.String(),
 		CustomerID:            o.CustomerID.String(),
 		ArtistID:              o.ArtistID.String(),
@@ -817,7 +775,14 @@ func toOrderDetailView(
 		activeDelayRequest = new(toDelayRequestView(o.ActiveDelayRequest))
 	}
 
+	var cancellation *cancellationView
+
+	if o.Cancellation != nil {
+		cancellation = new(toCancellationView(o.Cancellation))
+	}
+
 	return orderDetailView{
+		Payment:    toPaymentSummaryView(o.Payment),
 		ID:         o.ID.String(),
 		CustomerID: o.CustomerID.String(),
 		ArtistID:   o.ArtistID.String(),
@@ -839,10 +804,12 @@ func toOrderDetailView(
 			ID:                o.OtherParty.ID.String(),
 			Name:              o.OtherParty.Name,
 			Email:             o.OtherParty.Email,
+			ProfileImageURL:   o.OtherParty.ProfileImageURL,
 			ArtistReviewScore: o.OtherParty.ArtistReviewScore,
 		},
 		Deliverables:       deliverables,
 		ActiveDelayRequest: activeDelayRequest,
+		Cancellation:       cancellation,
 		OriginalImageURL:   o.OriginalImageURL,
 	}
 }
@@ -872,5 +839,13 @@ func toDelayRequestView(item *order.OrderDelayRequest) delayRequestView {
 		CustomerDecision:   item.CustomerDecision,
 		CreatedAt:          item.CreatedAt,
 		UpdatedAt:          item.UpdatedAt,
+	}
+}
+
+// toCancellationView converts a cancellation entity into its API response representation.
+func toCancellationView(item *order.OrderCancellation) cancellationView {
+	return cancellationView{
+		Reason:      item.Reason,
+		Explanation: item.Explanation,
 	}
 }

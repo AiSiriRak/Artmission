@@ -17,6 +17,7 @@ export type AuthResult = components["schemas"]["AuthResultBody"];
 export type UserAccount = components["schemas"]["AccountView"];
 export type UpdateAccountInput =
   components["schemas"]["UpdateAccountInputBody"];
+export type WalletView = components["schemas"]["WalletView"];
 
 // Bank Account
 export type BankAccount = components["schemas"]["BankAccountView"];
@@ -54,6 +55,7 @@ export type ConfirmDelayRequestInput =
   components["schemas"]["ConfirmDelayRequestInputBody"];
 export type ConfirmDelayRequestResult =
   components["schemas"]["ConfirmDelayRequestOutputBody"];
+export type Cancellation = components["schemas"]["CancellationView"];
 // The backend returns null when there is no active delay request.
 export type OrderDetail = Omit<
   components["schemas"]["OrderDetailView"],
@@ -63,6 +65,7 @@ export type OrderDetail = Omit<
   deliverables: OrderDeliverable[] | null;
   active_delay_request: DelayRequest | null;
   original_image_url?: string | null;
+  cancellation?: Cancellation | null;
 };
 
 // Artist
@@ -90,3 +93,23 @@ export type SearchArtworksSort = NonNullable<SearchArtworksQuery["sort"]>;
 // Type from multipart/form-data from path
 export type CreateArtworkInput = RequestBody<"/artworks", "post">;
 export type UpdateArtworkInput = RequestBody<"/artworks/{artwork_id}", "put">;
+
+// Notification
+export type Notification = components["schemas"]["NotificationView"];
+export type NotificationList =
+  components["schemas"]["ListNotificationsOutputBody"];
+export type NotificationUnreadCount =
+  components["schemas"]["UnreadNotificationsOutputBody"];
+export type MarkNotificationReadOutput =
+  components["schemas"]["MarkNotificationReadOutputBody"];
+
+// Review
+export type Review = components["schemas"]["ReviewView"];
+export type SubmitReviewInput = components["schemas"]["SubmitReviewInputBody"];
+export type ReviewDetail = components["schemas"]["ReviewDetailView"];
+export type ArtistReviewDetailView =
+  components["schemas"]["ArtistReviewDetailView"];
+export type ArtworkReviewsOutput =
+  components["schemas"]["GetReviewsByArtworkOutputBody"];
+export type ArtistReviewsOutput =
+  components["schemas"]["GetArtistReviewsOutputBody"];

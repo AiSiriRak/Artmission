@@ -103,14 +103,6 @@ type OrderUsecase interface {
 	CancelExpiredDelayRequest(
 		ctx context.Context,
 	) ([]uuid.UUID, error)
-
-	// for sprint 2
-	// BypassOrderPayment transitions order status from NOT_PAID to IN_PROCESS for dev.
-	BypassOrderPayment(
-		ctx context.Context,
-		customerID uuid.UUID,
-		orderID uuid.UUID,
-	) error
 }
 
 type OrderRepository interface {
@@ -223,14 +215,6 @@ type OrderRepository interface {
 		expiringCutoff time.Time,
 		now time.Time,
 	) ([]uuid.UUID, error)
-
-	// for sprint 2
-	// BypassOrderPayment transitions order status from NOT_PAID to IN_PROCESS for dev.
-	BypassOrderPayment(
-		ctx context.Context,
-		customerID uuid.UUID,
-		orderID uuid.UUID,
-	) error
 }
 
 type ObjectStorage interface {
@@ -253,4 +237,30 @@ type ObjectStorage interface {
 		ctx context.Context,
 		key string,
 	) error
+}
+
+type NotificationEvent struct {
+	Kind           string
+	OrderID        uuid.UUID
+	DeliverableID  uuid.UUID
+	DelayRequestID uuid.UUID
+	Participant    Participant
+	ActorID        uuid.UUID
+	Version        int
+	Decision       string
+	DeadlineAt     *time.Time
+	Reason         string
+	Explanation    string
+}
+
+type OrderNotifier interface {
+	NotifyOrder(context.Context, NotificationEvent) error
+}
+
+type NotificationTransactioner interface {
+	Transaction(context.Context, func(context.Context) error) error
+}
+
+type ProfileImageURLResolver interface {
+	PublicURL(key string) string
 }

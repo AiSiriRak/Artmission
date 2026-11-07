@@ -96,12 +96,6 @@ type fakeRepo struct {
 	expireDelayRequestCutoff time.Time
 	expireDelayRequestIDs    []uuid.UUID
 	expireDelayRequestErr    error
-
-	// for sprint 2
-	bypassPaymentCustomerID uuid.UUID
-	bypassPaymentOrderID    uuid.UUID
-	bypassPaymentErr        error
-	bypassPaymentCalled     bool
 }
 
 func (f *fakeRepo) ListOrders(
@@ -273,18 +267,6 @@ func (f *fakeRepo) CancelExpiredRequest(
 	return f.expireDelayRequestIDs, f.expireDelayRequestErr
 }
 
-// for sprint 2
-func (f *fakeRepo) BypassOrderPayment(
-	_ context.Context,
-	customerID uuid.UUID,
-	orderID uuid.UUID,
-) error {
-	f.bypassPaymentCalled = true
-	f.bypassPaymentCustomerID = customerID
-	f.bypassPaymentOrderID = orderID
-	return f.bypassPaymentErr
-}
-
 var _ order.OrderRepository = (*fakeRepo)(nil)
 
 // fakeStorage returns url+key for any GetPresignedURL call, or err if set —
@@ -320,6 +302,12 @@ func (fakeStorage) Delete(_ context.Context, _ string) error {
 }
 
 var _ order.ObjectStorage = fakeStorage{}
+
+type fakeProfileImageURLResolver string
+
+func (resolver fakeProfileImageURLResolver) PublicURL(key string) string {
+	return string(resolver) + key
+}
 
 type storedObject struct {
 	key         string
@@ -685,6 +673,7 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 	artistID := uuid.New()
 
 	artistScore := 4.8
+	profileImageKey := "profiles/artist.png"
 
 	wantOrder := order.Order{
 		ID:         orderID,
@@ -704,6 +693,7 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 		ID:                artistID,
 		Name:              "Artist",
 		Email:             "artist@example.com",
+		ProfileImageKey:   &profileImageKey,
 		ArtistReviewScore: &artistScore,
 	}
 
@@ -715,7 +705,11 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 		},
 	}
 
-	usecase := newTestOrderUsecase(repo, fakeStorage{})
+	usecase := order.NewOrderUsecase(
+		repo,
+		fakeStorage{},
+		order.WithProfileImageURLResolver(fakeProfileImageURLResolver("https://cdn.test/")),
+	)
 
 	got, err := usecase.GetOrder(
 		context.Background(),
@@ -778,6 +772,9 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 			artist.Email,
 		)
 	}
+	if got.OtherParty.ProfileImageURL == nil || *got.OtherParty.ProfileImageURL != "https://cdn.test/profiles/artist.png" {
+		t.Errorf("OtherParty.ProfileImageURL = %v, want %q", got.OtherParty.ProfileImageURL, "https://cdn.test/profiles/artist.png")
+	}
 
 	if got.OtherParty.ArtistReviewScore == nil {
 		t.Fatal("OtherParty.ArtistReviewScore = nil, want artist score")
@@ -789,6 +786,68 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 			*got.OtherParty.ArtistReviewScore,
 			artistScore,
 		)
+	}
+	if got.Cancellation != nil {
+		t.Errorf("Cancellation = %+v, want nil for an order without cancellation details", got.Cancellation)
+	}
+}
+
+func TestGetOrder_ReturnsErrorWhenProfileImageResolverIsNotConfigured(t *testing.T) {
+	profileImageKey := "profiles/artist.png"
+	repo := &fakeRepo{
+		orderDetailData: &order.OrderDetailData{
+			Artist: order.OrderParty{ProfileImageKey: &profileImageKey},
+		},
+	}
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+	_, err := usecase.GetOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		uuid.New(),
+		uuid.New(),
+	)
+	if !errors.Is(err, order.ErrProfileImageURLResolverUnavailable) {
+		t.Errorf("GetOrder() error = %v, want %v", err, order.ErrProfileImageURLResolverUnavailable)
+	}
+}
+
+func TestGetOrder_IncludesCancellationDetails(t *testing.T) {
+	orderID := uuid.New()
+	customerID := uuid.New()
+	cancellation := &order.OrderCancellation{
+		ID:          uuid.New(),
+		OrderID:     orderID,
+		Reason:      string(order.CancelReasonOther),
+		Explanation: "Circumstances changed",
+		CreatedAt:   time.Date(2026, time.October, 10, 12, 0, 0, 0, time.UTC),
+	}
+	repo := &fakeRepo{
+		orderDetailData: &order.OrderDetailData{
+			Order: order.Order{
+				ID:         orderID,
+				CustomerID: customerID,
+				Status:     order.StatusCancel,
+			},
+			Cancellation: cancellation,
+		},
+	}
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+	got, err := usecase.GetOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		customerID,
+		orderID,
+	)
+	if err != nil {
+		t.Fatalf("GetOrder() error = %v, want nil", err)
+	}
+	if got.Cancellation == nil {
+		t.Fatal("Cancellation = nil, want cancellation details")
+	}
+	if *got.Cancellation != *cancellation {
+		t.Errorf("Cancellation = %+v, want %+v", *got.Cancellation, *cancellation)
 	}
 }
 
@@ -2411,69 +2470,90 @@ func TestCancelExpiredDelayRequest_PropagatesRepositoryError(t *testing.T) {
 	}
 }
 
-// for sprint 2
-func TestBypassOrderPayment(t *testing.T) {
-	customerID := uuid.New()
-	orderID := uuid.New()
-	repoErr := errors.New("database unavailable")
+func TestDraftNotificationFailureCleansUploadedImages(t *testing.T) {
+	storage := &recordingStorage{}
+	sink := &eventSink{err: errors.New("notification unavailable")}
+	tx := &eventTx{}
+	uc := order.NewOrderUsecase(&fakeRepo{}, storage, order.WithNotifications(sink, tx))
+	created, err := uc.CreateDeliverable(context.Background(), uuid.New(), order.CreateDeliverableInput{OrderID: uuid.New(), DeliverableImage: bytes.NewReader(testDeliverablePNG(t))})
+	if err == nil || created != nil || tx.committed {
+		t.Fatal("notification failure must abort draft")
+	}
+	if len(storage.deletes) != 2 {
+		t.Fatalf("orphan images: %v", storage.deletes)
+	}
+}
 
-	for _, tt := range []struct {
-		name         string
-		customerID   uuid.UUID
-		orderID      uuid.UUID
-		repoErr      error
-		wantErr      error
-		wantRepoCall bool
-	}{
-		{
-			name:         "delegates payment bypass to repository",
-			customerID:   customerID,
-			orderID:      orderID,
-			wantRepoCall: true,
-		},
-		{
-			name:    "rejects missing customer ID",
-			orderID: orderID,
-			wantErr: order.ErrMissingParticipantID,
-		},
-		{
-			name:       "rejects missing order ID",
-			customerID: customerID,
-			wantErr:    order.ErrMissingOrderID,
-		},
-		{
-			name:         "propagates repository error",
-			customerID:   customerID,
-			orderID:      orderID,
-			repoErr:      repoErr,
-			wantErr:      repoErr,
-			wantRepoCall: true,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			repo := &fakeRepo{bypassPaymentErr: tt.repoErr}
-			usecase := newTestOrderUsecase(repo, fakeStorage{})
+type eventSink struct {
+	events []order.NotificationEvent
+	err    error
+}
 
-			err := usecase.BypassOrderPayment(
-				context.Background(),
-				tt.customerID,
-				tt.orderID,
-			)
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("BypassOrderPayment() error = %v, want %v", err, tt.wantErr)
+func (s *eventSink) NotifyOrder(ctx context.Context, e order.NotificationEvent) error {
+	s.events = append(s.events, e)
+	return s.err
+}
+
+type eventTx struct{ committed bool }
+
+func (t *eventTx) Transaction(ctx context.Context, fn func(context.Context) error) error {
+	err := fn(ctx)
+	t.committed = err == nil
+	return err
+}
+
+func TestNotificationAfterSuccessfulConfirmation(t *testing.T) {
+	for _, failure := range []string{"", "order", "notification"} {
+		t.Run(failure, func(t *testing.T) {
+			repo, sink, tx := &fakeRepo{}, &eventSink{}, &eventTx{}
+			if failure == "order" {
+				repo.confirmErr = errors.New("write failed")
 			}
-			if repo.bypassPaymentCalled != tt.wantRepoCall {
-				t.Errorf("repository called = %t, want %t", repo.bypassPaymentCalled, tt.wantRepoCall)
+			if failure == "notification" {
+				sink.err = errors.New("notify failed")
 			}
-			if tt.wantRepoCall &&
-				(repo.bypassPaymentCustomerID != customerID || repo.bypassPaymentOrderID != orderID) {
-				t.Errorf(
-					"repository args = customer %s, order %s; want %s, %s",
-					repo.bypassPaymentCustomerID,
-					repo.bypassPaymentOrderID,
-					customerID,
-					orderID,
-				)
+			uc := order.NewOrderUsecase(repo, nil, order.WithNotifications(sink, tx))
+			id := uuid.New()
+			_, err := uc.ConfirmOrder(context.Background(), uuid.New(), id, order.ConfirmOrderInput{Accept: true})
+			if failure != "" {
+				if err == nil || tx.committed {
+					t.Fatal("failure must not commit")
+				}
+				if failure == "order" && len(sink.events) != 0 {
+					t.Fatal("failed write notified")
+				}
+				return
+			}
+			if err != nil || !tx.committed || len(sink.events) != 1 || sink.events[0].Kind != "ORDER_CONFIRMED" || sink.events[0].OrderID != id {
+				t.Fatalf("%v %+v", err, sink.events)
+			}
+		})
+	}
+}
+
+func TestExpiryEmitsOnlyChangedIDs(t *testing.T) {
+	ids := []uuid.UUID{uuid.New(), uuid.New()}
+	for _, kind := range []string{"ORDER_EXPIRED", "DELIVERABLE_AUTO_APPROVED", "DELAY_REQUEST_EXPIRED"} {
+		t.Run(kind, func(t *testing.T) {
+			repo := &fakeRepo{expireIDs: ids, expireDeliverablesIDs: ids, expireDelayRequestIDs: ids}
+			sink, tx := &eventSink{}, &eventTx{}
+			uc := order.NewOrderUsecase(repo, nil, order.WithNotifications(sink, tx))
+			var err error
+			switch kind {
+			case "ORDER_EXPIRED":
+				_, err = uc.CancelExpiredOrders(context.Background())
+			case "DELIVERABLE_AUTO_APPROVED":
+				_, err = uc.AutoApproveExpiredDeliverables(context.Background())
+			default:
+				_, err = uc.CancelExpiredDelayRequest(context.Background())
+			}
+			if err != nil || !tx.committed || len(sink.events) != 2 {
+				t.Fatalf("%v %+v", err, sink.events)
+			}
+			for _, e := range sink.events {
+				if e.Kind != kind {
+					t.Fatalf("wrong event: %+v", e)
+				}
 			}
 		})
 	}

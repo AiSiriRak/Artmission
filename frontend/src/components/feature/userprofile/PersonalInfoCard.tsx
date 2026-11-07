@@ -6,9 +6,9 @@ import Image from "next/image";
 import { UserAccount, UpdateAccountInput } from "@/lib/api/types";
 import { accountConstraints } from "@/lib/constraint";
 
-import { WhiteCard } from "@/components/ui/WhiteCard";
 import { TextInput } from "@/components/ui/TextInput";
 import { Button } from "@/components/ui/Button";
+import { WhiteCardBorder } from "@/components/ui/WhiteCardBorder";
 
 interface PersonalInfoCard {
   user: UserAccount;
@@ -151,7 +151,7 @@ export function PersonalInfoCard({
   };
 
   return (
-    <WhiteCard>
+    <WhiteCardBorder>
       <h2 className="text-center text-h3 text-primary-500">
         User Personal Info
       </h2>
@@ -402,6 +402,6 @@ export function PersonalInfoCard({
           )}
         </div>
       )}
-    </WhiteCard>
+    </WhiteCardBorder>
   );
 }

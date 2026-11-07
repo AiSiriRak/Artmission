@@ -1,0 +1,9 @@
+info:
+  name: ListNotifications
+  type: http
+  seq: 1
+http:
+  method: GET
+  url: "{{api_url}}/notifications?limit=20&offset=0"
+  auth: inherit
+docs: List the authenticated artist or customer's notifications, newest first.

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import type { Draft } from "@/components/feature/orderdetails/shared/DraftHistory";
 
@@ -19,6 +19,15 @@ export default function CustomerDraftActions({
   const [isCommenting, setIsCommenting] = useState(false);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const detailsRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textarea = detailsRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [comment]);
 
   if (draft.status !== "WAITING_FOR_CUSTOMER_COMMENT") return null;
 
@@ -57,12 +66,13 @@ export default function CustomerDraftActions({
       <p className="mb-2 text-body font-bold">Customer Comment</p>
       <div className="mb-4 w-full">
         <textarea
+          ref={detailsRef}
           value={comment}
           onChange={(e) => {
             setComment(e.target.value);
             setError(null);
           }}
-          className="w-full rounded-md border border-gray-300 bg-white p-2"
+          className="border border-gray-300 rounded-md bg-white p-2 resize-none overflow-hidden w-full"
           placeholder="Describe your comment"
           rows={4}
         />

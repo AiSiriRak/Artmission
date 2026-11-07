@@ -8,6 +8,7 @@ import { getAccount } from "@/lib/api/users";
 import { isApiError } from "@/lib/api/error";
 import { routes } from "@/lib/routes";
 import { startAutoRefresh } from "@/lib/auto-refresh";
+import { formatPriceFromSatang } from "@/lib/format-price";
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
 import MainLayout from "@/components/feature/main/MainLayout";
@@ -21,6 +22,13 @@ import ConfirmOrderPopup from "./popups/ConfirmOrderPopup";
 import CancelOrderPopup from "./popups/CancelOrderPopup";
 import PostponeOrderPopup from "./popups/PostponeOrderPopup";
 import PostponeNotice from "./PostponeNotice";
+import OrderReview from "../shared/OrderReview"
+import OrderCancelSection from "../shared/OrderCancelSection";
+import OrderSuccessSection from "../shared/OrderSuccessSection";
+import {
+  getReviewByOrderId,
+  type Review
+} from "@/lib/api/reviews";
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -47,16 +55,6 @@ export function mapOrderDrafts(deliverables: OrderDeliverable[]): Draft[] {
   }));
 }
 
-function errorMessage(error: unknown) {
-  if (isApiError(error)) {
-    if (error.status === 401) return "กรุณาเข้าสู่ระบบใหม่";
-    if (error.status === 403) return "คุณไม่มีสิทธิ์ทำรายการกับออร์เดอร์นี้";
-    if (error.status === 404) return "ไม่พบออร์เดอร์นี้";
-    if (error.message) return error.message;
-  }
-  return error instanceof Error ? error.message : "ทำรายการไม่สำเร็จ กรุณาลองใหม่";
-}
-
 export default function ArtistOrderDetails() {
   const { orderId } = useParams<{ orderId: string }>();
   const router = useRouter();
@@ -71,6 +69,31 @@ export default function ArtistOrderDetails() {
   const mutationPending = useRef(false);
   const mutationVersion = useRef(0);
   const activeOrderId = useRef<string | null>(null);
+  const [review, setReview] = useState<Review | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchReview = async () => {
+      try {
+        const data = await getReviewByOrderId(orderId);
+
+        if (!cancelled) {
+          setReview(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setReview(null);
+        }
+      }
+    };
+
+    fetchReview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId]);
 
   useEffect(() => {
     activeOrderId.current = orderId;
@@ -84,8 +107,8 @@ export default function ArtistOrderDetails() {
       try {
         const [account, detail] = await Promise.all([getAccount(), getOrderDetail(orderId, { signal: controller.signal })]);
         if (!active) return;
-        if (account.role !== "artist") throw new Error("หน้านี้สำหรับบัญชี Artist เท่านั้น");
-        if (!detail) throw new Error("ไม่พบข้อมูลออร์เดอร์");
+        if (account.role !== "artist") throw new Error("This page is only available to artist accounts.");
+        if (!detail) throw new Error("Order not found.");
         setOrder(detail);
         setLoadError("");
         setPopup(null);
@@ -95,7 +118,13 @@ export default function ArtistOrderDetails() {
       } catch (error: unknown) {
         if (!active) return;
         setOrder(null);
-        setLoadError(controller.signal.aborted ? "รอข้อมูลนานเกินไป กรุณาลองใหม่" : errorMessage(error));
+        setLoadError(
+          controller.signal.aborted
+            ? "Loading took too long. Please try again."
+            : error instanceof Error && error.message
+              ? error.message
+              : "Something went wrong. Please try again.",
+        );
         if (isApiError(error) && error.status === 401) router.replace(routes.login);
       } finally {
         window.clearTimeout(timeout);
@@ -119,7 +148,7 @@ export default function ArtistOrderDetails() {
       } catch (error: unknown) {
         if (!active || mutationPending.current || version !== mutationVersion.current) return;
         if (isApiError(error) && error.status === 401) router.replace(routes.login);
-        else setRefreshWarning("โหลดข้อมูลล่าสุดไม่สำเร็จ ระบบจะลองใหม่อัตโนมัติ");
+        else setRefreshWarning("Unable to refresh the latest order details. Retrying automatically.");
       } finally {
         refreshing = false;
       }
@@ -146,7 +175,7 @@ export default function ArtistOrderDetails() {
   }
 
   async function runMutation(action: () => Promise<(previous: OrderDetail) => OrderDetail>) {
-    if (mutationPending.current) throw new Error("กำลังทำรายการ กรุณารอสักครู่");
+    if (mutationPending.current) throw new Error("An action is already in progress. Please wait.");
     mutationPending.current = true;
     mutationVersion.current += 1;
     setBusy(true);
@@ -161,11 +190,15 @@ export default function ArtistOrderDetails() {
         const latest = await getOrderDetail(orderId, { signal: AbortSignal.timeout(15000) });
         if (activeOrderId.current === orderId) setOrder(latest);
       } catch {
-        if (activeOrderId.current === orderId) setRefreshWarning("ทำรายการสำเร็จแล้ว แต่โหลดข้อมูลล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า");
+        if (activeOrderId.current === orderId) setRefreshWarning("The action succeeded, but the latest order details could not be loaded. Please refresh the page.");
       }
     } catch (error: unknown) {
       if (activeOrderId.current === orderId) {
-        setActionError(errorMessage(error));
+        setActionError(
+          error instanceof Error && error.message
+            ? error.message
+            : "Something went wrong. Please try again.",
+        );
         if (isApiError(error) && error.status === 401) router.replace(routes.login);
       }
       throw error;
@@ -181,8 +214,8 @@ export default function ArtistOrderDetails() {
     return (
       <MainLayout usertype="artist">
         <div className="flex flex-col items-center gap-6 p-12">
-          <p role="alert" className="text-body text-error">{loadError || "ไม่พบออร์เดอร์นี้"}</p>
-          <Button type="button" onClick={() => { setLoadedId(""); setReloadKey((value) => value + 1); }}>ลองใหม่</Button>
+          <p role="alert" className="text-body text-error">{loadError || "Order not found."}</p>
+          <Button type="button" onClick={() => { setLoadedId(""); setReloadKey((value) => value + 1); }}>Try again</Button>
         </div>
       </MainLayout>
     );
@@ -196,13 +229,15 @@ export default function ArtistOrderDetails() {
     ? order.active_delay_request : null;
   const deadline = new Date(order.deadline_at);
   const deadlineInput = [deadline.getFullYear(), String(deadline.getMonth() + 1).padStart(2, "0"), String(deadline.getDate()).padStart(2, "0")].join("-");
-  const summary = "Order #" + order.id + " · " + order.name + " · ฿" + (order.price_satang / 100).toLocaleString("en-US");
+  const summary = "Order #" + order.id + " · " + order.name + " · ฿" + formatPriceFromSatang(order.price_satang);
 
   return (
     <>
       <OrderDetails
         usertype="artist"
         notice={pendingPostpone ? <PostponeNotice deadline={pendingPostpone.deadline_request_at} /> : undefined}
+        cancelSection={order.cancellation && order.status === "CANCEL" ? (<OrderCancelSection cancellation={order.cancellation} />) : null}
+        successSection={order.status === "SUCCESS" ? (<OrderSuccessSection draftCount={order.deliverables?.length ?? 0} review={review !== null} />) : null}
         description={
           <OrderDescription
             orderName={order.name}
@@ -224,14 +259,21 @@ export default function ArtistOrderDetails() {
             {refreshWarning && <p role="status" className="mt-3 text-small text-error">{refreshWarning}</p>}
           </>
         }
-        userInfo={<UserInfo title="Customer Info" name={order.other_party.name} email={order.other_party.email} />}
+        userInfo={<UserInfo title="Customer Info" name={order.other_party.name} email={order.other_party.email} profileImageURL={order.other_party.profile_image_url}/>}
+        review={
+          order.status === "SUCCESS" ? (
+            <OrderReview review={review} />
+          ) : null
+        }
       >
         {canSubmit && (
           <SubmitDraft disabled={busy} onSubmit={(file) => runMutation(async () => {
             const deliverable = await submitOrderDraft(orderId, file);
-            return (previous) => ({ ...previous, deliverables: [
-              ...(previous.deliverables ?? []).filter((item) => item.id !== deliverable.id), deliverable,
-            ] });
+            return (previous) => ({
+              ...previous, deliverables: [
+                ...(previous.deliverables ?? []).filter((item) => item.id !== deliverable.id), deliverable,
+              ]
+            });
           })} />
         )}
         {drafts.length > 0 && <DraftHistory drafts={drafts} />}

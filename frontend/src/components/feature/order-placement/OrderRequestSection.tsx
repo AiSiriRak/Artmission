@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/Button";
-import { useState } from "react";
+import { formatPriceFromSatang } from "@/lib/format-price";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrder } from "@/lib/api/orders";
 import type { Artwork } from "@/lib/api/types";
@@ -11,15 +12,15 @@ const getMinDeadlineDate = (minDays: number): string => {
   currentDate.setDate(currentDate.getDate() + minDays + 1); // Add 1 to ensure the minimum date is at least minDays from today
   // Format the date as YYYY-MM-DD
   return [
-     currentDate.getFullYear(),
-     String(currentDate.getMonth() + 1).padStart(2, "0"),
-     String(currentDate.getDate()).padStart(2, "0"),
-   ].join("-");
+    currentDate.getFullYear(),
+    String(currentDate.getMonth() + 1).padStart(2, "0"),
+    String(currentDate.getDate()).padStart(2, "0"),
+  ].join("-");
 };
 
 // calculate the estimate deadline by user's selected date and current date
 const getEstimatedDeliveryDate = (deadline: string): string => {
-   if (!deadline) return "-";
+  if (!deadline) return "-";
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -44,8 +45,9 @@ export function OrderRequestSection({ artwork }: OrderRequestSectionProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const estimatedDelivery = getEstimatedDeliveryDate(deadline);
+  const detailsRef = useRef<HTMLTextAreaElement>(null);
 
-// handle error message display hide when user starts typing in the input fields
+  // handle error message display hide when user starts typing in the input fields
 
   const handleCreateOrder = async () => {
     if (!orderName.trim() || !details.trim()) {
@@ -74,11 +76,19 @@ export function OrderRequestSection({ artwork }: OrderRequestSectionProps) {
     }
   };
 
+  useLayoutEffect(() => {
+    const textarea = detailsRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 96)}px`;
+  }, [details]);
+
   return (
     <div className="flex justify-between items-center border border-primary-500 rounded-3xl bg-secondary-200 shadow-sm">
       {/* Order Request Section */}
       <div className="w-full m-6">
-        <div className="p-4 flex flex-col flex-1 gap-6">
+        <div className="pt-0 p-4 flex flex-col flex-1 gap-6">
           {/* Artwork Info section*/}
           <div className="flex flex-col gap-2">
             <h1 className="text-h1">{artwork.name}</h1>
@@ -114,15 +124,16 @@ export function OrderRequestSection({ artwork }: OrderRequestSectionProps) {
           <div className="flex flex-col gap-2">
             <h3 className="text-h3">Request Details</h3>
             <textarea
+              ref={detailsRef}
               value={details}
               onChange={(e) => {
                 setDetails(e.target.value);
                 setError(null);
               }}
-              className="border border-gray-300 rounded-md bg-white p-2"
+              className="border border-gray-300 rounded-md bg-white p-2 resize-none overflow-hidden w-full"
               placeholder="Enter request details"
               rows={4}
-            ></textarea>
+            />
           </div>
 
           <div className="flex gap-4">
@@ -157,7 +168,7 @@ export function OrderRequestSection({ artwork }: OrderRequestSectionProps) {
         <div className="flex flex-col gap-4">
           <div className="flex justify-between">
             <p className="text-h3">Total Price</p>
-            <p className="text-h3 font-bold">{(artwork.price_satang / 100).toLocaleString()} THB</p>
+            <p className="text-h3 font-bold">{formatPriceFromSatang(artwork.price_satang)} THB</p>
           </div>
           <div className="flex justify-between">
             <p className="text-h3">Estimated Delivery</p>

@@ -1,0 +1,10 @@
+info:
+  name: payment
+  type: folder
+  seq: 1
+
+request:
+  variables:
+    - name: OrderID
+      value: 00000000-0000-0000-0000-000000000000
+      description: An order owned by the authenticated customer with status NOT_PAID and no existing payment.

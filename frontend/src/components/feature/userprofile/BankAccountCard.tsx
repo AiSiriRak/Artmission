@@ -7,7 +7,7 @@ import { BankAccount, UpdateBankAccountInput } from "@/lib/api/types";
 import { BANK_LABELS } from "@/lib/types";
 import { accountConstraints } from "@/lib/constraint";
 
-import { WhiteCard } from "@/components/ui/WhiteCard";
+import { WhiteCardBorder } from "@/components/ui/WhiteCardBorder";
 import { TextInput } from "@/components/ui/TextInput";
 import { Button } from "@/components/ui/Button";
 import { SelectInput } from "@/components/ui/SelectInput";
@@ -36,6 +36,7 @@ export function BankAccountCard({
   );
   const [accountNumber, setAccountNumber] = useState("");
 
+  const [bankNameError, setBankNameError] = useState("");
   const [accountHolderError, setAccountHolderError] = useState("");
   const [accountNumberError, setAccountNumberError] = useState("");
 
@@ -46,6 +47,14 @@ export function BankAccountCard({
 
   const handleSave = () => {
     let hasError = false;
+
+    // Validate bank name
+    if (!bankName) {
+      setBankNameError("Please select the bank name.");
+      hasError = true;
+    } else {
+      setBankNameError("");
+    }
 
     // Validate account holder
     if (!accountHolder.trim()) {
@@ -94,7 +103,7 @@ export function BankAccountCard({
   };
 
   return (
-    <WhiteCard>
+    <WhiteCardBorder>
       <h2 className="text-center text-h3 text-primary-500">
         User Bank Account Info
       </h2>
@@ -110,6 +119,9 @@ export function BankAccountCard({
               onChange={(value) => setBankName(value)}
               options={bankOptions}
             />
+            <span className="flex mt-1 text-small text-error justify-center">
+              {bankNameError}
+            </span>
           </div>
           {/* Account holder */}
           <div>
@@ -120,7 +132,7 @@ export function BankAccountCard({
               value={accountHolder}
               onChange={setAccountHolder}
               placeholder="Enter account holder name"
-            />{" "}
+            />
             <span className="flex mt-1 text-small text-error justify-center">
               {accountHolderError}
             </span>
@@ -134,7 +146,7 @@ export function BankAccountCard({
               value={accountNumber}
               onChange={setAccountNumber}
               placeholder="Enter account number"
-            />{" "}
+            />
             <span className="flex mt-1 text-small text-error justify-center">
               {accountNumberError}
             </span>
@@ -218,6 +230,6 @@ export function BankAccountCard({
           )}
         </div>
       )}
-    </WhiteCard>
+    </WhiteCardBorder>
   );
 }

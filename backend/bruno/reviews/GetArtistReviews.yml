@@ -1,0 +1,26 @@
+info:
+  name: GetArtistReviews
+  type: http
+  seq: 2
+  tags:
+    - reviews
+
+http:
+  method: GET
+  url: "{{api_url}}/artists/:artist_id/reviews"
+  params:
+    - name: artist_id
+      value: "{{ArtistID}}"
+      type: path
+      description: Artist user ID
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+docs: |-
+  Get an artist's reviews from newest to oldest.

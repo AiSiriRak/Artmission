@@ -1,7 +1,9 @@
 import React from "react";
+import { Toaster } from "sonner";
 
 import Header from "./Header";
 import Footer from "./Footer";
+import { NotificationListener } from "../notification/NotificationListener";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -26,6 +28,8 @@ export default function MainLayout({
 
       {/* ถ้า showFooter เป็น true จะแสดง Footer */}
       {showFooter && <Footer />}
+      <NotificationListener />
+      <Toaster position="bottom-right" expand />
     </div>
   );
 }

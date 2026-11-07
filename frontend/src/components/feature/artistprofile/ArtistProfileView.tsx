@@ -2,12 +2,13 @@
 
 import type { ReactNode } from "react";
 import type { ArtistProfile, Artwork } from "@/lib/api/types";
-import type { ReviewData } from "@/app/artist-profile/types";
+import type { ReviewData } from "@/lib/api/reviews";
+import { formatPriceFromSatang } from "@/lib/format-price";
 
 import ProfileImage from "./ProfileImage";
 import TagList from "./TagList";
 import ArtworkCard from "./ArtworkCard";
-import ReviewList from "./ReviewList";
+import ReviewList from "../review/ReviewList";
 
 interface ArtistProfileViewProps {
   profile: ArtistProfile;
@@ -17,10 +18,6 @@ interface ArtistProfileViewProps {
   onArtworkClick: (artwork: Artwork) => void;
   actions?: ReactNode;
   reviewActions?: ReactNode;
-}
-
-function formatPrice(satang: number) {
-  return (satang / 100).toLocaleString();
 }
 
 export default function ArtistProfileView({
@@ -42,7 +39,9 @@ export default function ArtistProfileView({
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
 
-    priceRange = (minPrice === maxPrice) ? `${formatPrice(minPrice)} THB` : `${formatPrice(minPrice)} - ${formatPrice(maxPrice)} THB`;
+    priceRange = (minPrice === maxPrice)
+      ? `${formatPriceFromSatang(minPrice)} THB`
+      : `${formatPriceFromSatang(minPrice)} - ${formatPriceFromSatang(maxPrice)} THB`;
   }
 
   return (
@@ -54,7 +53,7 @@ export default function ArtistProfileView({
         <div className="max-w-5xl mx-auto px-8 relative">
           <div className="flex justify-between items-end -mt-16 sm:-mt-20 mb-6 relative z-10">
             <ProfileImage
-              imageUrl={profile.profile_url || ""}
+              imageUrl={profile.profile_url || "/default-avatar.png"}
               className="w-36 h-36 md:w-44 md:h-44"
             />
 

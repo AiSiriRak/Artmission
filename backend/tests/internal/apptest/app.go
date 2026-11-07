@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/payment"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/config"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/database"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/logger"
@@ -64,7 +65,7 @@ func NewApp(tb testing.TB, dsn string) *App {
 	})
 }
 
-func NewAppWithS3(tb testing.TB, dsn string, s3Config config.S3) *App {
+func NewAppWithS3(tb testing.TB, dsn string, s3Config config.S3, providers ...payment.QRProvider) *App {
 	tb.Helper()
 
 	db, err := database.NewPostgresDB(config.Database{DSN: dsn})
@@ -78,10 +79,15 @@ func NewAppWithS3(tb testing.TB, dsn string, s3Config config.S3) *App {
 		tb.Fatalf("apptest: build object storage client: %v", err)
 	}
 
+	var provider payment.QRProvider
+	if len(providers) > 0 {
+		provider = providers[0]
+	}
 	server := wiring.Wire(wiring.Config{
-		DB:            db,
-		Logger:        logger.NewLogger(false),
-		ObjectStorage: objectStorage,
+		DB:              db,
+		Logger:          logger.NewLogger(false),
+		ObjectStorage:   objectStorage,
+		PaymentProvider: provider,
 		App: config.App{
 			// Never dialed — Start() is never called — so it need not be
 			// a real, free port.

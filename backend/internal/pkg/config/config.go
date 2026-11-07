@@ -23,6 +23,7 @@ type Config interface {
 	Database() Database
 	Auth() Auth
 	S3() S3
+	Slip2Go() Slip2Go
 
 	String() string
 }
@@ -55,6 +56,14 @@ type S3 struct {
 	SecretAccessKey   string `mapstructure:"secret_access_key"    validate:"required"`
 }
 
+type Slip2Go struct {
+	APIBaseURL    string `mapstructure:"api_base_url"`
+	SecretKey     string `mapstructure:"secret_key"`
+	PromptPayCode string `mapstructure:"promptpay_code"`
+	PromptPayType string `mapstructure:"promptpay_type"`
+	AccountName   string `mapstructure:"account_name"`
+}
+
 // -------------------------------------------------------------------------- //
 
 type config struct {
@@ -62,18 +71,22 @@ type config struct {
 	DatabaseCfg Database `mapstructure:"database"`
 	AuthCfg     Auth     `mapstructure:"auth"`
 	S3Cfg       S3       `mapstructure:"s3"`
+	Slip2GoCfg  Slip2Go  `mapstructure:"slip2go"`
 }
 
 func (c *config) App() App           { return c.AppCfg }
 func (c *config) Database() Database { return c.DatabaseCfg }
 func (c *config) Auth() Auth         { return c.AuthCfg }
 func (c *config) S3() S3             { return c.S3Cfg }
+func (c *config) Slip2Go() Slip2Go   { return c.Slip2GoCfg }
 
 func (c *config) String() string {
 	redacted := *c
 	redacted.DatabaseCfg.DSN = "***"
 	redacted.AuthCfg.JWTSecret = "***"
 	redacted.S3Cfg.SecretAccessKey = "***"
+	redacted.Slip2GoCfg.SecretKey = "***"
+	redacted.Slip2GoCfg.PromptPayCode = "***"
 
 	jsonBytes, err := json.MarshalIndent(&redacted, "", "  ")
 	if err != nil {
