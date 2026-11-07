@@ -609,6 +609,72 @@ func TestReviewHandler_GetOrderReview(t *testing.T) {
 	}
 }
 
+// TestReviewHandler_ArtworkNameOnlyForArtist keeps the extra field: Artwork name
+func TestReviewHandler_ArtworkNameOnlyForArtist(t *testing.T) {
+	id := uuid.New()
+	item := review.ReviewDetail{
+		Review:      review.Review{ID: uuid.New(), OrderID: id, Rating: 5},
+		Username:    "Customer",
+		Order:       "My cat commission",
+		ArtworkName: "Pet Portrait",
+	}
+	cases := []struct {
+		path        string
+		list        bool
+		wantArtwork bool
+	}{
+		{path: "/artists/" + id.String() + "/reviews", list: true, wantArtwork: true},
+		{path: "/artworks/" + id.String() + "/reviews", list: true},
+		{path: "/orders/" + id.String() + "/review"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.path, func(t *testing.T) {
+			usecase := &reviewUsecaseStub{
+				reviews:     []review.ReviewDetail{item},
+				orderReview: &item,
+				total:       1,
+			}
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			api, server := httpserver.New("", "/api/v1", nil, logger, nil)
+			NewReviewHandler(usecase, reviewAuthStub{role: user.RoleCustomer}).Register(api)
+			req := httptest.NewRequest(http.MethodGet, "/api/v1"+tc.path, nil)
+			req.Header.Set("Authorization", "Bearer test-token")
+			rec := httptest.NewRecorder()
+			server.Handler().ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+			}
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(rec.Body.Bytes(), &fields); err != nil {
+				t.Fatal(err)
+			}
+			if tc.list {
+				var items []map[string]json.RawMessage
+				if err := json.Unmarshal(fields["reviews"], &items); err != nil {
+					t.Fatal(err)
+				}
+				if len(items) != 1 {
+					t.Fatalf("expected one review, got %d", len(items))
+				}
+				fields = items[0]
+			}
+			value, present := fields["artwork_name"]
+			if present != tc.wantArtwork {
+				t.Fatalf("artwork_name present = %t, want %t", present, tc.wantArtwork)
+			}
+			if present {
+				var name string
+				if err := json.Unmarshal(value, &name); err != nil {
+					t.Fatal(err)
+				}
+				if name != item.ArtworkName {
+					t.Fatalf("artwork_name = %q, want %q", name, item.ArtworkName)
+				}
+			}
+		})
+	}
+}
+
 // TestReviewHandler_Pagination verifies query parameters and the full review count.
 func TestReviewHandler_Pagination(t *testing.T) {
 	id := uuid.New().String()

@@ -18,8 +18,9 @@ type Review struct {
 
 type ReviewDetail struct {
 	Review
-	Username string
-	Order    string
+	Username    string
+	Order       string
+	ArtworkName string
 }
 
 type SubmitReviewInput struct {

@@ -8,6 +8,7 @@ Feature: Artist review history
     And the artist has reviews whose order dates differ from their review dates
     When "<caller>" requests the artist reviews
     Then the reviews contain the customer and order names
+    And the artist reviews include artwork names from order snapshots
     And the artist reviews are returned newest first
     And reviews from other artists are excluded
 

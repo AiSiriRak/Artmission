@@ -121,10 +121,17 @@ type reviewDetailView struct {
 	Order    string `json:"order"`
 }
 
+type artistReviewDetailView struct {
+	ReviewView
+	Username    string `json:"username"`
+	Order       string `json:"order"`
+	ArtworkName string `json:"artwork_name"`
+}
+
 type GetArtistReviewsOutput struct {
 	Body struct {
-		Reviews []reviewDetailView `json:"reviews"`
-		Total   int                `json:"total"`
+		Reviews []artistReviewDetailView `json:"reviews"`
+		Total   int                      `json:"total"`
 	}
 }
 
@@ -202,9 +209,15 @@ func (h *ReviewHandler) getArtistReviews(
 		return nil, mapAppError(err)
 	}
 
-	views := make([]reviewDetailView, 0, len(page.Reviews))
+	views := make([]artistReviewDetailView, 0, len(page.Reviews))
 	for _, item := range page.Reviews {
-		views = append(views, newReviewDetailView(item))
+		detail := newReviewDetailView(item)
+		views = append(views, artistReviewDetailView{
+			ReviewView:  detail.ReviewView,
+			Username:    detail.Username,
+			Order:       detail.Order,
+			ArtworkName: item.ArtworkName,
+		})
 	}
 
 	out := &GetArtistReviewsOutput{}

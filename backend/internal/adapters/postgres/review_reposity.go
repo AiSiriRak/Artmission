@@ -151,8 +151,9 @@ func (r *reviewRepository) SubmitReview(
 
 type reviewDetailRow struct {
 	pgmodel.Review
-	Username  string `bun:"username"`
-	OrderName string `bun:"order_name"`
+	Username    string `bun:"username"`
+	OrderName   string `bun:"order_name"`
+	ArtworkName string `bun:"artwork_name"`
 }
 
 // newReviewDetailQuery selects reviews with customer and order names.
@@ -178,8 +179,9 @@ func (row reviewDetailRow) toDomain() review.ReviewDetail {
 			Comment:    row.Comment,
 			CreatedAt:  row.CreatedAt,
 		},
-		Username: row.Username,
-		Order:    row.OrderName,
+		Username:    row.Username,
+		Order:       row.OrderName,
+		ArtworkName: row.ArtworkName,
 	}
 }
 
@@ -195,6 +197,7 @@ func (r *reviewRepository) ListByArtistID(
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		var err error
 		total, err = newReviewDetailQuery(idb).
+			ColumnExpr("o.artwork_snapshot->>'artwork_name' AS artwork_name").
 			Where("r.artist_id = ?", artistID).
 			OrderExpr("r.created_at DESC, r.id DESC").
 			Limit(query.Limit).

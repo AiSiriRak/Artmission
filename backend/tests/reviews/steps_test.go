@@ -15,15 +15,16 @@ import (
 )
 
 type reviewResponse struct {
-	ID         uuid.UUID `json:"id"`
-	OrderID    uuid.UUID `json:"order_id"`
-	CustomerID uuid.UUID `json:"customer_id"`
-	ArtistID   uuid.UUID `json:"artist_id"`
-	Rating     int       `json:"rating"`
-	Comment    *string   `json:"comment"`
-	CreatedAt  time.Time `json:"created_at"`
-	Username   string    `json:"username"`
-	Order      string    `json:"order"`
+	ID          uuid.UUID `json:"id"`
+	OrderID     uuid.UUID `json:"order_id"`
+	CustomerID  uuid.UUID `json:"customer_id"`
+	ArtistID    uuid.UUID `json:"artist_id"`
+	Rating      int       `json:"rating"`
+	Comment     *string   `json:"comment"`
+	CreatedAt   time.Time `json:"created_at"`
+	Username    string    `json:"username"`
+	Order       string    `json:"order"`
+	ArtworkName *string   `json:"artwork_name"`
 }
 
 type reviewsContext struct {
@@ -168,6 +169,21 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		for _, item := range items {
 			if item.Username != c.customer.Username || item.Order != "Customer commission title" || item.Rating != 5 || item.Comment == nil || *item.Comment != "Original review" || item.CreatedAt.IsZero() || item.ArtistID.String() != c.artist.ID {
 				return fmt.Errorf("incorrect review details: %+v", item)
+			}
+		}
+		return nil
+	})
+	sc.Step(`^the artist reviews include artwork names from order snapshots$`, func() error {
+		items, err := c.readReviewList()
+		if err != nil {
+			return err
+		}
+		if len(items) == 0 {
+			return fmt.Errorf("expected artist reviews")
+		}
+		for _, item := range items {
+			if item.ArtworkName == nil || *item.ArtworkName != "Purchased artwork name" {
+				return fmt.Errorf("expected the snapshot artwork name, got %v", item.ArtworkName)
 			}
 		}
 		return nil
