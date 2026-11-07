@@ -15,11 +15,13 @@ import (
 
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/notification"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/objectstorage"
 	"github.com/AiSiriRak/Artmission/backend/internal/wiring"
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 )
 
 var app *apptest.App
@@ -47,6 +49,7 @@ func TestNotificationsFeatures(t *testing.T) {
 	}
 	t.Run("WalletCredits", testWalletCredits)
 	t.Run("WiredWorkers", testWiredWorkers)
+	t.Run("DelayRequestConcurrency", testDelayRequestConcurrency)
 }
 
 func testWiredWorkers(t *testing.T) {
@@ -221,4 +224,137 @@ func (f failRefundNotification) Create(ctx context.Context, in notification.Crea
 		return nil, errors.New("refund notification unavailable")
 	}
 	return f.creator.Create(ctx, in)
+}
+
+func testDelayRequestConcurrency(t *testing.T) {
+	for _, customerFirst := range []bool{true, false} {
+		name := "expiry first"
+		if customerFirst {
+			name = "customer first"
+		}
+		t.Run(name, func(t *testing.T) {
+			n := &notificationsContext{}
+			mustNotificationStep(t, n.registerAccounts())
+			mustNotificationStep(t, n.orderWithStatus("IN_PROCESS"))
+			mustNotificationStep(t, n.requestExtension())
+			mustNotificationStep(t, n.exec("UPDATE order_delay_requests SET created_at = ? WHERE id = ?", time.Now().Add(-order.DelayRequestTTL-time.Hour), n.requestID))
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			var deadlines struct{ Original, Requested time.Time }
+			mustNotificationStep(t, app.DB.NewRaw("SELECT original_deadline_at AS original, deadline_request_at AS requested FROM order_delay_requests WHERE id = ?", n.requestID).Scan(ctx, &deadlines))
+			tx, executor := baserepo.NewTransactioner(app.DB), baserepo.NewExecutor(app.DB)
+			actions := orderActions(notificationActions())
+			confirm := func(ctx context.Context) error {
+				_, err := actions.ConfirmDelayRequest(ctx, uuid.MustParse(n.accounts["customer"].ID), uuid.MustParse(n.orderID), order.ConfirmDelayRequestInput{DelayRequestID: uuid.MustParse(n.requestID), Accept: true})
+				return err
+			}
+			var expired []uuid.UUID
+			expire := func(ctx context.Context) error {
+				var err error
+				expired, err = actions.CancelExpiredDelayRequest(ctx)
+				return err
+			}
+			first, second := confirm, expire
+			if !customerFirst {
+				first, second = expire, confirm
+			}
+			secondPID := make(chan int, 1)
+			secondDone := make(chan error, 1)
+			firstErr := tx.Transaction(ctx, func(firstCtx context.Context) error {
+				var firstPID int
+				if err := executor.Run(firstCtx, func(db bun.IDB) error {
+					// Hold the parent lock as ConfirmDelayRequest does, then force a real overlap.
+					var id uuid.UUID
+					if err := db.NewRaw("SELECT id FROM orders WHERE id = ? FOR UPDATE", n.orderID).Scan(firstCtx, &id); err != nil {
+						return err
+					}
+					return db.NewRaw("SELECT pg_backend_pid()").Scan(firstCtx, &firstPID)
+				}); err != nil {
+					return err
+				}
+				go func() {
+					err := tx.Transaction(ctx, func(secondCtx context.Context) error {
+						var pid int
+						if err := executor.Run(secondCtx, func(db bun.IDB) error { return db.NewRaw("SELECT pg_backend_pid()").Scan(secondCtx, &pid) }); err != nil {
+							secondPID <- 0
+							return err
+						}
+						secondPID <- pid
+						return second(secondCtx)
+					})
+					secondDone <- err
+				}()
+				var waitingPID int
+				select {
+				case waitingPID = <-secondPID:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				if waitingPID == 0 {
+					return errors.New("second transaction did not start")
+				}
+				// Observe PostgreSQL's actual wait graph, rather than relying on sleep ordering.
+				for {
+					var blocked bool
+					if err := app.DB.NewRaw("SELECT ? = ANY(pg_blocking_pids(?))", firstPID, waitingPID).Scan(ctx, &blocked); err != nil {
+						return err
+					}
+					if blocked {
+						break
+					}
+					select {
+					case <-ctx.Done():
+						return fmt.Errorf("transactions did not overlap: %w", ctx.Err())
+					case <-time.After(10 * time.Millisecond):
+					}
+				}
+				return first(firstCtx)
+			})
+			var secondErr error
+			select {
+			case secondErr = <-secondDone:
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+			confirmErr, expiryErr := firstErr, secondErr
+			if !customerFirst {
+				confirmErr, expiryErr = secondErr, firstErr
+			}
+			if expiryErr != nil {
+				t.Fatalf("expiry failed during concurrent confirmation: %v", expiryErr)
+			}
+			if customerFirst && confirmErr != nil {
+				t.Fatalf("confirmation failed while holding the parent order: %v", confirmErr)
+			}
+			if !customerFirst && !errors.Is(confirmErr, order.ErrInvalidrDelayRequestStatus) {
+				t.Fatalf("expected already-decided request, got %v", confirmErr)
+			}
+			var state struct {
+				Decision string
+				Deadline time.Time
+			}
+			mustNotificationStep(t, app.DB.NewRaw("SELECT r.customer_decision AS decision, o.deadline_at AS deadline FROM order_delay_requests r JOIN orders o ON o.id = r.order_id WHERE r.id = ?", n.requestID).Scan(ctx, &state))
+			wantDecision, wantDeadline, approved, rejected := "REJECTED", deadlines.Original, 0, 2
+			if customerFirst {
+				wantDecision, wantDeadline, approved, rejected = "APPROVED", deadlines.Requested, 1, 0
+			}
+			if state.Decision != wantDecision || !state.Deadline.Equal(wantDeadline) {
+				t.Fatalf("inconsistent state: %+v", state)
+			}
+			wantExpired := 1
+			if customerFirst {
+				wantExpired = 0
+			}
+			if len(expired) != wantExpired || (len(expired) == 1 && expired[0] != uuid.MustParse(n.requestID)) {
+				t.Fatalf("incorrect expiry result: %v", expired)
+			}
+			for kind, want := range map[string]int{"DEADLINE_EXTENSION_APPROVED": approved, "DEADLINE_EXTENSION_REJECTED": rejected} {
+				var count int
+				mustNotificationStep(t, app.DB.NewRaw("SELECT COUNT(*) FROM notifications WHERE delay_request_id = ? AND type = ?", n.requestID, kind).Scan(ctx, &count))
+				if count != want {
+					t.Fatalf("%s count %d want %d", kind, count, want)
+				}
+			}
+		})
+	}
 }
