@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 
 interface ArtworkOrderSectionProps {
@@ -16,11 +17,11 @@ export default function ArtworkOrderSection({
       <div className="flex flex-col gap-6">
         <div className="flex gap-6">
           <div className="flex items-center gap-2">
-            <img src="/icons/alarm-clock.svg" alt="timer icon" className="w-6 h-6" />
+            <Image src="/icons/alarm-clock.svg" alt="timer icon" className="w-6 h-6" />
             <p className="text-h4">{minimumDeadlineDays} days</p>
           </div>
           <div className="flex items-center gap-2">
-            <img src="/icons/banknote.svg" alt="price icon" className="w-6 h-6" />
+            <Image src="/icons/banknote.svg" alt="price icon" className="w-6 h-6" />
             <p className="text-h4">{(priceSatang / 100).toLocaleString()} THB</p>
           </div>
         </div>

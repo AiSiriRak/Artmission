@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
+import Image from "next/image";
 
 interface ProfileImageProps {
   imageUrl?: string | null;
@@ -51,8 +52,7 @@ export default function ProfileImage({
 
   return (
     <div className="relative inline-block">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={currentSrc}
         alt="Profile"
         onError={() => {

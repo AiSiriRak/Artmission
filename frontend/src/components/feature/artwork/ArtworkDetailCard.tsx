@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Artwork } from "@/lib/api/types";
 
 export interface ArtworkDetailCardProps {
@@ -45,7 +46,7 @@ export default function ArtworkDetailCard({ artwork }: ArtworkDetailCardProps) {
                   key={index}
                   className="w-96 h-96 bg-white border border-gray-200 rounded-xl relative p-2 flex items-center justify-center"
                 >
-                  <img
+                  <Image
                     src={imgUrl}
                     alt={`sample-${index}`}
                     className="max-w-full max-h-full object-contain"

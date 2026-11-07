@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import type { Artwork } from "@/lib/api/types";
 
 interface ArtworkCardProps {
@@ -26,7 +28,7 @@ export default function ArtworkCard({
       onClick={onClick}
     >
       <div className="relative">
-        <img
+        <Image
           src={imageUrl}
           alt={artwork.name || "Artwork"}
           className="w-full h-56 object-cover"
@@ -34,7 +36,7 @@ export default function ArtworkCard({
 
         {showEditControls && (
           <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-            <img
+            <Image
               src="/icons/edit.svg"
               alt="Edit"
               className="w-6 h-6 object-contain drop-shadow-md hover:scale-110 transition-transform"

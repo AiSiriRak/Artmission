@@ -1,6 +1,7 @@
 "use client";
 
 import { WhiteCard } from "@/components/ui/WhiteCard";
+import Image from "next/image";
 
 import type { OrderCancellation } from "@/lib/api/order-details";
 import { CUSTOMER_REASONS } from "../customer/CustomerCancelOrderPopUp";
@@ -109,7 +110,7 @@ export default function OrderCancelSection({
         <div className="flex items-start gap-4">
           <div className="flex flex-col">
             <div className="pt-2" />
-            <img
+            <Image
               src="/icons/Bell_light.svg"
               alt=""
               className="h-6 w-6 shrink-0"

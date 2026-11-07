@@ -1,6 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
+import Image from "next/image";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 
 import { Review } from "@/lib/api/reviews";
@@ -51,7 +52,7 @@ export default function OrderCancelSection({
             className="max-w-none border border-primary-500 bg-secondary-200 shadow-none"
           >
             <div className="mt-1 flex flex-col items-center justify-center text-center">
-              <img
+              <Image
                 src="/icons/message-circle-off.svg"
                 alt=""
                 className="h-18 w-18 shrink-0"

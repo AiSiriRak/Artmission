@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
+import Image from "next/image";
 import DownloadArtworkButton from "./DownloadArtworkButton";
 
 interface FinalArtworkActionsProps {
@@ -72,8 +73,9 @@ export default function FinalArtworkActions({
 
       {!hasReviewed && (
         <div className="flex flex-row items-center justify-center pt-2 gap-2">
-          <img
+          <Image
             src="/icons/fail.svg"
+            alt=""
             className="h-4 w-4 shrink-0"
           />
           <p className="text-caption">

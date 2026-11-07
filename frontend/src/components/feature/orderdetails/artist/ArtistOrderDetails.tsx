@@ -90,7 +90,7 @@ export default function ArtistOrderDetails() {
         if (!cancelled) {
           setReview(data);
         }
-      } catch (error) {
+      } catch {
         if (!cancelled) {
           setReview(null);
         }

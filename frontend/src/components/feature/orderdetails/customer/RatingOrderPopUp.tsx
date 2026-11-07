@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/Button";
 import { WhiteCard } from "@/components/ui/WhiteCard";
@@ -58,7 +59,7 @@ export function RatingOrderPopup({ isOpen, onConfirm }: RatingOrderPopupProps) {
             <div className="mt-[24px]">
               <div className="flex items-center gap-2">
                 {[...Array(5)].map((_, index) => (
-                  <img
+                  <Image
                     key={index}
                     src={
                       index < rating
@@ -84,6 +85,12 @@ export function RatingOrderPopup({ isOpen, onConfirm }: RatingOrderPopupProps) {
                 className="rounded-lg border-2 border-primary-500 px-4 py-3 text-small placeholder:text-neutral-500"
               />
             </div>
+
+            {error && (
+              <p className="mt-2 text-small text-error">
+                {error}
+              </p>
+            )}
 
             {/* Buttons */}
             <div className="mt-[20px] flex w-full justify-center">

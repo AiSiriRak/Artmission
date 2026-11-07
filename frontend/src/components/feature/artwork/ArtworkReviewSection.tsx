@@ -22,8 +22,6 @@ export default function ArtworkReviewSection({
     let cancelled = false;
 
     const fetchReviews = async () => {
-      setLoading(true);
-
       try {
         const data = await getArtworkReviews(artworkId);
 
@@ -43,12 +41,11 @@ export default function ArtworkReviewSection({
       }
     };
 
-    fetchReviews();
+    void fetchReviews();
 
     return () => {
       cancelled = true;
     };
-
   }, [artworkId]);
 
   return (
@@ -63,7 +60,11 @@ export default function ArtworkReviewSection({
         </span>
       </div>
 
-      <ReviewList reviews={reviews} />
+      {loading ? (
+        <p className="text-sm text-gray-400">Loading reviews...</p>
+      ) : (
+        <ReviewList reviews={reviews} />
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import MainLayout from "@/components/feature/main/MainLayout";
 import { Button } from "@/components/ui/Button";
 
@@ -40,7 +41,7 @@ export default function OrderDetails({
           className="!border w-24"
           onClick={() => router.back()}
           icon={
-            <img
+            <Image
               src="/icons/Arrow_left.svg"
               alt=""
               className="w-4 h-4 object-contain"

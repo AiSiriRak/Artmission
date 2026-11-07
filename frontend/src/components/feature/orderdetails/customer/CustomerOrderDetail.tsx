@@ -142,7 +142,7 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
         if (!cancelled) {
           setReview(data);
         }
-      } catch (error) {
+      } catch {
         if (!cancelled) {
           setReview(null);
         }

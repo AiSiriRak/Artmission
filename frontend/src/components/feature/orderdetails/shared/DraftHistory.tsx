@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 
 export type DraftStatus =
@@ -68,7 +69,7 @@ function ArtworkPreview({ src, alt }: { src: string; alt: string }) {
   return (
     <div className="mx-auto mt-8 w-full max-w-[940px]">
       <div className="mx-auto w-fit max-w-full border border-neutral bg-white">
-        <img src={src} alt={alt} className="block h-auto w-auto max-h-[632px] max-w-full object-contain" />
+        <Image src={src} alt={alt} className="block h-auto w-auto max-h-[632px] max-w-full object-contain" />
       </div>
     </div>
   );

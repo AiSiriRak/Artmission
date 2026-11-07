@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+
 import { updateArtistProfile, getArtistArtworks } from "@/lib/api/artists";
 import {
   createArtwork,
@@ -298,8 +300,7 @@ export default function ProfileManager({
             onClick={handleToggleMode}
             variant="dark"
             icon={
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src="/icons/exit.svg"
                 alt="Exit"
                 className="w-4 h-4 object-contain"

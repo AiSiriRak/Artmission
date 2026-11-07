@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+
 import { WhiteCard } from "@/components/ui/WhiteCard";
 import { Button } from "@/components/ui/Button";
 import ConfirmOrderPopup from "./popups/ConfirmOrderPopup";
@@ -59,9 +61,7 @@ export default function SubmitDraft({ onSubmit, disabled = false }: { onSubmit: 
               >
                 ✕
               </button>
-              {/* Local file previews use a temporary browser object URL. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={draft.previewUrl}
                 alt="Draft preview"
                 className="block h-auto w-auto max-h-[632px] max-w-full object-contain"

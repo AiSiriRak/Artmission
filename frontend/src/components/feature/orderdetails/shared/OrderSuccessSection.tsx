@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 
 // format order success method
@@ -37,7 +38,7 @@ export default function OrderSuccessSection({
         <div className="flex items-start gap-4">
           <div className="flex flex-col">
             <div className="pt-2" />
-            <img
+            <Image
               src="/icons/Bell_light.svg"
               alt=""
               className="h-6 w-6 shrink-0"

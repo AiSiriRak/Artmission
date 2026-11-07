@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
+
 import type {
   Artwork,
   CreateArtworkInput,
@@ -474,7 +476,7 @@ export default function ArtworkDetail({
                   onClick={handleEditClick}
                   variant="transparent"
                   icon={
-                    <img
+                    <Image
                       src="/icons/edit.svg"
                       alt="Edit"
                       className="w-4 h-4 object-contain"
@@ -582,7 +584,7 @@ export default function ArtworkDetail({
                 </div>
               ) : (
                 <div className="bg-primary-400 text-secondary-200 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2 justify-center">
-                  <img
+                  <Image
                     src="/icons/alarm-clock.svg"
                     alt="Deadline"
                     className="w-4 h-4 object-contain brightness-0 invert"
@@ -617,7 +619,7 @@ export default function ArtworkDetail({
                 </div>
               ) : (
                 <div className="bg-secondary-600 text-primary-400 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2">
-                  <img
+                  <Image
                     src="/icons/banknote.svg"
                     alt="Price"
                     className="w-4 h-4 object-contain"
@@ -638,7 +640,7 @@ export default function ArtworkDetail({
                     variant="error"
                     onClick={() => setShowDeleteConfirm(true)}
                     icon={
-                      <img
+                      <Image
                         src="/icons/delete.svg"
                         alt="Delete"
                         className="w-4 h-4 object-contain"

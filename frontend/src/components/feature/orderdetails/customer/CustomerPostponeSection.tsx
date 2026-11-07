@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/Button";
 import { WhiteCard } from "@/components/ui/WhiteCard";
@@ -102,7 +103,7 @@ export default function CustomerPostponeSection({
         className="max-w-none bg-status-pending-pale shadow-none"
       >
         <div className="flex items-start gap-4">
-          <img
+          <Image
             src="/icons/alarm-clock.svg"
             alt=""
             className="mt-1 h-6 w-6 shrink-0"

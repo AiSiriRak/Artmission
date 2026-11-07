@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import type { ArtistProfile } from "@/lib/api/types";
 import { WhiteCard } from "@/components/ui/WhiteCard";
@@ -20,7 +21,7 @@ export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
     >
       <div className="flex items-center gap-4">
         <div className="w-20 h-20 rounded-full overflow-hidden">
-          <img
+          <Image
             src={artist.profile_url || "/default-avatar.png"}
             alt="Artist Avatar"
             className="w-full h-full object-cover"
@@ -60,7 +61,7 @@ export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
                 variant="light"
                 className="text-button flex items-center gap-2 !border"
               >
-                <img
+                <Image
                   src="/icons/external-link-icon.svg"
                   alt="external link icon"
                   className="w-4 h-4"

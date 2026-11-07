@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import type {
   ReviewData,
   ArtistReviewData,
@@ -10,7 +12,7 @@ export function ReviewStars({ rating, size = 24 }: { rating: number; size?: numb
         const filled = index < rating;
 
         return (
-          <img
+          <Image
             key={index}
             src={
               filled
@@ -36,7 +38,7 @@ export default function ReviewCard({ review }: { review: ReviewData | ArtistRevi
       {/* Profile Image */}
       <div className="w-12 h-12 rounded-full bg-gray-300 flex-shrink-0 overflow-hidden">
         {review.avatarUrl && (
-          <img
+          <Image
             src={review.avatarUrl}
             alt={review.reviewerName || "Reviewer"}
             className="w-full h-full object-cover"

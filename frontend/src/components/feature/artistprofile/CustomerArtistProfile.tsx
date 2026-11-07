@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 import { useRouter } from "next/navigation";
 
@@ -134,7 +135,7 @@ export default function CustomerArtistProfile({
               className="!border w-24"
               onClick={() => router.back()}
               icon={
-                <img
+                <Image
                   src="/icons/Arrow_left.svg"
                   alt=""
                   className="w-4 h-4 object-contain"

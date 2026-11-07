@@ -1,4 +1,6 @@
 import { useRef } from "react";
+import Image from "next/image";
+
 import { Button } from "@/components/ui/Button";
 
 interface ArtworkSampleGalleryProps {
@@ -70,7 +72,7 @@ export default function ArtworkSampleGallery({
                 ✕
               </button>
             )}
-            <img
+            <Image
               src={imgUrl}
               alt={`sample-${index}`}
               className="max-w-full max-h-full object-contain"
