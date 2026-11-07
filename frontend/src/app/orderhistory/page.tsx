@@ -242,7 +242,7 @@ export default function HomePage() {
           </div>
         )}
         {(!order.orders || order.orders.length == 0 || status.length == 0) && (
-          <div className="w-full relative flex flex-col items-center justify-center">
+          <div className="w-full relative flex flex-col items-center justify-center p-30">
             <Image src="/icons/emptydoc.svg" alt={""} width={96} height={96} />
             <p className="text-h1 text-neutral">No orders yet</p>
             <p className="text-body text-neutral">

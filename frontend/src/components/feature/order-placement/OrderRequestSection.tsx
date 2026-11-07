@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/Button";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrder } from "@/lib/api/orders";
 import type { Artwork } from "@/lib/api/types";
@@ -75,12 +75,12 @@ export function OrderRequestSection({ artwork }: OrderRequestSectionProps) {
     }
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const textarea = detailsRef.current;
     if (!textarea) return;
 
     textarea.style.height = "auto";
-    textarea.style.height = `${textarea.scrollHeight}px`;
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 96)}px`;
   }, [details]);
 
   return (

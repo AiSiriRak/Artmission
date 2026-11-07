@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import type {
   Artwork,
   CreateArtworkInput,
@@ -312,7 +312,16 @@ export default function ArtworkDetail({
     }
   }
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const resizeTextarea = (textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 72)}px`;
+  };
+
+  const textareaRef = (textarea: HTMLTextAreaElement | null) => {
+    resizeTextarea(textarea);
+  };
 
   const handleDescriptionChange = (
     e: React.ChangeEvent<HTMLTextAreaElement>,
@@ -324,8 +333,7 @@ export default function ArtworkDetail({
       description: textarea.value,
     }));
 
-    textarea.style.height = "auto";
-    textarea.style.height = `${Math.max(textarea.scrollHeight, 72)}px`;
+    resizeTextarea(textarea);
   };
 
   const confirmDelete = () => {
