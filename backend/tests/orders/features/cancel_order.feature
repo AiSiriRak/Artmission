@@ -9,6 +9,7 @@ Feature: Cancel Order
     And the user has an order
     When the user cancels their last order
     Then the system cancels the order
+    And the order detail shows the cancellation reason and explanation
 
   Scenario: an artist cancels their pending order
     Given the user has a registered artist account
@@ -16,6 +17,7 @@ Feature: Cancel Order
     And the user has an order
     When the user cancels their last order
     Then the system cancels the order
+    And the order detail shows the cancellation reason and explanation
 
   Scenario: a customer cancels an unpaid order
     Given the user has a registered customer account
@@ -23,6 +25,7 @@ Feature: Cancel Order
     And the user has an order with status "NOT_PAID"
     When the user cancels their last order
     Then the system cancels the order
+    And the order detail shows the cancellation reason and explanation
 
   Scenario: an artist cancels an in-process order
     Given the user has a registered artist account
@@ -30,6 +33,7 @@ Feature: Cancel Order
     And the user has an order with status "IN_PROCESS"
     When the user cancels their last order
     Then the system cancels the order
+    And the order detail shows the cancellation reason and explanation
 
   Scenario: cancelling an order rejects its pending deliverable and delay request
     Given the user has a registered customer account
@@ -37,6 +41,7 @@ Feature: Cancel Order
     And the user has an order with a pending deliverable and delay request
     When the user cancels their last order
     Then the system cancels the order and rejects its pending deliverable and delay request
+    And the order detail shows the cancellation reason and explanation
 
   Scenario: a customer cannot cancel a completed order
     Given the user has a registered customer account

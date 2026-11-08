@@ -41,19 +41,23 @@ func init() {
 }
 
 type orderUsecase struct {
-	repo    OrderRepository
-	storage ObjectStorage
+	repo     OrderRepository
+	storage  ObjectStorage
+	notifier OrderNotifier
+	tx       NotificationTransactioner
 }
 
 // NewOrderUsecase creates an order use case with its repository and storage.
 func NewOrderUsecase(
 	repo OrderRepository,
 	storage ObjectStorage,
+	options ...UsecaseOption,
 ) OrderUsecase {
-	return &orderUsecase{
-		repo:    repo,
-		storage: storage,
+	u := &orderUsecase{repo: repo, storage: storage}
+	for _, option := range options {
+		option(u)
 	}
+	return u
 }
 
 const orderDeliverableTTL = 15 * time.Minute
@@ -195,6 +199,7 @@ func (u *orderUsecase) GetOrder(
 		ArtworkSnapshot:    data.ArtworkSnapshot,
 		Deliverables:       data.Deliverables,
 		ActiveDelayRequest: data.ActiveDelayRequest,
+		Cancellation:       data.Cancellation,
 	}
 
 	if detail.Status == StatusSuccess && len(data.Deliverables) > 0 {
@@ -244,25 +249,30 @@ func (u *orderUsecase) CreateOrder(
 	customerID uuid.UUID,
 	input CreateInput,
 ) (*Order, error) {
-	if input.ArtworkID == uuid.Nil {
-		return nil, apperror.InvalidInput("artwork id must not be empty", nil)
-	}
+	return orderTransaction(ctx, u, func(ctx context.Context) (*Order, error) {
+		if input.ArtworkID == uuid.Nil {
+			return nil, apperror.InvalidInput("artwork id must not be empty", nil)
+		}
 
-	order, err := normalizeOrder(uuid.New(), customerID, input)
-	if err != nil {
-		return nil, err
-	}
+		order, err := normalizeOrder(uuid.New(), customerID, input)
+		if err != nil {
+			return nil, err
+		}
 
-	err = u.repo.Create(ctx, order)
-	if err != nil {
-		return nil, err
-	}
+		err = u.repo.Create(ctx, order)
+		if err != nil {
+			return nil, err
+		}
 
-	// TODO(notify): Notify the artist that a new order has been created.
-	// The order status is PENDING and requires the artist's confirmation.
-	// Status: PENDING
+		// TODO(notify): Notify the artist that a new order has been created.
+		// The order status is PENDING and requires the artist's confirmation.
+		// Status: PENDING
+		if err := u.notify(ctx, NotificationEvent{Kind: "ORDER_CREATED", OrderID: order.ID, ActorID: customerID, Participant: ParticipantCustomer}); err != nil {
+			return nil, err
+		}
 
-	return order, nil
+		return order, nil
+	})
 }
 
 // normalizeOrder validates customer-provided fields and initializes
@@ -321,31 +331,36 @@ func (u *orderUsecase) ConfirmOrder(
 	orderID uuid.UUID,
 	input ConfirmOrderInput,
 ) (Status, error) {
-	if artistID == uuid.Nil {
-		return "", ErrMissingParticipantID
-	}
+	return orderTransaction(ctx, u, func(ctx context.Context) (Status, error) {
+		if artistID == uuid.Nil {
+			return "", ErrMissingParticipantID
+		}
 
-	if orderID == uuid.Nil {
-		return "", ErrMissingOrderID
-	}
+		if orderID == uuid.Nil {
+			return "", ErrMissingOrderID
+		}
 
-	var status Status
-	switch input.Accept {
-	case true:
-		status = StatusNotPaid
-	case false:
-		status = StatusCancel
-	}
+		var status Status
+		switch input.Accept {
+		case true:
+			status = StatusNotPaid
+		case false:
+			status = StatusCancel
+		}
 
-	if err := u.repo.ConfirmOrder(ctx, artistID, orderID, status); err != nil {
-		return "", err
-	}
+		if err := u.repo.ConfirmOrder(ctx, artistID, orderID, status); err != nil {
+			return "", err
+		}
 
-	// TODO: Notify the customer that the order was accepted or rejected.
-	// Call the notification usecase/service here.
-	// Status: NOT_PAID or CANCEL
+		// TODO: Notify the customer that the order was accepted or rejected.
+		// Call the notification usecase/service here.
+		// Status: NOT_PAID or CANCEL
+		if err := u.notify(ctx, NotificationEvent{Kind: "ORDER_CONFIRMED", OrderID: orderID, ActorID: artistID, Participant: ParticipantArtist, Decision: string(status)}); err != nil {
+			return "", err
+		}
 
-	return status, nil
+		return status, nil
+	})
 }
 
 // CancelOrder validates the cancellation input and records the cancellation
@@ -356,74 +371,85 @@ func (u *orderUsecase) CancelOrder(
 	participantID uuid.UUID,
 	input CancelInput,
 ) (*OrderCancellation, error) {
-	if !participant.IsValid() {
-		return nil, ErrUnsupportedParticipantRole
-	}
-	if participantID == uuid.Nil {
-		return nil, ErrMissingParticipantID
-	}
-	if input.OrderID == uuid.Nil {
-		return nil, ErrMissingOrderID
-	}
+	return orderTransaction(ctx, u, func(ctx context.Context) (*OrderCancellation, error) {
+		if !participant.IsValid() {
+			return nil, ErrUnsupportedParticipantRole
+		}
+		if participantID == uuid.Nil {
+			return nil, ErrMissingParticipantID
+		}
+		if input.OrderID == uuid.Nil {
+			return nil, ErrMissingOrderID
+		}
 
-	if input.Reason == "" {
-		return nil, apperror.InvalidInput("cancellation reason must not be empty", nil)
-	}
+		if input.Reason == "" {
+			return nil, apperror.InvalidInput("cancellation reason must not be empty", nil)
+		}
 
-	if !input.Reason.IsValid(participant) {
-		return nil, apperror.InvalidInput("invalid cancellation reason", nil)
-	}
+		if !input.Reason.IsValid(participant) {
+			return nil, apperror.InvalidInput("invalid cancellation reason", nil)
+		}
 
-	explanation := strings.TrimSpace(input.Explanation)
-	if explanation == "" {
-		return nil, apperror.InvalidInput("cancellation explanation must not be empty", nil)
-	}
+		explanation := strings.TrimSpace(input.Explanation)
+		if explanation == "" {
+			return nil, apperror.InvalidInput("cancellation explanation must not be empty", nil)
+		}
 
-	now := time.Now()
+		now := time.Now()
 
-	item := &OrderCancellation{
-		ID:          uuid.New(),
-		OrderID:     input.OrderID,
-		Reason:      string(input.Reason),
-		Explanation: explanation,
-		CreatedAt:   now,
-	}
+		item := &OrderCancellation{
+			ID:          uuid.New(),
+			OrderID:     input.OrderID,
+			Reason:      string(input.Reason),
+			Explanation: explanation,
+			CreatedAt:   now,
+		}
 
-	if err := u.repo.CancelOrder(ctx, participant, participantID, item); err != nil {
-		return nil, err
-	}
+		if err := u.repo.CancelOrder(ctx, participant, participantID, item); err != nil {
+			return nil, err
+		}
 
-	// TODO(notify): Notify the other participant that the order was cancelled.
-	// TODO(notify): Notify recipients about the full refund or 50/50 wallet credits after a paid cancellation.
-	// Include the cancellation reason and explanation in the notification.
-	// Status: CANCEL
+		// TODO(notify): Notify the other participant that the order was cancelled.
+		// TODO(notify): Notify recipients about the full refund or 50/50 wallet credits after a paid cancellation.
+		// Include the cancellation reason and explanation in the notification.
+		// Status: CANCEL
+		if err := u.notify(ctx, NotificationEvent{Kind: "ORDER_CANCELED", OrderID: input.OrderID, ActorID: participantID, Participant: participant, Reason: item.Reason, Explanation: item.Explanation}); err != nil {
+			return nil, err
+		}
 
-	return item, nil
+		return item, nil
+	})
 }
 
 // CancelExpiredOrders cancels orders whose artist-confirmation window
 // or order deadline has expired, and returns the IDs of the cancelled orders.
-//
 // TODO(notify): Notify the relevant participants for each order cancelled
 // by the expiration process.
 func (u *orderUsecase) CancelExpiredOrders(
 	ctx context.Context,
 ) ([]uuid.UUID, error) {
-	now := time.Now()
-	cancelledOrderIDs, err := u.repo.CancelExpired(
-		ctx,
-		now.Add(-PendingConfirmationTTL),
-		now,
-	)
-	if err != nil {
-		return nil, err
-	}
+	return orderTransaction(ctx, u, func(ctx context.Context) ([]uuid.UUID, error) {
+		now := time.Now()
+		cancelledOrderIDs, err := u.repo.CancelExpired(
+			ctx,
+			now.Add(-PendingConfirmationTTL),
+			now,
+		)
+		if err != nil {
+			return nil, err
+		}
 
-	// TODO(notify): Notify the relevant participants for each cancelled order.
-	// TODO(notify): Notify the customer about the full wallet refund after a paid order's deadline expiration.
-	// Status: CANCEL
+		// TODO(notify): Notify the relevant participants for each cancelled order.
+		// TODO(notify): Notify the customer about the full wallet refund after a paid order's deadline expiration.
+		// Status: CANCEL
+		for _, id := range cancelledOrderIDs {
+			if err := u.notify(ctx, NotificationEvent{Kind: "ORDER_EXPIRED", OrderID: id}); err != nil {
+				return nil, err
+			}
+		}
 
-	return cancelledOrderIDs, nil
+		return cancelledOrderIDs, nil
+	})
 }
 
 // CreateDeliverable creates a new deliverable version for an order owned
@@ -491,45 +517,49 @@ func (u *orderUsecase) CreateDeliverable(
 		now,
 	)
 
-	created, err := u.repo.CreateDeliverable(
-		ctx,
-		artistID,
-		input.OrderID,
-		deliverable,
-	)
-	if err != nil {
-		if cleanupErr := u.deleteDeliverableImages(
+	persisted := false
+	result, err := orderTransaction(ctx, u, func(ctx context.Context) (*Deliverable, error) {
+		created, err := u.repo.CreateDeliverable(
 			ctx,
-			originalImageKey,
-			previewImageKey,
-		); cleanupErr != nil {
+			artistID,
+			input.OrderID,
+			deliverable,
+		)
+		if err != nil {
+			return nil, err
+		}
+		persisted = true
+
+		previewURL, err := u.storage.GetPresignedURL(
+			ctx,
+			created.PreviewImageKey,
+			orderDeliverableTTL,
+		)
+		if err != nil {
 			return nil, apperror.Internal(
-				"failed to create deliverable and clean up uploaded images",
-				errors.Join(err, cleanupErr),
+				"failed to presign deliverable preview image",
+				err,
 			)
 		}
-		return nil, err
+
+		created.PreviewImageURL = previewURL
+
+		// TODO(notify): Notify the customer that a new deliverable is available.
+		// TODO(notify): On the final auto-approved version, notify the artist about the wallet payout credit.
+		// Include the order ID and deliverable details in the notification.
+		if err := u.notify(ctx, NotificationEvent{Kind: "DRAFT_SUBMITTED", OrderID: input.OrderID, ActorID: artistID, Participant: ParticipantArtist, DeliverableID: created.ID, Version: created.Version, Decision: string(created.Decision)}); err != nil {
+			return nil, err
+		}
+
+		return created, nil
+	})
+	// A rolled-back draft must not leave its uploaded objects behind.
+	if err != nil && (!persisted || u.tx != nil) {
+		if cleanupErr := u.deleteDeliverableImages(context.WithoutCancel(ctx), originalImageKey, previewImageKey); cleanupErr != nil {
+			return nil, apperror.Internal("failed to create deliverable and clean up uploaded images", errors.Join(err, cleanupErr))
+		}
 	}
-
-	previewURL, err := u.storage.GetPresignedURL(
-		ctx,
-		created.PreviewImageKey,
-		orderDeliverableTTL,
-	)
-	if err != nil {
-		return nil, apperror.Internal(
-			"failed to presign deliverable preview image",
-			err,
-		)
-	}
-
-	created.PreviewImageURL = previewURL
-
-	// TODO(notify): Notify the customer that a new deliverable is available.
-	// TODO(notify): On the final auto-approved version, notify the artist about the wallet payout credit.
-	// Include the order ID and deliverable details in the notification.
-
-	return created, nil
+	return result, err
 }
 
 // normalizeOrderDeliverable initializes a new deliverable entity with
@@ -838,45 +868,50 @@ func (u *orderUsecase) ConfirmDeliverable(
 	customerID uuid.UUID,
 	input ConfirmDeliverableInput,
 ) (DeliverableDecision, error) {
-	if customerID == uuid.Nil {
-		return "", ErrMissingParticipantID
-	}
+	return orderTransaction(ctx, u, func(ctx context.Context) (DeliverableDecision, error) {
+		if customerID == uuid.Nil {
+			return "", ErrMissingParticipantID
+		}
 
-	if input.OrderID == uuid.Nil {
-		return "", ErrMissingOrderID
-	}
+		if input.OrderID == uuid.Nil {
+			return "", ErrMissingOrderID
+		}
 
-	if input.DeliverableID == uuid.Nil {
-		return "", ErrMissingDeliverableID
-	}
+		if input.DeliverableID == uuid.Nil {
+			return "", ErrMissingDeliverableID
+		}
 
-	comment := strings.TrimSpace(input.Comment)
+		comment := strings.TrimSpace(input.Comment)
 
-	if input.Accept && comment != "" {
-		return "", apperror.InvalidInput("accepted request comment must be empty", nil)
-	}
-	if !input.Accept && comment == "" {
-		return "", apperror.InvalidInput("rejected request comment must not be blank", nil)
-	}
+		if input.Accept && comment != "" {
+			return "", apperror.InvalidInput("accepted request comment must be empty", nil)
+		}
+		if !input.Accept && comment == "" {
+			return "", apperror.InvalidInput("rejected request comment must not be blank", nil)
+		}
 
-	var decision DeliverableDecision
-	switch input.Accept {
-	case true:
-		decision = DeliverableDecisionApproved
-	case false:
-		decision = DeliverableDecisionRejected
-	}
+		var decision DeliverableDecision
+		switch input.Accept {
+		case true:
+			decision = DeliverableDecisionApproved
+		case false:
+			decision = DeliverableDecisionRejected
+		}
 
-	if err := u.repo.ConfirmDeliverable(ctx, customerID, input.OrderID, input.DeliverableID, decision, comment); err != nil {
-		return "", err
-	}
+		if err := u.repo.ConfirmDeliverable(ctx, customerID, input.OrderID, input.DeliverableID, decision, comment); err != nil {
+			return "", err
+		}
 
-	// TODO(notify): Notify the artist about the customer's deliverable decision.
-	// TODO(notify): On approval, notify the artist about the completed order and wallet payout credit.
-	// If approved, notify that the order status has changed to SUCCESS.
-	// If rejected, notify that the customer requests another draft.
+		// TODO(notify): Notify the artist about the customer's deliverable decision.
+		// TODO(notify): On approval, notify the artist about the completed order and wallet payout credit.
+		// If approved, notify that the order status has changed to SUCCESS.
+		// If rejected, notify that the customer requests another draft.
+		if err := u.notify(ctx, NotificationEvent{Kind: "DELIVERABLE_CONFIRMED", OrderID: input.OrderID, ActorID: customerID, Participant: ParticipantCustomer, DeliverableID: input.DeliverableID, Decision: string(decision)}); err != nil {
+			return "", err
+		}
 
-	return decision, nil
+		return decision, nil
+	})
 }
 
 // AutoApproveExpiredDeliverables approves deliverables whose customer review
@@ -884,24 +919,31 @@ func (u *orderUsecase) ConfirmDeliverable(
 func (u *orderUsecase) AutoApproveExpiredDeliverables(
 	ctx context.Context,
 ) ([]uuid.UUID, error) {
-	now := time.Now()
+	return orderTransaction(ctx, u, func(ctx context.Context) ([]uuid.UUID, error) {
+		now := time.Now()
 
-	ids, err := u.repo.AutoApproveExpiredDeliverables(
-		ctx,
-		now.Add(-DeliverableDecisionTTL),
-		now,
-	)
-	if err != nil {
-		return nil, err
-	}
+		ids, err := u.repo.AutoApproveExpiredDeliverables(
+			ctx,
+			now.Add(-DeliverableDecisionTTL),
+			now,
+		)
+		if err != nil {
+			return nil, err
+		}
 
-	// TODO(notify): Notify the artist and customer about auto-approved deliverables.
-	// TODO(notify): Notify the artist about the wallet payout credited on automatic completion.
-	// The deliverable review window has expired, so the deliverable is approved
-	// automatically and the order status changed to SUCCESS.
-	// Use the returned deliverable IDs to identify the affected deliverables.
+		// TODO(notify): Notify the artist and customer about auto-approved deliverables.
+		// TODO(notify): Notify the artist about the wallet payout credited on automatic completion.
+		// The deliverable review window has expired, so the deliverable is approved
+		// automatically and the order status changed to SUCCESS.
+		// Use the returned deliverable IDs to identify the affected deliverables.
+		for _, id := range ids {
+			if err := u.notify(ctx, NotificationEvent{Kind: "DELIVERABLE_AUTO_APPROVED", DeliverableID: id}); err != nil {
+				return nil, err
+			}
+		}
 
-	return ids, nil
+		return ids, nil
+	})
 }
 
 // CreateDelayRequest validates the input, initializes a deadline-extension
@@ -911,48 +953,53 @@ func (u *orderUsecase) CreateDelayRequest(
 	artistID uuid.UUID,
 	input CreateDelayRequestInput,
 ) (*OrderDelayRequest, error) {
-	if artistID == uuid.Nil {
-		return nil, ErrMissingParticipantID
-	}
+	return orderTransaction(ctx, u, func(ctx context.Context) (*OrderDelayRequest, error) {
+		if artistID == uuid.Nil {
+			return nil, ErrMissingParticipantID
+		}
 
-	if input.OrderID == uuid.Nil {
-		return nil, ErrMissingOrderID
-	}
+		if input.OrderID == uuid.Nil {
+			return nil, ErrMissingOrderID
+		}
 
-	if input.DeadlineRequestAt.IsZero() {
-		return nil, apperror.InvalidInput("requested deadline must not be zero", nil)
-	}
+		if input.DeadlineRequestAt.IsZero() {
+			return nil, apperror.InvalidInput("requested deadline must not be zero", nil)
+		}
 
-	if !input.Reason.IsValid() {
-		return nil, apperror.InvalidInput("invalid delay request reason", nil)
-	}
+		if !input.Reason.IsValid() {
+			return nil, apperror.InvalidInput("invalid delay request reason", nil)
+		}
 
-	now := time.Now()
+		now := time.Now()
 
-	item := &OrderDelayRequest{
-		ID:                uuid.New(),
-		OrderID:           input.OrderID,
-		DeadlineRequestAt: input.DeadlineRequestAt,
-		Reason:            input.Reason,
-		Explanation:       input.Explanation,
-		CustomerDecision:  DelayDecisionWait,
-		CreatedAt:         now,
-		UpdatedAt:         now,
-	}
+		item := &OrderDelayRequest{
+			ID:                uuid.New(),
+			OrderID:           input.OrderID,
+			DeadlineRequestAt: input.DeadlineRequestAt,
+			Reason:            input.Reason,
+			Explanation:       input.Explanation,
+			CustomerDecision:  DelayDecisionWait,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+		}
 
-	created, err := u.repo.CreateDelayRequest(
-		ctx,
-		artistID,
-		input.OrderID,
-		item,
-	)
-	if err != nil {
-		return nil, err
-	}
+		created, err := u.repo.CreateDelayRequest(
+			ctx,
+			artistID,
+			input.OrderID,
+			item,
+		)
+		if err != nil {
+			return nil, err
+		}
 
-	// TODO(notify): Notify the customer that the artist has requested a deadline extension.
+		// TODO(notify): Notify the customer that the artist has requested a deadline extension.
+		if err := u.notify(ctx, NotificationEvent{Kind: "DEADLINE_EXTENSION_REQUESTED", OrderID: input.OrderID, ActorID: artistID, Participant: ParticipantArtist, DelayRequestID: created.ID, DeadlineAt: &created.DeadlineRequestAt}); err != nil {
+			return nil, err
+		}
 
-	return created, nil
+		return created, nil
+	})
 }
 
 // ConfirmDelayRequest records the customer's decision on a deadline-extension
@@ -963,46 +1010,51 @@ func (u *orderUsecase) ConfirmDelayRequest(
 	orderID uuid.UUID,
 	input ConfirmDelayRequestInput,
 ) (*ConfirmDelayRequestOutput, error) {
-	if customerID == uuid.Nil {
-		return nil, ErrMissingParticipantID
-	}
+	return orderTransaction(ctx, u, func(ctx context.Context) (*ConfirmDelayRequestOutput, error) {
+		if customerID == uuid.Nil {
+			return nil, ErrMissingParticipantID
+		}
 
-	if orderID == uuid.Nil {
-		return nil, ErrMissingOrderID
-	}
+		if orderID == uuid.Nil {
+			return nil, ErrMissingOrderID
+		}
 
-	if input.DelayRequestID == uuid.Nil {
-		return nil, ErrMissingDelayRequestID
-	}
+		if input.DelayRequestID == uuid.Nil {
+			return nil, ErrMissingDelayRequestID
+		}
 
-	var decision DelayRequestDecision
-	switch input.Accept {
-	case true:
-		decision = DelayDecisionApproved
-	case false:
-		decision = DelayDecisionRejected
-	}
+		var decision DelayRequestDecision
+		switch input.Accept {
+		case true:
+			decision = DelayDecisionApproved
+		case false:
+			decision = DelayDecisionRejected
+		}
 
-	deadlineAt, err := u.repo.ConfirmDelayRequest(
-		ctx,
-		customerID,
-		orderID,
-		input.DelayRequestID,
-		decision,
-	)
-	if err != nil {
-		return nil, err
-	}
+		deadlineAt, err := u.repo.ConfirmDelayRequest(
+			ctx,
+			customerID,
+			orderID,
+			input.DelayRequestID,
+			decision,
+		)
+		if err != nil {
+			return nil, err
+		}
 
-	// TODO(notify): Notify the artist about the customer's deadline-extension decision.
-	// If approved, notify that the deadline extension was accepted and include the updated deadline.
-	// If rejected, notify that the deadline extension was rejected.
-	// Include the order ID and delay request ID in the notification.
+		// TODO(notify): Notify the artist about the customer's deadline-extension decision.
+		// If approved, notify that the deadline extension was accepted and include the updated deadline.
+		// If rejected, notify that the deadline extension was rejected.
+		// Include the order ID and delay request ID in the notification.
+		if err := u.notify(ctx, NotificationEvent{Kind: "DEADLINE_EXTENSION_DECIDED", OrderID: orderID, ActorID: customerID, Participant: ParticipantCustomer, DelayRequestID: input.DelayRequestID, Decision: string(decision), DeadlineAt: &deadlineAt}); err != nil {
+			return nil, err
+		}
 
-	return &ConfirmDelayRequestOutput{
-		CustomerDecision: decision,
-		DeadlineAt:       deadlineAt,
-	}, nil
+		return &ConfirmDelayRequestOutput{
+			CustomerDecision: decision,
+			DeadlineAt:       deadlineAt,
+		}, nil
+	})
 }
 
 // CancelExpiredDelayRequest rejects delay requests whose customer response
@@ -1010,21 +1062,59 @@ func (u *orderUsecase) ConfirmDelayRequest(
 func (u *orderUsecase) CancelExpiredDelayRequest(
 	ctx context.Context,
 ) ([]uuid.UUID, error) {
-	now := time.Now()
+	return orderTransaction(ctx, u, func(ctx context.Context) ([]uuid.UUID, error) {
+		now := time.Now()
 
-	ids, err := u.repo.CancelExpiredRequest(
-		ctx,
-		now.Add(-DelayRequestTTL),
-		now,
-	)
-	if err != nil {
-		return nil, err
+		ids, err := u.repo.CancelExpiredRequest(
+			ctx,
+			now.Add(-DelayRequestTTL),
+			now,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO(notify): Notify the artist and customer about expired delay requests.
+		// The customer did not respond within the allowed time window,
+		// so the delay request was automatically rejected.
+		// Use the returned delay request IDs to identify the affected requests.
+		for _, id := range ids {
+			if err := u.notify(ctx, NotificationEvent{Kind: "DELAY_REQUEST_EXPIRED", DelayRequestID: id}); err != nil {
+				return nil, err
+			}
+		}
+
+		return ids, nil
+	})
+}
+
+type UsecaseOption func(*orderUsecase)
+
+// Omitting this option keeps standalone usecases independent of notification storage.
+func WithNotifications(notifier OrderNotifier, tx NotificationTransactioner) UsecaseOption {
+	return func(u *orderUsecase) { u.notifier = notifier; u.tx = tx }
+}
+
+func (u *orderUsecase) notify(ctx context.Context, e NotificationEvent) error {
+	if u.notifier == nil {
+		return nil
 	}
+	return u.notifier.NotifyOrder(ctx, e)
+}
 
-	// TODO(notify): Notify the artist and customer about expired delay requests.
-	// The customer did not respond within the allowed time window,
-	// so the delay request was automatically rejected.
-	// Use the returned delay request IDs to identify the affected requests.
-
-	return ids, nil
+func orderTransaction[T any](ctx context.Context, u *orderUsecase, fn func(context.Context) (T, error)) (T, error) {
+	if u.tx == nil {
+		return fn(ctx)
+	}
+	var result T
+	err := u.tx.Transaction(ctx, func(ctx context.Context) error { var err error; result, err = fn(ctx); return err })
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	return result, nil
+}
+func orderTransactionError(ctx context.Context, u *orderUsecase, fn func(context.Context) error) error {
+	_, err := orderTransaction(ctx, u, func(ctx context.Context) (struct{}, error) { return struct{}{}, fn(ctx) })
+	return err
 }
