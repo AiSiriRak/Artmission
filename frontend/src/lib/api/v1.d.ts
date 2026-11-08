@@ -256,6 +256,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * ListNotifications
+         * @description List your notifications, newest first
+         */
+        get: operations["list-notifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * CountUnreadNotifications
+         * @description Count your unread notifications
+         */
+        get: operations["count-unread-notifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * MarkNotificationRead
+         * @description Mark your notification read
+         */
+        patch: operations["mark-notification-read"];
+        trace?: never;
+    };
     "/orders": {
         parameters: {
             query?: never;
@@ -769,6 +829,10 @@ export interface components {
             order_id: string;
             reason: string;
         };
+        CancellationView: {
+            explanation: string;
+            reason: string;
+        };
         ConfirmDelayRequestInputBody: {
             /**
              * Format: uri
@@ -1005,6 +1069,17 @@ export interface components {
             total: number;
             transactions: components["schemas"]["WalletTransactionView"][] | null;
         };
+        ListNotificationsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ListNotificationsOutputBody.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["NotificationView"][] | null;
+            /** Format: int64 */
+            total: number;
+        };
         LoginInputBody: {
             /**
              * Format: uri
@@ -1015,6 +1090,33 @@ export interface components {
             /** Format: email */
             email: string;
             password: string;
+        };
+        MarkNotificationReadOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/MarkNotificationReadOutputBody.json
+             */
+            readonly $schema?: string;
+            id: string;
+            is_read: boolean;
+            message: string;
+        };
+        NotificationView: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            deadline_at: string | null;
+            delay_request_id: string;
+            deliverable_id: string;
+            /** Format: int64 */
+            deliverable_version: number | null;
+            id: string;
+            is_read: boolean;
+            message: string;
+            order_id: string;
+            title: string;
+            type: string;
         };
         OrderDetailView: {
             /**
@@ -1027,6 +1129,7 @@ export interface components {
             artist_id: string;
             artwork_id?: string;
             artwork_snapshot: components["schemas"]["ArtworkSnapshotView"];
+            cancellation: components["schemas"]["CancellationView"];
             /** Format: date-time */
             completed_at?: string;
             /** Format: date-time */
@@ -1215,6 +1318,16 @@ export interface components {
             comment?: string;
             /** Format: int64 */
             rating: number;
+        };
+        UnreadNotificationsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/UnreadNotificationsOutputBody.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            count: number;
         };
         UpdateAccountInputBody: {
             /**
@@ -1809,6 +1922,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArtistReferenceView"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-notifications": {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListNotificationsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "count-unread-notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadNotificationsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "mark-notification-read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkNotificationReadOutputBody"];
                 };
             };
             /** @description Error */
