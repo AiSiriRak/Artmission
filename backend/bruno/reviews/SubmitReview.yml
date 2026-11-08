@@ -1,0 +1,45 @@
+info:
+  name: SubmitReview
+  type: http
+  seq: 1
+  tags:
+    - reviews
+
+http:
+  method: POST
+  url: "{{api_url}}/orders/:id/review"
+  params:
+    - name: id
+      value: "{{OrderID}}"
+      type: path
+      description: Order ID
+  body:
+    type: json
+    data: |-
+      {
+        "rating": 5,
+        "comment": "Great work!"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+docs: |-
+  Submit a review for a successful order as its customer.
+
+  Body:
+  - rating is required and must be an integer from 1 to 5.
+  - comment is optional; omit it to submit a rating only.
+
+  Expected responses:
+  - 201: review created.
+  - 401: missing, invalid, or expired access token.
+  - 403: wrong role or not the order's customer.
+  - 404: order not found.
+  - 409: order is not successful or already has a review.
+  - 422: request validation failed, such as a missing or invalid rating.

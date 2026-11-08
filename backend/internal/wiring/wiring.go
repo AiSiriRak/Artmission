@@ -20,6 +20,7 @@ import (
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/notification"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/order"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/payment"
+	"github.com/AiSiriRak/Artmission/backend/internal/modules/review"
 	"github.com/AiSiriRak/Artmission/backend/internal/modules/user"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/baserepo"
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/config"
@@ -52,6 +53,7 @@ func Wire(cfg Config) *httpserver.Server {
 	artistRepo := postgres.NewArtistRepository(cfg.DB)
 	artworkRepo := postgres.NewArtworkRepository(cfg.DB)
 	sessionRepo := postgres.NewSessionRepository(cfg.DB)
+	reviewRepo := postgres.NewReviewRepository(cfg.DB)
 	accountDeletionRepo := postgres.NewAccountDeletionRepository(cfg.DB)
 	tokenIssuer := token.NewJWTIssuer(cfg.Auth.JWTSecret)
 	tx := baserepo.NewTransactioner(cfg.DB)
@@ -61,10 +63,12 @@ func Wire(cfg Config) *httpserver.Server {
 	artworkUsecase := artwork.NewUsecase(artworkRepo, tx, cfg.ObjectStorage.Public)
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx, cfg.ObjectStorage.Public)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
+	reviewUsecase := review.NewReviewUsecase(reviewRepo)
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	orderHandler := rest.NewOrderHandler(workflow.order, artworkUsecase, authUsecase)
+	reviewHandler := rest.NewReviewHandler(reviewUsecase, authUsecase)
 	artistHandler := rest.NewArtistHandler(artistUsecase, authUsecase)
 	artworkHandler := rest.NewArtworkHandler(artworkUsecase, authUsecase)
 	paymentHandler := rest.NewPaymentHandler(workflow.payment, authUsecase)
@@ -74,6 +78,7 @@ func Wire(cfg Config) *httpserver.Server {
 	rest.NewNotificationHandler(workflow.notifications, authUsecase).Register(api)
 	userHandler.Register(api)
 	orderHandler.Register(api)
+	reviewHandler.Register(api)
 	artistHandler.Register(api)
 	artworkHandler.Register(api)
 	paymentHandler.Register(api)
