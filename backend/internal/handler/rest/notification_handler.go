@@ -27,7 +27,7 @@ func (h *NotificationHandler) Register(api huma.API) {
 		}
 	}
 	huma.Get(api, "/notifications", h.listMine, huma.OperationTags("notifications"), operation("list-notifications", "ListNotifications", "List your notifications, newest first"))
-	huma.Get(api, "/notifications/unread-count", h.countUnread, huma.OperationTags("notifications"), operation("count-unread-notifications", "CountUnreadNotifications", "Count your unread notifications"))
+	huma.Get(api, "/notifications/unread-count", h.countUnread, huma.OperationTags("notifications"), operation("count-unread-notifications", "CountUnreadNotifications", "Count unread notifications within your latest 20 notifications"))
 	huma.Patch(api, "/notifications/{id}/read", h.markRead, huma.OperationTags("notifications"), operation("mark-notification-read", "MarkNotificationRead", "Mark your notification read"))
 }
 

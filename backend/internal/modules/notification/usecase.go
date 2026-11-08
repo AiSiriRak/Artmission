@@ -75,7 +75,7 @@ func (u *notificationUsecase) MarkRead(ctx context.Context, id, userID uuid.UUID
 	return u.repo.MarkRead(ctx, id, userID)
 }
 
-// CountUnread returns the recipient's unread total independently of feed pagination.
+// CountUnread returns the unread count within the recipient's latest 20 notifications.
 func (u *notificationUsecase) CountUnread(ctx context.Context, id uuid.UUID) (int, error) {
 	if id == uuid.Nil {
 		return 0, ErrMissingUserID
