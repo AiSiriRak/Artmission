@@ -328,6 +328,7 @@ func (r *orderRepository) GetOrderByID(
 	var model orderDetailModel
 	var deliverableModels []pgmodel.OrderDeliverable
 	var delayRequest *pgmodel.OrderDelayRequest
+	var cancellation *pgmodel.OrderCancellation
 
 	err := r.exec.Run(ctx, func(idb bun.IDB) error {
 		q := idb.NewSelect().
@@ -389,6 +390,23 @@ func (r *orderRepository) GetOrderByID(
 			delayRequest = nil
 		}
 
+		if order.Status(model.Status) == order.StatusCancel {
+			cancellationModel := new(pgmodel.OrderCancellation)
+
+			if err := idb.NewSelect().
+				Model(cancellationModel).
+				Where("ocr.order_id = ?", orderID).
+				Scan(ctx); err != nil {
+				if !errors.Is(err, sql.ErrNoRows) {
+					return err
+				}
+
+				cancellationModel = nil
+			}
+
+			cancellation = cancellationModel
+		}
+
 		return nil
 	})
 
@@ -425,6 +443,18 @@ func (r *orderRepository) GetOrderByID(
 		}
 	}
 
+	var cancellationData *order.OrderCancellation
+
+	if cancellation != nil {
+		cancellationData = &order.OrderCancellation{
+			ID:          cancellation.ID,
+			OrderID:     cancellation.OrderID,
+			Reason:      cancellation.Reason,
+			Explanation: cancellation.Explanation,
+			CreatedAt:   cancellation.CreatedAt,
+		}
+	}
+
 	detail := &order.OrderDetailData{
 		Order: order.Order{
 			ID:                  model.ID,
@@ -458,6 +488,7 @@ func (r *orderRepository) GetOrderByID(
 		},
 		Deliverables:       deliverables,
 		ActiveDelayRequest: activeDelayRequest,
+		Cancellation:       cancellationData,
 	}
 	orders := []order.Order{detail.Order}
 	if err := r.attachPaymentSummaries(ctx, orders); err != nil {
@@ -1411,15 +1442,30 @@ func (r *orderRepository) CancelExpiredRequest(
 ) ([]uuid.UUID, error) {
 	var ids []uuid.UUID
 
-	err := r.exec.Run(ctx, func(idb bun.IDB) error {
-		return idb.NewUpdate().
-			Model((*pgmodel.OrderDelayRequest)(nil)).
-			Set("customer_decision = ?", string(order.DelayDecisionRejected)).
-			Set("updated_at = ?", now).
-			Where("customer_decision = ?", string(order.DelayDecisionWait)).
-			Where("created_at <= ?", expiringCutoff).
-			Returning("id").
-			Scan(ctx, &ids)
+	err := r.tx.Transaction(ctx, func(ctx context.Context) error {
+		return r.exec.Run(ctx, func(idb bun.IDB) error {
+			// ConfirmDelayRequest locks the order before its request. Keep that order
+			// through notification creation, and sort parent locks across the batch.
+			var orderIDs []uuid.UUID
+			if err := idb.NewSelect().TableExpr("orders AS o").Column("o.id").
+				Where("EXISTS (SELECT 1 FROM order_delay_requests AS r WHERE r.order_id = o.id AND r.customer_decision = ? AND r.created_at <= ?)", string(order.DelayDecisionWait), expiringCutoff).
+				OrderExpr("o.id ASC").For("UPDATE OF o").Scan(ctx, &orderIDs); err != nil {
+				return err
+			}
+			if len(orderIDs) == 0 {
+				return nil
+			}
+			// A customer may have answered while we waited for the order lock.
+			return idb.NewUpdate().
+				Model((*pgmodel.OrderDelayRequest)(nil)).
+				Set("customer_decision = ?", string(order.DelayDecisionRejected)).
+				Set("updated_at = ?", now).
+				Where("order_id IN (?)", bun.List(orderIDs)).
+				Where("customer_decision = ?", string(order.DelayDecisionWait)).
+				Where("created_at <= ?", expiringCutoff).
+				Returning("id").
+				Scan(ctx, &ids)
+		})
 	})
 	if err != nil {
 		return nil, apperror.Internal("failed to cancel expired delay requests", err)

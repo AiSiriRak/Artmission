@@ -42,6 +42,15 @@ type QRGenerationLock interface {
 	Release() error
 }
 
+type Notifier interface {
+	PaymentSecured(context.Context, uuid.UUID) error
+	PaymentExpired(context.Context, uuid.UUID) error
+}
+
+type Transactioner interface {
+	Transaction(context.Context, func(context.Context) error) error
+}
+
 type QRProvider interface {
 	GeneratePromptPayQR(ctx context.Context, amountSatang int64) (QRImage, error)
 	VerifySlipImage(

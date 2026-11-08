@@ -389,6 +389,7 @@ type OrderDetailData struct {
 	Artist             OrderParty
 	Deliverables       []Deliverable
 	ActiveDelayRequest *OrderDelayRequest
+	Cancellation       *OrderCancellation
 }
 
 // OrderDetail is the detailed view of an order for the authenticated
@@ -401,6 +402,7 @@ type OrderDetail struct {
 	OtherParty         OrderParty
 	Deliverables       []Deliverable
 	ActiveDelayRequest *OrderDelayRequest
+	Cancellation       *OrderCancellation
 	OriginalImageURL   *string
 }
 

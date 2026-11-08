@@ -238,3 +238,24 @@ type ObjectStorage interface {
 		key string,
 	) error
 }
+
+type NotificationEvent struct {
+	Kind           string
+	OrderID        uuid.UUID
+	DeliverableID  uuid.UUID
+	DelayRequestID uuid.UUID
+	Participant    Participant
+	ActorID        uuid.UUID
+	Version        int
+	Decision       string
+	DeadlineAt     *time.Time
+	Reason         string
+	Explanation    string
+}
+
+type OrderNotifier interface {
+	NotifyOrder(context.Context, NotificationEvent) error
+}
+type NotificationTransactioner interface {
+	Transaction(context.Context, func(context.Context) error) error
+}
