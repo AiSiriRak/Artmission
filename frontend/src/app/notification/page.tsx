@@ -95,7 +95,7 @@ export default function NotificationPage() {
         {(!notification ||
           !notification.items ||
           notification?.items.length == 0) && (
-          <div className="w-full relative flex flex-col items-center justify-center gap-6 my-30">
+          <div className="w-full relative flex flex-col items-center justify-center gap-6 my-40">
             <Image
               src="/icons/notification/bell-off.svg"
               alt={""}
