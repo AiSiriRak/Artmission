@@ -92,7 +92,7 @@ interface OrderCancelSectionProps {
 }
 
 export default function OrderCancelSection({
-  cancellation = mockCancellation,
+  cancellation,
 }: OrderCancelSectionProps) {
   if (!cancellation) return null;
 

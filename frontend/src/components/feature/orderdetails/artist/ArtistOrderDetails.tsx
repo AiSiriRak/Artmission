@@ -235,7 +235,7 @@ export default function ArtistOrderDetails() {
       <OrderDetails
         usertype="artist"
         notice={pendingPostpone ? <PostponeNotice deadline={pendingPostpone.deadline_request_at} /> : undefined}
-        cancelSection={order.status === "CANCEL" ? (<OrderCancelSection />) : null}
+        cancelSection={order.cancellation && order.status === "CANCEL" ? (<OrderCancelSection cancellation={order.cancellation} />) : null}
         successSection={order.status === "SUCCESS" ? (<OrderSuccessSection draftCount={order.deliverables?.length ?? 0} review={review !== null} />) : null}
         description={
           <OrderDescription

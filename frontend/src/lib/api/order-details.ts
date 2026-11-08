@@ -34,11 +34,8 @@ export interface OrderDelayRequest {
 }
 
 export interface OrderCancellation {
-  id?: string;
-  order_id: string;
-  reason: string;
   explanation: string;
-  created_at: string;
+  reason: string;
 }
 
 export interface OrderDetail {

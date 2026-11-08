@@ -205,10 +205,9 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
           ) : null
         }
         cancelSection={
-          // order.cancellation && 
-          order.status === "CANCEL" ? (
+          order.cancellation && order.status === "CANCEL" ? (
             <OrderCancelSection
-            // cancellation={order.cancellation}
+              cancellation={order.cancellation}
             />
           ) : null
         }
