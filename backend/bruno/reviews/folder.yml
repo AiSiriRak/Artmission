@@ -1,0 +1,17 @@
+info:
+  name: reviews
+  type: folder
+  seq: 6
+
+request:
+  auth: inherit
+  variables:
+    - name: OrderID
+      value: 00000000-0000-0000-0000-000000000000
+      description: Order ID
+    - name: ArtistID
+      value: 00000000-0000-0000-0000-000000000000
+      description: Artist ID
+    - name: ArtworkID
+      value: 00000000-0000-0000-0000-000000000000
+      description: Artwork ID
