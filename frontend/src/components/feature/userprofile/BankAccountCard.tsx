@@ -36,6 +36,7 @@ export function BankAccountCard({
   );
   const [accountNumber, setAccountNumber] = useState("");
 
+  const [bankNameError, setBankNameError] = useState("");
   const [accountHolderError, setAccountHolderError] = useState("");
   const [accountNumberError, setAccountNumberError] = useState("");
 
@@ -46,6 +47,14 @@ export function BankAccountCard({
 
   const handleSave = () => {
     let hasError = false;
+
+    // Validate bank name
+    if (!bankName) {
+      setBankNameError("Please select the bank name.");
+      hasError = true;
+    } else {
+      setBankNameError("");
+    }
 
     // Validate account holder
     if (!accountHolder.trim()) {
@@ -110,6 +119,9 @@ export function BankAccountCard({
               onChange={(value) => setBankName(value)}
               options={bankOptions}
             />
+            <span className="flex mt-1 text-small text-error justify-center">
+              {bankNameError}
+            </span>
           </div>
           {/* Account holder */}
           <div>
@@ -120,7 +132,7 @@ export function BankAccountCard({
               value={accountHolder}
               onChange={setAccountHolder}
               placeholder="Enter account holder name"
-            />{" "}
+            />
             <span className="flex mt-1 text-small text-error justify-center">
               {accountHolderError}
             </span>
@@ -134,7 +146,7 @@ export function BankAccountCard({
               value={accountNumber}
               onChange={setAccountNumber}
               placeholder="Enter account number"
-            />{" "}
+            />
             <span className="flex mt-1 text-small text-error justify-center">
               {accountNumberError}
             </span>

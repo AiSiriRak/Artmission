@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 
 interface ProfileHeader {
   username: string;
@@ -15,7 +15,6 @@ export function ProfileHeader({
   onUpload,
 }: ProfileHeader) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const handleClick = () => {
     fileInputRef.current?.click();

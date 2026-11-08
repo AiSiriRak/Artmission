@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Image from "next/image";
+
 import { Button } from "@/components/ui/Button";
 import type { ArtistProfile } from "@/lib/api/types";
 
@@ -11,36 +13,40 @@ interface ArtistMiniProfileProps {
 
 export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-4 w-full">
       <div className="w-20 h-20 rounded-full overflow-hidden">
-        <img
+        <Image
           src={artist.profile_url || "/default-avatar.png"}
           alt="Artist Avatar"
+          width={128}
+          height={128}
           className="w-full h-full object-cover"
         />
       </div>
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-row gap-4 items-center">
-            <h3 className="text-h3">Artist Profile</h3>
-            <Link
-              href={`/artists/${artist.artist_id}`}
-              className="items-start ml-auto"
+      <div className="flex flex-col flex-1 min-w-0">
+        <div className="flex flex-row gap-4 items-center justify-between w-full">
+          <h3 className="text-h4">Artist Profile</h3>
+          <Link
+            href={`/artists/${artist.artist_id}`}
+            className="items-start ml-auto"
+          >
+            <Button
+              variant="light"
+              className="text-button flex items-center gap-2 !border"
             >
-              <Button
-                variant="light"
-                className="text-button flex items-center gap-2 !border"
-              >
-                <img
-                  src="/icons/external-link-icon.svg"
-                  alt="external link icon"
-                  className="w-4 h-4"
-                />{" "}
-                View Profile
-              </Button>
-            </Link>
-          </div>
+              <Image
+                src="/icons/external-link-icon.svg"
+                alt="external link icon"
+                width={16}
+                height={16}
+                className="w-4 h-4"
+              />{" "}
+              View Profile
+            </Button>
+          </Link>
+        </div>
         <span className="text-body">{artist.artist_name}</span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 mt-2">
           <span
             role="img"
             aria-label="star icon"
@@ -52,7 +58,7 @@ export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
               maskSize: "contain",
             }}
           />
-          <span className="text-h3">
+          <span className="text-h4">
             {artist.review_score !== null
               ? `${artist.review_score.toFixed(1)}/5`
               : "-/5"}

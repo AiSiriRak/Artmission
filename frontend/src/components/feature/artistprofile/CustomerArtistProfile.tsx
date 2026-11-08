@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 import { useRouter } from "next/navigation";
 
@@ -12,8 +13,10 @@ import { Button } from "@/components/ui/Button";
 import { getArtistProfile, getArtistArtworks } from "@/lib/api/artists";
 import { isApiError } from "@/lib/api/error";
 import type { ArtistProfile, Artwork } from "@/lib/api/types";
-import type { ReviewData } from "@/app/artist-profile/types";
-
+import {
+  getArtistReviews,
+  type ArtistReviewData,
+} from "@/lib/api/reviews";
 
 interface CustomerArtistProfileProps {
   artistId: string;
@@ -21,7 +24,7 @@ interface CustomerArtistProfileProps {
 
 type ProfileState =
   | { status: "loading" }
-  | { status: "success"; profile: ArtistProfile; artworks: Artwork[];}
+  | { status: "success"; profile: ArtistProfile; artworks: Artwork[]; }
   | { status: "error"; message: string };
 
 export default function CustomerArtistProfile({
@@ -45,7 +48,7 @@ export default function CustomerArtistProfile({
         ]);
 
         if (active) {
-          setState({ status: "success", profile, artworks});
+          setState({ status: "success", profile, artworks });
         }
       } catch (error: unknown) {
         if (!active) return;
@@ -66,11 +69,39 @@ export default function CustomerArtistProfile({
     };
   }, [artistId]);
 
+  const [reviews, setReviews] = useState<ArtistReviewData[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchReviews = async () => {
+      try {
+        const data = await getArtistReviews(artistId, 100);
+
+        if (!cancelled) {
+          setReviews(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch artist reviews:", error);
+
+        if (!cancelled) {
+          setReviews([]);
+        }
+      }
+    };
+
+    fetchReviews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [artistId]);
+
   if (state.status === "loading") {
     return (
-        <MainLayout usertype="customer">
+      <MainLayout usertype="customer">
         <Loading />
-        </MainLayout>
+      </MainLayout>
     );
   }
 
@@ -85,17 +116,6 @@ export default function CustomerArtistProfile({
   }
 
   const { profile, artworks } = state;
-
-  const reviews: ReviewData[] = (profile.reviews ?? []).map(
-    (review, index) => ({
-      id: `${artistId}-${index}`,
-      reviewerName: review.username,
-      orderName: review.order,
-      rating: review.rating,
-      timeAgo: "",
-      comment: "",
-    }),
-  );
 
   return (
     <MainLayout usertype="customer">
@@ -115,11 +135,11 @@ export default function CustomerArtistProfile({
               className="!border w-24"
               onClick={() => router.back()}
               icon={
-                <img
-                    src="/icons/Arrow_left.svg"
-                    alt=""
-                    className="w-4 h-4 object-contain"
-                  />
+                <Image
+                  src="/icons/Arrow_left.svg"
+                  alt=""
+                  className="w-4 h-4 object-contain"
+                />
               }
             >
               Back

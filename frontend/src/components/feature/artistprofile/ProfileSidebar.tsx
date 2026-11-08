@@ -1,6 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
+import Image from "next/image";
+
 import ProfileImage from "./ProfileImage";
 
 interface ProfileSidebarProps {
@@ -40,9 +42,11 @@ export default function ProfileSidebar({
               onClick={onEdit}
               variant="light"
               icon={
-                <img
+                <Image
                   src="/icons/edit.svg"
                   alt="Edit"
+                  width={16}
+                  height={16}
                   className="w-4 h-4 object-contain"
                 />
               }
@@ -55,9 +59,11 @@ export default function ProfileSidebar({
               variant="dark"
               icon={
                 <div className="shrink-0 flex items-center justify-center min-w-[20px]">
-                  <img
+                  <Image
                     src="/icons/preview.svg"
                     alt="Preview"
+                    width={16}
+                    height={16}
                     className="w-4 h-4 object-contain brightness-0 invert"
                   />
                 </div>
