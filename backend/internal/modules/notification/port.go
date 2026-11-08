@@ -35,7 +35,7 @@ type NotificationUsecase interface {
 	// Missing notifications and notifications owned by another user both return ErrNotFound.
 	// Marking an already-read notification succeeds.
 	MarkRead(context.Context, uuid.UUID, uuid.UUID) error
-	// CountUnread counts unread notifications across all pages for the recipient.
+	// CountUnread counts unread notifications within the recipient's latest 20 items.
 	CountUnread(context.Context, uuid.UUID) (int, error)
 }
 type NotificationRepository interface {

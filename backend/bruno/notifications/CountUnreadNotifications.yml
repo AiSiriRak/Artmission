@@ -6,4 +6,4 @@ http:
   method: GET
   url: "{{api_url}}/notifications/unread-count"
   auth: inherit
-docs: Count unread notifications for the authenticated account.
+docs: Count unread notifications among the authenticated account's latest 20 notifications, ordered by created_at DESC then id DESC. Older unread notifications are excluded.

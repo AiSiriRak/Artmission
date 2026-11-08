@@ -50,6 +50,61 @@ func TestNotificationsFeatures(t *testing.T) {
 	t.Run("WalletCredits", testWalletCredits)
 	t.Run("WiredWorkers", testWiredWorkers)
 	t.Run("DelayRequestConcurrency", testDelayRequestConcurrency)
+	t.Run("UnreadLatestTwenty", testUnreadLatestTwenty)
+}
+
+func testUnreadLatestTwenty(t *testing.T) {
+	ctx := context.Background()
+	n := &notificationsContext{}
+	mustNotificationStep(t, n.registerAccounts())
+	owner, other := uuid.MustParse(n.accounts["artist"].ID), uuid.MustParse(n.accounts["customer"].ID)
+	ids := make([]uuid.UUID, 24)
+	prefix := uuid.New()
+	created := time.Now().Add(-time.Hour)
+	for i := range ids {
+		ids[i] = prefix
+		ids[i][15] = byte(i)
+		// Equal timestamps exercise the same ID tie-breaker as the list endpoint.
+		mustNotificationStep(t, n.exec("INSERT INTO notifications (id, user_id, title, message, type, is_read, created_at) VALUES (?, ?, 'Test', 'Unread count', 'GENERAL', ?, ?)", ids[i], owner, i >= 11, created))
+	}
+	_, err := notificationActions().Create(ctx, notification.CreateInput{UserID: other, Title: "Other account", Message: "Must not affect the artist", Type: notification.TypeGeneral})
+	mustNotificationStep(t, err)
+	checkCount := func(want int) {
+		t.Helper()
+		mustNotificationStep(t, n.request("artist", "GET", "/notifications/unread-count", nil, 200))
+		var result struct {
+			Count int `json:"count"`
+		}
+		mustNotificationStep(t, n.resp.JSON(&result))
+		if result.Count != want {
+			t.Fatalf("unread count %d want %d", result.Count, want)
+		}
+	}
+	// Four old unread cards must not count; seven of the latest twenty are unread.
+	checkCount(7)
+	page, err := n.feed("artist", "?limit=20&offset=0")
+	mustNotificationStep(t, err)
+	if len(page.Items) != 20 || page.Total != 24 {
+		t.Fatalf("list pagination changed: %+v", page)
+	}
+	unread := 0
+	for _, card := range page.Items {
+		if !card.IsRead {
+			unread++
+		}
+	}
+	if unread != 7 {
+		t.Fatalf("feed and count disagree: %d", unread)
+	}
+	mustNotificationStep(t, notificationActions().MarkRead(ctx, ids[10], owner))
+	checkCount(6)
+	mustNotificationStep(t, notificationActions().MarkRead(ctx, ids[0], owner))
+	checkCount(6)
+	mustNotificationStep(t, n.exec("UPDATE notifications SET is_read = true WHERE id IN (?)", bun.List(ids[4:])))
+	checkCount(0)
+	_, err = notificationActions().Create(ctx, notification.CreateInput{UserID: owner, Title: "Newest", Message: "Enters the latest twenty", Type: notification.TypeGeneral})
+	mustNotificationStep(t, err)
+	checkCount(1)
 }
 
 func testWiredWorkers(t *testing.T) {

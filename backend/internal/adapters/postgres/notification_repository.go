@@ -79,9 +79,13 @@ func (r *notificationRepository) MarkRead(ctx context.Context, id, userID uuid.U
 func (r *notificationRepository) CountUnread(ctx context.Context, id uuid.UUID) (int, error) {
 	var count int
 	err := r.exec.Run(ctx, func(db bun.IDB) error {
-		var err error
-		count, err = db.NewSelect().Model((*pgmodel.Notification)(nil)).Where("user_id = ? AND is_read = ?", id, false).Count(ctx)
-		return err
+		// Limit the feed before filtering unread, so old unread cards do not count.
+		return db.NewRaw(`SELECT COUNT(*) FROM (
+			SELECT is_read FROM notifications
+			WHERE user_id = ?
+			ORDER BY created_at DESC, id DESC
+			LIMIT 20
+		) AS recent WHERE is_read = false`, id).Scan(ctx, &count)
 	})
 	if err != nil {
 		return 0, apperror.Internal("failed to count unread notifications", err)
