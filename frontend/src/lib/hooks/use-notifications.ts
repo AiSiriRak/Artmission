@@ -20,15 +20,29 @@ export function useUnreadNotifications(enabled = true) {
   useEffect(() => {
     if (!enabled) return;
 
+    let isMounted = true;
+
+    getUnreadCount()
+      .then((response) => {
+        if (isMounted) {
+          setUnreadCount(response.count);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch unread notifications:", error);
+      });
+
     const refreshIfVisible = () => {
-      if (document.visibilityState === "visible") fetchUnreadCount();
+      if (document.visibilityState === "visible") {
+        fetchUnreadCount();
+      }
     };
 
-    fetchUnreadCount();
     const interval = setInterval(refreshIfVisible, POLL_INTERVAL_MS);
     document.addEventListener("visibilitychange", refreshIfVisible);
 
     return () => {
+      isMounted = false;
       clearInterval(interval);
       document.removeEventListener("visibilitychange", refreshIfVisible);
     };

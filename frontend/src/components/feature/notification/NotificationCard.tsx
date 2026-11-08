@@ -9,23 +9,24 @@ import { Notification, OrderDetail } from "@/lib/api/types";
 import { NotificationType } from "@/lib/api/notification";
 import { getOrderById } from "@/lib/api/orders";
 
-interface NotificationCard extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface NotificationCardProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   notification: Notification;
-  orderId: string;
+  orderId?: string;
 }
 
 export function NotificationCard({
   notification,
   orderId,
   ...props
-}: NotificationCard) {
+}: NotificationCardProps) {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [payment, setPayment] = useState<number | null>(null);
 
-  const bgColor =
-    notification.type === "WALLET_CREDITED" || "REFUND_CREDITED"
-      ? "bg-secondary-300"
-      : "bg-secondary-200";
+  const isWalletOrRefund =
+    notification.type === "WALLET_CREDITED" ||
+    notification.type === "REFUND_CREDITED";
+
+  const bgColor = isWalletOrRefund ? "bg-secondary-300" : "bg-secondary-200";
 
   const textColor = notification.is_read ? "text-neutral" : "text-primary-500";
 
@@ -60,21 +61,36 @@ export function NotificationCard({
     CANCEL: "bg-status-cancel-pale",
   };
 
-  if (orderId != null)
-    useEffect(() => {
-      async function loadOrder() {
-        try {
-          const orderdata = await getOrderById(orderId);
-          setOrder(orderdata);
-          if (order?.payment) {
+  useEffect(() => {
+    if (!orderId) return;
+
+    let isMounted = true;
+
+    async function loadOrder() {
+      try {
+        const orderData = await getOrderById(orderId!);
+        if (!isMounted) return;
+
+        setOrder(orderData);
+
+        if (orderData?.payment) {
+          const amount =
             notification.type === "WALLET_CREDITED"
-              ? setPayment(order.payment.artist_payout_satang)
-              : setPayment(order.payment.refund_satang);
-          }
-        } catch (error: unknown) {}
+              ? orderData.payment.artist_payout_satang
+              : orderData.payment.refund_satang;
+          setPayment(amount);
+        }
+      } catch (error: unknown) {
+        console.error("Failed to fetch order:", error);
       }
-      loadOrder();
-    }, [orderId]);
+    }
+
+    loadOrder();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [orderId, notification.type]);
 
   return (
     <button
@@ -89,7 +105,7 @@ export function NotificationCard({
         {/* Noti Icon */}
         <Image
           src={notiIcon}
-          alt="Search"
+          alt="Notification Icon"
           width={80}
           height={80}
           className={notification.is_read ? "opacity-50" : "opacity-100"}
@@ -115,16 +131,14 @@ export function NotificationCard({
             <p className={`${textColor} text-left text-h3 truncate`}>
               {notification.title}
             </p>
-            {(notification.type === "WALLET_CREDITED" ||
-              notification.type === "REFUND_CREDITED") &&
-              payment && (
-                <p
-                  className={`${notification.is_read ? "text-accent-300" : "text-accent-500"} text-left text-h3 truncate`}
-                >
-                  [{payment < 0 ? "-" : "+"}
-                  {payment} THB]
-                </p>
-              )}
+            {isWalletOrRefund && payment !== null && (
+              <p
+                className={`${notification.is_read ? "text-accent-300" : "text-accent-500"} text-left text-h3 truncate`}
+              >
+                [{payment < 0 ? "-" : "+"}
+                {payment} THB]
+              </p>
+            )}
           </div>
           {/* Noti Message */}
           <p className={`${textColor} text-left text-body truncate`}>
