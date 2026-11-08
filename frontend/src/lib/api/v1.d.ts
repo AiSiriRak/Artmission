@@ -64,6 +64,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/artists/{artist_id}/reviews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * GetArtistReviews
+     * @description Get an artist's reviews from newest to oldest.
+     */
+    get: operations["get-artist-reviews"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/artworks": {
     parameters: {
       query?: never;
@@ -111,6 +131,26 @@ export interface paths {
      * @description Delete portfolio artwork owned by the authenticated artist
      */
     delete: operations["delete-artwork"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/artworks/{artwork_id}/reviews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * GetReviewsByArtwork
+     * @description Get reviews from orders placed for the artwork, newest first.
+     */
+    get: operations["get-reviews-by-artwork"];
+    put?: never;
+    post?: never;
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -245,7 +285,7 @@ export interface paths {
     };
     /**
      * CountUnreadNotifications
-     * @description Count your unread notifications
+     * @description Count unread notifications within your latest 20 notifications
      */
     get: operations["count-unread-notifications"];
     put?: never;
@@ -484,6 +524,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/orders/{order_id}/review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * GetOrderReview
+     * @description Get an order's review as its customer or artist.
+     */
+    get: operations["get-order-review"];
+    put?: never;
+    /**
+     * SubmitReview
+     * @description Submit a review for a successful order as its customer.
+     */
+    post: operations["submit-review"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/styles": {
     parameters: {
       query?: never;
@@ -671,6 +735,20 @@ export interface components {
     ArtistReferenceView: {
       id: string;
       label: string;
+    };
+    ArtistReviewDetailView: {
+      artist_id: string;
+      artwork_name: string;
+      comment: string | null;
+      /** Format: date-time */
+      created_at: string;
+      customer_id: string;
+      id: string;
+      order: string;
+      order_id: string;
+      /** Format: int64 */
+      rating: number;
+      username: string;
     };
     ArtistReviewView: {
       order: string;
@@ -960,6 +1038,28 @@ export interface components {
       readonly $schema?: string;
       artworks: components["schemas"]["ArtistArtworkView"][] | null;
     };
+    GetArtistReviewsOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/GetArtistReviewsOutputBody.json
+       */
+      readonly $schema?: string;
+      reviews: components["schemas"]["ArtistReviewDetailView"][] | null;
+      /** Format: int64 */
+      total: number;
+    };
+    GetReviewsByArtworkOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/GetReviewsByArtworkOutputBody.json
+       */
+      readonly $schema?: string;
+      reviews: components["schemas"]["ReviewDetailView"][] | null;
+      /** Format: int64 */
+      total: number;
+    };
     GetWalletTransactionsOutputBody: {
       /**
        * Format: uri
@@ -1147,6 +1247,36 @@ export interface components {
       role: "customer" | "artist";
       username: string;
     };
+    ReviewDetailView: {
+      artist_id: string;
+      comment: string | null;
+      /** Format: date-time */
+      created_at: string;
+      customer_id: string;
+      id: string;
+      order: string;
+      order_id: string;
+      /** Format: int64 */
+      rating: number;
+      username: string;
+    };
+    ReviewView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ReviewView.json
+       */
+      readonly $schema?: string;
+      artist_id: string;
+      comment: string | null;
+      /** Format: date-time */
+      created_at: string;
+      customer_id: string;
+      id: string;
+      order_id: string;
+      /** Format: int64 */
+      rating: number;
+    };
     SearchArtistView: {
       artist_id: string;
       artist_name: string;
@@ -1183,6 +1313,17 @@ export interface components {
       page: number;
       /** Format: int64 */
       total: number;
+    };
+    SubmitReviewInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/SubmitReviewInputBody.json
+       */
+      readonly $schema?: string;
+      comment?: string;
+      /** Format: int64 */
+      rating: number;
     };
     UnreadNotificationsOutputBody: {
       /**
@@ -1370,6 +1511,40 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["GetArtistArtworksOutputBody"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-artist-reviews": {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path: {
+        artist_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GetArtistReviewsOutputBody"];
         };
       };
       /** @description Error */
@@ -1571,6 +1746,40 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-reviews-by-artwork": {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path: {
+        artwork_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GetReviewsByArtworkOutputBody"];
+        };
       };
       /** @description Error */
       default: {
@@ -2239,6 +2448,72 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VerifiedPaymentView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-order-review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "submit-review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SubmitReviewInputBody"];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewView"];
         };
       };
       /** @description Error */

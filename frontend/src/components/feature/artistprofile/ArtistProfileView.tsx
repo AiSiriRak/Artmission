@@ -2,12 +2,12 @@
 
 import type { ReactNode } from "react";
 import type { ArtistProfile, Artwork } from "@/lib/api/types";
-import type { ReviewData } from "@/app/artist-profile/types";
+import type { ReviewData } from "@/lib/api/reviews";
 
 import ProfileImage from "./ProfileImage";
 import TagList from "./TagList";
 import ArtworkCard from "./ArtworkCard";
-import ReviewList from "./ReviewList";
+import ReviewList from "../review/ReviewList";
 
 interface ArtistProfileViewProps {
   profile: ArtistProfile;

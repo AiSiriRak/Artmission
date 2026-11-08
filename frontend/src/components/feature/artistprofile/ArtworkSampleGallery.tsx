@@ -1,4 +1,6 @@
 import { useRef } from "react";
+import Image from "next/image";
+
 import { Button } from "@/components/ui/Button";
 
 interface ArtworkSampleGalleryProps {
@@ -56,11 +58,11 @@ export default function ArtworkSampleGallery({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="flex gap-4 overflow-x-auto pb-3">
         {images.map((imgUrl, index) => (
           <div
             key={index}
-            className="w-48 h-48 bg-white border border-gray-200 rounded-xl relative p-2 flex items-center justify-center"
+            className="relative h-48 w-fit flex-none overflow-hidden rounded-xl"
           >
             {isEditing && (
               <button
@@ -70,10 +72,13 @@ export default function ArtworkSampleGallery({
                 ✕
               </button>
             )}
-            <img
+
+            <Image
               src={imgUrl}
               alt={`sample-${index}`}
-              className="max-w-full max-h-full object-contain"
+              width={400}
+              height={400}
+              className="h-48 w-auto max-w-none object-contain"
             />
           </div>
         ))}
