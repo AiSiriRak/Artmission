@@ -79,7 +79,7 @@ export default function ProfileManager({
 
     const fetchReviews = async () => {
       try {
-        const data = await getArtistReviews(initialProfile.artist_id);
+        const data = await getArtistReviews(initialProfile.artist_id, 100);
 
         if (!cancelled) {
           setReviews(data);
@@ -261,12 +261,7 @@ export default function ProfileManager({
         : `${minPrice.toLocaleString()} - ${maxPrice.toLocaleString()} THB`;
 
   const showEditControls = !isCustomerMode && !isEditing;
-  const avgRating =
-    reviews.length > 0
-      ? (
-        reviews.reduce((sum, item) => sum + item.rating, 0) / reviews.length
-      ).toFixed(1)
-      : "0.0";
+  const avgRating = artistData.review_score;
 
   if (isSaving) {
     return <Loading />;

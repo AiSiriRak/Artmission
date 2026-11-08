@@ -23,7 +23,7 @@ export default function ArtworkReviewSection({
 
     const fetchReviews = async () => {
       try {
-        const data = await getArtworkReviews(artworkId);
+        const data = await getArtworkReviews(artworkId, 100);
 
         if (!cancelled) {
           setReviews(data);

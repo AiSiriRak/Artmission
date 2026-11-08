@@ -76,7 +76,7 @@ export default function CustomerArtistProfile({
 
     const fetchReviews = async () => {
       try {
-        const data = await getArtistReviews(artistId);
+        const data = await getArtistReviews(artistId, 100);
 
         if (!cancelled) {
           setReviews(data);

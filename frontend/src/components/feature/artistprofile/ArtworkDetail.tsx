@@ -395,7 +395,7 @@ export default function ArtworkDetail({
 
     const fetchReviews = async () => {
       try {
-        const data = await getArtworkReviews(artworkId);
+        const data = await getArtworkReviews(artworkId, 100);
 
         if (!cancelled) {
           setReviewState({
