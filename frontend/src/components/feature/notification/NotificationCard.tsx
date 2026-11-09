@@ -4,18 +4,20 @@ import { formatDistanceToNowStrict } from "date-fns";
 import Image from "next/image";
 import { ButtonHTMLAttributes, useEffect, useState } from "react";
 
-import { Notification, OrderDetail } from "@/lib/api/types";
+import { Notification, OrderDetail, UserAccount } from "@/lib/api/types";
 
 import { NotificationType } from "@/lib/api/notification";
 import { getOrderById } from "@/lib/api/orders";
 
 interface NotificationCardProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   notification: Notification;
+  user: UserAccount;
   orderId?: string;
 }
 
 export function NotificationCard({
   notification,
+  user,
   orderId,
   ...props
 }: NotificationCardProps) {
@@ -73,9 +75,9 @@ export function NotificationCard({
 
         setOrder(orderData);
 
-        if (orderData?.payment) {
+        if (orderData?.payment && isWalletOrRefund) {
           const amount =
-            notification.type === "WALLET_CREDITED"
+            user.role === "artist"
               ? orderData.payment.artist_payout_satang
               : orderData.payment.refund_satang;
           setPayment(amount);
@@ -90,7 +92,7 @@ export function NotificationCard({
     return () => {
       isMounted = false;
     };
-  }, [orderId, notification.type]);
+  }, [orderId, notification.type, user.role, isWalletOrRefund]);
 
   return (
     <button
@@ -136,7 +138,7 @@ export function NotificationCard({
                 className={`${notification.is_read ? "text-accent-300" : "text-accent-500"} text-left text-h3 truncate`}
               >
                 [{payment < 0 ? "-" : "+"}
-                {payment} THB]
+                {(payment / 100).toLocaleString()}THB]
               </p>
             )}
           </div>

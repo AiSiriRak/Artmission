@@ -28,6 +28,9 @@ export function NotificationListener() {
 
           known.add(n.id);
 
+          // Send custom event to trigger app
+          window.dispatchEvent(new Event("notification-updated"));
+
           toast.custom((t) => (
             <div
               onClick={() => {

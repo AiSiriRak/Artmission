@@ -58,6 +58,19 @@ export default function NotificationPage() {
     }
 
     loadUserAndData();
+
+    const handleNotificationUpdate = () => {
+      fetchNotifications();
+    };
+
+    window.addEventListener("notification-updated", handleNotificationUpdate);
+
+    return () => {
+      window.removeEventListener(
+        "notification-updated",
+        handleNotificationUpdate,
+      );
+    };
   }, [router]);
 
   if (!user) {
@@ -87,6 +100,7 @@ export default function NotificationPage() {
             key={option.id}
             notification={option}
             orderId={option.order_id}
+            user={user}
             onClick={(e) => {
               handleClick(e, option, option.order_id);
             }}
