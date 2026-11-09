@@ -106,6 +106,8 @@ export default function CustomerPostponeSection({
           <Image
             src="/icons/alarm-clock.svg"
             alt=""
+            width={24}
+            height={24}
             className="mt-1 h-6 w-6 shrink-0"
           />
           <div className="min-w-0 flex-1">
