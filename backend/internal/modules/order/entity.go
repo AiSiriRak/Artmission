@@ -227,6 +227,8 @@ type OrderParty struct {
 	ID                uuid.UUID
 	Name              string
 	Email             string
+	ProfileImageKey   *string
+	ProfileImageURL   *string
 	ArtistReviewScore *float64
 }
 

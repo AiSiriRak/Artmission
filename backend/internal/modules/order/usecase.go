@@ -41,10 +41,11 @@ func init() {
 }
 
 type orderUsecase struct {
-	repo     OrderRepository
-	storage  ObjectStorage
-	notifier OrderNotifier
-	tx       NotificationTransactioner
+	repo             OrderRepository
+	storage          ObjectStorage
+	profileImageURLs ProfileImageURLResolver
+	notifier         OrderNotifier
+	tx               NotificationTransactioner
 }
 
 // NewOrderUsecase creates an order use case with its repository and storage.
@@ -218,6 +219,15 @@ func (u *orderUsecase) GetOrder(
 		detail.OtherParty = data.Artist
 	case ParticipantArtist:
 		detail.OtherParty = data.Customer
+	}
+
+	// Resolve the other party's public profile-image key into a URL.
+	if detail.OtherParty.ProfileImageKey != nil && *detail.OtherParty.ProfileImageKey != "" {
+		if u.profileImageURLs == nil {
+			return nil, ErrProfileImageURLResolverUnavailable
+		}
+		url := u.profileImageURLs.PublicURL(*detail.OtherParty.ProfileImageKey)
+		detail.OtherParty.ProfileImageURL = &url
 	}
 
 	for i := range detail.Deliverables {
@@ -1093,6 +1103,11 @@ type UsecaseOption func(*orderUsecase)
 // Omitting this option keeps standalone usecases independent of notification storage.
 func WithNotifications(notifier OrderNotifier, tx NotificationTransactioner) UsecaseOption {
 	return func(u *orderUsecase) { u.notifier = notifier; u.tx = tx }
+}
+
+// WithProfileImageURLResolver configures public profile-image URL resolution.
+func WithProfileImageURLResolver(resolver ProfileImageURLResolver) UsecaseOption {
+	return func(u *orderUsecase) { u.profileImageURLs = resolver }
 }
 
 func (u *orderUsecase) notify(ctx context.Context, e NotificationEvent) error {

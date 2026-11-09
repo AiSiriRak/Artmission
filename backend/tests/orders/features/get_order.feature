@@ -10,6 +10,14 @@ Feature: Get Order
     When the user views their last order
     Then the system shows the order details for the user
 
+  Scenario: a customer views the other party's public profile image URL in order detail
+    Given the user has a registered customer account
+    And the user has logged in
+    And the user has an order
+    And the other party has a profile image
+    When the user views their last order
+    Then the order detail shows the other party's public profile image URL
+
   Scenario: an artist views their order detail
     Given the user has a registered artist account
     And the user has logged in

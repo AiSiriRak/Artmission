@@ -113,7 +113,8 @@ func newOrderPaymentUsecases(cfg Config, tx baserepo.Transactioner) orderPayment
 	reader := postgres.NewOrderNotificationReader(cfg.DB)
 	return orderPaymentUsecases{
 		order: order.NewOrderUsecase(postgres.NewOrderRepository(cfg.DB), cfg.ObjectStorage.Private,
-			order.WithNotifications(notification.NewOrderNotifier(reader, notifications), tx)),
+			order.WithNotifications(notification.NewOrderNotifier(reader, notifications), tx),
+			order.WithProfileImageURLResolver(cfg.ObjectStorage.Public)),
 		payment: payment.NewPaymentUsecase(postgres.NewPaymentRepository(cfg.DB), paymentProvider(cfg),
 			payment.WithNotifications(notification.NewPaymentNotifier(reader, notifications), tx)),
 		notifications: notifications,

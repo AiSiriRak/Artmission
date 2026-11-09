@@ -119,6 +119,23 @@ func (o *ordersContext) theUserHasAnOrder() error {
 	return nil
 }
 
+func (o *ordersContext) theOtherPartyHasAProfileImage() error {
+	counterpart, err := o.sharedCounterpart()
+	if err != nil {
+		return err
+	}
+
+	_, err = app.DB.NewUpdate().
+		Table("users").
+		Set("profile_image_key = ?", getOrderProfileImageKey).
+		Where("id = ?", uuid.MustParse(counterpart.ID)).
+		Exec(context.Background())
+	if err != nil {
+		return fmt.Errorf("set other party profile image key: %w", err)
+	}
+	return nil
+}
+
 func (o *ordersContext) theUserHasAnOrderWithStatus(status string) error {
 	counterpart, err := o.sharedCounterpart()
 	if err != nil {
@@ -931,8 +948,11 @@ type orderPartyOutput struct {
 	ID                string   `json:"id"`
 	Name              string   `json:"name"`
 	Email             string   `json:"email"`
+	ProfileImageURL   *string  `json:"profile_image_url"`
 	ArtistReviewScore *float64 `json:"artist_review_score"`
 }
+
+const getOrderProfileImageKey = "profiles/order-counterpart.png"
 
 func idsOf(orders []orderSummaryView) []string {
 	ids := make([]string, len(orders))
@@ -1192,6 +1212,31 @@ func (o *ordersContext) theSystemShowsTheOrderDetailsForTheUser() error {
 		got.OtherParty.Name != expectedParty.Username ||
 		got.OtherParty.Email != expectedParty.Email {
 		return fmt.Errorf("other_party = %+v; want account ID %q, username %q, email %q", got.OtherParty, expectedParty.ID, expectedParty.Username, expectedParty.Email)
+	}
+	if got.OtherParty.ProfileImageURL != nil {
+		return fmt.Errorf("other_party profile_image_url = %q, want nil when no profile image key is set", *got.OtherParty.ProfileImageURL)
+	}
+	return nil
+}
+
+func (o *ordersContext) theOrderDetailShowsTheOtherPartyPublicProfileImageURL() error {
+	if err := o.expectStatus(http.StatusOK); err != nil {
+		return err
+	}
+	if o.orderDetail.OtherParty.ProfileImageURL == nil {
+		return fmt.Errorf("order detail has no other_party.profile_image_url: %+v", o.orderDetail.OtherParty)
+	}
+
+	profileURL, err := url.Parse(*o.orderDetail.OtherParty.ProfileImageURL)
+	if err != nil {
+		return fmt.Errorf("parse other_party.profile_image_url: %w", err)
+	}
+	if profileURL.Scheme == "" || profileURL.Host == "" ||
+		!strings.HasSuffix(profileURL.Path, "/"+getOrderProfileImageKey) {
+		return fmt.Errorf("other_party.profile_image_url = %q, want public URL ending in %q", profileURL, "/"+getOrderProfileImageKey)
+	}
+	if profileURL.RawQuery != "" {
+		return fmt.Errorf("other_party.profile_image_url = %q, want stable public URL without query parameters", profileURL)
 	}
 	return nil
 }
@@ -1794,6 +1839,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the user has logged in$`, func() error { return o.theUserHasLoggedIn() })
 	sc.Step(`^the user has one or more orders$`, func() error { return o.theUserHasOneOrMoreOrders() })
 	sc.Step(`^the user has an order$`, func() error { return o.theUserHasAnOrder() })
+	sc.Step(`^the other party has a profile image$`, func() error {
+		return o.theOtherPartyHasAProfileImage()
+	})
 	sc.Step(`^the user has an order with status "([^"]*)"$`, func(status string) error { return o.theUserHasAnOrderWithStatus(status) })
 	sc.Step(`^the user has an order with status "([^"]*)" and (\d+) submitted deliverable versions$`, func(status string, n int) error {
 		return o.theUserHasAnOrderWithStatusAndNSubmittedDeliverableVersions(status, n)
@@ -1946,6 +1994,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the system requires the user to log in$`, func() error { return o.theSystemRequiresTheUserToLogIn() })
 	sc.Step(`^the system shows the order details for the user$`, func() error {
 		return o.theSystemShowsTheOrderDetailsForTheUser()
+	})
+	sc.Step(`^the order detail shows the other party's public profile image URL$`, func() error {
+		return o.theOrderDetailShowsTheOtherPartyPublicProfileImageURL()
 	})
 	sc.Step(`^the system shows the latest original image URL for the successful order$`, func() error {
 		return o.theSystemShowsTheLatestOriginalImageURLForSuccessfulOrder()
