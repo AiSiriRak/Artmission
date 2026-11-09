@@ -93,35 +93,37 @@ export default function NotificationPage() {
 
   return (
     <MainLayout usertype={user.role}>
-      <p className="mx-20 my-10 text-h2">Recently Notifications</p>
-      <div className="space-y-6 mx-20 my-10">
-        {notification?.items?.map((option) => (
-          <NotificationCard
-            key={option.id}
-            notification={option}
-            orderId={option.order_id}
-            user={user}
-            onClick={(e) => {
-              handleClick(e, option, option.order_id);
-            }}
-          />
-        ))}
-        {(!notification ||
-          !notification.items ||
-          notification?.items.length == 0) && (
-          <div className="w-full relative flex flex-col items-center justify-center gap-6 my-40">
-            <Image
-              src="/icons/notification/bell-off.svg"
-              alt={""}
-              width={96}
-              height={96}
+      <div className="w-full max-w-[80%] flex-1 justify-self-center items-center">
+        <p className="mx-20 my-10 text-h2">Recently Notifications</p>
+        <div className="space-y-6 mx-20 my-10">
+          {notification?.items?.map((option) => (
+            <NotificationCard
+              key={option.id}
+              notification={option}
+              orderId={option.order_id}
+              user={user}
+              onClick={(e) => {
+                handleClick(e, option, option.order_id);
+              }}
             />
-            <p className="text-h1 text-neutral">No notifications yet</p>
-            <p className="text-body text-neutral">
-              Updates about your commissions will appear here.
-            </p>
-          </div>
-        )}
+          ))}
+          {(!notification ||
+            !notification.items ||
+            notification?.items.length == 0) && (
+            <div className="w-full relative flex flex-col items-center justify-center gap-6 my-40">
+              <Image
+                src="/icons/notification/bell-off.svg"
+                alt={""}
+                width={96}
+                height={96}
+              />
+              <p className="text-h1 text-neutral">No notifications yet</p>
+              <p className="text-body text-neutral">
+                Updates about your commissions will appear here.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </MainLayout>
   );

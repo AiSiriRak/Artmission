@@ -44,9 +44,7 @@ function formatCancelReason(reason: string): CancelReasonInfo {
   }
 
   // customer
-  const customerMatch = CUSTOMER_REASONS.find(
-    (item) => item.value === reason,
-  );
+  const customerMatch = CUSTOMER_REASONS.find((item) => item.value === reason);
 
   if (customerMatch) {
     return {
@@ -56,9 +54,7 @@ function formatCancelReason(reason: string): CancelReasonInfo {
   }
 
   // artist
-  const artistMatch = ARTIST_REASONS.find(
-    (item) => item.value === reason,
-  );
+  const artistMatch = ARTIST_REASONS.find((item) => item.value === reason);
 
   if (artistMatch) {
     return {
@@ -77,14 +73,6 @@ const CANCEL_STATEMENTS: Record<CancelActor, string> = {
   neutral: "This order has been cancelled.",
   customer: "The customer cancelled this order.",
   artist: "The artist cancelled this order.",
-};
-
-const mockCancellation = {
-  order_id: "642edf72-357c-4419-8816-fd64d80574ca",
-  reason: "PLACED_ORDER_BY_MISTAKE",
-  explanation:
-    "I am so sorry bro.",
-  created_at: "",
 };
 
 interface OrderCancelSectionProps {

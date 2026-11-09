@@ -143,7 +143,7 @@ export function NotificationCard({
             )}
           </div>
           {/* Noti Message */}
-          <p className={`${textColor} text-left text-body truncate`}>
+          <p className={`${textColor} text-left text-caption truncate`}>
             {notification.message}
           </p>
         </div>
