@@ -32,7 +32,7 @@ export function ProfileHeader({
     <div className="mt-12 flex flex-col items-center">
       <div className="relative">
         <Image
-          src={profileImageUrl ?? "/icons/emptyprofile.svg"}
+          src={profileImageUrl ?? "default-avatar.png"}
           alt=""
           width={150}
           height={150}

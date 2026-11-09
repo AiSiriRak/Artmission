@@ -1,16 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 
 import { Button } from "@/components/ui/Button";
+import { WhiteCardBorder } from "@/components/ui/WhiteCardBorder";
 
 interface Wallet {
   balance_satang: number;
   currency: string;
 }
 export function Wallet({ balance_satang, currency }: Wallet) {
+  const [isCashout, setIsCashout] = useState(false);
   return (
-    <div className="w-full max-w-md bg-secondary-300 shadow-card rounded-lg m-10 p-16">
+    <WhiteCardBorder>
       <div className="flex gap-3 w-full justify-center items-center fill-accent-500">
         {/* Head */}
         <Image src="/icons/wallet.svg" alt="" width={40} height={40} />
@@ -22,10 +25,11 @@ export function Wallet({ balance_satang, currency }: Wallet) {
           balance : {(balance_satang / 100).toLocaleString("en-US")} {currency}
         </p>
         {/* ashout button */}
-        <div className="flex w-full justify-center">
+        <div className="flex flex-col w-full justify-center">
           <Button
             variant="accent-500"
             onClick={() => {
+              setIsCashout(!isCashout);
               console.log(
                 `Cash out : ${(balance_satang / 100).toLocaleString("en-US")} ${currency}`,
               );
@@ -33,8 +37,13 @@ export function Wallet({ balance_satang, currency }: Wallet) {
           >
             Cash out
           </Button>
+          {isCashout && (
+            <span className="flex mt-1 text-small text-neutral justify-center">
+              ( Not available yet )
+            </span>
+          )}
         </div>
       </div>
-    </div>
+    </WhiteCardBorder>
   );
 }
