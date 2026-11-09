@@ -10,8 +10,9 @@ import {
   getBankAccount,
   updateBankAccount,
   UpdateProfileImage,
+  getWallet,
 } from "@/lib/api/users";
-import { BankAccount, UserAccount } from "@/lib/api/types";
+import { BankAccount, UserAccount, WalletView } from "@/lib/api/types";
 import { routes } from "@/lib/routes";
 import { isApiError } from "@/lib/api/error";
 
@@ -22,6 +23,7 @@ import { DeleteAccountCard } from "@/components/feature/userprofile/DeleteAccoun
 import { DeleteAccountPopup } from "@/components/feature/userprofile/DeleteAccountPopup";
 import { Loading } from "@/components/ui/Loading";
 import MainLayout from "@/components/feature/main/MainLayout";
+import { Wallet } from "@/components/feature/userprofile/Wallet";
 
 export default function HomePage() {
   const router = useRouter();
@@ -31,6 +33,7 @@ export default function HomePage() {
   const [isDeletePopupOpen, setIsDeletePopupOpen] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [user, setUser] = useState<UserAccount | null>(null);
+  const [wallet, setWallet] = useState<WalletView | null>(null);
   const [bank, setBank] = useState<BankAccount | null>(null);
   const [deleteStatus, setDeleteStatus] = useState<
     "success" | "fail" | "default"
@@ -41,8 +44,10 @@ export default function HomePage() {
       try {
         const accountdata = await getAccount();
         const bankdata = await getBankAccount();
+        const walletdata = await getWallet();
         setUser(accountdata);
         setBank(bankdata);
+        setWallet(walletdata);
         setProfileImageUrl(accountdata.profile_image_url ?? null);
       } catch (error: unknown) {
         if (isApiError(error) && error.status === 401) {
@@ -86,6 +91,10 @@ export default function HomePage() {
                   console.error("Failed to update profile image:", error);
                 }
               }}
+            />
+            <Wallet
+              balance_satang={wallet?.balance_satang || 0}
+              currency={wallet?.currency || "THB"}
             />
             <PersonalInfoCard
               user={user}

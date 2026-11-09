@@ -17,6 +17,7 @@ export type AuthResult = components["schemas"]["AuthResultBody"];
 export type UserAccount = components["schemas"]["AccountView"];
 export type UpdateAccountInput =
   components["schemas"]["UpdateAccountInputBody"];
+export type WalletView = components["schemas"]["WalletView"];
 
 // Bank Account
 export type BankAccount = components["schemas"]["BankAccountView"];
