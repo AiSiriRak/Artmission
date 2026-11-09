@@ -63,7 +63,7 @@ func Wire(cfg Config) *httpserver.Server {
 	artworkUsecase := artwork.NewUsecase(artworkRepo, tx, cfg.ObjectStorage.Public)
 	userUsecase := user.NewUserUsecase(userRepo, bankRepo, artistUsecase, accountDeletionRepo, tx, cfg.ObjectStorage.Public)
 	authUsecase := auth.NewAuthUsecase(userUsecase, sessionRepo, tokenIssuer, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
-	reviewUsecase := review.NewReviewUsecase(reviewRepo)
+	reviewUsecase := review.NewReviewUsecase(reviewRepo, review.WithProfileImageURLResolver(cfg.ObjectStorage.Public))
 
 	authHandler := rest.NewAuthHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)
 	userHandler := rest.NewUserHandler(userUsecase, authUsecase, cfg.App.BasePath, cfg.App.IsProduction, cfg.Auth.RefreshCookieDomain)

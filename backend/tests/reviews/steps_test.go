@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/tests/internal/apptest"
@@ -15,16 +17,17 @@ import (
 )
 
 type reviewResponse struct {
-	ID          uuid.UUID `json:"id"`
-	OrderID     uuid.UUID `json:"order_id"`
-	CustomerID  uuid.UUID `json:"customer_id"`
-	ArtistID    uuid.UUID `json:"artist_id"`
-	Rating      int       `json:"rating"`
-	Comment     *string   `json:"comment"`
-	CreatedAt   time.Time `json:"created_at"`
-	Username    string    `json:"username"`
-	Order       string    `json:"order"`
-	ArtworkName *string   `json:"artwork_name"`
+	ID              uuid.UUID `json:"id"`
+	OrderID         uuid.UUID `json:"order_id"`
+	CustomerID      uuid.UUID `json:"customer_id"`
+	ArtistID        uuid.UUID `json:"artist_id"`
+	Rating          int       `json:"rating"`
+	Comment         *string   `json:"comment"`
+	CreatedAt       time.Time `json:"created_at"`
+	Username        string    `json:"username"`
+	ProfileImageURL *string   `json:"profile_image_url"`
+	Order           string    `json:"order"`
+	ArtworkName     *string   `json:"artwork_name"`
 }
 
 type reviewsContext struct {
@@ -121,6 +124,32 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 			return err
 		}
 		c.existingReviews = 1
+		return nil
+	})
+	sc.Step(`^the customer has a profile image$`, func() error {
+		_, err := app.DB.NewUpdate().
+			Table("users").
+			Set("profile_image_key = ?", reviewProfileImageKey).
+			Where("id = ?", uuid.MustParse(c.customer.ID)).
+			Exec(context.Background())
+		if err != nil {
+			return fmt.Errorf("set customer profile image key: %w", err)
+		}
+		return nil
+	})
+	sc.Step(`^the review details include the customer's public profile image URL$`, func() error {
+		items, err := c.readReviewList()
+		if err != nil {
+			return err
+		}
+		if len(items) == 0 {
+			return fmt.Errorf("expected review details")
+		}
+		for _, item := range items {
+			if err := checkPublicProfileImageURL(item.ProfileImageURL); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	sc.Step(`^the original review remains unchanged$`, func() error {
@@ -348,6 +377,16 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 
 		return checkComment(item.Comment, "Original review")
 	})
+	sc.Step(`^the order review includes the customer's public profile image URL$`, func() error {
+		if c.response.StatusCode != http.StatusOK {
+			return nil
+		}
+		var item reviewResponse
+		if err := c.response.JSON(&item); err != nil {
+			return err
+		}
+		return checkPublicProfileImageURL(item.ProfileImageURL)
+	})
 
 	sc.Step(`^another artwork by the same artist has a review$`, func() error {
 		other := *c
@@ -388,6 +427,24 @@ func checkComment(got *string, want string) error {
 		}
 	} else if got == nil || *got != want {
 		return fmt.Errorf("expected comment %q, got %v", want, got)
+	}
+	return nil
+}
+
+const reviewProfileImageKey = "profiles/reviewer.png"
+
+func checkPublicProfileImageURL(got *string) error {
+	if got == nil {
+		return fmt.Errorf("review has no profile_image_url")
+	}
+	parsed, err := url.Parse(*got)
+	if err != nil {
+		return fmt.Errorf("parse profile_image_url: %w", err)
+	}
+	if parsed.Scheme == "" || parsed.Host == "" ||
+		!strings.HasSuffix(parsed.Path, "/"+reviewProfileImageKey) ||
+		parsed.RawQuery != "" {
+		return fmt.Errorf("profile_image_url = %q, want stable public URL ending in %q", *got, "/"+reviewProfileImageKey)
 	}
 	return nil
 }

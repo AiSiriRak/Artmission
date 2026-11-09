@@ -6,6 +6,18 @@ import (
 	"github.com/google/uuid"
 )
 
+type ProfileImageURLResolver interface {
+	PublicURL(key string) string
+}
+
+type UsecaseOption func(*reviewUsecase)
+
+func WithProfileImageURLResolver(resolver ProfileImageURLResolver) UsecaseOption {
+	return func(u *reviewUsecase) {
+		u.profileImageURLs = resolver
+	}
+}
+
 type ReviewUsecase interface {
 	SubmitReview(
 		ctx context.Context,

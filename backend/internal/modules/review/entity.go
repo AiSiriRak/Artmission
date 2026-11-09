@@ -18,9 +18,11 @@ type Review struct {
 
 type ReviewDetail struct {
 	Review
-	Username    string
-	Order       string
-	ArtworkName string
+	Username        string
+	ProfileImageKey *string
+	ProfileImageURL *string
+	Order           string
+	ArtworkName     string
 }
 
 type SubmitReviewInput struct {
