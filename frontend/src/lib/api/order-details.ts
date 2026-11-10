@@ -52,7 +52,7 @@ export interface OrderDetail {
   created_at: string;
   updated_at: string;
   completed_at?: string;
-  other_party: { id: string; name: string; email: string; artist_review_score?: number };
+  other_party: { id: string; name: string; email: string; profile_image_url?: string, artist_review_score?: number };
   deliverables: OrderDeliverable[] | null;
   active_delay_request?: OrderDelayRequest | null;
   review: Review | null;

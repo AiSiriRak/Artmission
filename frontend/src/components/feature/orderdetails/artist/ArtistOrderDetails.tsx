@@ -258,7 +258,7 @@ export default function ArtistOrderDetails() {
             {refreshWarning && <p role="status" className="mt-3 text-small text-error">{refreshWarning}</p>}
           </>
         }
-        userInfo={<UserInfo title="Customer Info" name={order.other_party.name} email={order.other_party.email} />}
+        userInfo={<UserInfo title="Customer Info" name={order.other_party.name} email={order.other_party.email} profileImageURL={order.other_party.profile_image_url}/>}
         review={
           order.status === "SUCCESS" ? (
             <OrderReview review={review} />
