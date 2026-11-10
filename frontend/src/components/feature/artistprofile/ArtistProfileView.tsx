@@ -53,7 +53,7 @@ export default function ArtistProfileView({
         <div className="max-w-5xl mx-auto px-8 relative">
           <div className="flex justify-between items-end -mt-16 sm:-mt-20 mb-6 relative z-10">
             <ProfileImage
-              imageUrl={profile.profile_url || ""}
+              imageUrl={profile.profile_url || "/default-avatar.png"}
               className="w-36 h-36 md:w-44 md:h-44"
             />
 

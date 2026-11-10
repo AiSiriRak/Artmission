@@ -12,6 +12,8 @@ interface ArtistMiniProfileProps {
 }
 
 export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
+  const imageUrl = artist.profile_url || "/default-avatar.png";
+
   return (
     <WhiteCard
       margin=""
@@ -22,7 +24,7 @@ export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
       <div className="flex items-center gap-4">
         <div className="w-20 h-20 rounded-full overflow-hidden">
           <Image
-            src={artist.profile_url || "/default-avatar.png"}
+            src={imageUrl}
             alt="Artist Avatar"
             width={128}
             height={128}
