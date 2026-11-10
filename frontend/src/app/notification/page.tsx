@@ -82,13 +82,19 @@ export default function NotificationPage() {
     notificaion: Notification,
     orderId: string,
   ) => {
-    e.preventDefault();
+    try {
+      e.preventDefault();
 
-    await markNotificationAsRead(notificaion.id);
+      await markNotificationAsRead(notificaion.id);
 
-    await fetchNotifications();
+      await fetchNotifications();
 
-    router.replace(notiRouteMap(notificaion.type as NotificationType, orderId));
+      router.replace(
+        notiRouteMap(notificaion.type as NotificationType, orderId),
+      );
+    } catch (error) {
+      console.error("Failed to Mark notification as read:", error);
+    }
   };
 
   return (
