@@ -268,7 +268,7 @@ func (r *reviewRepository) GetReviewByOrderID(
 	}
 
 	item := reviewDetailRow{
-		Review:    row.Review,
+		Review:          row.Review,
 		Username:        row.Username,
 		ProfileImageKey: row.ProfileImageKey,
 		OrderName:       row.OrderName,

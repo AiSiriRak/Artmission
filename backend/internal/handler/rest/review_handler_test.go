@@ -219,7 +219,7 @@ func TestReviewHandler_GetArtistReviews(t *testing.T) {
 				url := "https://cdn.test/profiles/customer.png"
 				return &url
 			}(),
-			Order:    "Cat artwork",
+			Order: "Cat artwork",
 		},
 	}
 
