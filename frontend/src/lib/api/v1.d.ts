@@ -285,7 +285,7 @@ export interface paths {
         };
         /**
          * CountUnreadNotifications
-         * @description Count your unread notifications
+         * @description Count unread notifications within your latest 20 notifications
          */
         get: operations["count-unread-notifications"];
         put?: never;
@@ -746,6 +746,7 @@ export interface components {
             id: string;
             order: string;
             order_id: string;
+            profile_image_url?: string;
             /** Format: int64 */
             rating: number;
             username: string;
@@ -1156,6 +1157,7 @@ export interface components {
             email: string;
             id: string;
             name: string;
+            profile_image_url?: string;
         };
         OrderSummaryView: {
             /**
@@ -1242,6 +1244,12 @@ export interface components {
             username: string;
         };
         ReviewDetailView: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/v1/schemas/ReviewDetailView.json
+             */
+            readonly $schema?: string;
             artist_id: string;
             comment: string | null;
             /** Format: date-time */
@@ -1250,6 +1258,7 @@ export interface components {
             id: string;
             order: string;
             order_id: string;
+            profile_image_url?: string;
             /** Format: int64 */
             rating: number;
             username: string;
@@ -2463,7 +2472,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReviewView"];
+                    "application/json": components["schemas"]["ReviewDetailView"];
                 };
             };
             /** @description Error */
