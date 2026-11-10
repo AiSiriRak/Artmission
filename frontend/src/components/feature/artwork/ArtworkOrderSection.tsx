@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { formatPriceFromSatang } from "@/lib/format-price";
 
 interface ArtworkOrderSectionProps {
   minimumDeadlineDays: number;
@@ -22,7 +23,7 @@ export default function ArtworkOrderSection({
           </div>
           <div className="flex items-center gap-2">
             <Image src="/icons/banknote.svg" alt="price icon" width={24} height={24} className="w-6 h-6" />
-            <p className="text-h4">{(priceSatang / 100).toLocaleString()} THB</p>
+            <p className="text-h4">{formatPriceFromSatang(priceSatang)} THB</p>
           </div>
         </div>
         {/* Additional order details can be added here */}

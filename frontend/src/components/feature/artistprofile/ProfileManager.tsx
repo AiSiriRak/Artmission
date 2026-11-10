@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 import { updateArtistProfile, getArtistArtworks } from "@/lib/api/artists";
+import { formatPriceFromSatang } from "@/lib/format-price";
 import {
   createArtwork,
   updateArtwork,
@@ -245,10 +246,9 @@ export default function ProfileManager({
     ...new Set(artworks.flatMap((art) => art.styles || [])),
   ].filter(Boolean);
 
-  // Price from Satang to Bath
   const prices = artworks
-    .map((art) => Number(art.price_satang ? art.price_satang / 100 : 0))
-    .filter((p) => !isNaN(p) && p > 0);
+    .map((art) => art.price_satang)
+    .filter((price) => Number.isFinite(price) && price > 0);
 
   const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
   const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
@@ -257,8 +257,8 @@ export default function ProfileManager({
     prices.length === 0
       ? "N/A"
       : minPrice === maxPrice
-        ? `${minPrice.toLocaleString()} THB`
-        : `${minPrice.toLocaleString()} - ${maxPrice.toLocaleString()} THB`;
+        ? `${formatPriceFromSatang(minPrice)} THB`
+        : `${formatPriceFromSatang(minPrice)} - ${formatPriceFromSatang(maxPrice)} THB`;
 
   const showEditControls = !isCustomerMode && !isEditing;
   const avgRating = artistData.review_score;

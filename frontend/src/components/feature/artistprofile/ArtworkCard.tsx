@@ -1,6 +1,7 @@
 import Image from "next/image";
 
 import type { Artwork } from "@/lib/api/types";
+import { formatPriceFromSatang } from "@/lib/format-price";
 
 interface ArtworkCardProps {
   artwork: Artwork;
@@ -16,10 +17,9 @@ export default function ArtworkCard({
   const imageUrl =
     artwork.artwork_samples?.[0]?.image_url || "/placeholder.png";
 
-  // Satang to Bath
   const displayPrice =
     artwork.price_satang != null
-      ? (artwork.price_satang / 100).toLocaleString()
+      ? formatPriceFromSatang(artwork.price_satang)
       : "0";
 
   return (

@@ -3,14 +3,11 @@
 import Image from "next/image";
 
 import type { SearchArtwork } from "@/lib/api/types";
+import { formatPriceFromSatang } from "@/lib/format-price";
 import { ArtworkCard } from "@/components/ui/ArtworkCard";
 
 interface SearchArtworkCardProps {
   item: SearchArtwork;
-}
-
-function formatPriceThb(priceSatang: number): string {
-  return `${(priceSatang / 100).toLocaleString("en-US")} THB`;
 }
 
 function formatReviewScore(score: number): string {
@@ -27,7 +24,7 @@ export function SearchArtworkCard({ item }: SearchArtworkCardProps) {
       imageAlt={item.name}
     >
       <p className="truncate text-h3 text-primary-500">
-        {formatPriceThb(item.price_satang)}
+        {formatPriceFromSatang(item.price_satang)} THB
       </p>
 
       <div className="flex items-start justify-between gap-3">

@@ -4,2791 +4,2808 @@
  */
 
 export interface paths {
-    "/artists/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * UpdateMyArtistProfile
-         * @description Update the authenticated artist's description or public profile image
-         */
-        put: operations["update-my-artist-profile"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+  "/artists/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/artists/{artist_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetArtistProfile
-         * @description Get a public artist profile with artwork-derived details and paginated reviews
-         */
-        get: operations["get-artist-profile"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    /**
+     * UpdateMyArtistProfile
+     * @description Update the authenticated artist's description or public profile image
+     */
+    put: operations["update-my-artist-profile"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/artists/{artist_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/artists/{artist_id}/artworks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetArtistArtworks
-         * @description Get every artwork created by an artist, newest first
-         */
-        get: operations["get-artist-artworks"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * GetArtistProfile
+     * @description Get a public artist profile with artwork-derived details and paginated reviews
+     */
+    get: operations["get-artist-profile"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/artists/{artist_id}/artworks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/artists/{artist_id}/reviews": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetArtistReviews
-         * @description Get an artist's reviews from newest to oldest.
-         */
-        get: operations["get-artist-reviews"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * GetArtistArtworks
+     * @description Get every artwork created by an artist, newest first
+     */
+    get: operations["get-artist-artworks"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/artists/{artist_id}/reviews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/artworks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * SearchArtworks
-         * @description Search artworks for the authenticated user's home page by artist name, optional category/style/price/review filters, sort, and page
-         */
-        get: operations["search-artworks"];
-        put?: never;
-        /**
-         * CreateArtwork
-         * @description Create portfolio artwork owned by the authenticated artist
-         */
-        post: operations["create-artwork"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * GetArtistReviews
+     * @description Get an artist's reviews from newest to oldest.
+     */
+    get: operations["get-artist-reviews"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/artworks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/artworks/{artwork_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetArtwork
-         * @description Get the authenticated user artwork detail.
-         */
-        get: operations["get-artwork"];
-        /**
-         * UpdateArtwork
-         * @description Update portfolio artwork owned by the authenticated artist
-         */
-        put: operations["update-artwork"];
-        post?: never;
-        /**
-         * DeleteArtwork
-         * @description Delete portfolio artwork owned by the authenticated artist
-         */
-        delete: operations["delete-artwork"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * SearchArtworks
+     * @description Search artworks for the authenticated user's home page by artist name, optional category/style/price/review filters, sort, and page
+     */
+    get: operations["search-artworks"];
+    put?: never;
+    /**
+     * CreateArtwork
+     * @description Create portfolio artwork owned by the authenticated artist
+     */
+    post: operations["create-artwork"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/artworks/{artwork_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/artworks/{artwork_id}/reviews": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetReviewsByArtwork
-         * @description Get reviews from orders placed for the artwork, newest first.
-         */
-        get: operations["get-reviews-by-artwork"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * GetArtwork
+     * @description Get the authenticated user artwork detail.
+     */
+    get: operations["get-artwork"];
+    /**
+     * UpdateArtwork
+     * @description Update portfolio artwork owned by the authenticated artist
+     */
+    put: operations["update-artwork"];
+    post?: never;
+    /**
+     * DeleteArtwork
+     * @description Delete portfolio artwork owned by the authenticated artist
+     */
+    delete: operations["delete-artwork"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/artworks/{artwork_id}/reviews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Login
-         * @description Log in with email and password
-         */
-        post: operations["login"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * GetReviewsByArtwork
+     * @description Get reviews from orders placed for the artwork, newest first.
+     */
+    get: operations["get-reviews-by-artwork"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Logout
-         * @description Log out and terminate the current session
-         */
-        post: operations["logout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Login
+     * @description Log in with email and password
+     */
+    post: operations["login"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/logout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/auth/refresh": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Refresh
-         * @description Exchange a refresh token (cookie) for a new access token
-         */
-        post: operations["refresh"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Logout
+     * @description Log out and terminate the current session
+     */
+    post: operations["logout"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Register
-         * @description Register a new account
-         */
-        post: operations["register"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Refresh
+     * @description Exchange a refresh token (cookie) for a new access token
+     */
+    post: operations["refresh"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/auth/register": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/categories": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * ListCategories
-         * @description List artwork categories
-         */
-        get: operations["list-categories"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Register
+     * @description Register a new account
+     */
+    post: operations["register"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/categories": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/notifications": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * ListNotifications
-         * @description List your notifications, newest first
-         */
-        get: operations["list-notifications"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * ListCategories
+     * @description List artwork categories
+     */
+    get: operations["list-categories"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/notifications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/notifications/unread-count": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * CountUnreadNotifications
-         * @description Count your unread notifications
-         */
-        get: operations["count-unread-notifications"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * ListNotifications
+     * @description List your notifications, newest first
+     */
+    get: operations["list-notifications"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/notifications/unread-count": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/notifications/{id}/read": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * MarkNotificationRead
-         * @description Mark your notification read
-         */
-        patch: operations["mark-notification-read"];
-        trace?: never;
+    /**
+     * CountUnreadNotifications
+     * @description Count unread notifications within your latest 20 notifications
+     */
+    get: operations["count-unread-notifications"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/notifications/{id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/orders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * ViewOrders
-         * @description List the authenticated customer's or artist's orders, filtered by status, sorted by deadline/price/updated_at, and paginated by limit/offset. deliverable_preview_url is the artist's most recently submitted deliverable preview, presigned and time-limited, regardless of order status; null if none has been submitted yet.
-         */
-        get: operations["view-orders"];
-        put?: never;
-        /**
-         * CreateOrder
-         * @description Create a new order for the authenticated customer.
-         */
-        post: operations["create-order"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * MarkNotificationRead
+     * @description Mark your notification read
+     */
+    patch: operations["mark-notification-read"];
+    trace?: never;
+  };
+  "/orders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/orders/{order_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetOrder
-         * @description Get the authenticated customer's or artist's order detail.
-         */
-        get: operations["get-order"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * ViewOrders
+     * @description List the authenticated customer's or artist's orders, filtered by status, sorted by deadline/price/updated_at, and paginated by limit/offset. deliverable_preview_url is the artist's most recently submitted deliverable preview, presigned and time-limited, regardless of order status; null if none has been submitted yet.
+     */
+    get: operations["view-orders"];
+    put?: never;
+    /**
+     * CreateOrder
+     * @description Create a new order for the authenticated customer.
+     */
+    post: operations["create-order"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/orders/{order_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/orders/{order_id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * CancelOrder
-         * @description Cancel an order as the authenticated user.
-         */
-        put: operations["cancel-order"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * GetOrder
+     * @description Get the authenticated customer's or artist's order detail.
+     */
+    get: operations["get-order"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/orders/{order_id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/orders/{order_id}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * ConfirmOrder
-         * @description Accept or reject a pending order as the authenticated artist.
-         */
-        put: operations["confirm-order"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    /**
+     * CancelOrder
+     * @description Cancel an order as the authenticated user.
+     */
+    put: operations["cancel-order"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/orders/{order_id}/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/orders/{order_id}/delay-requests": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * CreateDelayRequest
-         * @description Request a deadline extension for an order by the authenticated artist.
-         */
-        post: operations["create-delay-request"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    /**
+     * ConfirmOrder
+     * @description Accept or reject a pending order as the authenticated artist.
+     */
+    put: operations["confirm-order"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/orders/{order_id}/delay-requests": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/orders/{order_id}/delay-requests/{delay_request_id}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * ConfirmDelayRequest
-         * @description Approve or reject a delay request for an order by the authenticated customer.
-         */
-        put: operations["confirm-delay-request"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * CreateDelayRequest
+     * @description Request a deadline extension for an order by the authenticated artist.
+     */
+    post: operations["create-delay-request"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/orders/{order_id}/delay-requests/{delay_request_id}/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/orders/{order_id}/deliverables": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * CreateOrderDeliverable
-         * @description Create a new deliverable version of a specific order by the authenticated owner artist.
-         */
-        post: operations["create-order-deliverable"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    /**
+     * ConfirmDelayRequest
+     * @description Approve or reject a delay request for an order by the authenticated customer.
+     */
+    put: operations["confirm-delay-request"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/orders/{order_id}/deliverables": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/orders/{order_id}/deliverables/{deliverable_id}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * ConfirmOrderDeliverable
-         * @description Accept or reject a waiting deliverable as the authenticated customer.
-         */
-        put: operations["confirm-deliverable"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * CreateOrderDeliverable
+     * @description Create a new deliverable version of a specific order by the authenticated owner artist.
+     */
+    post: operations["create-order-deliverable"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/orders/{order_id}/deliverables/{deliverable_id}/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/orders/{order_id}/payment/qr": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetPaymentQR
-         * @description Retrieve the authenticated customer's existing, unexpired payment QR payload.
-         */
-        get: operations["get-payment-qr"];
-        put?: never;
-        /**
-         * GeneratePaymentQR
-         * @description Generate the payment QR once for the authenticated customer's NOT_PAID order. Repeated calls return the stored QR without calling Slip2Go again.
-         */
-        post: operations["generate-payment-qr"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    /**
+     * ConfirmOrderDeliverable
+     * @description Accept or reject a waiting deliverable as the authenticated customer.
+     */
+    put: operations["confirm-deliverable"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/orders/{order_id}/payment/qr": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/orders/{order_id}/payment/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * VerifyPaymentSlip
-         * @description Verify a slip image for the authenticated customer's active order payment.
-         */
-        post: operations["verify-payment-slip"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * GetPaymentQR
+     * @description Retrieve the authenticated customer's existing, unexpired payment QR payload.
+     */
+    get: operations["get-payment-qr"];
+    put?: never;
+    /**
+     * GeneratePaymentQR
+     * @description Generate the payment QR once for the authenticated customer's NOT_PAID order. Repeated calls return the stored QR without calling Slip2Go again.
+     */
+    post: operations["generate-payment-qr"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/orders/{order_id}/payment/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/orders/{order_id}/review": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetOrderReview
-         * @description Get an order's review as its customer or artist.
-         */
-        get: operations["get-order-review"];
-        put?: never;
-        /**
-         * SubmitReview
-         * @description Submit a review for a successful order as its customer.
-         */
-        post: operations["submit-review"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * VerifyPaymentSlip
+     * @description Verify a slip image for the authenticated customer's active order payment.
+     */
+    post: operations["verify-payment-slip"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/orders/{order_id}/review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/styles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * ListStyles
-         * @description List artwork styles
-         */
-        get: operations["list-styles"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * GetOrderReview
+     * @description Get an order's review as its customer or artist.
+     */
+    get: operations["get-order-review"];
+    put?: never;
+    /**
+     * SubmitReview
+     * @description Submit a review for a successful order as its customer.
+     */
+    post: operations["submit-review"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/styles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/transaction/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetWalletTransactions
-         * @description List the authenticated user's credited order payouts and refunds, newest first.
-         */
-        get: operations["get-wallet-transactions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * ListStyles
+     * @description List artwork styles
+     */
+    get: operations["list-styles"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/transaction/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/users/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetAccount
-         * @description Get the authenticated user's account information
-         */
-        get: operations["get-account"];
-        /**
-         * UpdateAccount
-         * @description Update the authenticated user's username and optionally change their password
-         */
-        put: operations["update-account"];
-        post?: never;
-        /**
-         * DeleteAccount
-         * @description Delete the authenticated user's account when they have no active orders
-         */
-        delete: operations["delete-account"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * GetWalletTransactions
+     * @description List the authenticated user's credited order payouts and refunds, newest first.
+     */
+    get: operations["get-wallet-transactions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/users/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/users/me/bank-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetBankAccount
-         * @description Get the authenticated user's bank account
-         */
-        get: operations["get-bank-account"];
-        /**
-         * UpdateBankAccount
-         * @description Update the authenticated user's bank account
-         */
-        put: operations["update-bank-account"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * GetAccount
+     * @description Get the authenticated user's account information
+     */
+    get: operations["get-account"];
+    /**
+     * UpdateAccount
+     * @description Update the authenticated user's username and optionally change their password
+     */
+    put: operations["update-account"];
+    post?: never;
+    /**
+     * DeleteAccount
+     * @description Delete the authenticated user's account when they have no active orders
+     */
+    delete: operations["delete-account"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/users/me/bank-account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/users/me/profile-image": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * UpdateProfileImage
-         * @description Update or remove the authenticated user's profile image
-         */
-        put: operations["update-profile-image"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * GetBankAccount
+     * @description Get the authenticated user's bank account
+     */
+    get: operations["get-bank-account"];
+    /**
+     * UpdateBankAccount
+     * @description Update the authenticated user's bank account
+     */
+    put: operations["update-bank-account"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/users/me/profile-image": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/wallet/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * GetWallet
-         * @description Get the authenticated user's internal wallet balance in satang.
-         */
-        get: operations["get-wallet"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    /**
+     * UpdateProfileImage
+     * @description Update or remove the authenticated user's profile image
+     */
+    put: operations["update-profile-image"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/wallet/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
+    /**
+     * GetWallet
+     * @description Get the authenticated user's internal wallet balance in satang.
+     */
+    get: operations["get-wallet"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        AccountView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/AccountView.json
-             */
-            readonly $schema?: string;
-            email: string;
-            id: string;
-            profile_image_url: string | null;
-            role: string;
-            username: string;
-        };
-        ArtistArtworkView: {
-            artwork_id: string;
-            artwork_samples: components["schemas"]["ArtworkSampleView"][] | null;
-            category: string;
-            description: string;
-            /** Format: int64 */
-            minimum_deadline_days: number;
-            name: string;
-            /** Format: int64 */
-            price_satang: number;
-            styles: string[] | null;
-        };
-        ArtistProfileView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ArtistProfileView.json
-             */
-            readonly $schema?: string;
-            artist_id: string;
-            artist_name: string;
-            categories: components["schemas"]["ArtistReferenceView"][] | null;
-            description: string | null;
-            /** Format: int64 */
-            max_price_satang: number | null;
-            /** Format: int64 */
-            min_price_satang: number | null;
-            profile_url: string | null;
-            /** Format: double */
-            review_score: number | null;
-            reviews: components["schemas"]["ArtistReviewView"][] | null;
-            styles: components["schemas"]["ArtistReferenceView"][] | null;
-            /** Format: int64 */
-            total: number;
-        };
-        ArtistReferenceView: {
-            id: string;
-            label: string;
-        };
-        ArtistReviewDetailView: {
-            artist_id: string;
-            artwork_name: string;
-            comment: string | null;
-            /** Format: date-time */
-            created_at: string;
-            customer_id: string;
-            id: string;
-            order: string;
-            order_id: string;
-            /** Format: int64 */
-            rating: number;
-            username: string;
-        };
-        ArtistReviewView: {
-            order: string;
-            /** Format: int64 */
-            rating: number;
-            username: string;
-        };
-        ArtworkSampleView: {
-            /** Format: uri */
-            image_url: string;
-        };
-        ArtworkSnapshotView: {
-            artwork_name: string;
-            category: string;
-            styles: string[] | null;
-        };
-        ArtworkView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ArtworkView.json
-             */
-            readonly $schema?: string;
-            artist_id: string;
-            artwork_samples: components["schemas"]["ArtworkSampleView"][] | null;
-            category: string;
-            /** Format: date-time */
-            created_at: string;
-            description: string;
-            id: string;
-            /** Format: int64 */
-            minimum_deadline_days: number;
-            name: string;
-            /** Format: int64 */
-            price_satang: number;
-            styles: string[] | null;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        AuthResultBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/AuthResultBody.json
-             */
-            readonly $schema?: string;
-            access_token: string;
-        };
-        BankAccountView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/BankAccountView.json
-             */
-            readonly $schema?: string;
-            account_holder_name: string;
-            account_last4: string;
-            bank_name: string;
-        };
-        CancelOrderInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/CancelOrderInputBody.json
-             */
-            readonly $schema?: string;
-            explanation: string;
-            reason: string;
-        };
-        CancelOrderOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/CancelOrderOutputBody.json
-             */
-            readonly $schema?: string;
-            explanation: string;
-            order_id: string;
-            reason: string;
-        };
-        CancellationView: {
-            explanation: string;
-            reason: string;
-        };
-        ConfirmDelayRequestInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ConfirmDelayRequestInputBody.json
-             */
-            readonly $schema?: string;
-            accept: boolean;
-        };
-        ConfirmDelayRequestOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ConfirmDelayRequestOutputBody.json
-             */
-            readonly $schema?: string;
-            customer_decision: string;
-            /** Format: date-time */
-            deadline_at: string;
-            message: string;
-        };
-        ConfirmDeliverableInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ConfirmDeliverableInputBody.json
-             */
-            readonly $schema?: string;
-            Accept: boolean;
-            comment?: string;
-        };
-        ConfirmDeliverableOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ConfirmDeliverableOutputBody.json
-             */
-            readonly $schema?: string;
-            message: string;
-            status: string;
-        };
-        ConfirmOrderInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ConfirmOrderInputBody.json
-             */
-            readonly $schema?: string;
-            accept: boolean;
-        };
-        ConfirmOrderOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ConfirmOrderOutputBody.json
-             */
-            readonly $schema?: string;
-            message: string;
-            status: string;
-        };
-        CreateDelayRequestInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/CreateDelayRequestInputBody.json
-             */
-            readonly $schema?: string;
-            /** Format: date-time */
-            deadline_request_at: string;
-            explanation: string;
-            /** @enum {string} */
-            reason: "NEED_MORE_TIME" | "WAITING_FOR_FEEDBACK" | "PERSONAL_REASON" | "HIGH_WORKLOAD" | "TECHNICAL_ISSUE" | "OTHER";
-        };
-        CreateOrderInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/CreateOrderInputBody.json
-             */
-            readonly $schema?: string;
-            artwork_id: string;
-            customer_description: string;
-            /** Format: date-time */
-            deadline_at: string;
-            name: string;
-        };
-        DelayRequestView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/DelayRequestView.json
-             */
-            readonly $schema?: string;
-            /** Format: date-time */
-            created_at: string;
-            customer_decision: string;
-            /** Format: date-time */
-            deadline_request_at: string;
-            explanation: string;
-            id: string;
-            order_id: string;
-            /** Format: date-time */
-            original_deadline_at: string;
-            reason: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        DeliverableView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/DeliverableView.json
-             */
-            readonly $schema?: string;
-            comment: string | null;
-            /** Format: date-time */
-            created_at: string;
-            decision: string;
-            id: string;
-            preview_image_url: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: int64 */
-            version: number;
-        };
-        ErrorDetail: {
-            /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
-            location?: string;
-            /** @description Error message text */
-            message?: string;
-            /** @description The value at the given location */
-            value?: unknown;
-        };
-        ErrorModel: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ErrorModel.json
-             */
-            readonly $schema?: string;
-            /**
-             * @description A human-readable explanation specific to this occurrence of the problem.
-             * @example Property foo is required but is missing.
-             */
-            detail?: string;
-            /** @description Optional list of individual error details */
-            errors?: components["schemas"]["ErrorDetail"][] | null;
-            /**
-             * Format: uri
-             * @description A URI reference that identifies the specific occurrence of the problem.
-             * @example https://example.com/error-log/abc123
-             */
-            instance?: string;
-            /**
-             * Format: int64
-             * @description HTTP status code
-             * @example 400
-             */
-            status?: number;
-            /**
-             * @description A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
-             * @example Bad Request
-             */
-            title?: string;
-            /**
-             * Format: uri
-             * @description A URI reference to human-readable documentation for the error.
-             * @default about:blank
-             * @example https://example.com/errors/example
-             */
-            type: string;
-        };
-        GeneratedPaymentQRView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/GeneratedPaymentQRView.json
-             */
-            readonly $schema?: string;
-            /** @description true when an existing QR was returned and Slip2Go was not called */
-            already_generated: boolean;
-            message: string;
-            order_id: string;
-            payment_id: string;
-            /** Format: date-time */
-            qr_expire: string;
-            qr_payload: string;
-            /** @description true when a usable QR payload is returned */
-            success: boolean;
-        };
-        GetArtistArtworksOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/GetArtistArtworksOutputBody.json
-             */
-            readonly $schema?: string;
-            artworks: components["schemas"]["ArtistArtworkView"][] | null;
-        };
-        GetArtistReviewsOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/GetArtistReviewsOutputBody.json
-             */
-            readonly $schema?: string;
-            reviews: components["schemas"]["ArtistReviewDetailView"][] | null;
-            /** Format: int64 */
-            total: number;
-        };
-        GetReviewsByArtworkOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/GetReviewsByArtworkOutputBody.json
-             */
-            readonly $schema?: string;
-            reviews: components["schemas"]["ReviewDetailView"][] | null;
-            /** Format: int64 */
-            total: number;
-        };
-        GetWalletTransactionsOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/GetWalletTransactionsOutputBody.json
-             */
-            readonly $schema?: string;
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-            transactions: components["schemas"]["WalletTransactionView"][] | null;
-        };
-        ListNotificationsOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ListNotificationsOutputBody.json
-             */
-            readonly $schema?: string;
-            items: components["schemas"]["NotificationView"][] | null;
-            /** Format: int64 */
-            total: number;
-        };
-        LoginInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/LoginInputBody.json
-             */
-            readonly $schema?: string;
-            /** Format: email */
-            email: string;
-            password: string;
-        };
-        MarkNotificationReadOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/MarkNotificationReadOutputBody.json
-             */
-            readonly $schema?: string;
-            id: string;
-            is_read: boolean;
-            message: string;
-        };
-        NotificationView: {
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            deadline_at: string | null;
-            delay_request_id: string;
-            deliverable_id: string;
-            /** Format: int64 */
-            deliverable_version: number | null;
-            id: string;
-            is_read: boolean;
-            message: string;
-            order_id: string;
-            title: string;
-            type: string;
-        };
-        OrderDetailView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/OrderDetailView.json
-             */
-            readonly $schema?: string;
-            active_delay_request: components["schemas"]["DelayRequestView"];
-            artist_id: string;
-            artwork_id?: string;
-            artwork_snapshot: components["schemas"]["ArtworkSnapshotView"];
-            cancellation: components["schemas"]["CancellationView"];
-            /** Format: date-time */
-            completed_at?: string;
-            /** Format: date-time */
-            created_at: string;
-            customer_description: string;
-            customer_id: string;
-            /** Format: date-time */
-            deadline_at: string;
-            deliverables: components["schemas"]["DeliverableView"][] | null;
-            id: string;
-            name: string;
-            original_image_url?: string;
-            other_party: components["schemas"]["OrderPartyView"];
-            payment?: components["schemas"]["PaymentSummaryView"];
-            /** Format: int64 */
-            price_satang: number;
-            status: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        OrderPartyView: {
-            /** Format: double */
-            artist_review_score?: number;
-            email: string;
-            id: string;
-            name: string;
-        };
-        OrderSummaryView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/OrderSummaryView.json
-             */
-            readonly $schema?: string;
-            artist_id: string;
-            /** Format: date-time */
-            completed_at?: string;
-            /** Format: date-time */
-            created_at: string;
-            customer_id: string;
-            /** Format: date-time */
-            deadline_at: string;
-            /** @description Presigned URL of the most recently submitted deliverable's preview image, regardless of order status; null if none has been submitted yet. */
-            deliverable_preview_url: string | null;
-            id: string;
-            name: string;
-            payment?: components["schemas"]["PaymentSummaryView"];
-            /** Format: int64 */
-            price_satang: number;
-            status: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        PaymentQRView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/PaymentQRView.json
-             */
-            readonly $schema?: string;
-            message: string;
-            order_id: string;
-            payment_id: string;
-            /** Format: date-time */
-            qr_expire: string;
-            qr_payload: string;
-            /** @description true when a usable QR payload is returned */
-            success: boolean;
-        };
-        PaymentSummaryView: {
-            /** Format: int64 */
-            amount_satang: number;
-            /** Format: int64 */
-            artist_payout_satang: number;
-            artist_payout_transaction_id: string;
-            artist_payout_transfer_status: string | null;
-            payment_status: string;
-            /** Format: int64 */
-            refund_satang: number;
-            refund_transaction_id: string;
-            refund_transfer_status: string | null;
-            /** Format: date-time */
-            settled_at: string | null;
-            settlement_outcome: string | null;
-            /** @description MOCK_WALLET means simulated credits only; EXTERNAL is historical/external accounting. */
-            source: string;
-        };
-        RegisterArtistBody: {
-            description?: string;
-        };
-        RegisterBankAccountBody: {
-            account_holder_name: string;
-            account_number: string;
-            bank_name: string;
-        };
-        RegisterInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/RegisterInputBody.json
-             */
-            readonly $schema?: string;
-            artist?: components["schemas"]["RegisterArtistBody"];
-            bank_account: components["schemas"]["RegisterBankAccountBody"];
-            /** Format: email */
-            email: string;
-            password: string;
-            /** @enum {string} */
-            role: "customer" | "artist";
-            username: string;
-        };
-        ReviewDetailView: {
-            artist_id: string;
-            comment: string | null;
-            /** Format: date-time */
-            created_at: string;
-            customer_id: string;
-            id: string;
-            order: string;
-            order_id: string;
-            /** Format: int64 */
-            rating: number;
-            username: string;
-        };
-        ReviewView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ReviewView.json
-             */
-            readonly $schema?: string;
-            artist_id: string;
-            comment: string | null;
-            /** Format: date-time */
-            created_at: string;
-            customer_id: string;
-            id: string;
-            order_id: string;
-            /** Format: int64 */
-            rating: number;
-        };
-        SearchArtistView: {
-            artist_id: string;
-            artist_name: string;
-            profile_url: string | null;
-            /** Format: double */
-            review_score: number | null;
-        };
-        SearchArtworkView: {
-            artist: components["schemas"]["SearchArtistView"];
-            artwork_samples: components["schemas"]["ArtworkSampleView"][] | null;
-            category: string;
-            /** Format: date-time */
-            created_at: string;
-            description: string;
-            id: string;
-            /** Format: int64 */
-            minimum_deadline_days: number;
-            name: string;
-            /** Format: int64 */
-            price_satang: number;
-            styles: string[] | null;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        SearchArtworksOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/SearchArtworksOutputBody.json
-             */
-            readonly $schema?: string;
-            artworks: components["schemas"]["SearchArtworkView"][] | null;
-            /** Format: int64 */
-            page: number;
-            /** Format: int64 */
-            total: number;
-        };
-        SubmitReviewInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/SubmitReviewInputBody.json
-             */
-            readonly $schema?: string;
-            comment?: string;
-            /** Format: int64 */
-            rating: number;
-        };
-        UnreadNotificationsOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/UnreadNotificationsOutputBody.json
-             */
-            readonly $schema?: string;
-            /** Format: int64 */
-            count: number;
-        };
-        UpdateAccountInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/UpdateAccountInputBody.json
-             */
-            readonly $schema?: string;
-            new_password?: string;
-            old_password?: string;
-            username: string;
-        };
-        UpdateBankAccountInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/UpdateBankAccountInputBody.json
-             */
-            readonly $schema?: string;
-            account_holder_name: string;
-            account_number: string;
-            bank_name: string;
-        };
-        VerifiedPaymentView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/VerifiedPaymentView.json
-             */
-            readonly $schema?: string;
-            /** @description Human-readable result; explains why the slip was not accepted */
-            message: string;
-            order_id: string;
-            payment_id?: string;
-            /** @description Machine-readable rejection reason when success is false */
-            reason?: string;
-            status?: string;
-            /** @description true when the slip passed and the payment was recorded */
-            success: boolean;
-        };
-        ViewOrdersOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/ViewOrdersOutputBody.json
-             */
-            readonly $schema?: string;
-            orders: components["schemas"]["OrderSummaryView"][] | null;
-            /** Format: int64 */
-            total: number;
-        };
-        WalletTransactionView: {
-            /** Format: int64 */
-            amount_satang: number;
-            /** Format: date-time */
-            created_at: string;
-            id: string;
-            order_id: string;
-            order_name: string;
-            settlement_outcome: string | null;
-            type: string;
-        };
-        WalletView: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/WalletView.json
-             */
-            readonly $schema?: string;
-            /** Format: int64 */
-            balance_satang: number;
-            currency: string;
-            /** Format: date-time */
-            updated_at: string | null;
-            user_id: string;
-        };
+  schemas: {
+    AccountView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/AccountView.json
+       */
+      readonly $schema?: string;
+      email: string;
+      id: string;
+      profile_image_url: string | null;
+      role: string;
+      username: string;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    ArtistArtworkView: {
+      artwork_id: string;
+      artwork_samples: components["schemas"]["ArtworkSampleView"][] | null;
+      category: string;
+      description: string;
+      /** Format: int64 */
+      minimum_deadline_days: number;
+      name: string;
+      /** Format: int64 */
+      price_satang: number;
+      styles: string[] | null;
+    };
+    ArtistProfileView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ArtistProfileView.json
+       */
+      readonly $schema?: string;
+      artist_id: string;
+      artist_name: string;
+      categories: components["schemas"]["ArtistReferenceView"][] | null;
+      description: string | null;
+      /** Format: int64 */
+      max_price_satang: number | null;
+      /** Format: int64 */
+      min_price_satang: number | null;
+      profile_url: string | null;
+      /** Format: double */
+      review_score: number | null;
+      reviews: components["schemas"]["ArtistReviewView"][] | null;
+      styles: components["schemas"]["ArtistReferenceView"][] | null;
+      /** Format: int64 */
+      total: number;
+    };
+    ArtistReferenceView: {
+      id: string;
+      label: string;
+    };
+    ArtistReviewDetailView: {
+      artist_id: string;
+      artwork_name: string;
+      comment: string | null;
+      /** Format: date-time */
+      created_at: string;
+      customer_id: string;
+      id: string;
+      order: string;
+      order_id: string;
+      /** Format: int64 */
+      rating: number;
+      username: string;
+    };
+    ArtistReviewView: {
+      order: string;
+      /** Format: int64 */
+      rating: number;
+      username: string;
+    };
+    ArtworkSampleView: {
+      /** Format: uri */
+      image_url: string;
+    };
+    ArtworkSnapshotView: {
+      artwork_name: string;
+      category: string;
+      styles: string[] | null;
+    };
+    ArtworkView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ArtworkView.json
+       */
+      readonly $schema?: string;
+      artist_id: string;
+      artwork_samples: components["schemas"]["ArtworkSampleView"][] | null;
+      category: string;
+      /** Format: date-time */
+      created_at: string;
+      description: string;
+      id: string;
+      /** Format: int64 */
+      minimum_deadline_days: number;
+      name: string;
+      /** Format: int64 */
+      price_satang: number;
+      styles: string[] | null;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    AuthResultBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/AuthResultBody.json
+       */
+      readonly $schema?: string;
+      access_token: string;
+    };
+    BankAccountView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/BankAccountView.json
+       */
+      readonly $schema?: string;
+      account_holder_name: string;
+      account_last4: string;
+      bank_name: string;
+    };
+    CancelOrderInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/CancelOrderInputBody.json
+       */
+      readonly $schema?: string;
+      explanation: string;
+      reason: string;
+    };
+    CancelOrderOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/CancelOrderOutputBody.json
+       */
+      readonly $schema?: string;
+      explanation: string;
+      order_id: string;
+      reason: string;
+    };
+    CancellationView: {
+      explanation: string;
+      reason: string;
+    };
+    ConfirmDelayRequestInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ConfirmDelayRequestInputBody.json
+       */
+      readonly $schema?: string;
+      accept: boolean;
+    };
+    ConfirmDelayRequestOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ConfirmDelayRequestOutputBody.json
+       */
+      readonly $schema?: string;
+      customer_decision: string;
+      /** Format: date-time */
+      deadline_at: string;
+      message: string;
+    };
+    ConfirmDeliverableInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ConfirmDeliverableInputBody.json
+       */
+      readonly $schema?: string;
+      Accept: boolean;
+      comment?: string;
+    };
+    ConfirmDeliverableOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ConfirmDeliverableOutputBody.json
+       */
+      readonly $schema?: string;
+      message: string;
+      status: string;
+    };
+    ConfirmOrderInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ConfirmOrderInputBody.json
+       */
+      readonly $schema?: string;
+      accept: boolean;
+    };
+    ConfirmOrderOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ConfirmOrderOutputBody.json
+       */
+      readonly $schema?: string;
+      message: string;
+      status: string;
+    };
+    CreateDelayRequestInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/CreateDelayRequestInputBody.json
+       */
+      readonly $schema?: string;
+      /** Format: date-time */
+      deadline_request_at: string;
+      explanation: string;
+      /** @enum {string} */
+      reason:
+        | "NEED_MORE_TIME"
+        | "WAITING_FOR_FEEDBACK"
+        | "PERSONAL_REASON"
+        | "HIGH_WORKLOAD"
+        | "TECHNICAL_ISSUE"
+        | "OTHER";
+    };
+    CreateOrderInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/CreateOrderInputBody.json
+       */
+      readonly $schema?: string;
+      artwork_id: string;
+      customer_description: string;
+      /** Format: date-time */
+      deadline_at: string;
+      name: string;
+    };
+    DelayRequestView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/DelayRequestView.json
+       */
+      readonly $schema?: string;
+      /** Format: date-time */
+      created_at: string;
+      customer_decision: string;
+      /** Format: date-time */
+      deadline_request_at: string;
+      explanation: string;
+      id: string;
+      order_id: string;
+      /** Format: date-time */
+      original_deadline_at: string;
+      reason: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    DeliverableView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/DeliverableView.json
+       */
+      readonly $schema?: string;
+      comment: string | null;
+      /** Format: date-time */
+      created_at: string;
+      decision: string;
+      id: string;
+      preview_image_url: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: int64 */
+      version: number;
+    };
+    ErrorDetail: {
+      /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
+      location?: string;
+      /** @description Error message text */
+      message?: string;
+      /** @description The value at the given location */
+      value?: unknown;
+    };
+    ErrorModel: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ErrorModel.json
+       */
+      readonly $schema?: string;
+      /**
+       * @description A human-readable explanation specific to this occurrence of the problem.
+       * @example Property foo is required but is missing.
+       */
+      detail?: string;
+      /** @description Optional list of individual error details */
+      errors?: components["schemas"]["ErrorDetail"][] | null;
+      /**
+       * Format: uri
+       * @description A URI reference that identifies the specific occurrence of the problem.
+       * @example https://example.com/error-log/abc123
+       */
+      instance?: string;
+      /**
+       * Format: int64
+       * @description HTTP status code
+       * @example 400
+       */
+      status?: number;
+      /**
+       * @description A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+       * @example Bad Request
+       */
+      title?: string;
+      /**
+       * Format: uri
+       * @description A URI reference to human-readable documentation for the error.
+       * @default about:blank
+       * @example https://example.com/errors/example
+       */
+      type: string;
+    };
+    GeneratedPaymentQRView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/GeneratedPaymentQRView.json
+       */
+      readonly $schema?: string;
+      /** @description true when an existing QR was returned and Slip2Go was not called */
+      already_generated: boolean;
+      message: string;
+      order_id: string;
+      payment_id: string;
+      /** Format: date-time */
+      qr_expire: string;
+      qr_payload: string;
+      /** @description true when a usable QR payload is returned */
+      success: boolean;
+    };
+    GetArtistArtworksOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/GetArtistArtworksOutputBody.json
+       */
+      readonly $schema?: string;
+      artworks: components["schemas"]["ArtistArtworkView"][] | null;
+    };
+    GetArtistReviewsOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/GetArtistReviewsOutputBody.json
+       */
+      readonly $schema?: string;
+      reviews: components["schemas"]["ArtistReviewDetailView"][] | null;
+      /** Format: int64 */
+      total: number;
+    };
+    GetReviewsByArtworkOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/GetReviewsByArtworkOutputBody.json
+       */
+      readonly $schema?: string;
+      reviews: components["schemas"]["ReviewDetailView"][] | null;
+      /** Format: int64 */
+      total: number;
+    };
+    GetWalletTransactionsOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/GetWalletTransactionsOutputBody.json
+       */
+      readonly $schema?: string;
+      /** Format: int64 */
+      limit: number;
+      /** Format: int64 */
+      offset: number;
+      /** Format: int64 */
+      total: number;
+      transactions: components["schemas"]["WalletTransactionView"][] | null;
+    };
+    ListNotificationsOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ListNotificationsOutputBody.json
+       */
+      readonly $schema?: string;
+      items: components["schemas"]["NotificationView"][] | null;
+      /** Format: int64 */
+      total: number;
+    };
+    LoginInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/LoginInputBody.json
+       */
+      readonly $schema?: string;
+      /** Format: email */
+      email: string;
+      password: string;
+    };
+    MarkNotificationReadOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/MarkNotificationReadOutputBody.json
+       */
+      readonly $schema?: string;
+      id: string;
+      is_read: boolean;
+      message: string;
+    };
+    NotificationView: {
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      deadline_at: string | null;
+      delay_request_id: string;
+      deliverable_id: string;
+      /** Format: int64 */
+      deliverable_version: number | null;
+      id: string;
+      is_read: boolean;
+      message: string;
+      order_id: string;
+      title: string;
+      type: string;
+    };
+    OrderDetailView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/OrderDetailView.json
+       */
+      readonly $schema?: string;
+      active_delay_request: components["schemas"]["DelayRequestView"];
+      artist_id: string;
+      artwork_id?: string;
+      artwork_snapshot: components["schemas"]["ArtworkSnapshotView"];
+      cancellation: components["schemas"]["CancellationView"];
+      /** Format: date-time */
+      completed_at?: string;
+      /** Format: date-time */
+      created_at: string;
+      customer_description: string;
+      customer_id: string;
+      /** Format: date-time */
+      deadline_at: string;
+      deliverables: components["schemas"]["DeliverableView"][] | null;
+      id: string;
+      name: string;
+      original_image_url?: string;
+      other_party: components["schemas"]["OrderPartyView"];
+      payment?: components["schemas"]["PaymentSummaryView"];
+      /** Format: int64 */
+      price_satang: number;
+      status: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    OrderPartyView: {
+      /** Format: double */
+      artist_review_score?: number;
+      email: string;
+      id: string;
+      name: string;
+    };
+    OrderSummaryView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/OrderSummaryView.json
+       */
+      readonly $schema?: string;
+      artist_id: string;
+      /** Format: date-time */
+      completed_at?: string;
+      /** Format: date-time */
+      created_at: string;
+      customer_id: string;
+      /** Format: date-time */
+      deadline_at: string;
+      /** @description Presigned URL of the most recently submitted deliverable's preview image, regardless of order status; null if none has been submitted yet. */
+      deliverable_preview_url: string | null;
+      id: string;
+      name: string;
+      payment?: components["schemas"]["PaymentSummaryView"];
+      /** Format: int64 */
+      price_satang: number;
+      status: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    PaymentQRView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/PaymentQRView.json
+       */
+      readonly $schema?: string;
+      message: string;
+      order_id: string;
+      payment_id: string;
+      /** Format: date-time */
+      qr_expire: string;
+      qr_payload: string;
+      /** @description true when a usable QR payload is returned */
+      success: boolean;
+    };
+    PaymentSummaryView: {
+      /** Format: int64 */
+      amount_satang: number;
+      /** Format: int64 */
+      artist_payout_satang: number;
+      artist_payout_transaction_id: string;
+      artist_payout_transfer_status: string | null;
+      payment_status: string;
+      /** Format: int64 */
+      refund_satang: number;
+      refund_transaction_id: string;
+      refund_transfer_status: string | null;
+      /** Format: date-time */
+      settled_at: string | null;
+      settlement_outcome: string | null;
+      /** @description MOCK_WALLET means simulated credits only; EXTERNAL is historical/external accounting. */
+      source: string;
+    };
+    RegisterArtistBody: {
+      description?: string;
+    };
+    RegisterBankAccountBody: {
+      account_holder_name: string;
+      account_number: string;
+      bank_name: string;
+    };
+    RegisterInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/RegisterInputBody.json
+       */
+      readonly $schema?: string;
+      artist?: components["schemas"]["RegisterArtistBody"];
+      bank_account: components["schemas"]["RegisterBankAccountBody"];
+      /** Format: email */
+      email: string;
+      password: string;
+      /** @enum {string} */
+      role: "customer" | "artist";
+      username: string;
+    };
+    ReviewDetailView: {
+      artist_id: string;
+      comment: string | null;
+      /** Format: date-time */
+      created_at: string;
+      customer_id: string;
+      id: string;
+      order: string;
+      order_id: string;
+      /** Format: int64 */
+      rating: number;
+      username: string;
+    };
+    ReviewView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ReviewView.json
+       */
+      readonly $schema?: string;
+      artist_id: string;
+      comment: string | null;
+      /** Format: date-time */
+      created_at: string;
+      customer_id: string;
+      id: string;
+      order_id: string;
+      /** Format: int64 */
+      rating: number;
+    };
+    SearchArtistView: {
+      artist_id: string;
+      artist_name: string;
+      profile_url: string | null;
+      /** Format: double */
+      review_score: number | null;
+    };
+    SearchArtworkView: {
+      artist: components["schemas"]["SearchArtistView"];
+      artwork_samples: components["schemas"]["ArtworkSampleView"][] | null;
+      category: string;
+      /** Format: date-time */
+      created_at: string;
+      description: string;
+      id: string;
+      /** Format: int64 */
+      minimum_deadline_days: number;
+      name: string;
+      /** Format: int64 */
+      price_satang: number;
+      styles: string[] | null;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    SearchArtworksOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/SearchArtworksOutputBody.json
+       */
+      readonly $schema?: string;
+      artworks: components["schemas"]["SearchArtworkView"][] | null;
+      /** Format: int64 */
+      page: number;
+      /** Format: int64 */
+      total: number;
+    };
+    SubmitReviewInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/SubmitReviewInputBody.json
+       */
+      readonly $schema?: string;
+      comment?: string;
+      /** Format: int64 */
+      rating: number;
+    };
+    UnreadNotificationsOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/UnreadNotificationsOutputBody.json
+       */
+      readonly $schema?: string;
+      /** Format: int64 */
+      count: number;
+    };
+    UpdateAccountInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/UpdateAccountInputBody.json
+       */
+      readonly $schema?: string;
+      new_password?: string;
+      old_password?: string;
+      username: string;
+    };
+    UpdateBankAccountInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/UpdateBankAccountInputBody.json
+       */
+      readonly $schema?: string;
+      account_holder_name: string;
+      account_number: string;
+      bank_name: string;
+    };
+    VerifiedPaymentView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/VerifiedPaymentView.json
+       */
+      readonly $schema?: string;
+      /** @description Human-readable result; explains why the slip was not accepted */
+      message: string;
+      order_id: string;
+      payment_id?: string;
+      /** @description Machine-readable rejection reason when success is false */
+      reason?: string;
+      status?: string;
+      /** @description true when the slip passed and the payment was recorded */
+      success: boolean;
+    };
+    ViewOrdersOutputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/ViewOrdersOutputBody.json
+       */
+      readonly $schema?: string;
+      orders: components["schemas"]["OrderSummaryView"][] | null;
+      /** Format: int64 */
+      total: number;
+    };
+    WalletTransactionView: {
+      /** Format: int64 */
+      amount_satang: number;
+      /** Format: date-time */
+      created_at: string;
+      id: string;
+      order_id: string;
+      order_name: string;
+      settlement_outcome: string | null;
+      type: string;
+    };
+    WalletView: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example /api/v1/schemas/WalletView.json
+       */
+      readonly $schema?: string;
+      /** Format: int64 */
+      balance_satang: number;
+      currency: string;
+      /** Format: date-time */
+      updated_at: string | null;
+      user_id: string;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    "update-my-artist-profile": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "multipart/form-data": {
-                    description?: string;
-                    /** Format: binary */
-                    profile_image?: string;
-                    remove_profile_image?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArtistProfileView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  "update-my-artist-profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "get-artist-profile": {
-        parameters: {
-            query?: {
-                /** @description Maximum number of reviews to return. */
-                limit?: number;
-                /** @description Number of reviews to skip. */
-                offset?: number;
-            };
-            header?: never;
-            path: {
-                artist_id: string;
-            };
-            cookie?: never;
+    requestBody?: {
+      content: {
+        "multipart/form-data": {
+          description?: string;
+          /** Format: binary */
+          profile_image?: string;
+          remove_profile_image?: boolean;
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArtistProfileView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+      };
     };
-    "get-artist-artworks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                artist_id: string;
-            };
-            cookie?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GetArtistArtworksOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["ArtistProfileView"];
         };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "get-artist-reviews": {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path: {
-                artist_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GetArtistReviewsOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "get-artist-profile": {
+    parameters: {
+      query?: {
+        /** @description Maximum number of reviews to return. */
+        limit?: number;
+        /** @description Number of reviews to skip. */
+        offset?: number;
+      };
+      header?: never;
+      path: {
+        artist_id: string;
+      };
+      cookie?: never;
     };
-    "search-artworks": {
-        parameters: {
-            query?: {
-                /** @description Partial match on artist name. */
-                q?: string;
-                /** @description Filter by at most one artwork category. */
-                category?: string;
-                /** @description Filter by one or more artwork styles. An artwork matches only when it has every requested style. */
-                style?: string[] | null;
-                /** @description Inclusive minimum artwork price in satang. */
-                min_price_satang?: string;
-                /** @description Inclusive maximum artwork price in satang. */
-                max_price_satang?: string;
-                /** @description Inclusive minimum artist average review score (0-5). */
-                min_review_score?: string;
-                /** @description Default artwork name ascending. Price or review score, when set, is the primary sort; equal values fall back to artwork name ascending. */
-                sort?: "name_asc" | "price_asc" | "price_desc" | "review_score_asc" | "review_score_desc";
-                /** @description 1-based page of 20 artworks. */
-                page?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SearchArtworksOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["ArtistProfileView"];
         };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "create-artwork": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "multipart/form-data": {
-                    artwork_samples?: string[];
-                    category_id: string;
-                    description: string;
-                    /** Format: int64 */
-                    minimum_deadline_days: number;
-                    name: string;
-                    /** Format: int64 */
-                    price_satang: number;
-                    style_ids: string[] | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArtworkView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "get-artist-artworks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        artist_id: string;
+      };
+      cookie?: never;
     };
-    "get-artwork": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                artwork_id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArtworkView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["GetArtistArtworksOutputBody"];
         };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "update-artwork": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                artwork_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "multipart/form-data": {
-                    category_id: string;
-                    deleted_sample_urls?: string[] | null;
-                    description: string;
-                    /** Format: int64 */
-                    minimum_deadline_days: number;
-                    name: string;
-                    /** Format: int64 */
-                    price_satang: number;
-                    style_ids: string[] | null;
-                    uploaded_samples?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArtworkView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "get-artist-reviews": {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path: {
+        artist_id: string;
+      };
+      cookie?: never;
     };
-    "delete-artwork": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                artwork_id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["GetArtistReviewsOutputBody"];
         };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "get-reviews-by-artwork": {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path: {
-                artwork_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GetReviewsByArtworkOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "search-artworks": {
+    parameters: {
+      query?: {
+        /** @description Partial match on artist name. */
+        q?: string;
+        /** @description Filter by at most one artwork category. */
+        category?: string;
+        /** @description Filter by one or more artwork styles. An artwork matches only when it has every requested style. */
+        style?: string[] | null;
+        /** @description Inclusive minimum artwork price in satang. */
+        min_price_satang?: string;
+        /** @description Inclusive maximum artwork price in satang. */
+        max_price_satang?: string;
+        /** @description Inclusive minimum artist average review score (0-5). */
+        min_review_score?: string;
+        /** @description Default artwork name ascending. Price or review score, when set, is the primary sort; equal values fall back to artwork name ascending. */
+        sort?:
+          | "name_asc"
+          | "price_asc"
+          | "price_desc"
+          | "review_score_asc"
+          | "review_score_desc";
+        /** @description 1-based page of 20 artworks. */
+        page?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    login: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginInputBody"];
-            };
+        content: {
+          "application/json": components["schemas"]["SearchArtworksOutputBody"];
         };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthResultBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    logout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "create-artwork": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    refresh: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: {
-                refresh_token?: string;
-            };
+    requestBody?: {
+      content: {
+        "multipart/form-data": {
+          artwork_samples?: string[];
+          category_id: string;
+          description: string;
+          /** Format: int64 */
+          minimum_deadline_days: number;
+          name: string;
+          /** Format: int64 */
+          price_satang: number;
+          style_ids: string[] | null;
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthResultBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+      };
     };
-    register: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RegisterInputBody"];
-            };
+        content: {
+          "application/json": components["schemas"]["ArtworkView"];
         };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "list-categories": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArtistReferenceView"][] | null;
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "get-artwork": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        artwork_id: string;
+      };
+      cookie?: never;
     };
-    "list-notifications": {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListNotificationsOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["ArtworkView"];
         };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "count-unread-notifications": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UnreadNotificationsOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "update-artwork": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        artwork_id: string;
+      };
+      cookie?: never;
     };
-    "mark-notification-read": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
+    requestBody?: {
+      content: {
+        "multipart/form-data": {
+          category_id: string;
+          deleted_sample_urls?: string[] | null;
+          description: string;
+          /** Format: int64 */
+          minimum_deadline_days: number;
+          name: string;
+          /** Format: int64 */
+          price_satang: number;
+          style_ids: string[] | null;
+          uploaded_samples?: string[];
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MarkNotificationReadOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+      };
     };
-    "view-orders": {
-        parameters: {
-            query?: {
-                /** @description Filter by one or more order statuses. Repeated values are OR'd. Omit for every status. */
-                status?: ("PENDING" | "NOT_PAID" | "IN_PROCESS" | "SUCCESS" | "CANCEL")[] | null;
-                /** @description Field to sort by. */
-                sort?: "deadline" | "price" | "updated_at";
-                /** @description Sort direction. */
-                order?: "asc" | "desc";
-                /** @description Maximum number of orders to return. */
-                limit?: number;
-                /** @description Number of matching orders to skip before the first returned row. */
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ViewOrdersOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["ArtworkView"];
         };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "create-order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateOrderInputBody"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OrderSummaryView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "delete-artwork": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        artwork_id: string;
+      };
+      cookie?: never;
     };
-    "get-order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                order_id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description No Content */
+      204: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OrderDetailView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+        content?: never;
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "cancel-order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                order_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CancelOrderInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CancelOrderOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "get-reviews-by-artwork": {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path: {
+        artwork_id: string;
+      };
+      cookie?: never;
     };
-    "confirm-order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                order_id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConfirmOrderInputBody"];
-            };
+        content: {
+          "application/json": components["schemas"]["GetReviewsByArtworkOutputBody"];
         };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfirmOrderOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "create-delay-request": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                order_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateDelayRequestInputBody"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DelayRequestView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  login: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "confirm-delay-request": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                order_id: string;
-                delay_request_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConfirmDelayRequestInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfirmDelayRequestOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LoginInputBody"];
+      };
     };
-    "create-order-deliverable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                order_id: string;
-            };
-            cookie?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          "Set-Cookie"?: string;
+          [name: string]: unknown;
         };
-        requestBody?: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: binary */
-                    deliverable_image: string;
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["AuthResultBody"];
         };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeliverableView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "confirm-deliverable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                order_id: string;
-                deliverable_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConfirmDeliverableInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfirmDeliverableOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  logout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "get-payment-qr": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                order_id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description No Content */
+      204: {
+        headers: {
+          "Set-Cookie"?: string;
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentQRView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+        content?: never;
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "generate-payment-qr": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                order_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GeneratedPaymentQRView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  refresh: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: {
+        refresh_token?: string;
+      };
     };
-    "verify-payment-slip": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                order_id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          "Set-Cookie"?: string;
+          [name: string]: unknown;
         };
-        requestBody?: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: binary */
-                    file: string;
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["AuthResultBody"];
         };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VerifiedPaymentView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "get-order-review": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                order_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReviewView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  register: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "submit-review": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                order_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SubmitReviewInputBody"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReviewView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RegisterInputBody"];
+      };
     };
-    "list-styles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArtistReferenceView"][] | null;
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+        content?: never;
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "get-wallet-transactions": {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GetWalletTransactionsOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "list-categories": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "get-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccountView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+        content: {
+          "application/json":
+            | components["schemas"]["ArtistReferenceView"][]
+            | null;
         };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "update-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateAccountInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccountView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "list-notifications": {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "delete-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["ListNotificationsOutputBody"];
         };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "get-bank-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BankAccountView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "count-unread-notifications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "update-bank-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateBankAccountInputBody"];
-            };
+        content: {
+          "application/json": components["schemas"]["UnreadNotificationsOutputBody"];
         };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BankAccountView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
-    "update-profile-image": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: binary */
-                    profile_image?: string;
-                    remove_profile_image?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccountView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
+  };
+  "mark-notification-read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
     };
-    "get-wallet": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WalletView"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["MarkNotificationReadOutputBody"];
         };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
     };
+  };
+  "view-orders": {
+    parameters: {
+      query?: {
+        /** @description Filter by one or more order statuses. Repeated values are OR'd. Omit for every status. */
+        status?:
+          | ("PENDING" | "NOT_PAID" | "IN_PROCESS" | "SUCCESS" | "CANCEL")[]
+          | null;
+        /** @description Field to sort by. */
+        sort?: "deadline" | "price" | "updated_at";
+        /** @description Sort direction. */
+        order?: "asc" | "desc";
+        /** @description Maximum number of orders to return. */
+        limit?: number;
+        /** @description Number of matching orders to skip before the first returned row. */
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ViewOrdersOutputBody"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "create-order": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateOrderInputBody"];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OrderSummaryView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-order": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OrderDetailView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "cancel-order": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CancelOrderInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CancelOrderOutputBody"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "confirm-order": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfirmOrderInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConfirmOrderOutputBody"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "create-delay-request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateDelayRequestInputBody"];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DelayRequestView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "confirm-delay-request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+        delay_request_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfirmDelayRequestInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConfirmDelayRequestOutputBody"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "create-order-deliverable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          deliverable_image: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeliverableView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "confirm-deliverable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+        deliverable_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfirmDeliverableInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConfirmDeliverableOutputBody"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-payment-qr": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaymentQRView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "generate-payment-qr": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GeneratedPaymentQRView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "verify-payment-slip": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VerifiedPaymentView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-order-review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "submit-review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SubmitReviewInputBody"];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "list-styles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json":
+            | components["schemas"]["ArtistReferenceView"][]
+            | null;
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-wallet-transactions": {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GetWalletTransactionsOutputBody"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "update-account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateAccountInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "delete-account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description No Content */
+      204: {
+        headers: {
+          "Set-Cookie"?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-bank-account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BankAccountView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "update-bank-account": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateBankAccountInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BankAccountView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "update-profile-image": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          profile_image?: string;
+          remove_profile_image?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "get-wallet": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WalletView"];
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
 }

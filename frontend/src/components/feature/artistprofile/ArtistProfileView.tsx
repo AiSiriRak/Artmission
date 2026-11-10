@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { ArtistProfile, Artwork } from "@/lib/api/types";
 import type { ReviewData } from "@/lib/api/reviews";
+import { formatPriceFromSatang } from "@/lib/format-price";
 
 import ProfileImage from "./ProfileImage";
 import TagList from "./TagList";
@@ -17,10 +18,6 @@ interface ArtistProfileViewProps {
   onArtworkClick: (artwork: Artwork) => void;
   actions?: ReactNode;
   reviewActions?: ReactNode;
-}
-
-function formatPrice(satang: number) {
-  return (satang / 100).toLocaleString();
 }
 
 export default function ArtistProfileView({
@@ -42,7 +39,9 @@ export default function ArtistProfileView({
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
 
-    priceRange = (minPrice === maxPrice) ? `${formatPrice(minPrice)} THB` : `${formatPrice(minPrice)} - ${formatPrice(maxPrice)} THB`;
+    priceRange = (minPrice === maxPrice)
+      ? `${formatPriceFromSatang(minPrice)} THB`
+      : `${formatPriceFromSatang(minPrice)} - ${formatPriceFromSatang(maxPrice)} THB`;
   }
 
   return (

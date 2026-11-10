@@ -35,7 +35,7 @@ export function DeleteAccountPopup({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25">
-      <WhiteCard>
+      <WhiteCard roundsize="rounded-2xl">
         {status == "success" ? (
           // === Deleted Success ===
           <div className="space-y-5">

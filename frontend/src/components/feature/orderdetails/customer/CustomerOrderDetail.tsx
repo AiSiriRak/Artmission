@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { startAutoRefresh } from "@/lib/auto-refresh";
+import { formatPriceFromSatang } from "@/lib/format-price";
 import OrderDescription from "@/components/feature/orderdetails/shared/OrderDescription";
 import OrderDetails from "@/components/feature/orderdetails/shared/OrderDetails";
 import OrderInfo from "@/components/feature/orderdetails/shared/OrderInfo";
@@ -337,7 +338,7 @@ export default function CustomerOrderDetail({ order: initialOrder }: { order: Or
       <CustomerCancelOrderPopUp
         isOpen={cancelOpen}
         orderId={order.id}
-        orderLabel={`Order #${order.id.slice(0, 8)} · ${order.name} · ฿${(order.price_satang / 100).toLocaleString()}`}
+        orderLabel={`Order #${order.id.slice(0, 8)} · ${order.name} · ฿${formatPriceFromSatang(order.price_satang)}`}
         onClose={() => setCancelOpen(false)}
         onCancelled={() => setOrder((prev) => ({ ...prev, status: "CANCEL" }))}
       />
