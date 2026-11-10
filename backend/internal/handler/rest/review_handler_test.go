@@ -215,7 +215,11 @@ func TestReviewHandler_GetArtistReviews(t *testing.T) {
 				CreatedAt: createdAt,
 			},
 			Username: "Customer",
-			Order:    "Cat artwork",
+			ProfileImageURL: func() *string {
+				url := "https://cdn.test/profiles/customer.png"
+				return &url
+			}(),
+			Order: "Cat artwork",
 		},
 	}
 
@@ -329,6 +333,8 @@ func TestReviewHandler_GetArtistReviews(t *testing.T) {
 			got := body.Reviews[0]
 			if got.ID != reviewID ||
 				got.Username != "Customer" ||
+				got.ProfileImageURL == nil ||
+				*got.ProfileImageURL != "https://cdn.test/profiles/customer.png" ||
 				got.Order != "Cat artwork" ||
 				got.Rating != 5 ||
 				got.Comment == nil ||
@@ -499,6 +505,11 @@ func TestReviewHandler_GetOrderReview(t *testing.T) {
 			Comment:    &comment,
 			CreatedAt:  createdAt,
 		},
+		Username: "Customer",
+		ProfileImageURL: func() *string {
+			url := "https://cdn.test/profiles/customer.png"
+			return &url
+		}(),
 	}
 
 	cases := []struct {
@@ -591,7 +602,7 @@ func TestReviewHandler_GetOrderReview(t *testing.T) {
 				return
 			}
 
-			var got ReviewView
+			var got reviewDetailView
 			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 				t.Fatalf("decode response: %v", err)
 			}
@@ -604,6 +615,10 @@ func TestReviewHandler_GetOrderReview(t *testing.T) {
 				*got.Comment != comment ||
 				!got.CreatedAt.Equal(createdAt) {
 				t.Fatal("response does not contain the expected review")
+			}
+			if got.Username != item.Username || got.ProfileImageURL == nil ||
+				*got.ProfileImageURL != *item.ProfileImageURL {
+				t.Fatal("response does not contain the expected reviewer profile details")
 			}
 		})
 	}

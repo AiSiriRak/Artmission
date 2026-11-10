@@ -151,9 +151,10 @@ func (r *reviewRepository) SubmitReview(
 
 type reviewDetailRow struct {
 	pgmodel.Review
-	Username    string `bun:"username"`
-	OrderName   string `bun:"order_name"`
-	ArtworkName string `bun:"artwork_name"`
+	Username        string  `bun:"username"`
+	ProfileImageKey *string `bun:"profile_image_key"`
+	OrderName       string  `bun:"order_name"`
+	ArtworkName     string  `bun:"artwork_name"`
 }
 
 // newReviewDetailQuery selects reviews with customer and order names.
@@ -162,6 +163,7 @@ func newReviewDetailQuery(idb bun.IDB) *bun.SelectQuery {
 		TableExpr("reviews AS r").
 		ColumnExpr("r.*").
 		ColumnExpr("customer.username AS username").
+		ColumnExpr("customer.profile_image_key AS profile_image_key").
 		ColumnExpr("o.name AS order_name").
 		Join("JOIN users AS customer ON customer.id = r.customer_id").
 		Join("JOIN orders AS o ON o.id = r.order_id")
@@ -179,9 +181,10 @@ func (row reviewDetailRow) toDomain() review.ReviewDetail {
 			Comment:    row.Comment,
 			CreatedAt:  row.CreatedAt,
 		},
-		Username:    row.Username,
-		Order:       row.OrderName,
-		ArtworkName: row.ArtworkName,
+		Username:        row.Username,
+		ProfileImageKey: row.ProfileImageKey,
+		Order:           row.OrderName,
+		ArtworkName:     row.ArtworkName,
 	}
 }
 
@@ -232,6 +235,7 @@ func (r *reviewRepository) GetReviewByOrderID(
 		OrderCustomerID uuid.UUID `bun:"order_customer_id"`
 		OrderArtistID   uuid.UUID `bun:"order_artist_id"`
 		Username        string    `bun:"username"`
+		ProfileImageKey *string   `bun:"profile_image_key"`
 		OrderName       string    `bun:"order_name"`
 	}
 
@@ -242,6 +246,7 @@ func (r *reviewRepository) GetReviewByOrderID(
 			ColumnExpr("r.*").
 			ColumnExpr("o.customer_id AS order_customer_id, o.artist_id AS order_artist_id").
 			ColumnExpr("customer.username AS username").
+			ColumnExpr("customer.profile_image_key AS profile_image_key").
 			ColumnExpr("o.name AS order_name").
 			Join("LEFT JOIN reviews AS r ON r.order_id = o.id").
 			Join("JOIN users AS customer ON customer.id = o.customer_id").
@@ -263,9 +268,10 @@ func (r *reviewRepository) GetReviewByOrderID(
 	}
 
 	item := reviewDetailRow{
-		Review:    row.Review,
-		Username:  row.Username,
-		OrderName: row.OrderName,
+		Review:          row.Review,
+		Username:        row.Username,
+		ProfileImageKey: row.ProfileImageKey,
+		OrderName:       row.OrderName,
 	}.toDomain()
 	return &item, nil
 }

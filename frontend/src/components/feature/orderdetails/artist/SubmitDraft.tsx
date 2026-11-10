@@ -32,7 +32,11 @@ export default function SubmitDraft({ onSubmit, disabled = false }: { onSubmit: 
       setIsConfirmOpen(false);
       setDraft(null);
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "ส่ง Draft ไม่สำเร็จ กรุณาลองใหม่");
+      setError(
+        error instanceof Error && error.message
+          ? error.message
+          : "Unable to submit the draft. Please try again.",
+      );
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -103,7 +107,7 @@ export default function SubmitDraft({ onSubmit, disabled = false }: { onSubmit: 
                   const selectedFile = event.target.files?.[0];
                   if (!selectedFile) return;
                   if (!["image/jpeg", "image/png", "image/webp"].includes(selectedFile.type)) {
-                    setError("เลือกไฟล์ JPG, PNG หรือ WebP เท่านั้น");
+                    setError("Please select a JPG, PNG, or WebP file.");
                     return;
                   }
                   setError("");

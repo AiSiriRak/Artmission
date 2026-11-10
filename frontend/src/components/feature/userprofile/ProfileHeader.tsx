@@ -32,12 +32,11 @@ export function ProfileHeader({
     <div className="mt-12 flex flex-col items-center">
       <div className="relative">
         <Image
-          src={profileImageUrl ?? "default-avatar.png"}
+          src={profileImageUrl || "/default-avatar.png"}
           alt=""
           width={150}
           height={150}
           className="mx-auto h-[150px] w-[150px] object-cover rounded-full"
-          unoptimized
         />
         <button
           className="absolute bottom-0 right-0 rounded-full bg-[#787878] p-2 hover:brightness-90"

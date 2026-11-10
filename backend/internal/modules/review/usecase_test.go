@@ -27,6 +27,12 @@ type fakeRepo struct {
 	listQuery      review.ListQuery
 }
 
+type fakeProfileImageURLResolver string
+
+func (resolver fakeProfileImageURLResolver) PublicURL(key string) string {
+	return string(resolver) + key
+}
+
 func (f *fakeRepo) SubmitReview(
 	_ context.Context,
 	customerID uuid.UUID,
@@ -257,6 +263,26 @@ func TestGetArtistReviews_Success(t *testing.T) {
 		got.Comment == nil ||
 		*got.Comment != comment {
 		t.Fatal("returned review details do not match")
+	}
+}
+
+func TestGetArtistReviews_ResolvesProfileImageURL(t *testing.T) {
+	key := "profiles/customer.png"
+	repo := &fakeRepo{reviews: []review.ReviewDetail{
+		{ProfileImageKey: &key},
+	}}
+	uc := review.NewReviewUsecase(
+		repo,
+		review.WithProfileImageURLResolver(fakeProfileImageURLResolver("https://cdn.test/")),
+	)
+
+	result, err := uc.GetArtistReviews(context.Background(), uuid.New(), review.ListQuery{})
+	if err != nil {
+		t.Fatalf("GetArtistReviews() error = %v", err)
+	}
+	if result.Reviews[0].ProfileImageURL == nil ||
+		*result.Reviews[0].ProfileImageURL != "https://cdn.test/"+key {
+		t.Fatalf("ProfileImageURL = %v, want %q", result.Reviews[0].ProfileImageURL, "https://cdn.test/"+key)
 	}
 }
 

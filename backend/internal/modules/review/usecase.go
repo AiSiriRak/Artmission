@@ -9,12 +9,17 @@ import (
 )
 
 type reviewUsecase struct {
-	repo ReviewRepository
+	repo             ReviewRepository
+	profileImageURLs ProfileImageURLResolver
 }
 
 // NewReviewUsecase creates a review usecase with the given repository
-func NewReviewUsecase(repo ReviewRepository) ReviewUsecase {
-	return &reviewUsecase{repo: repo}
+func NewReviewUsecase(repo ReviewRepository, options ...UsecaseOption) ReviewUsecase {
+	u := &reviewUsecase{repo: repo}
+	for _, option := range options {
+		option(u)
+	}
+	return u
 }
 
 // SubmitReview validates input and normalizes the optional comment before submission.
@@ -67,7 +72,14 @@ func (u *reviewUsecase) GetArtistReviews(
 		return nil, apperror.InvalidInput("offset must not be negative", nil)
 	}
 
-	return u.repo.ListByArtistID(ctx, artistID, query)
+	page, err := u.repo.ListByArtistID(ctx, artistID, query)
+	if err != nil {
+		return nil, err
+	}
+	if err := u.resolveProfileImageURLs(page); err != nil {
+		return nil, err
+	}
+	return page, nil
 }
 
 // GetOrderReview validates identities before requesting the order's review.
@@ -83,7 +95,14 @@ func (u *reviewUsecase) GetOrderReview(
 		return nil, apperror.InvalidInput("order ID is required", nil)
 	}
 
-	return u.repo.GetReviewByOrderID(ctx, userID, orderID)
+	item, err := u.repo.GetReviewByOrderID(ctx, userID, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if err := u.resolveProfileImageURL(item); err != nil {
+		return nil, err
+	}
+	return item, nil
 }
 
 // GetReviewsByArtwork retrieves a page of artwork reviews, newest first.
@@ -106,5 +125,33 @@ func (u *reviewUsecase) GetReviewsByArtwork(
 		return nil, apperror.InvalidInput("offset must not be negative", nil)
 	}
 
-	return u.repo.ListByArtworkID(ctx, artworkID, query)
+	page, err := u.repo.ListByArtworkID(ctx, artworkID, query)
+	if err != nil {
+		return nil, err
+	}
+	if err := u.resolveProfileImageURLs(page); err != nil {
+		return nil, err
+	}
+	return page, nil
+}
+
+func (u *reviewUsecase) resolveProfileImageURLs(page *ReviewPage) error {
+	for i := range page.Reviews {
+		if err := u.resolveProfileImageURL(&page.Reviews[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (u *reviewUsecase) resolveProfileImageURL(item *ReviewDetail) error {
+	if item == nil || item.ProfileImageKey == nil || *item.ProfileImageKey == "" {
+		return nil
+	}
+	if u.profileImageURLs == nil {
+		return ErrProfileImageURLResolverUnavailable
+	}
+	url := u.profileImageURLs.PublicURL(*item.ProfileImageKey)
+	item.ProfileImageURL = &url
+	return nil
 }

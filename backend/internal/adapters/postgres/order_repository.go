@@ -86,11 +86,13 @@ type orderDetailModel struct {
 	CreatedAt           time.Time               `bun:"created_at,nullzero"`
 	UpdatedAt           time.Time               `bun:"updated_at,nullzero"`
 
-	CustomerName  string `bun:"customer_name,scanonly"`
-	CustomerEmail string `bun:"customer_email,scanonly"`
+	CustomerName            string  `bun:"customer_name,scanonly"`
+	CustomerEmail           string  `bun:"customer_email,scanonly"`
+	CustomerProfileImageKey *string `bun:"customer_profile_image_key"`
 
-	ArtistName  string `bun:"artist_name,scanonly"`
-	ArtistEmail string `bun:"artist_email,scanonly"`
+	ArtistName            string  `bun:"artist_name,scanonly"`
+	ArtistEmail           string  `bun:"artist_email,scanonly"`
+	ArtistProfileImageKey *string `bun:"artist_profile_image_key"`
 
 	ArtistReviewScore *float64 `bun:"artist_review_score,scanonly"`
 }
@@ -350,8 +352,10 @@ func (r *orderRepository) GetOrderByID(
 			).
 			ColumnExpr("customer.username AS customer_name").
 			ColumnExpr("customer.email AS customer_email").
+			ColumnExpr("customer.profile_image_key AS customer_profile_image_key").
 			ColumnExpr("artist.username AS artist_name").
 			ColumnExpr("artist.email AS artist_email").
+			ColumnExpr("artist.profile_image_key AS artist_profile_image_key").
 			ColumnExpr("artist_profiles.review_score AS artist_review_score").
 			Join("JOIN users AS customer ON customer.id = o.customer_id").
 			Join("JOIN users AS artist ON artist.id = o.artist_id").
@@ -476,14 +480,16 @@ func (r *orderRepository) GetOrderByID(
 			StyleIDs:    model.ArtworkSnapshot.StyleIDs,
 		},
 		Customer: order.OrderParty{
-			ID:    model.CustomerID,
-			Name:  model.CustomerName,
-			Email: model.CustomerEmail,
+			ID:              model.CustomerID,
+			Name:            model.CustomerName,
+			Email:           model.CustomerEmail,
+			ProfileImageKey: model.CustomerProfileImageKey,
 		},
 		Artist: order.OrderParty{
 			ID:                model.ArtistID,
 			Name:              model.ArtistName,
 			Email:             model.ArtistEmail,
+			ProfileImageKey:   model.ArtistProfileImageKey,
 			ArtistReviewScore: model.ArtistReviewScore,
 		},
 		Deliverables:       deliverables,

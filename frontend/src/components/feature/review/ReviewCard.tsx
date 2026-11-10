@@ -46,15 +46,13 @@ export default function ReviewCard({ review }: { review: ReviewData | ArtistRevi
     <div className="bg-secondary-300 rounded-2xl p-5 flex items-start gap-4">
       {/* Profile Image */}
       <div className="w-12 h-12 rounded-full bg-gray-300 flex-shrink-0 overflow-hidden">
-        {review.avatarUrl && (
-          <Image
-            src={review.avatarUrl}
-            alt={review.reviewerName || "Reviewer"}
-            width={48}
-            height={48}
-            className="w-auto h-full object-cover"
-          />
-        )}
+        <Image
+          src={review.avatarUrl || "/default-avatar.png"}
+          alt={review.reviewerName || "Reviewer"}
+          width={48}
+          height={48}
+          className="w-auto h-full object-cover"
+        />
       </div>
 
       {/* Review Information */}

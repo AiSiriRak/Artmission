@@ -303,6 +303,12 @@ func (fakeStorage) Delete(_ context.Context, _ string) error {
 
 var _ order.ObjectStorage = fakeStorage{}
 
+type fakeProfileImageURLResolver string
+
+func (resolver fakeProfileImageURLResolver) PublicURL(key string) string {
+	return string(resolver) + key
+}
+
 type storedObject struct {
 	key         string
 	contentType string
@@ -667,6 +673,7 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 	artistID := uuid.New()
 
 	artistScore := 4.8
+	profileImageKey := "profiles/artist.png"
 
 	wantOrder := order.Order{
 		ID:         orderID,
@@ -686,6 +693,7 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 		ID:                artistID,
 		Name:              "Artist",
 		Email:             "artist@example.com",
+		ProfileImageKey:   &profileImageKey,
 		ArtistReviewScore: &artistScore,
 	}
 
@@ -697,7 +705,11 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 		},
 	}
 
-	usecase := newTestOrderUsecase(repo, fakeStorage{})
+	usecase := order.NewOrderUsecase(
+		repo,
+		fakeStorage{},
+		order.WithProfileImageURLResolver(fakeProfileImageURLResolver("https://cdn.test/")),
+	)
 
 	got, err := usecase.GetOrder(
 		context.Background(),
@@ -760,6 +772,9 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 			artist.Email,
 		)
 	}
+	if got.OtherParty.ProfileImageURL == nil || *got.OtherParty.ProfileImageURL != "https://cdn.test/profiles/artist.png" {
+		t.Errorf("OtherParty.ProfileImageURL = %v, want %q", got.OtherParty.ProfileImageURL, "https://cdn.test/profiles/artist.png")
+	}
 
 	if got.OtherParty.ArtistReviewScore == nil {
 		t.Fatal("OtherParty.ArtistReviewScore = nil, want artist score")
@@ -774,6 +789,26 @@ func TestGetOrder_CustomerGetsArtistAsOtherParty(t *testing.T) {
 	}
 	if got.Cancellation != nil {
 		t.Errorf("Cancellation = %+v, want nil for an order without cancellation details", got.Cancellation)
+	}
+}
+
+func TestGetOrder_ReturnsErrorWhenProfileImageResolverIsNotConfigured(t *testing.T) {
+	profileImageKey := "profiles/artist.png"
+	repo := &fakeRepo{
+		orderDetailData: &order.OrderDetailData{
+			Artist: order.OrderParty{ProfileImageKey: &profileImageKey},
+		},
+	}
+	usecase := newTestOrderUsecase(repo, fakeStorage{})
+
+	_, err := usecase.GetOrder(
+		context.Background(),
+		order.ParticipantCustomer,
+		uuid.New(),
+		uuid.New(),
+	)
+	if !errors.Is(err, order.ErrProfileImageURLResolverUnavailable) {
+		t.Errorf("GetOrder() error = %v, want %v", err, order.ErrProfileImageURLResolverUnavailable)
 	}
 }
 

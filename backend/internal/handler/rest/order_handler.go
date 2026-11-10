@@ -185,6 +185,7 @@ type orderPartyView struct {
 	ID                string   `json:"id"`
 	Name              string   `json:"name"`
 	Email             string   `json:"email"`
+	ProfileImageURL   *string  `json:"profile_image_url,omitempty"`
 	ArtistReviewScore *float64 `json:"artist_review_score,omitempty"`
 }
 
@@ -803,6 +804,7 @@ func toOrderDetailView(
 			ID:                o.OtherParty.ID.String(),
 			Name:              o.OtherParty.Name,
 			Email:             o.OtherParty.Email,
+			ProfileImageURL:   o.OtherParty.ProfileImageURL,
 			ArtistReviewScore: o.OtherParty.ArtistReviewScore,
 		},
 		Deliverables:       deliverables,

@@ -138,7 +138,9 @@ export default function CustomerArtistProfile({
                 <Image
                   src="/icons/Arrow_left.svg"
                   alt=""
-                  className="w-4 h-4 object-contain"
+                  width={16}
+                  height={16}
+                  className="h-4 w-4 object-contain"
                 />
               }
             >

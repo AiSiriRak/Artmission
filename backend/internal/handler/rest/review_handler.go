@@ -117,15 +117,17 @@ type GetArtistReviewsInput struct {
 
 type reviewDetailView struct {
 	ReviewView
-	Username string `json:"username"`
-	Order    string `json:"order"`
+	Username        string  `json:"username"`
+	ProfileImageURL *string `json:"profile_image_url,omitempty"`
+	Order           string  `json:"order"`
 }
 
 type artistReviewDetailView struct {
 	ReviewView
-	Username    string `json:"username"`
-	Order       string `json:"order"`
-	ArtworkName string `json:"artwork_name"`
+	Username        string  `json:"username"`
+	ProfileImageURL *string `json:"profile_image_url,omitempty"`
+	Order           string  `json:"order"`
+	ArtworkName     string  `json:"artwork_name"`
 }
 
 type GetArtistReviewsOutput struct {
@@ -140,7 +142,7 @@ type GetOrderReviewInput struct {
 }
 
 type GetOrderReviewOutput struct {
-	Body ReviewView
+	Body reviewDetailView
 }
 
 type GetReviewsByArtworkInput struct {
@@ -213,10 +215,11 @@ func (h *ReviewHandler) getArtistReviews(
 	for _, item := range page.Reviews {
 		detail := newReviewDetailView(item)
 		views = append(views, artistReviewDetailView{
-			ReviewView:  detail.ReviewView,
-			Username:    detail.Username,
-			Order:       detail.Order,
-			ArtworkName: item.ArtworkName,
+			ReviewView:      detail.ReviewView,
+			Username:        detail.Username,
+			ProfileImageURL: detail.ProfileImageURL,
+			Order:           detail.Order,
+			ArtworkName:     item.ArtworkName,
 		})
 	}
 
@@ -247,7 +250,7 @@ func (h *ReviewHandler) getOrderReview(
 	}
 
 	return &GetOrderReviewOutput{
-		Body: newReviewDetailView(*item).ReviewView,
+		Body: newReviewDetailView(*item),
 	}, nil
 }
 
@@ -292,7 +295,8 @@ func newReviewDetailView(item review.ReviewDetail) reviewDetailView {
 			Comment:    item.Comment,
 			CreatedAt:  item.CreatedAt,
 		},
-		Username: item.Username,
-		Order:    item.Order,
+		Username:        item.Username,
+		ProfileImageURL: item.ProfileImageURL,
+		Order:           item.Order,
 	}
 }

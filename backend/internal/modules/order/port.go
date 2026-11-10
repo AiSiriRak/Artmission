@@ -256,6 +256,11 @@ type NotificationEvent struct {
 type OrderNotifier interface {
 	NotifyOrder(context.Context, NotificationEvent) error
 }
+
 type NotificationTransactioner interface {
 	Transaction(context.Context, func(context.Context) error) error
+}
+
+type ProfileImageURLResolver interface {
+	PublicURL(key string) string
 }

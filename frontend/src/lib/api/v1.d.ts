@@ -746,6 +746,7 @@ export interface components {
       id: string;
       order: string;
       order_id: string;
+      profile_image_url?: string;
       /** Format: int64 */
       rating: number;
       username: string;
@@ -1256,6 +1257,7 @@ export interface components {
       id: string;
       order: string;
       order_id: string;
+      profile_image_url?: string;
       /** Format: int64 */
       rating: number;
       username: string;
