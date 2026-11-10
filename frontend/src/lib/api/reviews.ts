@@ -43,6 +43,7 @@ function mapReview(
     orderName: review.order,
     rating: review.rating,
     comment: review.comment ?? "",
+    avatarUrl: review.profile_image_url,
   };
 }
 
@@ -59,6 +60,7 @@ function mapArtistReview(
     orderName: review.order,
     rating: review.rating,
     comment: review.comment ?? "",
+    avatarUrl: review.profile_image_url,
   };
 }
 
