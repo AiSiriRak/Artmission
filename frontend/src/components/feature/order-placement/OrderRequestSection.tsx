@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/Button";
+import { formatPriceFromSatang } from "@/lib/format-price";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrder } from "@/lib/api/orders";
@@ -167,7 +168,7 @@ export function OrderRequestSection({ artwork }: OrderRequestSectionProps) {
         <div className="flex flex-col gap-4">
           <div className="flex justify-between">
             <p className="text-h3">Total Price</p>
-            <p className="text-h3 font-bold">{(artwork.price_satang / 100).toLocaleString()} THB</p>
+            <p className="text-h3 font-bold">{formatPriceFromSatang(artwork.price_satang)} THB</p>
           </div>
           <div className="flex justify-between">
             <p className="text-h3">Estimated Delivery</p>

@@ -5,6 +5,7 @@ import Image from "next/image";
 
 import { Button } from "@/components/ui/Button";
 import { WhiteCardBorder } from "@/components/ui/WhiteCardBorder";
+import { formatPriceFromSatang } from "@/lib/format-price";
 
 interface Wallet {
   balance_satang: number;
@@ -22,7 +23,7 @@ export function Wallet({ balance_satang, currency }: Wallet) {
       <div className="mt-6 space-y-8 flex-1">
         {/* Balance text */}
         <p className="text-center text-h3 text-primary-500 font-semibold leading-none">
-          balance : {(balance_satang / 100).toLocaleString("en-US")} {currency}
+          balance : {formatPriceFromSatang(balance_satang)} {currency}
         </p>
         {/* ashout button */}
         <div className="flex flex-col w-full justify-center">
@@ -31,7 +32,7 @@ export function Wallet({ balance_satang, currency }: Wallet) {
             onClick={() => {
               setIsCashout(!isCashout);
               console.log(
-                `Cash out : ${(balance_satang / 100).toLocaleString("en-US")} ${currency}`,
+                `Cash out : ${formatPriceFromSatang(balance_satang)} ${currency}`,
               );
             }}
           >

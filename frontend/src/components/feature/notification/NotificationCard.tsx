@@ -8,6 +8,7 @@ import { Notification, OrderDetail, UserAccount } from "@/lib/api/types";
 
 import { NotificationType } from "@/lib/api/notification";
 import { getOrderById } from "@/lib/api/orders";
+import { formatPriceFromSatang } from "@/lib/format-price";
 
 interface NotificationCardProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   notification: Notification;
@@ -138,7 +139,7 @@ export function NotificationCard({
                 className={`${notification.is_read ? "text-accent-300" : "text-accent-500"} text-left text-h3 truncate`}
               >
                 [{payment < 0 ? "-" : "+"}
-                {(payment / 100).toLocaleString()}THB]
+                {formatPriceFromSatang(Math.abs(payment))}THB]
               </p>
             )}
           </div>

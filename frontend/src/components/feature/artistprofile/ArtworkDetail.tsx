@@ -6,6 +6,7 @@ import type {
   CreateArtworkInput,
   UpdateArtworkInput,
 } from "@/lib/api/types";
+import { formatPriceFromSatang } from "@/lib/format-price";
 import { Button } from "@/components/ui/Button";
 import TagList from "./TagList";
 import ReviewList from "../review/ReviewList";
@@ -630,7 +631,7 @@ export default function ArtworkDetail({
                     height={16}
                     className="w-4 h-4 object-contain"
                   />
-                  {savedData.price.toLocaleString()} THB
+                  {formatPriceFromSatang(Math.round(savedData.price * 100))} THB
                 </div>
               )}
             </div>
