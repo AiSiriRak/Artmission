@@ -55,16 +55,6 @@ export function mapOrderDrafts(deliverables: OrderDeliverable[]): Draft[] {
   }));
 }
 
-function errorMessage(error: unknown) {
-  if (isApiError(error)) {
-    if (error.status === 401) return "กรุณาเข้าสู่ระบบใหม่";
-    if (error.status === 403) return "คุณไม่มีสิทธิ์ทำรายการกับออร์เดอร์นี้";
-    if (error.status === 404) return "ไม่พบออร์เดอร์นี้";
-    if (error.message) return error.message;
-  }
-  return error instanceof Error ? error.message : "ทำรายการไม่สำเร็จ กรุณาลองใหม่";
-}
-
 export default function ArtistOrderDetails() {
   const { orderId } = useParams<{ orderId: string }>();
   const router = useRouter();
@@ -117,8 +107,8 @@ export default function ArtistOrderDetails() {
       try {
         const [account, detail] = await Promise.all([getAccount(), getOrderDetail(orderId, { signal: controller.signal })]);
         if (!active) return;
-        if (account.role !== "artist") throw new Error("หน้านี้สำหรับบัญชี Artist เท่านั้น");
-        if (!detail) throw new Error("ไม่พบข้อมูลออร์เดอร์");
+        if (account.role !== "artist") throw new Error("This page is only available to artist accounts.");
+        if (!detail) throw new Error("Order not found.");
         setOrder(detail);
         setLoadError("");
         setPopup(null);
@@ -128,7 +118,13 @@ export default function ArtistOrderDetails() {
       } catch (error: unknown) {
         if (!active) return;
         setOrder(null);
-        setLoadError(controller.signal.aborted ? "รอข้อมูลนานเกินไป กรุณาลองใหม่" : errorMessage(error));
+        setLoadError(
+          controller.signal.aborted
+            ? "Loading took too long. Please try again."
+            : error instanceof Error && error.message
+              ? error.message
+              : "Something went wrong. Please try again.",
+        );
         if (isApiError(error) && error.status === 401) router.replace(routes.login);
       } finally {
         window.clearTimeout(timeout);
@@ -152,7 +148,7 @@ export default function ArtistOrderDetails() {
       } catch (error: unknown) {
         if (!active || mutationPending.current || version !== mutationVersion.current) return;
         if (isApiError(error) && error.status === 401) router.replace(routes.login);
-        else setRefreshWarning("โหลดข้อมูลล่าสุดไม่สำเร็จ ระบบจะลองใหม่อัตโนมัติ");
+        else setRefreshWarning("Unable to refresh the latest order details. Retrying automatically.");
       } finally {
         refreshing = false;
       }
@@ -179,7 +175,7 @@ export default function ArtistOrderDetails() {
   }
 
   async function runMutation(action: () => Promise<(previous: OrderDetail) => OrderDetail>) {
-    if (mutationPending.current) throw new Error("กำลังทำรายการ กรุณารอสักครู่");
+    if (mutationPending.current) throw new Error("An action is already in progress. Please wait.");
     mutationPending.current = true;
     mutationVersion.current += 1;
     setBusy(true);
@@ -194,11 +190,15 @@ export default function ArtistOrderDetails() {
         const latest = await getOrderDetail(orderId, { signal: AbortSignal.timeout(15000) });
         if (activeOrderId.current === orderId) setOrder(latest);
       } catch {
-        if (activeOrderId.current === orderId) setRefreshWarning("ทำรายการสำเร็จแล้ว แต่โหลดข้อมูลล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า");
+        if (activeOrderId.current === orderId) setRefreshWarning("The action succeeded, but the latest order details could not be loaded. Please refresh the page.");
       }
     } catch (error: unknown) {
       if (activeOrderId.current === orderId) {
-        setActionError(errorMessage(error));
+        setActionError(
+          error instanceof Error && error.message
+            ? error.message
+            : "Something went wrong. Please try again.",
+        );
         if (isApiError(error) && error.status === 401) router.replace(routes.login);
       }
       throw error;
@@ -214,8 +214,8 @@ export default function ArtistOrderDetails() {
     return (
       <MainLayout usertype="artist">
         <div className="flex flex-col items-center gap-6 p-12">
-          <p role="alert" className="text-body text-error">{loadError || "ไม่พบออร์เดอร์นี้"}</p>
-          <Button type="button" onClick={() => { setLoadedId(""); setReloadKey((value) => value + 1); }}>ลองใหม่</Button>
+          <p role="alert" className="text-body text-error">{loadError || "Order not found."}</p>
+          <Button type="button" onClick={() => { setLoadedId(""); setReloadKey((value) => value + 1); }}>Try again</Button>
         </div>
       </MainLayout>
     );

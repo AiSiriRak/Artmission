@@ -47,13 +47,21 @@ export default function CancelOrderPopup({ orderSummary, onClose, onConfirm, bus
         event.preventDefault();
         if (busy) return;
         const selectedReason = reasons.find((item) => item.value === reason);
-        if (!selectedReason || !description.trim()) { setError("กรุณาเลือกเหตุผลและกรอกคำอธิบาย"); return; }
+        if (!selectedReason) {
+          setError("Please select a reason for cancellation.");
+          return;
+        }
+        if (!description.trim()) {
+          setError("Please explain your reason.");
+          return;
+        }
+        setError("");
         onConfirm({ reason: selectedReason.value, description: description.trim() });
       }}>
         <p className="mb-2 text-caption">Reason for cancellation <span className="text-error">*</span></p>
-        <SelectInput options={reasons} value={reason} onChange={setReason} formatSelectedLabel={(label) => reason ? label : "Select reason for cancellation"} buttonClassName="rounded-lg border-neutral-400" />
+        <SelectInput options={reasons} value={reason} onChange={(value) => { setReason(value); setError(""); }} formatSelectedLabel={(label) => reason ? label : "Select reason for cancellation"} buttonClassName="rounded-lg border-neutral-400" />
         <label htmlFor={descriptionId} className="mb-2 mt-3 block text-caption">Please explain your reason <span className="text-error">*</span></label>
-        <textarea id={descriptionId} required maxLength={300} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Briefly explain why you're cancelling..." className="h-20 w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small" />
+        <textarea id={descriptionId} required maxLength={300} value={description} onChange={(event) => { setDescription(event.target.value); setError(""); }} placeholder="Briefly explain why you're cancelling..." className="h-20 w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small" />
         <p className="mt-1 text-right text-small text-neutral">{description.length}/300</p>
         <div className="mt-3 flex items-center gap-3 rounded-xl bg-accent-200 px-4 py-3 text-small text-error">
           <Image src="/icons/pink-error-triangle.svg" alt="" width={30} height={27} className="shrink-0" />
