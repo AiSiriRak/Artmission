@@ -7,7 +7,7 @@ import { BankAccount, UpdateBankAccountInput } from "@/lib/api/types";
 import { BANK_LABELS } from "@/lib/types";
 import { accountConstraints } from "@/lib/constraint";
 
-import { WhiteCard } from "@/components/ui/WhiteCard";
+import { WhiteCardBorder } from "@/components/ui/WhiteCardBorder";
 import { TextInput } from "@/components/ui/TextInput";
 import { Button } from "@/components/ui/Button";
 import { SelectInput } from "@/components/ui/SelectInput";
@@ -103,7 +103,7 @@ export function BankAccountCard({
   };
 
   return (
-    <WhiteCard>
+    <WhiteCardBorder>
       <h2 className="text-center text-h3 text-primary-500">
         User Bank Account Info
       </h2>
@@ -230,6 +230,6 @@ export function BankAccountCard({
           )}
         </div>
       )}
-    </WhiteCard>
+    </WhiteCardBorder>
   );
 }

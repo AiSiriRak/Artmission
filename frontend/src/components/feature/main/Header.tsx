@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 
 import { routes } from "@/lib/routes";
+import { useUnreadNotifications } from "@/lib/hooks/use-notifications";
 
 import { Button } from "@/components/ui/Button";
 import { CustomerSearchBar } from "./CustomerSearchBar";
@@ -18,6 +19,7 @@ interface HeaderProps {
 export default function Header({ usertype = "customer" }: HeaderProps) {
   const [isSettingPopupOpen, setIsSettingPopupOpen] = useState(false);
   const pathname = usePathname();
+  const { unreadCount } = useUnreadNotifications();
 
   const navItems =
     usertype == "customer"
@@ -152,6 +154,11 @@ export default function Header({ usertype = "customer" }: HeaderProps) {
                     }`}
                   >
                     {item.name}
+                    {item.name === "Notification" && unreadCount > 0 && (
+                      <div className="absolute flex bg-error rounded-full aspect-[1/1] w-6 text-white text-small items-center justify-center -top-2 translate-x-17 z-10 font-normal">
+                        {unreadCount}
+                      </div>
+                    )}
                   </Button>
                 </Link>
               );

@@ -5,6 +5,7 @@ import {
   UpdateAccountInput,
   UpdateBankAccountInput,
   UserAccount,
+  WalletView,
 } from "./types";
 
 export async function getAccount(): Promise<UserAccount> {
@@ -50,4 +51,8 @@ export async function UpdateProfileImage(
     method: "PUT",
     body: formData,
   });
+}
+
+export async function getWallet(): Promise<WalletView> {
+  return apiFetch<WalletView>("/wallet/me");
 }

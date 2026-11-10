@@ -17,6 +17,7 @@ export type AuthResult = components["schemas"]["AuthResultBody"];
 export type UserAccount = components["schemas"]["AccountView"];
 export type UpdateAccountInput =
   components["schemas"]["UpdateAccountInputBody"];
+export type WalletView = components["schemas"]["WalletView"];
 
 // Bank Account
 export type BankAccount = components["schemas"]["BankAccountView"];
@@ -93,11 +94,21 @@ export type SearchArtworksSort = NonNullable<SearchArtworksQuery["sort"]>;
 export type CreateArtworkInput = RequestBody<"/artworks", "post">;
 export type UpdateArtworkInput = RequestBody<"/artworks/{artwork_id}", "put">;
 
+// Notification
+export type Notification = components["schemas"]["NotificationView"];
+export type NotificationList =
+  components["schemas"]["ListNotificationsOutputBody"];
+export type NotificationUnreadCount =
+  components["schemas"]["UnreadNotificationsOutputBody"];
+export type MarkNotificationReadOutput =
+  components["schemas"]["MarkNotificationReadOutputBody"];
+
 // Review
 export type Review = components["schemas"]["ReviewView"];
 export type SubmitReviewInput = components["schemas"]["SubmitReviewInputBody"];
 export type ReviewDetail = components["schemas"]["ReviewDetailView"];
-export type ArtistReviewDetailView = components["schemas"]["ArtistReviewDetailView"];
+export type ArtistReviewDetailView =
+  components["schemas"]["ArtistReviewDetailView"];
 export type ArtworkReviewsOutput =
   components["schemas"]["GetReviewsByArtworkOutputBody"];
 export type ArtistReviewsOutput =

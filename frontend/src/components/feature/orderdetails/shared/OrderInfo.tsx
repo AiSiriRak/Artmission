@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { OrderStatus } from "@/lib/api/types";
+import { formatPriceFromSatang } from "@/lib/format-price";
 import { WhiteCard } from "@/components/ui/WhiteCard";
 
 interface OrderInfoProps {
@@ -57,7 +58,7 @@ export default function OrderInfo({
         <dl className={`space-y-3 px-6 pt-5 ${hasActions ? "pb-2" : "pb-5"}`}>
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-h4">Total Amount</dt>
-            <dd className="text-body text-right">{(priceSatang / 100).toLocaleString("en-US")} THB</dd>
+            <dd className="text-body text-right">{formatPriceFromSatang(priceSatang)} THB</dd>
           </div>
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-h4">Order Date</dt>

@@ -1,7 +1,7 @@
 "use client";
 
-import { WhiteCard } from "@/components/ui/WhiteCard";
 import { Button } from "@/components/ui/Button";
+import { WhiteCardBorder } from "@/components/ui/WhiteCardBorder";
 
 interface DeleteAccountCard {
   onDelete: () => void;
@@ -10,7 +10,7 @@ interface DeleteAccountCard {
 
 export function DeleteAccountCard({ disabled, onDelete }: DeleteAccountCard) {
   return (
-    <WhiteCard>
+    <WhiteCardBorder>
       <h2 className="text-center text-h3 text-error">Delete Account</h2>
       <div className="mt-6 space-y-5">
         <Button
@@ -22,6 +22,6 @@ export function DeleteAccountCard({ disabled, onDelete }: DeleteAccountCard) {
           Delete Account
         </Button>
       </div>
-    </WhiteCard>
+    </WhiteCardBorder>
   );
 }

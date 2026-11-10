@@ -8,6 +8,7 @@ import { getAccount } from "@/lib/api/users";
 import { isApiError } from "@/lib/api/error";
 import { routes } from "@/lib/routes";
 import { startAutoRefresh } from "@/lib/auto-refresh";
+import { formatPriceFromSatang } from "@/lib/format-price";
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
 import MainLayout from "@/components/feature/main/MainLayout";
@@ -228,7 +229,7 @@ export default function ArtistOrderDetails() {
     ? order.active_delay_request : null;
   const deadline = new Date(order.deadline_at);
   const deadlineInput = [deadline.getFullYear(), String(deadline.getMonth() + 1).padStart(2, "0"), String(deadline.getDate()).padStart(2, "0")].join("-");
-  const summary = "Order #" + order.id + " · " + order.name + " · ฿" + (order.price_satang / 100).toLocaleString("en-US");
+  const summary = "Order #" + order.id + " · " + order.name + " · ฿" + formatPriceFromSatang(order.price_satang);
 
   return (
     <>
