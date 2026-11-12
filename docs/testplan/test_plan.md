@@ -85,29 +85,29 @@ Action for every test case: enter the fields of each step and click **Next** (st
 
 | Test Case ID | Inputs | Expected Output | Actual Output | Classes Covered |
 |---|---|---|---|---|
-| TC1-1-1 | V (unchanged) | Screen `Account created!` with text `Your account has been created successfully. Please log in to continue.` and button **Log in**; clicking **Log in** opens the Login page | Pending run | 1, 6, 11, 15, 17, 20, 23, 27, 30 |
-| TC1-1-2 | Role: Artist<br>Email: `mei@gmail.com`<br>Username: `Mei` (3 characters)<br>Password: `mei12345` (8 characters)<br>Confirm password: `mei12345`<br>Bank: `ธนาคารไทยพาณิชย์ (SCB)`<br>Account holder name: `Mei Tan`<br>Account number: `12345678` (8 digits)<br>Terms checkbox: checked | Same as TC1-1-1 | Pending run | 2, 6, 11, 15, 17, 20, 23, 27, 30 |
-| TC1-1-3 | Role: Customer<br>Email: `max@gmail.com`<br>Username: `maximumlengthuser123` (20 characters)<br>Password: `max1234567890123` (16 characters)<br>Confirm password: `max1234567890123`<br>Bank: `United Overseas Bank (UOB)`<br>Account holder name: `Max Maximum`<br>Account number: `1234567890123456` (16 digits)<br>Terms checkbox: checked | Same as TC1-1-1 | Pending run | 1, 6, 11, 15, 17, 20, 23, 27, 30 |
-| TC1-1-4 | Role: *(none selected)* | Stays on step 1; text `Please select your role.` is shown under the role cards; no account is created | Pending run | 3 |
-| TC1-1-5 | V, except Email: *(empty)* | Stays on step 2; text `Please enter your email address.` is shown under Email; no account is created | Pending run | 1, 4, 11, 15, 17 |
-| TC1-1-6 | V, except Email: `john.gmail.com` | Stays on step 2; text `Please enter a valid email address.` is shown under Email; no account is created | Pending run | 1, 5, 11, 15, 17 |
-| TC1-1-7 | V, except Email: `jane@artmission.test` | After **Create account**, the page returns to step 2; text `This email is already registered.` is shown under Email; no `Account created!` screen | Pending run | 1, 7, 11, 15, 17, 20, 23, 27, 30 |
-| TC1-1-8 | V, except Username: *(empty)* | Stays on step 2; text `Please enter your username.` is shown under Username; no account is created | Pending run | 1, 6, 8, 15, 17 |
-| TC1-1-9 | V, except Username: `   ` (3 spaces) | Same as TC1-1-8 | Pending run | 1, 6, 9, 15, 17 |
-| TC1-1-10 | V, except Username: `Jo` (2 characters) | Stays on step 2; text `Username must be at least 3 characters.` is shown under Username; no account is created | Pending run | 1, 6, 10, 15, 17 |
-| TC1-1-11 | V, except Username: `maximumlengthuser1234` (21 characters) | Stays on step 2; text `Username must be 20 characters or less.` is shown under Username; no account is created | Pending run | 1, 6, 12, 15, 17 |
-| TC1-1-12 | V, except Password: *(empty)* and Confirm password: *(empty)* | Stays on step 2; text `Please enter a password.` is shown under Password; no account is created | Pending run | 1, 6, 11, 13, 17 |
-| TC1-1-13 | V, except Password: `john123` (7 characters) and Confirm password: `john123` | Stays on step 2; text `Password must be at least 8 characters.` is shown under Password; no account is created | Pending run | 1, 6, 11, 14, 17 |
-| TC1-1-14 | V, except Password: `john1234567890123` (17 characters) and Confirm password: `john1234567890123` | Stays on step 2; text `Password must be 16 characters or less.` is shown under Password; no account is created | Pending run | 1, 6, 11, 16, 17 |
-| TC1-1-15 | V, except Confirm password: `john54321` | Stays on step 2; text `Passwords do not match.` is shown under Confirm password; no account is created | Pending run | 1, 6, 11, 15, 18 |
-| TC1-1-16 | V, except Bank: *(not selected)* | Stays on step 3; text `Please select your bank.` is shown under Bank; no account is created | Pending run | 1, 6, 11, 15, 17, 19, 23, 27, 30 |
-| TC1-1-17 | V, except Account holder name: *(empty)* | Stays on step 3; text `Please enter the account holder's name.` is shown under Account holder name; no account is created | Pending run | 1, 6, 11, 15, 17, 20, 21, 27, 30 |
-| TC1-1-18 | V, except Account holder name: `   ` (3 spaces) | Same as TC1-1-17 | Pending run | 1, 6, 11, 15, 17, 20, 22, 27, 30 |
-| TC1-1-19 | V, except Account number: *(empty)* | Stays on step 3; text `Please enter your bank account number.` is shown under Account number; no account is created | Pending run | 1, 6, 11, 15, 17, 20, 23, 24, 30 |
-| TC1-1-20 | V, except Account number: `12345abc90` | Stays on step 3; text `Please enter a valid bank account number.` is shown under Account number; no account is created | Pending run | 1, 6, 11, 15, 17, 20, 23, 25, 30 |
-| TC1-1-21 | V, except Account number: `1234567` (7 digits) | Same as TC1-1-20 | Pending run | 1, 6, 11, 15, 17, 20, 23, 26, 30 |
-| TC1-1-22 | V, except Account number: `12345678901234567` (17 digits) | Same as TC1-1-20 | Pending run | 1, 6, 11, 15, 17, 20, 23, 28, 30 |
-| TC1-1-23 | V, except Terms checkbox: not checked | Stays on step 3; text `Please agree to the Terms of Service and Privacy Policy to continue.` is shown under the checkbox; no account is created | Pending run | 1, 6, 11, 15, 17, 20, 23, 27, 29 |
+| TC1-1-1 | V (unchanged) | Screen `Account created!` with text `Your account has been created successfully. Please log in to continue.` and button **Log in**; clicking **Log in** opens the Login page | Manual run; see submitted test report | 1, 6, 11, 15, 17, 20, 23, 27, 30 |
+| TC1-1-2 | Role: Artist<br>Email: `mei@gmail.com`<br>Username: `Mei` (3 characters)<br>Password: `mei12345` (8 characters)<br>Confirm password: `mei12345`<br>Bank: `ธนาคารไทยพาณิชย์ (SCB)`<br>Account holder name: `Mei Tan`<br>Account number: `12345678` (8 digits)<br>Terms checkbox: checked | Same as TC1-1-1 | Manual run; see submitted test report | 2, 6, 11, 15, 17, 20, 23, 27, 30 |
+| TC1-1-3 | Role: Customer<br>Email: `max@gmail.com`<br>Username: `maximumlengthuser123` (20 characters)<br>Password: `max1234567890123` (16 characters)<br>Confirm password: `max1234567890123`<br>Bank: `United Overseas Bank (UOB)`<br>Account holder name: `Max Maximum`<br>Account number: `1234567890123456` (16 digits)<br>Terms checkbox: checked | Same as TC1-1-1 | Manual run; see submitted test report | 1, 6, 11, 15, 17, 20, 23, 27, 30 |
+| TC1-1-4 | Role: *(none selected)* | Stays on step 1; text `Please select your role.` is shown under the role cards; no account is created | Manual run; see submitted test report | 3 |
+| TC1-1-5 | V, except Email: *(empty)* | Stays on step 2; text `Please enter your email address.` is shown under Email; no account is created | Manual run; see submitted test report | 1, 4, 11, 15, 17 |
+| TC1-1-6 | V, except Email: `john.gmail.com` | Stays on step 2; text `Please enter a valid email address.` is shown under Email; no account is created | Manual run; see submitted test report | 1, 5, 11, 15, 17 |
+| TC1-1-7 | V, except Email: `jane@artmission.test` | After **Create account**, the page returns to step 2; text `This email is already registered.` is shown under Email; no `Account created!` screen | Manual run; see submitted test report | 1, 7, 11, 15, 17, 20, 23, 27, 30 |
+| TC1-1-8 | V, except Username: *(empty)* | Stays on step 2; text `Please enter your username.` is shown under Username; no account is created | Manual run; see submitted test report | 1, 6, 8, 15, 17 |
+| TC1-1-9 | V, except Username: `   ` (3 spaces) | Same as TC1-1-8 | Manual run; see submitted test report | 1, 6, 9, 15, 17 |
+| TC1-1-10 | V, except Username: `Jo` (2 characters) | Stays on step 2; text `Username must be at least 3 characters.` is shown under Username; no account is created | Manual run; see submitted test report | 1, 6, 10, 15, 17 |
+| TC1-1-11 | V, except Username: `maximumlengthuser1234` (21 characters) | Stays on step 2; text `Username must be 20 characters or less.` is shown under Username; no account is created | Manual run; see submitted test report | 1, 6, 12, 15, 17 |
+| TC1-1-12 | V, except Password: *(empty)* and Confirm password: *(empty)* | Stays on step 2; text `Please enter a password.` is shown under Password; no account is created | Manual run; see submitted test report | 1, 6, 11, 13, 17 |
+| TC1-1-13 | V, except Password: `john123` (7 characters) and Confirm password: `john123` | Stays on step 2; text `Password must be at least 8 characters.` is shown under Password; no account is created | Manual run; see submitted test report | 1, 6, 11, 14, 17 |
+| TC1-1-14 | V, except Password: `john1234567890123` (17 characters) and Confirm password: `john1234567890123` | Stays on step 2; text `Password must be 16 characters or less.` is shown under Password; no account is created | Manual run; see submitted test report | 1, 6, 11, 16, 17 |
+| TC1-1-15 | V, except Confirm password: `john54321` | Stays on step 2; text `Passwords do not match.` is shown under Confirm password; no account is created | Manual run; see submitted test report | 1, 6, 11, 15, 18 |
+| TC1-1-16 | V, except Bank: *(not selected)* | Stays on step 3; text `Please select your bank.` is shown under Bank; no account is created | Manual run; see submitted test report | 1, 6, 11, 15, 17, 19, 23, 27, 30 |
+| TC1-1-17 | V, except Account holder name: *(empty)* | Stays on step 3; text `Please enter the account holder's name.` is shown under Account holder name; no account is created | Manual run; see submitted test report | 1, 6, 11, 15, 17, 20, 21, 27, 30 |
+| TC1-1-18 | V, except Account holder name: `   ` (3 spaces) | Same as TC1-1-17 | Manual run; see submitted test report | 1, 6, 11, 15, 17, 20, 22, 27, 30 |
+| TC1-1-19 | V, except Account number: *(empty)* | Stays on step 3; text `Please enter your bank account number.` is shown under Account number; no account is created | Manual run; see submitted test report | 1, 6, 11, 15, 17, 20, 23, 24, 30 |
+| TC1-1-20 | V, except Account number: `12345abc90` | Stays on step 3; text `Please enter a valid bank account number.` is shown under Account number; no account is created | Manual run; see submitted test report | 1, 6, 11, 15, 17, 20, 23, 25, 30 |
+| TC1-1-21 | V, except Account number: `1234567` (7 digits) | Same as TC1-1-20 | Manual run; see submitted test report | 1, 6, 11, 15, 17, 20, 23, 26, 30 |
+| TC1-1-22 | V, except Account number: `12345678901234567` (17 digits) | Same as TC1-1-20 | Manual run; see submitted test report | 1, 6, 11, 15, 17, 20, 23, 28, 30 |
+| TC1-1-23 | V, except Terms checkbox: not checked | Stays on step 3; text `Please agree to the Terms of Service and Privacy Policy to continue.` is shown under the checkbox; no account is created | Manual run; see submitted test report | 1, 6, 11, 15, 17, 20, 23, 27, 29 |
 
 ---
 
@@ -137,14 +137,14 @@ Action for every test case: enter the fields of each step and click **Next** (st
 
 | Test Case ID | Inputs | Expected Output | Actual Output | Classes Covered |
 |---|---|---|---|---|
-| TC1-2-1 | Name: `ธนาคารไทยพาณิชย์ (SCB)`<br>Account holder name: `John Smith`<br>Account holder number: `9876543210`<br>Action: click **Done** | Form closes; card shows Bank `ธนาคารไทยพาณิชย์ (SCB)`, Account holder name `John Smith`, Account holder number `••••3210` | Pending run | 1, 2, 8, 10 |
-| TC1-2-2 | Name: `ธนาคารกสิกรไทย (KBANK)`<br>Account holder name: *(cleared)*<br>Account holder number: `9876543210`<br>Action: click **Done** | Form stays open; text `Please enter the account holder's name.` is shown under Account holder name; nothing is saved | Pending run | 1, 3, 8, 10 |
-| TC1-2-3 | Name: `ธนาคารกสิกรไทย (KBANK)`<br>Account holder name: `   ` (3 spaces)<br>Account holder number: `9876543210`<br>Action: click **Done** | Same as TC1-2-2 | Pending run | 1, 4, 8, 10 |
-| TC1-2-4 | Name: `ธนาคารกสิกรไทย (KBANK)`<br>Account holder name: `John Doe`<br>Account holder number: *(empty)*<br>Action: click **Done** | Form stays open; text `Please enter your bank account number.` is shown under Account holder number; nothing is saved | Pending run | 1, 2, 5, 10 |
-| TC1-2-5 | Name: `ธนาคารกสิกรไทย (KBANK)`<br>Account holder name: `John Doe`<br>Account holder number: `12345abc90`<br>Action: click **Done** | Form stays open; text `Please enter a valid bank account number.` is shown under Account holder number; nothing is saved | Pending run | 1, 2, 6, 10 |
-| TC1-2-6 | Name: `ธนาคารกสิกรไทย (KBANK)`<br>Account holder name: `John Doe`<br>Account holder number: `1234567` (7 digits)<br>Action: click **Done** | Same as TC1-2-5 | Pending run | 1, 2, 7, 10 |
-| TC1-2-7 | Name: `ธนาคารกสิกรไทย (KBANK)`<br>Account holder name: `John Doe`<br>Account holder number: `12345678901234567` (17 digits)<br>Action: click **Done** | Same as TC1-2-5 | Pending run | 1, 2, 9, 10 |
-| TC1-2-8 | Name: `ธนาคารไทยพาณิชย์ (SCB)`<br>Account holder name: `Changed Name`<br>Account holder number: `1111111111`<br>Action: click **Cancel** | Form closes; card shows the values saved before **Edit** was clicked, not the typed values | Pending run | 1, 2, 8, 11 |
+| TC1-2-1 | Name: `ธนาคารไทยพาณิชย์ (SCB)`<br>Account holder name: `John Smith`<br>Account holder number: `9876543210`<br>Action: click **Done** | Form closes; card shows Bank `ธนาคารไทยพาณิชย์ (SCB)`, Account holder name `John Smith`, Account holder number `••••3210` | Manual run; see submitted test report | 1, 2, 8, 10 |
+| TC1-2-2 | Name: `ธนาคารกสิกรไทย (KBANK)`<br>Account holder name: *(cleared)*<br>Account holder number: `9876543210`<br>Action: click **Done** | Form stays open; text `Please enter the account holder's name.` is shown under Account holder name; nothing is saved | Manual run; see submitted test report | 1, 3, 8, 10 |
+| TC1-2-3 | Name: `ธนาคารกสิกรไทย (KBANK)`<br>Account holder name: `   ` (3 spaces)<br>Account holder number: `9876543210`<br>Action: click **Done** | Same as TC1-2-2 | Manual run; see submitted test report | 1, 4, 8, 10 |
+| TC1-2-4 | Name: `ธนาคารกสิกรไทย (KBANK)`<br>Account holder name: `John Doe`<br>Account holder number: *(empty)*<br>Action: click **Done** | Form stays open; text `Please enter your bank account number.` is shown under Account holder number; nothing is saved | Manual run; see submitted test report | 1, 2, 5, 10 |
+| TC1-2-5 | Name: `ธนาคารกสิกรไทย (KBANK)`<br>Account holder name: `John Doe`<br>Account holder number: `12345abc90`<br>Action: click **Done** | Form stays open; text `Please enter a valid bank account number.` is shown under Account holder number; nothing is saved | Manual run; see submitted test report | 1, 2, 6, 10 |
+| TC1-2-6 | Name: `ธนาคารกสิกรไทย (KBANK)`<br>Account holder name: `John Doe`<br>Account holder number: `1234567` (7 digits)<br>Action: click **Done** | Same as TC1-2-5 | Manual run; see submitted test report | 1, 2, 7, 10 |
+| TC1-2-7 | Name: `ธนาคารกสิกรไทย (KBANK)`<br>Account holder name: `John Doe`<br>Account holder number: `12345678901234567` (17 digits)<br>Action: click **Done** | Same as TC1-2-5 | Manual run; see submitted test report | 1, 2, 9, 10 |
+| TC1-2-8 | Name: `ธนาคารไทยพาณิชย์ (SCB)`<br>Account holder name: `Changed Name`<br>Account holder number: `1111111111`<br>Action: click **Cancel** | Form closes; card shows the values saved before **Edit** was clicked, not the typed values | Manual run; see submitted test report | 1, 2, 8, 11 |
 
 ---
 
@@ -172,13 +172,13 @@ Action for every test case: enter the fields of each step and click **Next** (st
 
 | Test Case ID | Inputs | Expected Output | Actual Output | Classes Covered |
 |---|---|---|---|---|
-| TC1-4-1 | Email: `jane@artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | Home page opens with heading `Browse artists`; the header navigation shows **Home**, **Order** and **Notification** | Pending run | 1, 6 |
-| TC1-4-2 | Email: `ann@artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | The order history page opens (an artist is sent there after logging in); the header navigation shows **Order**, **Artist Profile** and **Notification** | Pending run | 2, 6 |
-| TC1-4-3 | Email: `jane@artmission.test`<br>Password: `Password123` (wrong)<br>Action: click **Log in** | Text `Cannot login because the email or password is incorrect.` is shown; stays on the Login page | Pending run | 1, 7 |
-| TC1-4-4 | Email: `nobody@artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | Same as TC1-4-3 | Pending run | 3 |
-| TC1-4-5 | Email: `jane.artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | A browser validation message is shown at the Email field; stays on the Login page | Pending run | 4 |
-| TC1-4-6 | Email: *(empty)*<br>Password: `Password123!` | **Log in** button is disabled, so the form cannot be submitted | Pending run | 5 |
-| TC1-4-7 | Email: `jane@artmission.test`<br>Password: *(empty)* | **Log in** button is disabled, so the form cannot be submitted | Pending run | 1, 8 |
+| TC1-4-1 | Email: `jane@artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | Home page opens with heading `Browse artists`; the header navigation shows **Home**, **Order** and **Notification** | Manual run; see submitted test report | 1, 6 |
+| TC1-4-2 | Email: `ann@artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | The order history page opens (an artist is sent there after logging in); the header navigation shows **Order**, **Artist Profile** and **Notification** | Manual run; see submitted test report | 2, 6 |
+| TC1-4-3 | Email: `jane@artmission.test`<br>Password: `Password123` (wrong)<br>Action: click **Log in** | Text `Cannot login because the email or password is incorrect.` is shown; stays on the Login page | Manual run; see submitted test report | 1, 7 |
+| TC1-4-4 | Email: `nobody@artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | Same as TC1-4-3 | Manual run; see submitted test report | 3 |
+| TC1-4-5 | Email: `jane.artmission.test`<br>Password: `Password123!`<br>Action: click **Log in** | A browser validation message is shown at the Email field; stays on the Login page | Manual run; see submitted test report | 4 |
+| TC1-4-6 | Email: *(empty)*<br>Password: `Password123!` | **Log in** button is disabled, so the form cannot be submitted | Manual run; see submitted test report | 5 |
+| TC1-4-7 | Email: `jane@artmission.test`<br>Password: *(empty)* | **Log in** button is disabled, so the form cannot be submitted | Manual run; see submitted test report | 1, 8 |
 
 ---
 
@@ -202,10 +202,10 @@ Action for every test case: enter the fields of each step and click **Next** (st
 
 | Test Case ID | Inputs | Expected Output | Actual Output | Classes Covered |
 |---|---|---|---|---|
-| TC1-6-1 | Account: delete1@artmission.test (no orders)<br>Action: click **Delete Account**<br>Then: click **Delete Account** in the popup<br>Then: click **Close**<br>Then: on the Login page, log in with `delete1@artmission.test` / `Delete1234` | Popup `Account Deleted` with text `Your account has been successfully deleted.`; **Close** opens the Login page; the login attempt shows `Cannot login because the email or password is incorrect.` | Pending run | 1, 4 |
-| TC1-6-2 | Account: cleo@artmission.test (only order is `CANCEL`)<br>Action: click **Delete Account**<br>Then: click **Delete Account** in the popup<br>Then: click **Close**<br>Then: on the Login page, log in with `cleo@artmission.test` / `Password123!` | Same as TC1-6-1 | Pending run | 2, 4 |
-| TC1-6-3 | Account: jane@artmission.test (orders in `PENDING`, `NOT_PAID`, `IN_PROCESS`)<br>Action: click **Delete Account**<br>Then: click **Delete Account** in the popup<br>Then: click **Close** | Popup `Unable to Delete Account` with text `Your account cannot be deleted at the moment, as there are still ongoing orders.`; **Close** closes the popup and the Profile page is still shown | Pending run | 3, 4 |
-| TC1-6-4 | Account: delete2@artmission.test (no orders)<br>Action: click **Delete Account**<br>Then: click **Cancel** in the popup | Popup closes; the Profile page is still shown; the account is not deleted | Pending run | 1, 5 |
+| TC1-6-1 | Account: delete1@artmission.test (no orders)<br>Action: click **Delete Account**<br>Then: click **Delete Account** in the popup<br>Then: click **Close**<br>Then: on the Login page, log in with `delete1@artmission.test` / `Delete1234` | Popup `Account Deleted` with text `Your account has been successfully deleted.`; **Close** opens the Login page; the login attempt shows `Cannot login because the email or password is incorrect.` | Manual run; see submitted test report | 1, 4 |
+| TC1-6-2 | Account: cleo@artmission.test (only order is `CANCEL`)<br>Action: click **Delete Account**<br>Then: click **Delete Account** in the popup<br>Then: click **Close**<br>Then: on the Login page, log in with `cleo@artmission.test` / `Password123!` | Same as TC1-6-1 | Manual run; see submitted test report | 2, 4 |
+| TC1-6-3 | Account: jane@artmission.test (orders in `PENDING`, `NOT_PAID`, `IN_PROCESS`)<br>Action: click **Delete Account**<br>Then: click **Delete Account** in the popup<br>Then: click **Close** | Popup `Unable to Delete Account` with text `Your account cannot be deleted at the moment, as there are still ongoing orders.`; **Close** closes the popup and the Profile page is still shown | Manual run; see submitted test report | 3, 4 |
+| TC1-6-4 | Account: delete2@artmission.test (no orders)<br>Action: click **Delete Account**<br>Then: click **Cancel** in the popup | Popup closes; the Profile page is still shown; the account is not deleted | Manual run; see submitted test report | 1, 5 |
 
 ---
 
