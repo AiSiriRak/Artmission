@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import MainLayout from "@/components/feature/main/MainLayout";
 import { Button } from "@/components/ui/Button";
+import { routes } from "@/lib/routes";
 
 interface OrderDetailsProps {
   usertype: "artist" | "customer";
@@ -39,7 +40,7 @@ export default function OrderDetails({
         <Button
           type="button"
           className="!border w-24"
-          onClick={() => router.back()}
+          onClick={() => router.replace(routes.order.history)}
           icon={
             <Image
               src="/icons/Arrow_left.svg"

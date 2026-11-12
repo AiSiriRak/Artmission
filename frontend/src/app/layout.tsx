@@ -22,7 +22,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en th" className={`${anuphan.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      {/* Grammarly may inject attributes on body before React hydrates. */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>{children}</body>
     </html>
   );
 }
