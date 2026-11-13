@@ -1,6 +1,6 @@
 module github.com/AiSiriRak/Artmission/backend
 
-go 1.27.0
+go 1.27.3
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.6
