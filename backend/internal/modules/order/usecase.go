@@ -9,8 +9,6 @@ import (
 	"image"
 	"image/color"
 	stdDraw "image/draw"
-	_ "image/jpeg"
-	_ "image/png"
 	"io"
 	"math"
 	"slices"
@@ -18,10 +16,9 @@ import (
 	"time"
 
 	"github.com/AiSiriRak/Artmission/backend/internal/pkg/apperror"
-	"github.com/disintegration/imaging"
+	"github.com/AiSiriRak/Artmission/backend/internal/pkg/imageutil"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
-	_ "golang.org/x/image/webp"
 )
 
 //go:embed assets/deliverable-watermark.png
@@ -30,9 +27,7 @@ var deliverableWatermarkBytes []byte
 var deliverableWatermark image.Image
 
 func init() {
-	decoded, err := imaging.Decode(
-		bytes.NewReader(deliverableWatermarkBytes),
-	)
+	decoded, err := imageutil.Decode(deliverableWatermarkBytes)
 	if err != nil {
 		panic("failed to decode deliverable watermark: " + err.Error())
 	}
@@ -703,10 +698,7 @@ func createDeliverablePreview(
 	}
 
 	// Decode the original image and apply EXIF orientation.
-	src, err := imaging.Decode(
-		bytes.NewReader(original),
-		imaging.AutoOrientation(true),
-	)
+	src, err := imageutil.Decode(original)
 	if err != nil {
 		return nil, fmt.Errorf("decode deliverable image: %w", err)
 	}
@@ -726,11 +718,11 @@ func createDeliverablePreview(
 			height = deliverablePreviewSize
 		}
 
-		src = imaging.Resize(src, width, height, imaging.Lanczos)
+		src = imageutil.Resize(src, width, height)
 	}
 
 	// Create a mutable image for the watermark.
-	dst := imaging.Clone(src)
+	dst := imageutil.NewRGBA(src)
 
 	// Scale the logo to fit within 1/5 of the preview's width and height.
 	wmBounds := watermark.Bounds()
@@ -751,19 +743,14 @@ func createDeliverablePreview(
 	scaledHeight := max(1, int(float64(wmHeight)*scale))
 
 	// Resize watermark logo.
-	logo := imaging.Resize(
+	logo := imageutil.Resize(
 		watermark,
 		scaledWidth,
 		scaledHeight,
-		imaging.Lanczos,
 	)
 
 	// Rotate the logo while preserving transparent corners.
-	logo = imaging.Rotate(
-		logo,
-		deliverableWatermarkTiltedAngle,
-		color.Transparent,
-	)
+	logo = imageutil.Rotate(logo, deliverableWatermarkTiltedAngle)
 
 	// Use the actual dimensions after rotation.
 	logoBounds := logo.Bounds()
@@ -835,11 +822,10 @@ func createDeliverablePreview(
 
 	// Encode the watermarked preview as JPEG.
 	var output bytes.Buffer
-	if err := imaging.Encode(
+	if err := imageutil.EncodeJPEG(
 		&output,
 		dst,
-		imaging.JPEG,
-		imaging.JPEGQuality(deliverablePreviewQuality),
+		deliverablePreviewQuality,
 	); err != nil {
 		return nil, fmt.Errorf("encode deliverable preview: %w", err)
 	}
@@ -1129,6 +1115,7 @@ func orderTransaction[T any](ctx context.Context, u *orderUsecase, fn func(conte
 	}
 	return result, nil
 }
+
 func orderTransactionError(ctx context.Context, u *orderUsecase, fn func(context.Context) error) error {
 	_, err := orderTransaction(ctx, u, func(ctx context.Context) (struct{}, error) { return struct{}{}, fn(ctx) })
 	return err
