@@ -52,8 +52,8 @@ export const ValidateArtworkForm = (formData: ArtworkFormData): ArtworkFormError
   // Price
   if (String(formData.price).trim() === "") {
     errors.price = "Please enter price";
-  } else if (Number(formData.price) < 0) {
-    errors.price = "Price cannot be negative";
+  } else if (Number(formData.price) <= 0) {
+    errors.price = "Price must be greater than zero";
   }
 
   return errors;
