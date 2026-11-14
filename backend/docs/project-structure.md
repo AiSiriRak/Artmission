@@ -11,7 +11,7 @@ backend/
 │   ├── cmd_root.go                   root command, --env-file flag, config loading
 │   ├── cmd_serve.go                  `serve`: builds the app and starts the HTTP server
 │   ├── cmd_migrate.go                `migrate up|down|reset|create`: goose wrapper
-│   └── cmd_seed.go                   seed fixtures / catalog data
+│   └── cmd_seed.go                   `seed up|down|reseed [dev|e2e]`: load fixture data
 │
 ├── internal/
 │   ├── wiring/                      the composition root — Wire() builds every adapter/usecase/handler
@@ -45,7 +45,7 @@ backend/
 │       ├── migrations/               embedded SQL migration files, applied via goose
 │       ├── objectstorage/            S3-backed object storage client
 │       ├── security/                 password hashing
-│       └── seed/                     seed data generators for local/test environments
+│       └── seed/                     fixture data: a shared base plus `dev` and `e2e` order datasets (one per database)
 │
 ├── tests/                          BDD/integration tests grouped by feature
 ├── bruno/                          Bruno API collections for manual endpoint checks
