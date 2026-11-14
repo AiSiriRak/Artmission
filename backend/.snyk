@@ -1,0 +1,10 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.25.1
+# ignores vulnerabilities until expiry date; change duration by modifying expiry date
+ignore:
+  SNYK-GOLANG-GITHUBCOMVMIHAILENCOMSGPACKV5-15702238:
+    - '*':
+        reason: CVE-2026-2454 is in a Mattermost plugin; no fix exists; not used by us
+        expires: 2026-12-13T13:55:36.111Z
+        created: 2026-11-13T13:55:36.112Z
+patch: {}

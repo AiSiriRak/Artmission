@@ -1,6 +1,6 @@
 module github.com/AiSiriRak/Artmission/backend
 
-go 1.27.0
+go 1.27.3
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.6
@@ -9,7 +9,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3
 	github.com/cucumber/godog v0.16.0
 	github.com/danielgtaylor/huma/v2 v2.39.1
-	github.com/disintegration/imaging v1.6.2
 	github.com/fogleman/gg v1.3.0
 	github.com/gabriel-vasile/mimetype v1.4.13
 	github.com/go-playground/validator/v10 v10.30.3
@@ -21,6 +20,7 @@ require (
 	github.com/pressly/goose/v3 v3.27.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
+	github.com/testcontainers/testcontainers-go v0.40.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.40.0
 	github.com/uptrace/bun v1.2.18
 	github.com/uptrace/bun/dialect/pgdialect v1.2.18
@@ -123,7 +123,6 @@ require (
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tdewolff/parse/v2 v2.8.12 // indirect
-	github.com/testcontainers/testcontainers-go v0.40.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect

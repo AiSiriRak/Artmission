@@ -1,5 +1,5 @@
 # --- Stage 1: Build ---
-FROM golang:1.27 AS build
+FROM golang:1.27.3 AS build
 
 WORKDIR /go/src
 
