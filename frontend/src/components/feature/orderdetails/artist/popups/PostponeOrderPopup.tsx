@@ -95,7 +95,7 @@ export default function PostponeOrderPopup({ orderSummary, currentDeadline, curr
         <textarea id={fieldId + "-description"} required maxLength={300} value={description} onChange={(event) => { setDescription(event.target.value); setError(""); }} placeholder="Briefly explain why you need more time..." className="h-18 w-full resize-none rounded-xl border-2 border-neutral-400 p-3 text-small" />
         <p className="mt-1 text-right text-small text-neutral">{description.length}/300</p>
         <div className="mt-3 flex items-center gap-3 rounded-xl bg-neutral-400 px-4 py-2 text-small">
-          <Image src="/icons/Info.svg" alt="" width={32} height={32} className="h-8 w-8 shrink-0" />
+          <Image src="/icons/info.svg" alt="" width={32} height={32} className="h-8 w-8 shrink-0" />
           <p>The customer has 48 hours to respond. If no response, the request will be automatically declined and the original deadline will remain.</p>
         </div>
         {error && <p role="alert" className="mt-3 text-small text-error">{error}</p>}
