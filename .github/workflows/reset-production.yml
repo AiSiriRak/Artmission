@@ -33,6 +33,7 @@ jobs:
       - name: Check confirmation
         env:
           CONFIRM: ${{ inputs.confirm }}
+        working-directory: .
         run: |
           if [ "$CONFIRM" != "reset-production" ]; then
             echo "::error::Confirmation text does not match; nothing was changed."
