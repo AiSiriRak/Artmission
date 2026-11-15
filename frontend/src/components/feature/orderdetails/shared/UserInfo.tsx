@@ -27,6 +27,7 @@ export default function UserInfo({ title, name, email, profileImageURL }: UserIn
               fill
               sizes="80px"
               className="object-cover"
+              unoptimized
             />
           </div>
           <dl className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-0.5">

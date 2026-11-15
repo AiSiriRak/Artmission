@@ -52,6 +52,7 @@ export default function ReviewCard({ review }: { review: ReviewData | ArtistRevi
           width={48}
           height={48}
           className="w-auto h-full object-cover"
+          unoptimized
         />
       </div>
 

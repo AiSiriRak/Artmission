@@ -61,6 +61,7 @@ export default function ProfileImage({
           setImgError(true);
         }}
         className={`rounded-full object-cover shadow-sm bg-white border border-neutral ${className}`}
+        unoptimized
       />
       {isEditing && (
         <button

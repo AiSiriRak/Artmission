@@ -52,6 +52,7 @@ export default function ArtworkDetailCard({ artwork }: ArtworkDetailCardProps) {
                     width={400}
                     height={400}
                     className="h-48 w-auto max-w-none object-contain"
+                    unoptimized
                   />
                 </div>
               ),

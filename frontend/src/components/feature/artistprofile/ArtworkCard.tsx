@@ -34,6 +34,7 @@ export default function ArtworkCard({
           width={400}
           height={224}
           className="w-full h-56 object-cover"
+          unoptimized
         />
 
         {showEditControls && (

@@ -75,6 +75,7 @@ function ArtworkPreview({ src, alt }: { src: string; alt: string }) {
           width={400}
           height={632}
           className="block w-full h-auto max-h-[632px] object-contain"
+          unoptimized
         />
       </div>
     </div>

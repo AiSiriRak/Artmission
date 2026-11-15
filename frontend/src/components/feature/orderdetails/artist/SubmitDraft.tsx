@@ -71,6 +71,7 @@ export default function SubmitDraft({ onSubmit, disabled = false }: { onSubmit: 
                 width={632}
                 height={632}
                 className="block h-auto w-auto max-h-[632px] max-w-full object-contain"
+                unoptimized
               />
             </div>
           </div>

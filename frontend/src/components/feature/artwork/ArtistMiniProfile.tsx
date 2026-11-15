@@ -21,6 +21,7 @@ export function ArtistMiniProfile({ artist }: ArtistMiniProfileProps) {
           width={128}
           height={128}
           className="w-full h-full object-cover"
+          unoptimized
         />
       </div>
       <div className="flex flex-col flex-1 min-w-0">
