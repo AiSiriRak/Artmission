@@ -2,7 +2,8 @@
 //
 //   - serve runs the HTTP API
 //   - migrate drives goose
-//   - seed populates local/dev fixture data.
+//   - seed populates local/dev fixture data
+//   - reset wipes all data (S3 objects and database) and re-applies migrations.
 package cmd
 
 import (
@@ -20,6 +21,7 @@ func init() {
 	RootCmd.AddCommand(serveCmd)
 	RootCmd.AddCommand(migrateCmd)
 	RootCmd.AddCommand(seedCmd)
+	RootCmd.AddCommand(resetCmd)
 }
 
 func getConfigFromCmd(cmd *cobra.Command) (config.Config, error) {

@@ -18,6 +18,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 // Client holds one bound handle per bucket, both sharing the same
@@ -115,6 +116,51 @@ func (b *bucket) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("delete %q from bucket %q: %w", key, b.name, err)
 	}
 	return nil
+}
+
+// deleteBatchSize is the S3 DeleteObjects per-request key limit.
+const deleteBatchSize = 1000
+
+// DeleteAll removes every object in the bucket and returns how many were
+// deleted. The bucket itself is left in place. Only current object
+// versions are removed, so on a versioned bucket this leaves delete
+// markers and older versions behind.
+func (b *bucket) DeleteAll(ctx context.Context) (int, error) {
+	deleted := 0
+	pages := s3.NewListObjectsV2Paginator(b.raw, &s3.ListObjectsV2Input{Bucket: aws.String(b.name)})
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(ctx)
+		if err != nil {
+			return deleted, fmt.Errorf("list bucket %q: %w", b.name, err)
+		}
+		if len(page.Contents) == 0 {
+			continue
+		}
+
+		// A page holds at most 1000 keys (the ListObjectsV2 default), which
+		// is exactly what one DeleteObjects call accepts.
+		ids := make([]types.ObjectIdentifier, 0, deleteBatchSize)
+		for _, obj := range page.Contents {
+			ids = append(ids, types.ObjectIdentifier{Key: obj.Key})
+		}
+		out, err := b.raw.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+			Bucket: aws.String(b.name),
+			Delete: &types.Delete{Objects: ids, Quiet: aws.Bool(true)},
+		})
+		if err != nil {
+			return deleted, fmt.Errorf("delete objects from bucket %q: %w", b.name, err)
+		}
+		// DeleteObjects reports per-key failures in the body of a 200 response.
+		if len(out.Errors) > 0 {
+			first := out.Errors[0]
+			return deleted + len(ids) - len(out.Errors), fmt.Errorf(
+				"delete objects from bucket %q: %d failed, first %q: %s: %s",
+				b.name, len(out.Errors), aws.ToString(first.Key), aws.ToString(first.Code), aws.ToString(first.Message),
+			)
+		}
+		deleted += len(ids)
+	}
+	return deleted, nil
 }
 
 // PublicBucket is the public-read bucket — e.g. artwork images.

@@ -58,6 +58,11 @@ tasks:
     cmds:
       - go run . --env-file {{.ENV_FILE}} seed down {{.CLI_ARGS}}
 
+  reset:
+    desc: wipes ALL data in the env-file's environment (both buckets and the database) and re-applies migrations
+    cmds:
+      - go run . --env-file {{.ENV_FILE}} reset --yes {{.CLI_ARGS}}
+
   seed-e2e:
     desc: removes and reloads the e2e dataset in the e2e database; run it before every e2e test run
     env:
