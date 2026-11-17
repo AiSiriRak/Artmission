@@ -58,7 +58,7 @@ test("TC6-7-4 GIF file is refused", async ({ page, request }) => {
   await openOrder(page, request, "E2E draft - validation");
   await chooseFile(page, { name: "draft.gif", mimeType: "image/gif", buffer: Buffer.from("GIF89a") });
 
-  await expect(page.getByRole("alert").filter({ hasText: "เลือกไฟล์ JPG, PNG หรือ WebP เท่านั้น" })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "Please select a JPG, PNG, or WebP file." })).toBeVisible();
   await expect(page.getByAltText("Draft preview")).toHaveCount(0);
   await expect(submitButton(page)).toHaveCount(0);
 });

@@ -11,7 +11,8 @@ test.use({ storageState: authFile("artistBo") });
 const D = 14;
 const REASON = "I need more time for details";
 const EXPLANATION = "Need extra time to refine the shading.";
-const ALERT = "กรุณาเลือกวันหลัง Deadline เดิม พร้อมเหตุผลและคำอธิบาย";
+const REASON_ALERT = "Please select a reason for postponement.";
+const EXPLANATION_ALERT = "Please explain your reason.";
 
 async function openOrder(
   page: Page,
@@ -129,7 +130,7 @@ test("TC6-6-5 missing reason is not sent", async ({ page, request }) => {
   });
   await send(popup);
 
-  await expect(popup.getByRole("alert")).toHaveText(ALERT);
+  await expect(popup.getByRole("alert")).toHaveText(REASON_ALERT);
   await expectNotSent(page, popup, writes);
 });
 
@@ -158,7 +159,7 @@ test("TC6-6-7 explanation of only spaces is not sent", async ({
   });
   await send(popup);
 
-  await expect(popup.getByRole("alert")).toHaveText(ALERT);
+  await expect(popup.getByRole("alert")).toHaveText(EXPLANATION_ALERT);
   await expectNotSent(page, popup, writes);
 });
 
